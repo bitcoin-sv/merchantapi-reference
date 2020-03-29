@@ -49,11 +49,14 @@ func appCleanup() {
 func start() {
 	router := mux.NewRouter().StrictSlash(true)
 
-	router.HandleFunc("/mapi/feeQuote", handler.AuthMiddleware(handler.GetFeeQuote)).Methods("GET")
-	router.HandleFunc("/mapi/tx", handler.AuthMiddleware(handler.SubmitTransaction)).Methods("POST")
-	router.HandleFunc("/mapi/tx/{id}", handler.AuthMiddleware(handler.QueryTransactionStatus)).Methods("GET")
+	// IMPORTANT: you must specify an OPTIONS method matcher for the middleware to set CORS headers
+	router.HandleFunc("/mapi/feeQuote", handler.AuthMiddleware(handler.GetFeeQuote)).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/mapi/tx", handler.AuthMiddleware(handler.SubmitTransaction)).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/mapi/tx/{id}", handler.AuthMiddleware(handler.QueryTransactionStatus)).Methods(http.MethodGet, http.MethodOptions)
 
 	router.NotFoundHandler = http.HandlerFunc(handler.NotFound)
+
+	router.Use(mux.CORSMethodMiddleware(router))
 
 	var wg sync.WaitGroup
 	var listenerCount = 0

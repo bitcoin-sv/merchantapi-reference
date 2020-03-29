@@ -14,6 +14,11 @@ import (
 
 // QueryTransactionStatus comment
 func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	if r.Method == http.MethodOptions {
+		return
+	}
+
 	txid := mux.Vars(r)["id"]
 	if txid == "" {
 		sendError(w, http.StatusBadRequest, 31, fmt.Errorf("txid must be provided"))

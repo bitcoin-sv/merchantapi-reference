@@ -17,6 +17,11 @@ import (
 
 // SubmitTransaction comment
 func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	if r.Method == http.MethodOptions {
+		return
+	}
+
 	mimetype := r.Header.Get("Content-Type")
 
 	switch mimetype {

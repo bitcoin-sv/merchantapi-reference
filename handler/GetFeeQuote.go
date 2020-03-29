@@ -13,6 +13,11 @@ import (
 
 // GetFeeQuote comment
 func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	if r.Method == http.MethodOptions {
+		return
+	}
+
 	filename := "fees.json"
 	if r.Header.Get("name") != "" {
 		filename = fmt.Sprintf("fees_%s.json", r.Header.Get("name"))
