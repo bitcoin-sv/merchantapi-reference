@@ -41,13 +41,13 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 
 	fees, err := getFees(filename)
 	if err != nil {
-		sendError(w, http.StatusBadRequest, 21, err)
+		sendError(w, http.StatusInternalServerError, 22, err)
 		return
 	}
 
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		sendError(w, http.StatusBadRequest, 21, err)
+		sendError(w, http.StatusBadRequest, 23, err)
 		return
 	}
 
@@ -56,12 +56,12 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	case "application/json":
 		var tx transactionJSON
 		if err := json.Unmarshal(reqBody, &tx); err != nil {
-			sendError(w, http.StatusBadRequest, 21, err)
+			sendError(w, http.StatusBadRequest, 24, err)
 			return
 		}
 
 		if tx.RawTX == "" {
-			sendError(w, http.StatusBadRequest, 21, fmt.Errorf("Transaction hex must be provided"))
+			sendError(w, http.StatusBadRequest, 25, fmt.Errorf("rawTx must be provided"))
 			return
 		}
 
@@ -76,7 +76,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 
 	// If the count of remaining responses == 0, return an error
 	if len(results) == 0 {
-		sendError(w, http.StatusInternalServerError, 21, errors.New("No results from bitcoin multiplexer'"))
+		sendError(w, http.StatusInternalServerError, 26, errors.New("No results from bitcoin multiplexer'"))
 		return
 	}
 
@@ -97,7 +97,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 
 	okToMine, okToRelay, err := checkFees(rawTX, fees)
 	if err != nil {
-		sendError(w, http.StatusBadRequest, 21, err)
+		sendError(w, http.StatusBadRequest, 27, err)
 		return
 	}
 

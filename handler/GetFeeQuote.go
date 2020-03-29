@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"merchant_api/config"
 	"merchant_api/multiplexer"
 	"net/http"
 	"sort"
@@ -25,7 +26,7 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 
 	fees, err := getFees(filename)
 	if err != nil {
-		sendError(w, http.StatusBadRequest, 21, err)
+		sendError(w, http.StatusInternalServerError, 11, err)
 		return
 	}
 
@@ -34,7 +35,7 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 
 	// If the count of remaining responses == 0, return an error
 	if len(results) == 0 {
-		sendError(w, http.StatusInternalServerError, 21, errors.New("No results from bitcoin multiplexer'"))
+		sendError(w, http.StatusInternalServerError, 12, errors.New("No results from bitcoin multiplexer"))
 		return
 	}
 
@@ -54,20 +55,25 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 	var m map[string]interface{}
 	json.Unmarshal(results[0], &m)
 
+	qem, ok := config.Config().GetInt("quoteExpiryMinutes")
+	if !ok {
+		sendError(w, http.StatusInternalServerError, 13, errors.New("No 'quoteExpiryMinutes' defined in settings.conf"))
+		return
+	}
+
 	sendEnvelope(w, &feeQuote{
 		APIVersion:                APIVersion,
 		Timestamp:                 jsonTime(now.UTC()),
-		ExpiryTime:                jsonTime(now.UTC().Add(time.Duration(10) * time.Minute)), // 10 minute expiry TODO: change hadcoded expiry
+		ExpiryTime:                jsonTime(now.UTC().Add(time.Duration(qem) * time.Minute)),
 		MinerID:                   minerID,
 		CurrentHighestBlockHash:   m["bestblockhash"].(string),
 		CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
 		Fees:                      fees,
-		// MinerReputation:           "N/A", // TODO:
 	}, minerID)
 }
 
 func getFees(filename string) ([]fee, error) {
-	feesJSON, err := ioutil.ReadFile(filename) // TODO: change hardcoded fees
+	feesJSON, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
