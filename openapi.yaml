@@ -1,0 +1,244 @@
+openapi: 3.0.0
+info:
+  description: >-
+    Merchant API is an additional service that miners can offer to merchants. 
+
+
+    Note: this protocol uses the [JSON envelopes BRFC](https://bitbucket.org/nchteamnch/jsonenvelope/src/master/) as well as the [Fee Spec BRFC](https://bitbucket.org/nchteamnch/feespec/src/master/).
+  version: 0.1.0
+  title: Merchant API
+  termsOfService: http://swagger.io/terms/ # TODO
+  contact:
+    email: j.wahab@nchain.com # TODO
+  license:
+    name: Open BSV
+    # url: # TODO
+tags:
+  - name: fees
+    externalDocs:
+      description: FeeSpec BRFC
+      url: https://bitbucket.org/nchteamnch/feespec # TODO
+  - name: transaction
+paths:
+  /feeQuote:
+    get:
+      tags:
+        - fees
+      summary: Get a fee quote
+      description: "This endpoint returns a JSONEnvelope with a payload that contains the fees charged by a specific BSV miner."
+      operationId: getFeeQuote
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    type: string
+                    format: feeQuotePayload
+                  signature:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  publicKey:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  encoding:
+                    type: string
+                  mimetype:
+                    type: string
+        "400":
+          description: Invalid status value
+  /tx:
+    post:
+      tags:
+        - transaction
+      summary: Submit a transaction
+      description: "This endpoint is used to send a raw transaction to a miner for inclusion in the next block that the miner creates."
+      operationId: submitTransaction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rawtx:
+                  type: string
+                  pattern: "[0-9a-fA-F]+"
+              example:
+                rawtx: 0200000004cb64a27f369e1db5225b9825e1244e15bfa102398eb214e8d03905ab13b87cee000000006b483045022100b6cb74b027fc0fcc50467319f6c7eaa569b8a451ffb84962871ed74a5c8795830220275e145d19102a7975f730fbebd0084666ef5743cd4e4c96c75eee4efb28d0cc4121021d6c9c4cd7d51c8c8638cd0af2ddd55bd8cd6287feae23f7ee1066365fe55769feffffff96d579158e2e18a00cfddcc42c6f0da5d6c9fa5d8660b8b3f0302e26a0945c79010000006a47304402203b1bda23cd96bf22831036f91c69dcc621ed944057687d933fc5998049285e4d02205a6b3a8b228d222665f8cd60240ac834875a316a00ad6fc4598ef84dd3c39e9a4121038232b3b9edf26514b44f54ab91d631d7ad0041b07f841828e96cf6205071a030feffffff0278e158c0625d93e8682b2c919df42d1a1aff5833302222e0b1069ac2bf0948000000006a4730440220734af188e5534bf191ac28135f38ee1c5b91564ccca6c06b5aa027f72be8fa6902204c3c26dbb54d89b1872f4712745f31150e9f8e7477b479fe6b9a05e2ec36f4294121021d6c9c4cd7d51c8c8638cd0af2ddd55bd8cd6287feae23f7ee1066365fe55769feffffff4b782eeb156f0dc01c0bd717b86aa07ce688c6b6f84771a21ba001bdc5b027c6000000006a47304402202b168a98b5b144f20b903409b7b6341ed2adbee02cf6c040eea13691c3c4d83b0220714b8ddfdb5902b21ed3b2e30459b125dcecb7fba9fc48922cea54a8539728084121021d6c9c4cd7d51c8c8638cd0af2ddd55bd8cd6287feae23f7ee1066365fe55769feffffff0262746b12010000001976a914e7464c3ea395d9bd45f218e22e44b59b3ae14fb288ac005531aa0b0000001976a9146f67988ec4b7bf498c9164d76b52dffdc805ff8c88aced940900
+        description: raw transaction hex string
+        required: true
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    type: string
+                    format: submitTransactionPayload
+                  signature:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  publicKey:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  encoding:
+                    type: string
+                  mimetype:
+                    type: string
+        "400":
+          description: Invalid Transaction
+          externalDocs:
+            description: For more information see Merchant API BRFC
+            url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ # TODO
+
+  "/tx/{hash}":
+    get:
+      tags:
+        - transaction
+      summary: Query trnasaction status
+      description: "This endpoint is used to check the current status of a previously submitted transaction."
+      operationId: queryTransactionStatus
+      parameters:
+        - name: hash
+          in: path
+          description: The transaction ID (32 byte hash) hex string
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    type: string
+                    format: transactionStatusPayload
+                  signature:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  publicKey:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  encoding:
+                    type: string
+                  mimetype:
+                    type: string
+        "400":
+          description: Invalid status value
+externalDocs:
+  description: For more information see Merchant API BRFC
+  url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ # TODO
+servers:
+  - url: http://localhost:9004/mapi
+  - url: https://localhost:9004/mapi
+  # /v1 # TODO
+components:
+  securitySchemes:
+    JWT:
+      description: ""
+      type: apiKey
+      name: Authorization
+      in: header
+  schemas:
+    feeQuotePayload:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        expiryTime:
+          type: string
+          format: date-time
+        minerId:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        currentHighestBlockHash:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        currentHighestBlockHeight:
+          type: number
+        minerReputation:
+          type: string
+        fees:
+          type: array
+          items:
+            $ref: "#/components/schemas/fee"
+    fee:
+      type: object
+      properties:
+        feeType:
+          type: string
+        miningFee:
+          type: object
+          properties:
+            satoshis:
+              type: number
+            bytes:
+              type: number
+        relayFee:
+          type: object
+          properties:
+            satoshis:
+              type: number
+            bytes:
+              type: number
+    submitTransactionPayload:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        txid:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        returnResult:
+          type: string
+        resultDescription:
+          type: string
+        minerId:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        currentHighestBlockHash:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        currentHighestBlockHeight:
+          type: number
+        txSecondMempoolExpiry:
+          type: number
+    transactionStatusPayload:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        returnResult:
+          type: string
+        resultDescription:
+          type: string
+        blockHash:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        blockHeight:
+          type: number
+        minerId:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        confirmations:
+          type: number
+        txSecondMempoolExpiry:
+          type: number
