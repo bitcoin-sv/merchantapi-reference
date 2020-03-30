@@ -1,10 +1,47 @@
 # Merchant API
 
-## [BRFC Spec](https://bitbucket.org/nchteamnch/merchantapi/src/master/)
+More details available in the [BRFC Spec](https://bitbucket.org/nchteamnch/merchantapi/src/master/) for merchant API.
 
-More details available in the BRFC spec for merchant API
+## Requirements
+
+For development, you will only need GoLang installed in your environement.
+
+## Configuration
+
+Open [settings.conf](settings.conf) and edit it with your settings:  
+
+- change `httpAddress` or `httpsAddress` to bind on specific interfaces
+- change `jwtKey` for tokens
+  Generate new JWT key:
+  ```console
+  $ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
+  ```
+- change `quoteExpiryMinutes` to set feeQuote expiry time
+- change `minerId_URL` and `minerId_alias` to set URL alias of minerId
+
+## Run
+
+```console
+$ ./run.sh
+```
+
+## Build
+
+```console
+$ ./build.sh
+```
+
+## Test
+Run individual tests or run all tests with:
+
+```console
+$ go test ./...
+```
 
 ## Implementation
+
+[Swagger UI](https://bitcoin-sv.github.io/merchant_api/) 
+
 
 The **REST API** has 3 endpoints:
 
