@@ -1,6 +1,6 @@
 # Merchant API
 
-More details available in the [BRFC Spec](https://bitbucket.org/nchteamnch/merchantapi/src/master/) for merchant API.  
+More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi) for merchant API.  
 
 ### [Swagger UI](https://bitcoin-sv.github.io/merchant_api/) 
 
