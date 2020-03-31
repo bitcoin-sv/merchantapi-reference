@@ -1,6 +1,8 @@
 # Merchant API
 
-More details available in the [BRFC Spec](https://bitbucket.org/nchteamnch/merchantapi/src/master/) for merchant API.
+More details available in the [BRFC Spec](https://bitbucket.org/nchteamnch/merchantapi/src/master/) for merchant API.  
+
+### [Swagger UI](https://bitcoin-sv.github.io/merchant_api/) 
 
 ## Requirements
 
@@ -17,6 +19,13 @@ Open [settings.conf](settings.conf) and edit it with your settings:
   $ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
   ```
 - change `quoteExpiryMinutes` to set feeQuote expiry time
+- change count of bitcoin nodes that merchant API is connected to as well as their respective Bitcoin RPC parameters:
+  - `bitcoin_count`
+  - `bitcoin_1_host`
+  - `bitcoin_1_port`
+  - `bitcoin_1_username`
+  - `bitcoin_1_password`
+
 - change `minerId_URL` and `minerId_alias` to set URL alias of minerId
 
 ## Run
@@ -39,9 +48,6 @@ $ go test ./...
 ```
 
 ## Implementation
-
-[Swagger UI](https://bitcoin-sv.github.io/merchant_api/) 
-
 
 The **REST API** has 3 endpoints:
 

@@ -4,20 +4,20 @@ info:
     Merchant API is an additional service that miners can offer to merchants.
 
 
-    Note: this protocol uses the [JSON envelopes BRFC](https://bitbucket.org/nchteamnch/jsonenvelope/src/master/) as well as the [Fee Spec BRFC](https://bitbucket.org/nchteamnch/feespec/src/master/).
+    **Note**: Merchant API uses [JSON Envelopes](https://bitbucket.org/nchteamnch/jsonenvelope/src/master/) for its responses.
   version: 0.1.0
   title: Merchant API
-  termsOfService: http://swagger.io/terms/ # TODO
+  termsOfService: #
   contact:
-    email: j.wahab@nchain.com # TODO
+    email: #
   license:
-    name: Open BSV
-    # url: # TODO
+    name: Open BSV License
+    url: https://bitcoinassociation.net/open-bsv-license/
 tags:
   - name: fees
     externalDocs:
       description: FeeSpec BRFC
-      url: https://bitbucket.org/nchteamnch/feespec # TODO
+      url: https://bitbucket.org/nchteamnch/feespec #
   - name: transaction
 paths:
   /feeQuote:
@@ -125,7 +125,7 @@ paths:
                   error: "No previous transaction found"
           externalDocs:
             description: For more information see Merchant API BRFC
-            url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ # TODO
+            url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ #
 
   "/tx/{hash}":
     get:
@@ -170,11 +170,11 @@ paths:
             error: "txid must be provided"
 externalDocs:
   description: For more information see Merchant API BRFC
-  url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ # TODO
+  url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ #
 servers:
   - url: http://localhost:9004/mapi
   - url: https://localhost:9004/mapi
-  # /v1 # TODO
+  # /v1
 components:
   securitySchemes:
     JWT:
