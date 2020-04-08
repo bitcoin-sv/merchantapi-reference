@@ -101,7 +101,7 @@ func sendEnvelope(w http.ResponseWriter, payload interface{}, minerID *string) {
 		Payload:   string(payloadJSON),
 		Signature: signature,
 		PublicKey: minerID,
-		MimeType:  "applicaton/json",
+		MimeType:  "application/json",
 		Encoding:  "UTF-8",
 	}
 
