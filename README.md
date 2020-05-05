@@ -2,7 +2,11 @@
 
 More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi) for merchant API.  
 
-### [Swagger UI](https://bitcoin-sv.github.io/merchant_api/) 
+### [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference) 
+
+## Support
+
+For support and general discussion of both standards and reference implementations please join the following telegram group: https://t.me/joinchat/JB6ZzktqwaiJX_5lzQpQIA
 
 ## Requirements
 
