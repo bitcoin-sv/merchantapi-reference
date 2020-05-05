@@ -63,8 +63,8 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 
 	sendEnvelope(w, &FeeQuote{
 		APIVersion:                APIVersion,
-		Timestamp:                 jsonTime(now.UTC()),
-		ExpiryTime:                jsonTime(now.UTC().Add(time.Duration(qem) * time.Minute)),
+		Timestamp:                 JsonTime(now.UTC()),
+		ExpiryTime:                JsonTime(now.UTC().Add(time.Duration(qem) * time.Minute)),
 		MinerID:                   minerID,
 		CurrentHighestBlockHash:   m["bestblockhash"].(string),
 		CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
@@ -72,13 +72,13 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 	}, minerID)
 }
 
-func getFees(filename string) ([]fee, error) {
+func getFees(filename string) ([]Fee, error) {
 	feesJSON, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var fees []fee
+	var fees []Fee
 	err = json.Unmarshal([]byte(feesJSON), &fees)
 	if err != nil {
 		return nil, err

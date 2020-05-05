@@ -6,7 +6,7 @@ import (
 )
 
 /*
-jsonTime is simply a wrapper around a time.Time that enforces a standard ISO 8601 date format
+JsonTime is simply a wrapper around a time.Time that enforces a standard ISO 8601 date format
 which is the same as most javascript versions
 
 toISOString() // Javascript
@@ -26,14 +26,14 @@ Z    : the letter Z which represents UTC or Zulu time.
 
 const dateFormat = "2006-01-02T15:04:05.000Z" // ISO 8601
 
-type jsonTime time.Time
+type JsonTime time.Time
 
-func (t jsonTime) MarshalJSON() ([]byte, error) {
+func (t JsonTime) MarshalJSON() ([]byte, error) {
 	ts := fmt.Sprintf("\"%s\"", time.Time(t).Format(dateFormat))
 	return []byte(ts), nil
 }
 
-func (t *jsonTime) UnmarshalJSON(b []byte) error {
+func (t *JsonTime) UnmarshalJSON(b []byte) error {
 	// Remove the leading and trailing double quotes...
 	b = b[1 : len(b)-1]
 
@@ -41,10 +41,10 @@ func (t *jsonTime) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	*t = jsonTime(dt)
+	*t = JsonTime(dt)
 	return nil
 }
 
-func (t jsonTime) String() string {
+func (t JsonTime) String() string {
 	return time.Time(t).Format(dateFormat)
 }

@@ -31,9 +31,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	results := mp.Invoke(true, true)
 
 	if len(results) == 0 {
-		sendEnvelope(w, &transactionStatus{
+		sendEnvelope(w, &TransactionStatus{
 			APIVersion:        APIVersion,
-			Timestamp:         jsonTime(time.Now().UTC()),
+			Timestamp:         JsonTime(time.Now().UTC()),
 			ReturnResult:      "failure",
 			ResultDescription: "No results from bitcoin multiplexer",
 			MinerID:           minerID,
@@ -42,9 +42,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	} else if len(results) == 1 {
 		result := string(results[0])
 		if strings.HasPrefix(result, "ERROR:") {
-			sendEnvelope(w, &transactionStatus{
+			sendEnvelope(w, &TransactionStatus{
 				APIVersion:        APIVersion,
-				Timestamp:         jsonTime(time.Now().UTC()),
+				Timestamp:         JsonTime(time.Now().UTC()),
 				ReturnResult:      "failure",
 				ResultDescription: result,
 				MinerID:           minerID,
@@ -55,9 +55,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 
 			blockHeight := uint32(bt.BlockHeight)
 
-			sendEnvelope(w, &transactionStatus{
+			sendEnvelope(w, &TransactionStatus{
 				APIVersion:    APIVersion,
-				Timestamp:     jsonTime(time.Now().UTC()),
+				Timestamp:     JsonTime(time.Now().UTC()),
 				ReturnResult:  "success",
 				BlockHash:     &bt.BlockHash,
 				BlockHeight:   &blockHeight,
@@ -66,9 +66,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 			}, minerID)
 		}
 	} else {
-		sendEnvelope(w, &transactionStatus{
+		sendEnvelope(w, &TransactionStatus{
 			APIVersion:        APIVersion,
-			Timestamp:         jsonTime(time.Now().UTC()),
+			Timestamp:         JsonTime(time.Now().UTC()),
 			ReturnResult:      "failure",
 			ResultDescription: "Mixed results",
 			MinerID:           minerID,

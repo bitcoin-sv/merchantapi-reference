@@ -111,7 +111,7 @@ func sendEnvelope(w http.ResponseWriter, payload interface{}, minerID *string) {
 }
 
 func sendError(w http.ResponseWriter, status int, code int, err error) {
-	e := jsonError{
+	e := JsonError{
 		Status: status,
 		Code:   code,
 		Err:    err.Error(),
