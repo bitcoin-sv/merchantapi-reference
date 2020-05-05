@@ -7,7 +7,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/jadwahab/merchantapi-reference/config"
+	"github.com/bitcoin-sv/merchantapi-reference/config"
 )
 
 // MPWrapper type

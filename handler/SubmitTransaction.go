@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jadwahab/merchantapi-reference/multiplexer"
-	"github.com/jadwahab/merchantapi-reference/utils"
+	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
+	"github.com/bitcoin-sv/merchantapi-reference/utils"
 
 	"bitbucket.org/simon_ordish/cryptolib/transaction"
 )

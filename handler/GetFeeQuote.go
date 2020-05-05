@@ -9,9 +9,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jadwahab/merchantapi-reference/config"
-	"github.com/jadwahab/merchantapi-reference/multiplexer"
-	"github.com/jadwahab/merchantapi-reference/utils"
+	"github.com/bitcoin-sv/merchantapi-reference/config"
+	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
+	"github.com/bitcoin-sv/merchantapi-reference/utils"
 )
 
 // GetFeeQuote comment

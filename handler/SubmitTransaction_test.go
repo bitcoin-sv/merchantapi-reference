@@ -2,8 +2,9 @@ package handler
 
 import (
 	"encoding/json"
-	"github.com/jadwahab/merchantapi-reference/multiplexer"
 	"testing"
+
+	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
 )
 
 func TestCheckFees(t *testing.T) {

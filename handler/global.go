@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jadwahab/merchantapi-reference/config"
-	"github.com/jadwahab/merchantapi-reference/utils"
+	"github.com/bitcoin-sv/merchantapi-reference/config"
+	"github.com/bitcoin-sv/merchantapi-reference/utils"
 
 	"github.com/btcsuite/btcd/btcec"
 )
