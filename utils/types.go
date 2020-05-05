@@ -1,4 +1,4 @@
-package handler
+package utils
 
 // JSONEnvolope struct
 type JSONEnvolope struct {
@@ -9,46 +9,46 @@ type JSONEnvolope struct {
 	MimeType  string  `json:"mimetype"`
 }
 
-type jsonError struct {
+type JsonError struct {
 	Status int    `json:"status"`
 	Code   int    `json:"code"`
 	Err    string `json:"error"`
 }
 
-type feeUnit struct {
+type FeeUnit struct {
 	Satoshis int `json:"satoshis"` // Fee in satoshis of the amount of Bytes
-	Bytes    int `json:"bytes"`    // Nuumber of bytes that the fee covers
+	Bytes    int `json:"bytes"`    // Nuumber of bytes that the Fee covers
 }
 
-type fee struct {
+type Fee struct {
 	FeeType   string  `json:"feeType"` // standard || data
-	MiningFee feeUnit `json:"miningFee"`
-	RelayFee  feeUnit `json:"relayFee"` // Fee for retaining Tx in secondary mempool
+	MiningFee FeeUnit `json:"miningFee"`
+	RelayFee  FeeUnit `json:"relayFee"` // Fee for retaining Tx in secondary mempool
 }
 
-type feeQuoteResponse struct {
-	FeeQuote  feeQuote `json:"feeQuote"`
+type FeeQuoteResponse struct {
+	FeeQuote  FeeQuote `json:"FeeQuote"`
 	Signature string   `json:"signature"`
 }
 
-type feeQuote struct {
+type FeeQuote struct {
 	APIVersion                string   `json:"apiVersion"` // Merchant API version NN.nn (major.minor version no.)
-	Timestamp                 jsonTime `json:"timestamp"`  // Quote timeStamp
-	ExpiryTime                jsonTime `json:"expiryTime"` // Quote expiry time
+	Timestamp                 JsonTime `json:"timestamp"`  // Quote timeStamp
+	ExpiryTime                JsonTime `json:"expiryTime"` // Quote expiry time
 	MinerID                   *string  `json:"minerId"`    // Null indicates no minerID
 	CurrentHighestBlockHash   string   `json:"currentHighestBlockHash"`
 	CurrentHighestBlockHeight uint32   `json:"currentHighestBlockHeight"`
 	MinerReputation           *string  `json:"minerReputation"` // Can be null
-	Fees                      []fee    `json:"fees"`
+	Fees                      []Fee    `json:"fees"`
 }
 
-type transactionJSON struct {
+type TransactionJSON struct {
 	RawTX string `json:"rawtx"`
 }
 
-type transactionResponse struct {
+type TransactionResponse struct {
 	APIVersion                string   `json:"apiVersion"` // Merchant API version NN.nn (major.minor version no.)
-	Timestamp                 jsonTime `json:"timestamp"`
+	Timestamp                 JsonTime `json:"timestamp"`
 	TxID                      string   `json:"txid"`              // Transaction ID assigned when submitted to mempool
 	ReturnResult              string   `json:"returnResult"`      // ReturnResult is defined below
 	ResultDescription         string   `json:"resultDescription"` // Reason for failure (e.g. which policy failed and why)
@@ -58,9 +58,9 @@ type transactionResponse struct {
 	TxSecondMempoolExpiry     uint16   `json:"txSecondMempoolExpiry"` // Duration (minutes) Tx will be kept in secondary mempool
 }
 
-type transactionStatus struct {
+type TransactionStatus struct {
 	APIVersion            string   `json:"apiVersion"`            // Merchant API version NN.nn (major.minor version no.)
-	Timestamp             jsonTime `json:"timestamp"`             // Fee timeStamp
+	Timestamp             JsonTime `json:"timestamp"`             // Fee timeStamp
 	ReturnResult          string   `json:"returnResult"`          // ReturnResult is defined below
 	ResultDescription     string   `json:"resultDescription"`     // Reason for failure (e.g. which policy failed and why)
 	BlockHash             *string  `json:"blockHash"`             // Block that includes this transaction

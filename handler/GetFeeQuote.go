@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"merchant_api/config"
-	"merchant_api/multiplexer"
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/bitcoin-sv/merchantapi-reference/config"
+	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
+	"github.com/bitcoin-sv/merchantapi-reference/utils"
 )
 
 // GetFeeQuote comment
@@ -61,10 +63,10 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendEnvelope(w, &feeQuote{
+	sendEnvelope(w, &utils.FeeQuote{
 		APIVersion:                APIVersion,
-		Timestamp:                 jsonTime(now.UTC()),
-		ExpiryTime:                jsonTime(now.UTC().Add(time.Duration(qem) * time.Minute)),
+		Timestamp:                 utils.JsonTime(now.UTC()),
+		ExpiryTime:                utils.JsonTime(now.UTC().Add(time.Duration(qem) * time.Minute)),
 		MinerID:                   minerID,
 		CurrentHighestBlockHash:   m["bestblockhash"].(string),
 		CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
@@ -72,13 +74,13 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 	}, minerID)
 }
 
-func getFees(filename string) ([]fee, error) {
+func getFees(filename string) ([]utils.Fee, error) {
 	feesJSON, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var fees []fee
+	var fees []utils.Fee
 	err = json.Unmarshal([]byte(feesJSON), &fees)
 	if err != nil {
 		return nil, err

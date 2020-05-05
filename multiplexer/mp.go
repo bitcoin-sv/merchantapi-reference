@@ -7,7 +7,7 @@ import (
 	"log"
 	"sync"
 
-	"merchant_api/config"
+	"github.com/bitcoin-sv/merchantapi-reference/config"
 )
 
 // MPWrapper type

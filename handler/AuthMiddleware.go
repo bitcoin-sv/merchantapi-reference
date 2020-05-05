@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"merchant_api/config"
+	"github.com/bitcoin-sv/merchantapi-reference/config"
 
 	"github.com/dgrijalva/jwt-go"
 )

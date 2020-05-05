@@ -10,9 +10,11 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"merchant_api/config"
 	"net/http"
 	"strings"
+
+	"github.com/bitcoin-sv/merchantapi-reference/config"
+	"github.com/bitcoin-sv/merchantapi-reference/utils"
 
 	"github.com/btcsuite/btcd/btcec"
 )
@@ -97,7 +99,7 @@ func sendEnvelope(w http.ResponseWriter, payload interface{}, minerID *string) {
 		signature = &s
 	}
 
-	envelope := &JSONEnvolope{
+	envelope := &utils.JSONEnvolope{
 		Payload:   string(payloadJSON),
 		Signature: signature,
 		PublicKey: minerID,
@@ -111,7 +113,7 @@ func sendEnvelope(w http.ResponseWriter, payload interface{}, minerID *string) {
 }
 
 func sendError(w http.ResponseWriter, status int, code int, err error) {
-	e := jsonError{
+	e := utils.JsonError{
 		Status: status,
 		Code:   code,
 		Err:    err.Error(),
