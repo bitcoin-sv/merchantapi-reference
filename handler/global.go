@@ -7,12 +7,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/jadwahab/merchantapi-reference/config"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/jadwahab/merchantapi-reference/config"
+	"github.com/jadwahab/merchantapi-reference/utils"
 
 	"github.com/btcsuite/btcd/btcec"
 )
@@ -97,7 +99,7 @@ func sendEnvelope(w http.ResponseWriter, payload interface{}, minerID *string) {
 		signature = &s
 	}
 
-	envelope := &JSONEnvolope{
+	envelope := &utils.JSONEnvolope{
 		Payload:   string(payloadJSON),
 		Signature: signature,
 		PublicKey: minerID,
@@ -111,7 +113,7 @@ func sendEnvelope(w http.ResponseWriter, payload interface{}, minerID *string) {
 }
 
 func sendError(w http.ResponseWriter, status int, code int, err error) {
-	e := JsonError{
+	e := utils.JsonError{
 		Status: status,
 		Code:   code,
 		Err:    err.Error(),

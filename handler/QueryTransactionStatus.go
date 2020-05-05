@@ -3,10 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jadwahab/merchantapi-reference/multiplexer"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/jadwahab/merchantapi-reference/multiplexer"
+	"github.com/jadwahab/merchantapi-reference/utils"
 
 	"github.com/gorilla/mux"
 	"github.com/ordishs/go-bitcoin"
@@ -31,9 +33,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	results := mp.Invoke(true, true)
 
 	if len(results) == 0 {
-		sendEnvelope(w, &TransactionStatus{
+		sendEnvelope(w, &utils.TransactionStatus{
 			APIVersion:        APIVersion,
-			Timestamp:         JsonTime(time.Now().UTC()),
+			Timestamp:         utils.JsonTime(time.Now().UTC()),
 			ReturnResult:      "failure",
 			ResultDescription: "No results from bitcoin multiplexer",
 			MinerID:           minerID,
@@ -42,9 +44,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	} else if len(results) == 1 {
 		result := string(results[0])
 		if strings.HasPrefix(result, "ERROR:") {
-			sendEnvelope(w, &TransactionStatus{
+			sendEnvelope(w, &utils.TransactionStatus{
 				APIVersion:        APIVersion,
-				Timestamp:         JsonTime(time.Now().UTC()),
+				Timestamp:         utils.JsonTime(time.Now().UTC()),
 				ReturnResult:      "failure",
 				ResultDescription: result,
 				MinerID:           minerID,
@@ -55,9 +57,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 
 			blockHeight := uint32(bt.BlockHeight)
 
-			sendEnvelope(w, &TransactionStatus{
+			sendEnvelope(w, &utils.TransactionStatus{
 				APIVersion:    APIVersion,
-				Timestamp:     JsonTime(time.Now().UTC()),
+				Timestamp:     utils.JsonTime(time.Now().UTC()),
 				ReturnResult:  "success",
 				BlockHash:     &bt.BlockHash,
 				BlockHeight:   &blockHeight,
@@ -66,9 +68,9 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 			}, minerID)
 		}
 	} else {
-		sendEnvelope(w, &TransactionStatus{
+		sendEnvelope(w, &utils.TransactionStatus{
 			APIVersion:        APIVersion,
-			Timestamp:         JsonTime(time.Now().UTC()),
+			Timestamp:         utils.JsonTime(time.Now().UTC()),
 			ReturnResult:      "failure",
 			ResultDescription: "Mixed results",
 			MinerID:           minerID,

@@ -1,4 +1,4 @@
-package handler
+package utils
 
 // JSONEnvolope struct
 type JSONEnvolope struct {

@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jadwahab/merchantapi-reference/multiplexer"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/jadwahab/merchantapi-reference/multiplexer"
+	"github.com/jadwahab/merchantapi-reference/utils"
 
 	"bitbucket.org/simon_ordish/cryptolib/transaction"
 )
@@ -54,7 +56,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	var rawTX string
 	switch mimetype {
 	case "application/json":
-		var tx TransactionJSON
+		var tx utils.TransactionJSON
 		if err := json.Unmarshal(reqBody, &tx); err != nil {
 			sendError(w, http.StatusBadRequest, 24, err)
 			return
@@ -102,10 +104,10 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !okToMine && !okToRelay {
-		sendEnvelope(w, &TransactionResponse{
+		sendEnvelope(w, &utils.TransactionResponse{
 			ReturnResult:              "failure",
 			ResultDescription:         "Not enough fees",
-			Timestamp:                 JsonTime(now.UTC()),
+			Timestamp:                 utils.JsonTime(now.UTC()),
 			MinerID:                   minerID,
 			CurrentHighestBlockHash:   m["bestblockhash"].(string),
 			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
@@ -124,9 +126,9 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	results2 := mp2.Invoke(true, true)
 
 	if len(results2) == 0 {
-		sendEnvelope(w, &TransactionResponse{
+		sendEnvelope(w, &utils.TransactionResponse{
 			APIVersion:                APIVersion,
-			Timestamp:                 JsonTime(now.UTC()),
+			Timestamp:                 utils.JsonTime(now.UTC()),
 			ReturnResult:              "failure",
 			ResultDescription:         "No results from bitcoin multiplexer",
 			MinerID:                   minerID,
@@ -137,9 +139,9 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	} else if len(results2) == 1 {
 		result := string(results2[0])
 		if strings.HasPrefix(result, "ERROR:") {
-			sendEnvelope(w, &TransactionResponse{
+			sendEnvelope(w, &utils.TransactionResponse{
 				APIVersion:                APIVersion,
-				Timestamp:                 JsonTime(time.Now().UTC()),
+				Timestamp:                 utils.JsonTime(time.Now().UTC()),
 				ReturnResult:              "failure",
 				ResultDescription:         result,
 				MinerID:                   minerID,
@@ -148,9 +150,9 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 				TxSecondMempoolExpiry:     0,
 			}, minerID)
 		} else {
-			sendEnvelope(w, &TransactionResponse{
+			sendEnvelope(w, &utils.TransactionResponse{
 				APIVersion:                APIVersion,
-				Timestamp:                 JsonTime(time.Now().UTC()),
+				Timestamp:                 utils.JsonTime(time.Now().UTC()),
 				TxID:                      result,
 				ReturnResult:              "success",
 				MinerID:                   minerID,
@@ -160,9 +162,9 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 			}, minerID)
 		}
 	} else {
-		sendEnvelope(w, &TransactionResponse{
+		sendEnvelope(w, &utils.TransactionResponse{
 			APIVersion:                APIVersion,
-			Timestamp:                 JsonTime(time.Now().UTC()),
+			Timestamp:                 utils.JsonTime(time.Now().UTC()),
 			TxID:                      "Mixed results",
 			ReturnResult:              "failure",
 			MinerID:                   minerID,
@@ -174,7 +176,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 }
 
 // checkFees will return 2 booleans: goodForMiningFee and goodForRelay
-func checkFees(txHex string, fees []Fee) (bool, bool, error) {
+func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 	bt, err := transaction.NewFromString(txHex)
 	if err != nil {
 		return false, false, err
