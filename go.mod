@@ -1,4 +1,4 @@
-module merchant_api
+module github.com/bitcoin-sv/merchantapi-reference
 
 go 1.13
 
