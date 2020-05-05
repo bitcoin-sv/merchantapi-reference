@@ -47,14 +47,18 @@ func appCleanup() {
 func start() {
 	router := mux.NewRouter().StrictSlash(true)
 
-	// IMPORTANT: you must specify an OPTIONS method matcher for the middleware to set CORS headers
+	// IMPORTANT: you must specify an OPTIONS method matcher for the middleware to set CORS Access-Control-Allow-Methods header.
+	router.Use(mux.CORSMethodMiddleware(router))
+
+	// Many try to “solve” CORS with a Preflight middleware that has a global CORS policy. This flies in the face of the purpose of CORS,
+	// which is to protect Cross Origin Resource Sharing. The spirit of CORS lives in the capabilities of the individual resources.
+	// This means you MUST have a resource aware CORS implementation in my opinion.  For that reason, the Access-Control-Allow-Origin and
+	// Access-Control-Allow-Headers are set in each handler.
 	router.HandleFunc("/mapi/feeQuote", handler.AuthMiddleware(handler.GetFeeQuote)).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/mapi/tx", handler.AuthMiddleware(handler.SubmitTransaction)).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/mapi/tx/{id}", handler.AuthMiddleware(handler.QueryTransactionStatus)).Methods(http.MethodGet, http.MethodOptions)
 
 	router.NotFoundHandler = http.HandlerFunc(handler.NotFound)
-
-	router.Use(mux.CORSMethodMiddleware(router))
 
 	var wg sync.WaitGroup
 	var listenerCount = 0
