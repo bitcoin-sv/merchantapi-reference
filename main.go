@@ -10,11 +10,11 @@ import (
 	"os/signal"
 	"sync"
 
-	"merchant_api/config"
+	"github.com/jadwahab/merchantapi-reference/config"
 
 	"github.com/gorilla/mux"
 
-	"merchant_api/handler"
+	"github.com/jadwahab/merchantapi-reference/handler"
 )
 
 // Name used by build script for the binaries. (Please keep on single line)

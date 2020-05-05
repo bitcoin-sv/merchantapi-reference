@@ -7,10 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/jadwahab/merchantapi-reference/config"
 	"io"
 	"io/ioutil"
 	"log"
-	"merchant_api/config"
 	"net/http"
 	"strings"
 

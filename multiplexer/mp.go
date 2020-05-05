@@ -7,7 +7,7 @@ import (
 	"log"
 	"sync"
 
-	"merchant_api/config"
+	"github.com/jadwahab/merchantapi-reference/config"
 )
 
 // MPWrapper type

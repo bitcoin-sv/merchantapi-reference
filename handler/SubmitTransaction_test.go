@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"merchant_api/multiplexer"
+	"github.com/jadwahab/merchantapi-reference/multiplexer"
 	"testing"
 )
 

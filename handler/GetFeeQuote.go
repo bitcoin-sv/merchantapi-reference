@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jadwahab/merchantapi-reference/config"
+	"github.com/jadwahab/merchantapi-reference/multiplexer"
 	"io/ioutil"
-	"merchant_api/config"
-	"merchant_api/multiplexer"
 	"net/http"
 	"sort"
 	"time"
@@ -61,7 +61,7 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendEnvelope(w, &feeQuote{
+	sendEnvelope(w, &FeeQuote{
 		APIVersion:                APIVersion,
 		Timestamp:                 jsonTime(now.UTC()),
 		ExpiryTime:                jsonTime(now.UTC().Add(time.Duration(qem) * time.Minute)),
