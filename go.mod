@@ -1,4 +1,4 @@
-module github.com/bitcoin-sv/merchantapi-reference
+module github.com/jadwahab/merchantapi-reference
 
 go 1.13
 
