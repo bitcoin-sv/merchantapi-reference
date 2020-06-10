@@ -21,13 +21,16 @@ func newRawMessages() *rawMessages {
 	}
 }
 
-func (rm *rawMessages) addIfNecessary(m json.RawMessage) {
+func (rm *rawMessages) addIfNecessary(unique bool, m json.RawMessage) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
-	for _, message := range rm.messages {
-		if bytes.Compare([]byte(message), []byte(m)) == 0 {
-			return
+	// If we only want unique mesages, check if m already exists.
+	if unique {
+		for _, message := range rm.messages {
+			if bytes.Compare([]byte(message), []byte(m)) == 0 {
+				return
+			}
 		}
 	}
 
@@ -81,22 +84,16 @@ func (mp *MPWrapper) Invoke(includeErrors bool, uniqueResults bool) []json.RawMe
 				log.Printf("ERROR %s: %+v", client.serverAddr, err)
 				if includeErrors {
 					s := json.RawMessage("ERROR: " + err.Error())
-					if !uniqueResults {
-						responses.addIfNecessary(s)
-					}
+					responses.addIfNecessary(uniqueResults, s)
 				}
 			} else if res.Err != nil {
 				log.Printf("ERROR %s: %+v", client.serverAddr, err)
 				if includeErrors {
 					s := json.RawMessage("ERROR: " + res.Err.(string))
-					if !uniqueResults {
-						responses.addIfNecessary(s)
-					}
+					responses.addIfNecessary(uniqueResults, s)
 				}
 			} else {
-				if !uniqueResults {
-					responses.addIfNecessary(res.Result)
-				}
+				responses.addIfNecessary(uniqueResults, res.Result)
 			}
 
 			wg.Done()
