@@ -154,7 +154,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 			sendEnvelope(w, &utils.TransactionResponse{
 				APIVersion:                APIVersion,
 				Timestamp:                 utils.JsonTime(time.Now().UTC()),
-				TxID:                      result,
+				TxID:                      strings.Trim(result, "\""),
 				ReturnResult:              "success",
 				MinerID:                   minerID,
 				CurrentHighestBlockHash:   m["bestblockhash"].(string),
