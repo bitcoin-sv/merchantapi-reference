@@ -25,7 +25,7 @@ func (rm *rawMessages) addIfNecessary(unique bool, m json.RawMessage) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
-	// If we only want unique mesages, check if m already exists.
+	// If we only want unique messages, check if m already exists.
 	if unique {
 		for _, message := range rm.messages {
 			if bytes.Compare([]byte(message), []byte(m)) == 0 {
