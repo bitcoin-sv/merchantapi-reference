@@ -10,6 +10,34 @@ import (
 	"github.com/bitcoin-sv/merchantapi-reference/config"
 )
 
+type rawMessages struct {
+	mu       sync.RWMutex
+	messages []json.RawMessage
+}
+
+func newRawMessages() *rawMessages {
+	return &rawMessages{
+		messages: make([]json.RawMessage, 0),
+	}
+}
+
+func (rm *rawMessages) addIfNecessary(unique bool, m json.RawMessage) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	// If we only want unique messages, check if m already exists.
+	if unique {
+		for _, message := range rm.messages {
+			if bytes.Compare([]byte(message), []byte(m)) == 0 {
+				return
+			}
+		}
+	}
+
+	// If we reach here, we need to add the message
+	rm.messages = append(rm.messages, m)
+}
+
 // MPWrapper type
 type MPWrapper struct {
 	Method  string
@@ -34,15 +62,6 @@ func init() {
 	}
 }
 
-func contains(s []json.RawMessage, e json.RawMessage) bool {
-	for _, a := range s {
-		if bytes.Compare([]byte(a), []byte(e)) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
 // New function
 func New(method string, params interface{}) *MPWrapper {
 	return &MPWrapper{
@@ -54,7 +73,7 @@ func New(method string, params interface{}) *MPWrapper {
 // Invoke function
 func (mp *MPWrapper) Invoke(includeErrors bool, uniqueResults bool) []json.RawMessage {
 	var wg sync.WaitGroup
-	responses := make([]json.RawMessage, 0)
+	responses := newRawMessages()
 
 	for i, client := range clients {
 		wg.Add(1)
@@ -65,29 +84,23 @@ func (mp *MPWrapper) Invoke(includeErrors bool, uniqueResults bool) []json.RawMe
 				log.Printf("ERROR %s: %+v", client.serverAddr, err)
 				if includeErrors {
 					s := json.RawMessage("ERROR: " + err.Error())
-					if !uniqueResults || !contains(responses, s) {
-						responses = append(responses, s)
-					}
+					responses.addIfNecessary(uniqueResults, s)
 				}
 			} else if res.Err != nil {
 				log.Printf("ERROR %s: %+v", client.serverAddr, err)
 				if includeErrors {
 					s := json.RawMessage("ERROR: " + res.Err.(string))
-					if !uniqueResults || !contains(responses, s) {
-						responses = append(responses, s)
-					}
+					responses.addIfNecessary(uniqueResults, s)
 				}
 			} else {
-				s := res.Result
-				if !uniqueResults || !contains(responses, s) {
-					responses = append(responses, s)
-				}
+				responses.addIfNecessary(uniqueResults, res.Result)
 			}
+
 			wg.Done()
 		}(i, client)
 	}
 
 	wg.Wait()
 
-	return responses
+	return responses.messages
 }
