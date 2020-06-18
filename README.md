@@ -6,7 +6,7 @@ More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/br
 
 ## Support
 
-For support and general discussion of both standards and reference implementations please join the following telegram group: https://t.me/joinchat/JB6ZzktqwaiJX_5lzQpQIA
+For support and general discussion of both standards and reference implementations please join the following [telegram group](https://t.me/joinchat/JB6ZzktqwaiJX_5lzQpQIA).
 
 ## Requirements
 
