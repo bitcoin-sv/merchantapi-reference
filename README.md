@@ -81,6 +81,38 @@ body:
 GET /mapi/tx/{hash:[0-9a-fA-F]+}
 ```
 
+### 4. sendMultiTransaction
+
+```
+POST /mapi/txs/submit
+```
+
+body:
+
+```json
+[
+  "[transaction_hex_string]",
+  "[transaction_hex_string]",
+  "[transaction_hex_string]"
+]
+```
+
+### 4. sendMultiTransactionStatus
+
+```
+POST /mapi/txs/status
+```
+
+body:
+
+```json
+[
+  "[txid]",
+  "[txid]",
+  "[txid]"
+]
+```
+
 ## Authorization/Authentication and Special Rates
 
 Merchant API providers would likely want to offer special or discounted rates to specific customers. To do this they would need to add an extra layer to enable authorization/authentication. An example implementation would be to use JSON Web Tokens (JWT) issued to specific users. The users would then include that token in their HTTP header and as a result recieve lower fee rates.
