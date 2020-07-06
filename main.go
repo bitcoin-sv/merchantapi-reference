@@ -57,6 +57,7 @@ func start() {
 	router.HandleFunc("/mapi/feeQuote", handler.AuthMiddleware(handler.GetFeeQuote)).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/mapi/tx", handler.AuthMiddleware(handler.SubmitTransaction)).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/mapi/tx/{id}", handler.AuthMiddleware(handler.QueryTransactionStatus)).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/mapi/txs/submit", handler.AuthMiddleware(handler.MultiSubmitTransaction)).Methods(http.MethodPost, http.MethodOptions)
 
 	router.NotFoundHandler = http.HandlerFunc(handler.NotFound)
 
