@@ -93,8 +93,6 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		return pBlock < qBlock
 	})
 
-	now := time.Now()
-
 	var m map[string]interface{}
 	json.Unmarshal(results[0], &m)
 
@@ -108,7 +106,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		sendEnvelope(w, &utils.TransactionResponse{
 			ReturnResult:              "failure",
 			ResultDescription:         "Not enough fees",
-			Timestamp:                 utils.JsonTime(now.UTC()),
+			Timestamp:                 utils.JsonTime(time.Now().UTC()),
 			MinerID:                   minerID,
 			CurrentHighestBlockHash:   m["bestblockhash"].(string),
 			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
@@ -129,7 +127,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	if len(results2) == 0 {
 		sendEnvelope(w, &utils.TransactionResponse{
 			APIVersion:                APIVersion,
-			Timestamp:                 utils.JsonTime(now.UTC()),
+			Timestamp:                 utils.JsonTime(time.Now().UTC()),
 			ReturnResult:              "failure",
 			ResultDescription:         "No results from bitcoin multiplexer",
 			MinerID:                   minerID,
@@ -166,8 +164,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		sendEnvelope(w, &utils.TransactionResponse{
 			APIVersion:                APIVersion,
 			Timestamp:                 utils.JsonTime(time.Now().UTC()),
-			TxID:                      "Mixed results",
 			ReturnResult:              "failure",
+			ResultDescription:         "Mixed results",
 			MinerID:                   minerID,
 			CurrentHighestBlockHash:   m["bestblockhash"].(string),
 			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
