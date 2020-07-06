@@ -77,6 +77,7 @@ type TransactionResponse struct {
 type TransactionStatus struct {
 	APIVersion            string   `json:"apiVersion"`            // Merchant API version NN.nn (major.minor version no.)
 	Timestamp             JsonTime `json:"timestamp"`             // Fee timeStamp
+	TxID                  string   `json:"txid"`                  // Transaction ID of the transaction
 	ReturnResult          string   `json:"returnResult"`          // ReturnResult is defined below
 	ResultDescription     string   `json:"resultDescription"`     // Reason for failure (e.g. which policy failed and why)
 	BlockHash             *string  `json:"blockHash"`             // Block that includes this transaction
