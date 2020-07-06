@@ -13,8 +13,7 @@ import (
 
 	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
 	"github.com/bitcoin-sv/merchantapi-reference/utils"
-
-	"bitbucket.org/simon_ordish/cryptolib/transaction"
+	"github.com/libsv/libsv/transaction"
 )
 
 // SubmitTransaction comment
@@ -185,7 +184,7 @@ func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 
 	// Lookup the value of each input by querying the bitcoin node...
 	for _, in := range bt.GetInputs() {
-		mp := multiplexer.New("getrawtransaction", []interface{}{hex.EncodeToString(in.PreviousTxHash[:]), 0})
+		mp := multiplexer.New("getrawtransaction", []interface{}{in.PreviousTxID, 0})
 		results := mp.Invoke(false, true)
 
 		if len(results) == 0 {
@@ -200,21 +199,21 @@ func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 			return false, false, err
 		}
 
-		feeAmount += int64(oldTx.GetOutputs()[in.PreviousTxOutIndex].Value)
+		feeAmount += int64(oldTx.GetOutputs()[in.PreviousTxOutIndex].Satoshis)
 	}
 
 	// Subtract the value of each output as well as keeping track of OP_RETURN outputs...
 
 	var dataBytes int64
 	for _, out := range bt.GetOutputs() {
-		feeAmount -= int64(out.Value)
+		feeAmount -= int64(out.Satoshis)
 
-		if out.Value == 0 && len(out.Script) > 0 && (out.Script[0] == 0x6a || (out.Script[0] == 0x00 && out.Script[1] == 0x6a)) {
-			dataBytes += int64(len(out.Script))
+		if out.Satoshis == 0 && len(*out.LockingScript) > 0 && out.LockingScript.IsData() {
+			dataBytes += int64(len(*out.LockingScript))
 		}
 	}
 
-	normalBytes := int64(len(bt.Hex())) - dataBytes
+	normalBytes := int64(len(bt.ToString())) - dataBytes
 
 	// Check mining fees....
 	var feesRequired int64
