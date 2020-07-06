@@ -89,6 +89,18 @@ If no token is used and the call is done anonymously, then the default rate is s
 
 ### Authorization/Authentication Example
 
+```console
+$ curl -H "Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDIwLTEwLTE0VDExOjQ0OjA3LjEyOTAwOCswMTowMCIsIm5hbWUiOiJsb3cifQ.LV8kz02bwxZ21qgqCvmgWfbGZCtdSo9px47wQ3_6Zrk" localhost:9004/mapi/feeQuote
 ```
-curl -H "Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1ODY0ODAwMTEsIm5hbWUiOiJzaW1vbiJ9.eCeTF-8DwPY-FgbIKu-88oSQTDS5GJKj_L3SvIjqNy8" localhost:9004/mapi/feeQuote
+
+### JWT Token Manager
+
+To create a token:
+```console
+$ go run token_manager/main.go -days 100 -name "low"
+Fee filename="fees_low.json"
+Expiry=2020-10-14 11:44:07.129008 +0100 BST
+Token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDIwLTEwLTE0VDExOjQ0OjA3LjEyOTAwOCswMTowMCIsIm5hbWUiOiJsb3cifQ.LV8kz02bwxZ21qgqCvmgWfbGZCtdSo9px47wQ3_6Zrk
 ```
+
+Now anyone using this token will be offered the fees in the [fees_low.json](fees_low.json) file.
