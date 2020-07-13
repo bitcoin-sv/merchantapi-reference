@@ -18,13 +18,13 @@ import (
 // Name used by build script for the binaries. (Please keep on single line)
 const progname = "merchant_api"
 
-// Version of the app to be incremented automatically build script (Please keep on single line)
-const version = "0.1.0"
-
-// Commit string injected at build with -ldflags -X...
+// Version & commit strings injected at build with -ldflags -X...
+var version string
 var commit string
 
 func main() {
+	log.Printf("VERSION\n-------\n%s (%s)\n\n", version, commit)
+
 	// setup signal catching
 	signalChan := make(chan os.Signal, 1)
 
