@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "APIGateway.Test.Stress": {
+      "commandName": "Project",
+      "commandLineArgs": "send -f D:\\bitcoind\\2MtoSend\\transactionsgenerate2M.2000000.0 -i 2 -u http://localhost:5000/ -t 1 -cu http://this:123/iscallbackUrl?123 -ct \"Bearer something\" -ce \"libsodium sealed_box AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"  "
+    }
+  }
+}

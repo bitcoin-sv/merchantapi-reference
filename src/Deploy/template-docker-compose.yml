@@ -1,0 +1,46 @@
+﻿version: '3.7'
+
+services:
+
+  merchant-gateway-database:
+    container_name: mapi-db
+    image: bitcoinsv/mapi-db:{{VERSION}}
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: merchant_gateway
+    volumes:
+      - mapi-volume:/var/lib/postgresql/data
+    networks:
+      - mapi-network
+
+  merchant-gateway-api:
+    container_name: mapi
+    image: bitcoinsv/mapi:{{VERSION}}
+    ports:
+      - "${HTTPSPORT}:443"
+    depends_on:
+      - merchant-gateway-database
+    volumes:
+      - ./config/:/config/:ro
+    environment:
+      - ConnectionStrings:DBConnectionString=Server=merchant-gateway-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_gateway;
+      - AppSettings:QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
+      - AppSettings:NotificationIntervalSec=${NOTIFICATION_INTERVAL_SEC}
+      - AppSettings:RestAdminAPIKey=${RESTADMIN_APIKEY}
+      - AppSettings:DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
+      - AppSettings:WifPrivateKey=${WIF_PRIVATEKEY}
+      - AppSettings:MinerIdServer:Url=${MINERID_SERVER_URL}
+      - AppSettings:MinerIdServer:Alias=${MINERID_SERVER_ALIAS}
+      - AppSettings:MinerIdServer:Authentication=${MINERID_SERVER_AUTHENTICATION}
+      - ASPNETCORE_ENVIRONMENT=PRODUCTION
+      - ASPNETCORE_URLS=https://+:443
+      - ASPNETCORE_HTTPS_PORT=${HTTPSPORT}
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=${CERTIFICATEPASSWORD}
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/config/${CERTIFICATEFILENAME}
+    networks:
+      - mapi-network
+
+volumes:
+  mapi-volume:
+networks:
+  mapi-network:

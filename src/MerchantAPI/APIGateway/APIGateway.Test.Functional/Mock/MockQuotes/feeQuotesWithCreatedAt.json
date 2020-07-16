@@ -1,0 +1,59 @@
+﻿[
+  {
+    "fees": [
+      {
+        "feeType": "standard",
+        "miningFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 250,
+          "bytes": 1000
+        }
+      },
+      {
+        "feeType": "data",
+        "miningFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        }
+      }
+    ],
+    "createdAt": "2020-09-01T12:00:00.000Z",
+    "validFrom": "2020-09-01T12:00:00.000Z"
+  },
+  {
+    "fees": [
+      {
+        "feeType": "standard",
+        "miningFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 250,
+          "bytes": 1000
+        }
+      },
+      {
+        "feeType": "data",
+        "miningFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 250,
+          "bytes": 1000
+        }
+      }
+    ],
+    "createdAt": "2020-09-01T12:05:00.000Z",
+    "validFrom": "2020-09-01T12:05:00.000Z"
+  }
+
+]

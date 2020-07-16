@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "TokenManager": {
+      "commandName": "Project",
+      "commandLineArgs": "validate -t  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDkxLCJleHAiOjIyMDQyMTE0OTEsImlhdCI6MTU5OTQxMTQ5MSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.sXIRrKBgdnRfm2YLQnSn9fOcl3RGyXXpagkF9Z4jKno  -k thisisadevelopmentkey"
+    }
+  }
+}

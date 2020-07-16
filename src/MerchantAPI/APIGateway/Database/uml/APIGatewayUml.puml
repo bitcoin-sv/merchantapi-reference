@@ -1,0 +1,116 @@
+﻿@startuml 
+skinparam backgroundColor #FFFFFE
+' uncomment the line below if you're using computer with a retina display
+' skinparam dpi 300
+' we use bold for primary key
+' green color for unique
+' and underline for not_null
+!define primary_key(x) <b>x</b>
+!define unique(x) <color:green>x</color>
+!define not_null(x) <u>x</u>
+hide empty members
+hide circle
+
+class Tx {
+  primary_key(txInternalId): bigserial
+  unique(txExternalid): bytea
+  not_null(txPayload): bytea
+  
+  receivedAt: datetime
+  callbackUrl: string
+  callbackToken: string
+  callbackEncryption: string
+  not_null(merkleProof) : bool
+  not_null(dsCheck) :bool
+}    
+
+class TxInput {
+  primary_key(txInternalId): long
+  primary_key(n): long
+  not_null(prevTxId) : bytea
+  not_null(prev_n) : long
+
+}
+Tx --> "txInternalId" TxInput 
+
+' After block is parsed we need to process  merkle callback
+' After block is no longer on active chain we need to check *whole new chain* for double spends (until tx is included on both forks)???
+class TxBlock
+{
+  primary_key(txInternalId): long
+  primary_key(blockInternalId): long
+  sentMerkleProofAt : datetime
+}
+TxBlock --> "blockInternalId" Block
+TxBlock --> "txInternalId" Tx
+
+class TxBlockDoubleSpend
+{
+  primary_key(txInternalId): long
+  primary_key(blockInternalId): long
+  primary_key(dsTxId) : bytea
+  dsTxPayload: bytea
+  sentDsNotificationAt: datetime
+}
+TxBlockDoubleSpend --> "txInternalId" Tx
+TxBlockDoubleSpend --> "blockInternalId" Block
+
+class TxMempoolDoubleSpendAttempt
+{
+  primary_key(txInternalId): long
+  primary_key(dsTxId) : bytea
+  not_null(dsTxPayload): bytea
+  sentDsNotificationAt: datetime
+}
+TxMempoolDoubleSpendAttempt --> "txInternalId" Tx
+
+class Block
+{
+  primary_key(blockInternalId): bigserial
+  not_null(blockTime): timestamp
+  not_null(blockHash) :bytea
+  not_null(prevBlockHash) : bytea
+  
+  ' null if not connected
+  blockHeight: long  
+  not_null(onActiveChain): bool
+  parsedForMerkleAt: datetime
+  parsedForDSAt: datetime
+}
+
+class Node {
+  primary_key(nodeId): serial
+  not_null(host): string
+  not_null(port): int
+  not_null(username): string
+  not_null(password): string
+  remarks: string
+  not_null(nodeStatus): int
+  lastError: string
+  lastErrorAt: timestamp
+}
+
+class FeeQuote {
+  primary_key(id): serial
+  not_null(createdAt): datetime
+  not_null(validFrom): datetime
+  identity: string
+  identityProvider: string
+}
+
+class Fee {
+  primary_key(id): serial
+  not_null(feeQuote): long
+  not_null(feeType): string
+}
+Fee -> FeeQuote
+
+class FeeAmount {
+  primary_key(id): serial
+  not_null(fee): long 
+  not_null(satoshis): int
+  not_null(bytes): int
+}
+FeeAmount -> Fee
+
+@enduml

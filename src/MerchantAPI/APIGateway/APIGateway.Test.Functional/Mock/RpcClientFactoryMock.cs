@@ -1,0 +1,141 @@
+﻿// Copyright (c) 2020 Bitcoin Association
+
+using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.Json;
+using NBitcoin;
+
+namespace MerchantAPI.APIGateway.Test.Functional.Mock
+{
+
+  class BlockWithHeight
+  {
+    public long Height { get; set; }
+    public uint256 BlockHash { get; set; }
+    public byte[] BlockData { get; set; }
+
+    public BlockHeader BlockHeader { get; set; }
+
+  }
+
+  public class RpcClientFactoryMock : IRpcClientFactory
+  {
+    ConcurrentDictionary<uint256, byte[]> transactions = new ConcurrentDictionary<uint256, byte[]>();
+    ConcurrentDictionary<uint256, BlockWithHeight> blocks = new ConcurrentDictionary<uint256, BlockWithHeight>();
+
+    /// <summary>
+    /// Key is nodeID:memberName value is value that should be returned to the caller
+    /// </summary>
+    public ConcurrentDictionary<string, object> PredefinedResponse  {get; private set; } = new ConcurrentDictionary<string, object>();
+
+    /// <summary>
+    /// Nodes that are not working
+    /// </summary>
+    ConcurrentDictionary<string,object> disconnectedNodes = new ConcurrentDictionary<string, object>(StringComparer.InvariantCultureIgnoreCase);
+    ConcurrentDictionary<string, object> doNotTraceMethods = new ConcurrentDictionary<string,object>(StringComparer.InvariantCultureIgnoreCase);
+
+
+    public RpcClientFactoryMock()
+    {
+      Reset();
+    }
+
+    /// <summary>
+    /// Replaces currently known transactions with a set of new transactions
+    /// </summary>
+    /// <param name="data"></param>
+    public void SetUpTransaction(params string[] data)
+    {
+      transactions.Clear();
+      foreach (var tx in data)
+      {
+        AddKnownTransaction(HelperTools.HexStringToByteArray(tx));
+      }
+    }
+
+    public void SetUpPredefinedResponse(params (string callKey, object obj)[] responses)
+    {
+      PredefinedResponse = new ConcurrentDictionary<string, object>(
+        responses.ToDictionary(x => x.callKey, v => v.obj));
+
+    }
+    public void AddKnownTransaction(byte[] data) 
+    {
+      var txId = Transaction.Load(data, Network.Main).GetHash(); // might not handle very large transactions
+      transactions.TryAdd(txId, data);
+    }
+
+    public void AddKnownBlock(long blockHeight, byte[] blockData)
+    {
+      var block = Block.Load(blockData, Network.Main);
+      var blockHash = block.GetHash();
+      var b = new BlockWithHeight
+      {
+        Height = blockHeight,
+        BlockData = blockData,
+        BlockHash = blockHash,
+        BlockHeader = block.Header
+      };
+      blocks.TryAdd(blockHash, b);
+    }
+
+
+    public readonly RpcCallList AllCalls = new RpcCallList(); 
+
+    public virtual IRpcClient Create(string host, int port, string username, string password) 
+    {
+      // Currently all mocks share same transactions and blocks
+      return new RpcClientMock(AllCalls, host, port, username, password,
+        transactions,
+        blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse);
+    }
+
+    /// <summary>
+    /// Asserts that call lists equals to expected value and clears it so that new calls can be easily
+    /// testes in next invocation of AssertEqualAndClear
+    /// </summary>
+    /// <param name="expected"></param>
+    public void AssertEqualAndClear(params string[] expected)
+    {
+      AllCalls.AssertEqualTo(expected);
+      ClearCalls();
+    }
+
+
+    /// <summary>
+    /// Clear all calls to bitcoind
+    /// </summary>
+    public void ClearCalls()
+    {
+      AllCalls.ClearCalls();
+    }
+
+    /// <summary>
+    /// Reset nodes. We currently keep tx  and block data
+    /// </summary>
+    public void Reset()
+    {
+      ClearCalls();
+      ReconnecNodes();
+      doNotTraceMethods.Clear();
+    }
+
+    public void DisconnectNode(string nodeId)
+    {
+      disconnectedNodes.TryAdd(nodeId,null);
+    }
+
+    public void ReconnectNode(string nodeId)
+    {
+      disconnectedNodes.TryRemove(nodeId, out _);
+    }
+
+    public void ReconnecNodes()
+    {
+      disconnectedNodes.Clear();
+    }
+
+  }
+}
