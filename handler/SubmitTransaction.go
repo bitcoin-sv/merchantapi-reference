@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -73,27 +72,11 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		rawTX = hex.EncodeToString(reqBody)
 	}
 
-	mp := multiplexer.New("getblockchaininfo", nil)
-	results := mp.Invoke(false, true)
-
-	// If the count of remaining responses == 0, return an error
-	if len(results) == 0 {
-		sendError(w, http.StatusInternalServerError, 26, errors.New("No results from bitcoin multiplexer'"))
+	blockInfo, err := multiplexer.GetBlockInfo()
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, 26, err)
 		return
 	}
-
-	// Sort the results with the lowest block height first
-	sort.SliceStable(results, func(p, q int) bool {
-		var m map[string]interface{}
-		json.Unmarshal(results[p], &m)
-		pBlock := int64(m["blocks"].(float64))
-		json.Unmarshal(results[q], &m)
-		qBlock := int64(m["blocks"].(float64))
-		return pBlock < qBlock
-	})
-
-	var m map[string]interface{}
-	json.Unmarshal(results[0], &m)
 
 	okToMine, okToRelay, err := checkFees(rawTX, fees)
 	if err != nil {
@@ -107,8 +90,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 			ResultDescription:         "Not enough fees",
 			Timestamp:                 utils.JsonTime(time.Now().UTC()),
 			MinerID:                   minerID,
-			CurrentHighestBlockHash:   m["bestblockhash"].(string),
-			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+			CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+			CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 			TxSecondMempoolExpiry:     0,
 			APIVersion:                APIVersion,
 			// DoubleSpendTXIDs:          []string{"N/A"},
@@ -130,8 +113,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 			ReturnResult:              "failure",
 			ResultDescription:         "No results from bitcoin multiplexer",
 			MinerID:                   minerID,
-			CurrentHighestBlockHash:   m["bestblockhash"].(string),
-			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+			CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+			CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 			TxSecondMempoolExpiry:     0,
 		}, minerID)
 	} else if len(results2) == 1 {
@@ -143,8 +126,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 				ReturnResult:              "failure",
 				ResultDescription:         result,
 				MinerID:                   minerID,
-				CurrentHighestBlockHash:   m["bestblockhash"].(string),
-				CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+				CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+				CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 				TxSecondMempoolExpiry:     0,
 			}, minerID)
 		} else {
@@ -154,8 +137,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 				TxID:                      strings.Trim(result, "\""),
 				ReturnResult:              "success",
 				MinerID:                   minerID,
-				CurrentHighestBlockHash:   m["bestblockhash"].(string),
-				CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+				CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+				CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 				TxSecondMempoolExpiry:     0,
 			}, minerID)
 		}
@@ -166,8 +149,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 			ReturnResult:              "failure",
 			ResultDescription:         "Mixed results",
 			MinerID:                   minerID,
-			CurrentHighestBlockHash:   m["bestblockhash"].(string),
-			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+			CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+			CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 			TxSecondMempoolExpiry:     0,
 		}, minerID)
 	}

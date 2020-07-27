@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -66,27 +65,11 @@ func MultiSubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mp := multiplexer.New("getblockchaininfo", nil)
-	results := mp.Invoke(false, true)
-
-	// If the count of remaining responses == 0, return an error
-	if len(results) == 0 {
-		sendError(w, http.StatusInternalServerError, 47, errors.New("No results from bitcoin multiplexer'"))
+	blockInfo, err := multiplexer.GetBlockInfo()
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, 47, err)
 		return
 	}
-
-	// Sort the results with the lowest block height first
-	sort.SliceStable(results, func(p, q int) bool {
-		var m map[string]interface{}
-		json.Unmarshal(results[p], &m)
-		pBlock := int64(m["blocks"].(float64))
-		json.Unmarshal(results[q], &m)
-		qBlock := int64(m["blocks"].(float64))
-		return pBlock < qBlock
-	})
-
-	var m map[string]interface{}
-	json.Unmarshal(results[0], &m)
 
 	var txInfo []utils.TxSubmitData
 	var failureCount uint32
@@ -158,8 +141,8 @@ func MultiSubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		APIVersion:                APIVersion,
 		Timestamp:                 utils.JsonTime(time.Now().UTC()),
 		MinerID:                   minerID,
-		CurrentHighestBlockHash:   m["bestblockhash"].(string),
-		CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+		CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+		CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 		Txs:                       txInfo,
 		FailureCount:              failureCount,
 	}
