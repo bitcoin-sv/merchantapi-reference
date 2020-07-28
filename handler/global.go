@@ -183,6 +183,10 @@ func verifyMessage(hash [32]byte, pubKeyStr string, sigStr string) (verified boo
 	}
 
 	pubKeyBytes, err := hex.DecodeString(pubKeyStr)
+  if err != nil {
+		return
+	}
+
 	pubKey, err := btcec.ParsePubKey(pubKeyBytes, btcec.S256())
 	if err != nil {
 		return
