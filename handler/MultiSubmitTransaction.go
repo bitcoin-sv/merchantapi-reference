@@ -65,11 +65,7 @@ func MultiSubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blockInfo, err := multiplexer.GetBlockInfo()
-	if err != nil {
-		sendError(w, http.StatusInternalServerError, 47, err)
-		return
-	}
+	blockInfo := bct.GetLastKnownBlockInfo()
 
 	var txInfo []utils.TxSubmitData
 	var failureCount uint32

@@ -72,11 +72,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		rawTX = hex.EncodeToString(reqBody)
 	}
 
-	blockInfo, err := multiplexer.GetBlockInfo()
-	if err != nil {
-		sendError(w, http.StatusInternalServerError, 26, err)
-		return
-	}
+	blockInfo := bct.GetLastKnownBlockInfo()
 
 	okToMine, okToRelay, err := checkFees(rawTX, fees)
 	if err != nil {

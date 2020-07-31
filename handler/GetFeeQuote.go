@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/bitcoin-sv/merchantapi-reference/config"
-	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
 	"github.com/bitcoin-sv/merchantapi-reference/utils"
 )
 
@@ -32,11 +31,7 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blockInfo, err := multiplexer.GetBlockInfo()
-	if err != nil {
-		sendError(w, http.StatusInternalServerError, 12, err)
-		return
-	}
+	blockInfo := bct.GetLastKnownBlockInfo()
 
 	minerID := getPublicKey()
 	now := time.Now()

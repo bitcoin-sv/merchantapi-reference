@@ -1,27 +1,33 @@
-package multiplexer
+package blockchaintracker
 
 import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"time"
+
+	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
 )
 
-// BlockInfo stores the block info cache
+// BlockInfo stores the block info cache to avoid making calls
+// to the BitCoin node RPC every time the data is requested
 type BlockInfo struct {
+	Timestamp                 time.Time
 	CurrentHighestBlockHash   string `json:"bestblockhash"`
 	CurrentHighestBlockHeight uint32 `json:"blocks"`
 }
 
-func getNodesBlockInfo() (*BlockInfo, error) {
-	mp := New("getblockchaininfo", nil)
+func (bct *Tracker) setLatestBlockInfo() error {
+	mp := multiplexer.New("getblockchaininfo", nil)
 	results := mp.Invoke(false, true)
 
 	// If the count of remaining responses == 0, return an error
 	if len(results) == 0 {
-		return nil, errors.New("No results from bitcoin multiplexer")
+		return errors.New("No results from bitcoin multiplexer")
 	}
 
 	var blockInfos []*BlockInfo
+	now := time.Now()
 	for _, result := range results {
 		var bi BlockInfo
 
@@ -30,12 +36,14 @@ func getNodesBlockInfo() (*BlockInfo, error) {
 			continue
 		}
 
+		bi.Timestamp = now
+
 		blockInfos = append(blockInfos, &bi)
 	}
 
 	// If the count of remaining responses == 0, return an error
 	if len(blockInfos) == 0 {
-		return nil, errors.New("No results from bitcoin multiplexer")
+		return errors.New("No results from bitcoin multiplexer")
 	}
 
 	// Sort the results with the lowest block height first
@@ -43,10 +51,17 @@ func getNodesBlockInfo() (*BlockInfo, error) {
 		return blockInfos[p].CurrentHighestBlockHeight < blockInfos[q].CurrentHighestBlockHeight
 	})
 
-	return blockInfos[0], nil
+	bct.mu.Lock()
+	bct.latestBlockInfo = blockInfos[0]
+	bct.mu.Unlock()
+
+	return nil
 }
 
-// GetBlockInfo returns block info
-func GetBlockInfo() (*BlockInfo, error) {
-	return getNodesBlockInfo()
+// GetLastKnownBlockInfo returns latest block info
+func (bct *Tracker) GetLastKnownBlockInfo() *BlockInfo {
+	bct.mu.RLock()
+	defer bct.mu.RUnlock()
+
+	return bct.latestBlockInfo
 }

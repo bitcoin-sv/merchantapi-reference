@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bitcoin-sv/merchantapi-reference/blockchaintracker"
 	"github.com/bitcoin-sv/merchantapi-reference/config"
 	"github.com/bitcoin-sv/merchantapi-reference/utils"
 
@@ -25,6 +26,7 @@ const APIVersion = "0.1.0"
 var (
 	minerIDServerURL, _ = config.Config().Get("minerId_URL")
 	alias, _            = config.Config().Get("minerId_alias")
+	bct                 *blockchaintracker.Tracker
 )
 
 // NotFound handler
