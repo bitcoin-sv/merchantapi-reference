@@ -17,7 +17,7 @@ var version string
 var commit string
 
 func main() {
-	log.Printf("VERSION\n-------\n%s (%s)\n\n", version, commit)
+	log.Printf("\n-------\nVERSION: %s (%s)\n\n", handler.APIVersion, commit)
 
 	// setup signal catching
 	signalChan := make(chan os.Signal, 1)

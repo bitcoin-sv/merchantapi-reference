@@ -20,8 +20,11 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 )
 
-// APIVersion should be changed when the public API changes.
-const APIVersion = "0.1.0"
+// git version injected at build with -ldflags -X...
+var version string
+
+// APIVersion is the git version with the 'v' prefix trimmed.
+var APIVersion string = strings.TrimPrefix(version, "v")
 
 var (
 	minerIDServerURL, _ = config.Config().Get("minerId_URL")
@@ -185,7 +188,7 @@ func verifyMessage(hash [32]byte, pubKeyStr string, sigStr string) (verified boo
 	}
 
 	pubKeyBytes, err := hex.DecodeString(pubKeyStr)
-  if err != nil {
+	if err != nil {
 		return
 	}
 
