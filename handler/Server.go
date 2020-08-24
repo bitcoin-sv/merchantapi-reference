@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// StartServer starts the API server and listens indefinitely on the specified port.
 func StartServer(wg *sync.WaitGroup, sName string) int {
 	var err error
 	bct, err = blockchaintracker.Start()
