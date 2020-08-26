@@ -162,7 +162,7 @@ func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 	var feeAmount int64
 
 	// Lookup the value of each input by querying the bitcoin node...
-	for _, in := range bt.GetInputs() {
+	for index, in := range bt.GetInputs() {
 		mp := multiplexer.New("getrawtransaction", []interface{}{in.PreviousTxID, 0})
 		results := mp.Invoke(false, true)
 
@@ -178,7 +178,14 @@ func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 			return false, false, err
 		}
 
-		feeAmount += int64(oldTx.GetOutputs()[in.PreviousTxOutIndex].Satoshis)
+		previousOutputs := oldTx.GetOutputs()
+
+		// check previous output index is in range
+		if len(previousOutputs) <= int(in.PreviousTxOutIndex) {
+			return false, false, fmt.Errorf("Invalid previous tx index for input %d", index)
+		}
+
+		feeAmount += int64(previousOutputs[in.PreviousTxOutIndex].Satoshis)
 	}
 
 	// Subtract the value of each output as well as keeping track of OP_RETURN outputs...
