@@ -199,7 +199,7 @@ func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 		}
 	}
 
-	normalBytes := int64(len(bt.ToString())) - dataBytes
+	normalBytes := int64(len(bt.ToBytes())) - dataBytes
 
 	// Check mining fees....
 	var feesRequired int64
