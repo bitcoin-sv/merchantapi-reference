@@ -61,7 +61,7 @@ func MultiSubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(txs) == 0 {
-		sendError(w, http.StatusBadRequest, 46, fmt.Errorf("must send at least 1 tx"))
+		sendError(w, http.StatusBadRequest, 46, fmt.Errorf("must send at least 1 tx hex"))
 		return
 	}
 

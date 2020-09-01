@@ -12,8 +12,7 @@ import (
 // Name used by build script for the binaries. (Please keep on single line)
 const progname = "merchant_api"
 
-// Version & commit strings injected at build with -ldflags -X...
-var version string
+// Commit string injected at build with -ldflags -X...
 var commit string
 
 func main() {
