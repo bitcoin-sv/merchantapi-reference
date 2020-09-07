@@ -36,7 +36,7 @@ func StartServer(wg *sync.WaitGroup, sName string) int {
 	router.HandleFunc("/mapi/feeQuote", AuthMiddleware(GetFeeQuote)).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/mapi/tx", AuthMiddleware(SubmitTransaction)).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/mapi/tx/{id}", AuthMiddleware(QueryTransactionStatus)).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/mapi/txs/submit", AuthMiddleware(MultiSubmitTransaction)).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/mapi/txs", AuthMiddleware(MultiSubmitTransaction)).Methods(http.MethodPost, http.MethodOptions)
 
 	router.NotFoundHandler = http.HandlerFunc(NotFound)
 

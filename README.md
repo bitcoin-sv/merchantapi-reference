@@ -84,7 +84,7 @@ GET /mapi/tx/{hash:[0-9a-fA-F]+}
 ### 4. sendMultiTransaction
 
 ```
-POST /mapi/txs/submit
+POST /mapi/txs
 ```
 
 body:
