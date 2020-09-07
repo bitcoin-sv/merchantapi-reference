@@ -48,21 +48,28 @@ func MultiSubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var txs []string
+	var txObjs []utils.TransactionJSON
 
 	if mimetype != "application/json" {
 		sendError(w, http.StatusBadRequest, 44, err)
 		return
 	}
 
-	if err := json.Unmarshal(reqBody, &txs); err != nil {
+	if err := json.Unmarshal(reqBody, &txObjs); err != nil {
 		sendError(w, http.StatusBadRequest, 45, err)
 		return
 	}
 
-	if len(txs) == 0 {
-		sendError(w, http.StatusBadRequest, 46, fmt.Errorf("must send at least 1 tx hex"))
+	if len(txObjs) == 0 {
+		sendError(w, http.StatusBadRequest, 46, fmt.Errorf("must send at least 1 object with a rawtx"))
 		return
+	}
+
+	for i, txObj := range txObjs {
+		if txObj.RawTX == "" {
+			sendError(w, http.StatusBadRequest, 47, fmt.Errorf("rawtx must be provided for element %d", i))
+			return
+		}
 	}
 
 	blockInfo := bct.GetLastKnownBlockInfo()
@@ -70,8 +77,8 @@ func MultiSubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	var txInfo []utils.TxSubmitData
 	var failureCount uint32
 
-	for _, tx := range txs {
-		okToMine, okToRelay, err := checkFees(tx, fees)
+	for _, txObj := range txObjs {
+		okToMine, okToRelay, err := checkFees(txObj.RawTX, fees)
 		var txData utils.TxSubmitData
 
 		if err != nil {
@@ -92,7 +99,7 @@ func MultiSubmitTransaction(w http.ResponseWriter, r *http.Request) {
 			allowHighFees := false
 			dontcheckfee := okToMine
 
-			mp2 := multiplexer.New("sendrawtransaction", []interface{}{tx, allowHighFees, dontcheckfee})
+			mp2 := multiplexer.New("sendrawtransaction", []interface{}{txObj.RawTX, allowHighFees, dontcheckfee})
 
 			results2 := mp2.Invoke(true, true)
 

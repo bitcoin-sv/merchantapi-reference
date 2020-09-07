@@ -91,9 +91,15 @@ body:
 
 ```json
 [
-  "[transaction_hex_string]",
-  "[transaction_hex_string]",
-  "[transaction_hex_string]"
+  {
+    "rawtx": "[transaction_hex_string]"
+  },
+  {
+    "rawtx": "[transaction_hex_string]"
+  },
+  {
+    "rawtx": "[transaction_hex_string]"
+  }
 ]
 ```
 

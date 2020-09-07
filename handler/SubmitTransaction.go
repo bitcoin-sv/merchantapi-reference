@@ -62,7 +62,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if tx.RawTX == "" {
-			sendError(w, http.StatusBadRequest, 25, fmt.Errorf("rawTx must be provided"))
+			sendError(w, http.StatusBadRequest, 25, fmt.Errorf("rawtx must be provided"))
 			return
 		}
 
