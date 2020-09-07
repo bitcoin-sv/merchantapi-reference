@@ -97,21 +97,6 @@ body:
 ]
 ```
 
-### 4. sendMultiTransactionStatus
-
-```
-POST /mapi/txs/status
-```
-
-body:
-
-```json
-[
-  "[txid]",
-  "[txid]",
-  "[txid]"
-]
-```
 
 ## Authorization/Authentication and Special Rates
 
