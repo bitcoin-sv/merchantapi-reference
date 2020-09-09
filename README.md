@@ -2,7 +2,9 @@
 
 More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi) for merchant API.  
 
-### [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference) 
+> Note: MAPI uses the [JSON envelopes BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/jsonenvelope) as well as the [Fee Spec BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/feespec).
+
+## [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference)
 
 ## Support
 
@@ -13,6 +15,12 @@ For support and general discussion of both standards and reference implementatio
 For development, you will only need GoLang installed in your environement.
 
 ## Configuration
+
+MAPI configuration relies on a [settings.conf](settings.conf) file for the main service configurations as well as one or more fees*.json files (ex. [fees.json](fees.json) for default fees, [fees_low.json](fees_low.json) for lower fees, fees_user1.json for user1, etc.) to specify feesto be charged.
+
+> In order to sign responses, you will also need to run [MinerId](https://github.com/bitcoin-sv/minerid-reference) and provide the endpoint to MAPI in the settings configurations.
+
+### settings.conf File
 
 Open [settings.conf](settings.conf) and edit it with your settings:  
 
@@ -32,6 +40,10 @@ Open [settings.conf](settings.conf) and edit it with your settings:
 
 - change `minerId_URL` and `minerId_alias` to set URL alias of minerId
 
+### fees*.json Files
+
+Please see the [Fee Spec BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/feespec) for the fees JSON format.
+
 ## Run
 
 ```console
@@ -49,6 +61,39 @@ Run individual tests or run all tests with:
 
 ```console
 $ go test ./...
+```
+
+## Docker
+
+### Build Image
+
+```console
+$ docker build . -t mapi_reference:1.1.0
+```
+
+### Run Container
+
+Example configuration:
+
+```console
+$ docker run -p 9004:9004 \
+    -e httpAddress=:9004 \
+    -e bitcoin_1_host=host.docker.internal \
+    -e minerId_URL=http://host.docker.internal:9002/minerid \
+    -e minerId_alias=testMiner \
+    mapi_reference:1.1.0
+```
+
+Example running in daemon mode:
+
+```console
+$ docker run -p 9004:9004 \
+    -e httpAddress=:9004 \
+    -e bitcoin_1_host=host.docker.internal \
+    -e minerId_URL=http://host.docker.internal:9002/minerid \
+    -e minerId_alias=testMiner \
+    --restart=always \
+    -d mapi_reference:1.1.0
 ```
 
 ## Implementation
