@@ -1,0 +1,40 @@
+# Make sure to check the documentation at http://goreleaser.com
+project_name: mapi
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - binary: "mapi-{{ .Tag }}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    ldflags:
+      - -s -w -X main.commit={{.Commit}} -X github.com/bitcoin-sv/merchantapi-reference/handler.version={{ .Tag }}
+
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}"
+
+changelog:
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  name_template: "{{.ProjectName}}-v{{.Version}}"

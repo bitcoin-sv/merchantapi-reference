@@ -1,7 +1,13 @@
+# VS Code
 .history
 .vscode
 
-build
-
-node_modules
+# Goland
 .idea
+
+# Generated binaries
+build
+dist
+
+# Misc
+node_modules
