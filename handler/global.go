@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -79,6 +80,10 @@ func getJSON(URL string) (string, error) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return "", err
+	}
+
+	if r.StatusCode != http.StatusOK {
+		return "", errors.New((string(body)))
 	}
 
 	return string(body), nil
