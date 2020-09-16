@@ -27,9 +27,11 @@ Open [settings.conf](settings.conf) and edit it with your settings:
 - change `httpAddress` or `httpsAddress` to bind on specific interfaces
 - change `jwtKey` for tokens
   Generate new JWT key:
+
   ```console
   $ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
   ```
+  
 - change `quoteExpiryMinutes` to set feeQuote expiry time
 - change count of bitcoin nodes that merchant API is connected to as well as their respective Bitcoin RPC parameters:
   - `bitcoin_count`
@@ -57,6 +59,7 @@ $ ./build.sh
 ```
 
 ## Test
+
 Run individual tests or run all tests with:
 
 ```console
@@ -64,6 +67,8 @@ $ go test ./...
 ```
 
 ## Docker
+
+You can find the public Docker Hub repository for mAPI [here](https://hub.docker.com/r/bitcoinsv/mapi).
 
 ### Build Image
 
@@ -148,7 +153,6 @@ body:
 ]
 ```
 
-
 ## Authorization/Authentication and Special Rates
 
 Merchant API providers would likely want to offer special or discounted rates to specific customers. To do this they would need to add an extra layer to enable authorization/authentication. An example implementation would be to use JSON Web Tokens (JWT) issued to specific users. The users would then include that token in their HTTP header and as a result recieve lower fee rates.
@@ -164,6 +168,7 @@ $ curl -H "Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiI
 ### JWT Token Manager
 
 To create a token:
+
 ```console
 $ go run token_manager/main.go -days 100 -name "low"
 Fee filename="fees_low.json"
