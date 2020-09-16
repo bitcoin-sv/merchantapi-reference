@@ -50,10 +50,10 @@ paths:
                     type: string
                 example:
                   payload: '{"apiVersion":"0.1.0","timestamp":"2020-01-28T11:15:03.722Z","expiryTime":"2020-01-28T11:25:03.722Z","minerId":"03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031","currentHighestBlockHash":"000000000000000001cedc3dec00ecd29943a275498e812e72b2afdf5df8814a","currentHighestBlockHeight":619574,"minerReputation":"N/A","fees":[{"feeType":"standard","miningFee":{"satoshis":1,"bytes":1},"relayFee":{"satoshis":1,"bytes":1}},{"feeType":"data","miningFee":{"satoshis":1,"bytes":1},"relayFee":{"satoshis":1,"bytes":1}}]}'
-                  signature: '304402202a7f70855739a6948c00c2a85dd733f087c4f1ae4beb256c225eadab767d5e1d02207870c57728166f61b0334bd89640d6d6c26f31ada4aac42b29971ebfa5c414e1'
-                  publicKey: '03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031'
-                  encoding: 'UTF-8'
-                  mimetype: 'application/json'
+                  signature: "304402202a7f70855739a6948c00c2a85dd733f087c4f1ae4beb256c225eadab767d5e1d02207870c57728166f61b0334bd89640d6d6c26f31ada4aac42b29971ebfa5c414e1"
+                  publicKey: "03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031"
+                  encoding: "UTF-8"
+                  mimetype: "application/json"
         "500":
           description: Internal Server Error
           content:
@@ -114,10 +114,10 @@ paths:
                     type: string
                 example:
                   payload: '{"apiVersion":"0.1.0","timestamp":"2020-01-15T11:40:29.826Z","txid":"6bdbcfab0526d30e8d68279f79dff61fb4026ace8b7b32789af016336e54f2f0","returnResult":"success","resultDescription":"","minerId":"03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031","currentHighestBlockHash":"71a7374389afaec80fcabbbf08dcd82d392cf68c9a13fe29da1a0c853facef01","currentHighestBlockHeight":207,"txSecondMempoolExpiry":0}'
-                  signature: '3045022100f65ae83b20bc60e7a5f0e9c1bd9aceb2b26962ad0ee35472264e83e059f4b9be022010ca2334ff088d6e085eb3c2118306e61ec97781e8e1544e75224533dcc32379'
-                  publicKey: '03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031'
-                  encoding: 'UTF-8'
-                  mimetype: 'application/json'
+                  signature: "3045022100f65ae83b20bc60e7a5f0e9c1bd9aceb2b26962ad0ee35472264e83e059f4b9be022010ca2334ff088d6e085eb3c2118306e61ec97781e8e1544e75224533dcc32379"
+                  publicKey: "03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031"
+                  encoding: "UTF-8"
+                  mimetype: "application/json"
         "400":
           description: Bad Request
           content:
@@ -138,6 +138,77 @@ paths:
           externalDocs:
             description: For more information see Merchant API BRFC
             url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ #
+  /txs:
+    post:
+      tags:
+        - transaction
+      summary: Submit multiple transactions
+      description: "This endpoint is used to send a raw transactions in bach to a miner for inclusion in the next block that the miner creates."
+      operationId: sendMultiTransaction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rawtx:
+                  type: string
+                  pattern: "[0-9a-fA-F]+"
+              example:
+                - rawtx: 0200000001f56216b33513cf621839d584f0e31566059537ef184070733a56c3b5c41d0d6d0000000049483045022100cddd5c304ff87f1733262d34b56a90061aa4b97fdc0b0e42fc3065c04e231ca402202f0c65cb6d04c2b8fc82bdcfcfd7295b6e0f717362ec395e02f6905c68ac7b7741ffffffff01805b6d29010000001976a9142a5acfb9a647a03a758afaa5c359284d4b95c0be88ac00000000
+                - rawtx: 0200000001698562b56805aee866fb835ee1a5e874fe666e037a5c70c1e9a53223bd95d0350000000000ffffffff01805b6d29010000001976a914b0b9356ec35de3d83e261570bf7c91046c209d4488ac00000000
+                - rawtx: 0100000001afb6269f0193eaf62d3f4e8615cef451157bf05e483f504215da0c813e41bf97030000006a47304402207758c41cdec96a8e62a4e183beb8b828f6b1a74f9339ddaeb993ddfd51fd4416022005608570cfb83c5d418a7960d8dff3a30f91fc023549b0c6d56ed2d1b8c7fe0141210368cc5b24e57d1c10dd7e5f269c250ed305d96cb4df686d58e65e8a47598b9bf2ffffffff040000000000000000fa006a223150755161374b36324d694b43747373534c4b79316b683536575755374d74555235035345540361707008746f6e6963706f770474797065106f666665725f636f6e76657273696f6e1a6f666665725f636f6e76657273696f6e5f636f6e6669675f69644037396361353766306261666439303434326634336631653862336131353566323339343536333533636663313363346537316435623835383734663062346239106f666665725f73657373696f6e5f69644061623537363231343564656430386161353664653435303566386230316131366639333739363832623237333439376561373730356530316233623436353231c4060000000000001976a91409cc4559bdcb84cb35c107743f0dbb10d66679cc88aca7430000000000001976a914685d569aa5341f7c034d2564ea96d75383468ffe88ac1a440000000000001976a9142566463dbd7e615046d4952fb5ebf3604d9b2c9688ac00000000
+
+        description: raw transaction hex string array
+        required: true
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payload:
+                    type: string
+                    format: submitTransactionPayload
+                  signature:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  publicKey:
+                    type: string
+                    pattern: "[0-9a-fA-F]+"
+                  encoding:
+                    type: string
+                  mimetype:
+                    type: string
+                example:
+                  payload: '{"apiVersion":"1.1.0","timestamp":"2020-06-15T12:09:37.394Z","minerId":"03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031","currentHighestBlockHash":"000000000000000002b960f6569b5b968d84de40a85cf7831ed61afe935ed04c","currentHighestBlockHeight":640821,"txSecondMempoolExpiry":0,"txs":[{"txid":"c013c468b94a600f9c505155e5bd23f9ce12bf07242f6251c5778aa0d087b4de","returnResult":"success","resultDescription":""},{"txid":"2dfe4b326d0ae541a3a01bd567428d358009ebaedeb1cc0d6b30d7732525c863","returnResult":"failure","resultDescription":"Missing inputs"},{"txid":"18e6b339551fd177587aaf968281c0d400e20aa200349903bed0883b10b7612b","returnResult":"success","resultDescription":""}],"failureCount":1}'
+                  signature: "304402205dbfa6ade5f063e100a1b8feceb7a19f38b2c625e59d279a2048922760ae7b580220458798bd093184a65d7ec574a0bf7df686f8d0ae7905382cd9413b4dc3bc8c42"
+                  publicKey: "03edf1199c2186f4f4ae5a0b933ce2b0181ec2f17b28c2d4c226066023ba664dc0"
+                  encoding: "UTF-8"
+                  mimetype: "application/json"
+
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                  code:
+                    type: number
+                  error:
+                    type: string
+                example:
+                  status: 400
+                  code: 46
+                  error: "must send at least 1 object with a rawtx"
+          # externalDocs:
+          #   description: For more information see Merchant API BRFC
+          #   url: https://bitbucket.org/nchteamnch/brfc-merchantapi/src/master/ #
 
   "/tx/{hash}":
     get:
@@ -176,10 +247,10 @@ paths:
                     type: string
                 example:
                   payload: '{"apiVersion":"0.1.0","timestamp":"2020-01-15T12:09:37.394Z","returnResult":"success","resultDescription":"","blockHash":"745093bb0c80780092d4ce6926e0caa753fe3accdc09c761aee89bafa85f05f4","blockHeight":208,"minerId":"03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031","confirmations":2,"txSecondMempoolExpiry":0}'
-                  signature: '3045022100c9a712a124ff3100e26f7bbcc87204848cc2ff1effacd8d8e8daac5d81bce74c02201dd661aad00d2cde443a076475cfb7d6523e0ef98a1112e938af002ca5222fbe'
-                  publicKey: '03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031'
-                  encoding: 'UTF-8'
-                  mimetype: 'application/json'
+                  signature: "3045022100c9a712a124ff3100e26f7bbcc87204848cc2ff1effacd8d8e8daac5d81bce74c02201dd661aad00d2cde443a076475cfb7d6523e0ef98a1112e938af002ca5222fbe"
+                  publicKey: "03fcfcfcd0841b0a6ed2057fa8ed404788de47ceb3390c53e79c4ecd1e05819031"
+                  encoding: "UTF-8"
+                  mimetype: "application/json"
         "400":
           description: Bad Request
           example:
@@ -294,3 +365,32 @@ components:
           type: number
         txSecondMempoolExpiry:
           type: number
+    multiSubmitTransactionPayload:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        minerId:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        currentHighestBlockHash:
+          type: string
+          pattern: "[0-9a-fA-F]+"
+        currentHighestBlockHeight:
+          type: number
+        txSecondMempoolExpiry:
+          type: number
+        txs:
+          type: array
+          items:
+            type: object
+            properties:
+              txid:
+                type: string
+              returnResult:
+                type: string
+              resultDescription:
+                type: string
