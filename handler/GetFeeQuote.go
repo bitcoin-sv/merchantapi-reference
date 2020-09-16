@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/bitcoin-sv/merchantapi-reference/config"
-	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
 	"github.com/bitcoin-sv/merchantapi-reference/utils"
 )
 
@@ -33,30 +31,10 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mp := multiplexer.New("getblockchaininfo", nil)
-	results := mp.Invoke(false, true)
-
-	// If the count of remaining responses == 0, return an error
-	if len(results) == 0 {
-		sendError(w, http.StatusInternalServerError, 12, errors.New("No results from bitcoin multiplexer"))
-		return
-	}
-
-	// Sort the results with the lowest block height first
-	sort.SliceStable(results, func(p, q int) bool {
-		var m map[string]interface{}
-		json.Unmarshal(results[p], &m)
-		pBlock := int64(m["blocks"].(float64))
-		json.Unmarshal(results[q], &m)
-		qBlock := int64(m["blocks"].(float64))
-		return pBlock < qBlock
-	})
+	blockInfo := bct.GetLastKnownBlockInfo()
 
 	minerID := getPublicKey()
 	now := time.Now()
-
-	var m map[string]interface{}
-	json.Unmarshal(results[0], &m)
 
 	qem, ok := config.Config().GetInt("quoteExpiryMinutes")
 	if !ok {
@@ -69,8 +47,8 @@ func GetFeeQuote(w http.ResponseWriter, r *http.Request) {
 		Timestamp:                 utils.JsonTime(now.UTC()),
 		ExpiryTime:                utils.JsonTime(now.UTC().Add(time.Duration(qem) * time.Minute)),
 		MinerID:                   minerID,
-		CurrentHighestBlockHash:   m["bestblockhash"].(string),
-		CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+		CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+		CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 		Fees:                      fees,
 	}, minerID)
 }

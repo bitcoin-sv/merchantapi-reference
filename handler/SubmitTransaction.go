@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/bitcoin-sv/merchantapi-reference/multiplexer"
 	"github.com/bitcoin-sv/merchantapi-reference/utils"
-
-	"bitbucket.org/simon_ordish/cryptolib/transaction"
+	"github.com/libsv/libsv/transaction"
 )
 
 // SubmitTransaction comment
@@ -64,7 +62,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if tx.RawTX == "" {
-			sendError(w, http.StatusBadRequest, 25, fmt.Errorf("rawTx must be provided"))
+			sendError(w, http.StatusBadRequest, 25, fmt.Errorf("rawtx must be provided"))
 			return
 		}
 
@@ -74,29 +72,7 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		rawTX = hex.EncodeToString(reqBody)
 	}
 
-	mp := multiplexer.New("getblockchaininfo", nil)
-	results := mp.Invoke(false, true)
-
-	// If the count of remaining responses == 0, return an error
-	if len(results) == 0 {
-		sendError(w, http.StatusInternalServerError, 26, errors.New("No results from bitcoin multiplexer'"))
-		return
-	}
-
-	// Sort the results with the lowest block height first
-	sort.SliceStable(results, func(p, q int) bool {
-		var m map[string]interface{}
-		json.Unmarshal(results[p], &m)
-		pBlock := int64(m["blocks"].(float64))
-		json.Unmarshal(results[q], &m)
-		qBlock := int64(m["blocks"].(float64))
-		return pBlock < qBlock
-	})
-
-	now := time.Now()
-
-	var m map[string]interface{}
-	json.Unmarshal(results[0], &m)
+	blockInfo := bct.GetLastKnownBlockInfo()
 
 	okToMine, okToRelay, err := checkFees(rawTX, fees)
 	if err != nil {
@@ -108,10 +84,10 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		sendEnvelope(w, &utils.TransactionResponse{
 			ReturnResult:              "failure",
 			ResultDescription:         "Not enough fees",
-			Timestamp:                 utils.JsonTime(now.UTC()),
+			Timestamp:                 utils.JsonTime(time.Now().UTC()),
 			MinerID:                   minerID,
-			CurrentHighestBlockHash:   m["bestblockhash"].(string),
-			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+			CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+			CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 			TxSecondMempoolExpiry:     0,
 			APIVersion:                APIVersion,
 			// DoubleSpendTXIDs:          []string{"N/A"},
@@ -129,12 +105,12 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 	if len(results2) == 0 {
 		sendEnvelope(w, &utils.TransactionResponse{
 			APIVersion:                APIVersion,
-			Timestamp:                 utils.JsonTime(now.UTC()),
+			Timestamp:                 utils.JsonTime(time.Now().UTC()),
 			ReturnResult:              "failure",
 			ResultDescription:         "No results from bitcoin multiplexer",
 			MinerID:                   minerID,
-			CurrentHighestBlockHash:   m["bestblockhash"].(string),
-			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+			CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+			CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 			TxSecondMempoolExpiry:     0,
 		}, minerID)
 	} else if len(results2) == 1 {
@@ -146,8 +122,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 				ReturnResult:              "failure",
 				ResultDescription:         result,
 				MinerID:                   minerID,
-				CurrentHighestBlockHash:   m["bestblockhash"].(string),
-				CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+				CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+				CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 				TxSecondMempoolExpiry:     0,
 			}, minerID)
 		} else {
@@ -157,8 +133,8 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 				TxID:                      strings.Trim(result, "\""),
 				ReturnResult:              "success",
 				MinerID:                   minerID,
-				CurrentHighestBlockHash:   m["bestblockhash"].(string),
-				CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+				CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+				CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 				TxSecondMempoolExpiry:     0,
 			}, minerID)
 		}
@@ -166,11 +142,11 @@ func SubmitTransaction(w http.ResponseWriter, r *http.Request) {
 		sendEnvelope(w, &utils.TransactionResponse{
 			APIVersion:                APIVersion,
 			Timestamp:                 utils.JsonTime(time.Now().UTC()),
-			TxID:                      "Mixed results",
 			ReturnResult:              "failure",
+			ResultDescription:         "Mixed results",
 			MinerID:                   minerID,
-			CurrentHighestBlockHash:   m["bestblockhash"].(string),
-			CurrentHighestBlockHeight: uint32(m["blocks"].(float64)),
+			CurrentHighestBlockHash:   blockInfo.CurrentHighestBlockHash,
+			CurrentHighestBlockHeight: blockInfo.CurrentHighestBlockHeight,
 			TxSecondMempoolExpiry:     0,
 		}, minerID)
 	}
@@ -186,8 +162,8 @@ func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 	var feeAmount int64
 
 	// Lookup the value of each input by querying the bitcoin node...
-	for _, in := range bt.GetInputs() {
-		mp := multiplexer.New("getrawtransaction", []interface{}{hex.EncodeToString(in.PreviousTxHash[:]), 0})
+	for index, in := range bt.GetInputs() {
+		mp := multiplexer.New("getrawtransaction", []interface{}{in.PreviousTxID, 0})
 		results := mp.Invoke(false, true)
 
 		if len(results) == 0 {
@@ -202,21 +178,28 @@ func checkFees(txHex string, fees []utils.Fee) (bool, bool, error) {
 			return false, false, err
 		}
 
-		feeAmount += int64(oldTx.GetOutputs()[in.PreviousTxOutIndex].Value)
+		previousOutputs := oldTx.GetOutputs()
+
+		// check previous output index is in range
+		if len(previousOutputs) <= int(in.PreviousTxOutIndex) {
+			return false, false, fmt.Errorf("Invalid previous tx index for input %d", index)
+		}
+
+		feeAmount += int64(previousOutputs[in.PreviousTxOutIndex].Satoshis)
 	}
 
 	// Subtract the value of each output as well as keeping track of OP_RETURN outputs...
 
 	var dataBytes int64
 	for _, out := range bt.GetOutputs() {
-		feeAmount -= int64(out.Value)
+		feeAmount -= int64(out.Satoshis)
 
-		if out.Value == 0 && len(out.Script) > 0 && (out.Script[0] == 0x6a || (out.Script[0] == 0x00 && out.Script[1] == 0x6a)) {
-			dataBytes += int64(len(out.Script))
+		if out.Satoshis == 0 && len(*out.LockingScript) > 0 && out.LockingScript.IsData() {
+			dataBytes += int64(len(*out.LockingScript))
 		}
 	}
 
-	normalBytes := int64(len(bt.Hex())) - dataBytes
+	normalBytes := int64(len(bt.ToBytes())) - dataBytes
 
 	// Check mining fees....
 	var feesRequired int64

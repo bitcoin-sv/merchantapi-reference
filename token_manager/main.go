@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bitcoin-sv/merchantapi-reference/config"
 	"github.com/dgrijalva/jwt-go"
 )
 
@@ -27,8 +28,12 @@ func main() {
 	}
 
 	if *keyPtr == "" {
-		flag.PrintDefaults()
-		os.Exit(3)
+		var ok bool
+		*keyPtr, ok = config.Config().Get("jwtKey")
+		if !ok {
+			flag.PrintDefaults()
+			os.Exit(3)
+		}
 	}
 
 	expiry := time.Now().AddDate(0, 0, *daysPtr)

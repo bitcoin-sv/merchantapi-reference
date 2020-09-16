@@ -37,6 +37,7 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 		sendEnvelope(w, &utils.TransactionStatus{
 			APIVersion:        APIVersion,
 			Timestamp:         utils.JsonTime(time.Now().UTC()),
+			TxID:              txid,
 			ReturnResult:      "failure",
 			ResultDescription: "No results from bitcoin multiplexer",
 			MinerID:           minerID,
@@ -48,6 +49,7 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 			sendEnvelope(w, &utils.TransactionStatus{
 				APIVersion:        APIVersion,
 				Timestamp:         utils.JsonTime(time.Now().UTC()),
+				TxID:              txid,
 				ReturnResult:      "failure",
 				ResultDescription: result,
 				MinerID:           minerID,
@@ -61,6 +63,7 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 			sendEnvelope(w, &utils.TransactionStatus{
 				APIVersion:    APIVersion,
 				Timestamp:     utils.JsonTime(time.Now().UTC()),
+				TxID:          txid,
 				ReturnResult:  "success",
 				BlockHash:     &bt.BlockHash,
 				BlockHeight:   &blockHeight,
@@ -72,6 +75,7 @@ func QueryTransactionStatus(w http.ResponseWriter, r *http.Request) {
 		sendEnvelope(w, &utils.TransactionStatus{
 			APIVersion:        APIVersion,
 			Timestamp:         utils.JsonTime(time.Now().UTC()),
+			TxID:              txid,
 			ReturnResult:      "failure",
 			ResultDescription: "Mixed results",
 			MinerID:           minerID,

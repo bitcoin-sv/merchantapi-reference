@@ -14,18 +14,23 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bitcoin-sv/merchantapi-reference/blockchaintracker"
 	"github.com/bitcoin-sv/merchantapi-reference/config"
 	"github.com/bitcoin-sv/merchantapi-reference/utils"
 
 	"github.com/btcsuite/btcd/btcec"
 )
 
-// APIVersion should be changed when the public API changes.
-const APIVersion = "0.1.0"
+// git version injected at build with -ldflags -X...
+var version string
+
+// APIVersion is the git version with the 'v' prefix trimmed.
+var APIVersion string = strings.TrimPrefix(version, "v")
 
 var (
 	minerIDServerURL, _ = config.Config().Get("minerId_URL")
 	alias, _            = config.Config().Get("minerId_alias")
+	bct                 *blockchaintracker.Tracker
 )
 
 // NotFound handler
@@ -118,7 +123,7 @@ func sendEnvelope(w http.ResponseWriter, payload interface{}, minerID *string) {
 }
 
 func sendError(w http.ResponseWriter, status int, code int, err error) {
-	e := utils.JsonError{
+	e := utils.JSONError{
 		Status: status,
 		Code:   code,
 		Err:    err.Error(),
