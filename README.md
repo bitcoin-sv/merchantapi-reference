@@ -1,10 +1,12 @@
-# Merchant API
+# mAPI
 
 More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi) for merchant API.  
 
 > Note: MAPI uses the [JSON envelopes BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/jsonenvelope) as well as the [Fee Spec BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/feespec).
 
-## [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference)
+## Swagger UI
+
+The REST API can also be seen in the [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference).
 
 ## Support
 
@@ -103,7 +105,7 @@ $ docker run -p 9004:9004 \
 
 ## Implementation
 
-The **REST API** has 3 endpoints:
+The **REST API** has 4 endpoints:
 
 ### 1. getFeeQuote
 
