@@ -497,6 +497,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
+
     [TestMethod]
     public async Task TestFeeQuotesValidOverExpiryGetParameters()
     {
@@ -655,6 +656,31 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entries[1], getEntries[0]);
       }
 
+    }
+
+    [TestMethod]
+    public async Task TestFeeQuotesForSimilarIdentities()
+    {
+      // arrange
+      var entryPostWithIdentity = GetItemToCreateWithIdentity();
+      var testIdentity = GetMockedIdentity;
+      testIdentity.Identity = "test ";
+      entryPostWithIdentity.Identity = testIdentity.Identity;
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity, HttpStatusCode.Created);
+
+      var entryPostWithIdentity2 = GetItemToCreateWithIdentity();
+      entryPostWithIdentity2.Identity = "test _ underline";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity2, HttpStatusCode.Created);
+
+      // test if we properly check for keys in cache
+      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(1)))
+      {
+        testIdentity.IdentityProvider = null;
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client,
+          UrlForValidFeeQuotesKey(testIdentity), HttpStatusCode.OK);
+        Assert.AreEqual(1, getEntries.Length); // must be only one
+        CheckWasCreatedFrom(entryPostWithIdentity, getEntries[0]);
+      }
     }
   }
 }
