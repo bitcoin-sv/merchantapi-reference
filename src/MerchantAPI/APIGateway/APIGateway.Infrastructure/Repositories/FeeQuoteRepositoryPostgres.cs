@@ -22,7 +22,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     private readonly string connectionString;
     private readonly IClock clock;
     // cache contains valid and future feeQuotes, so that mAPI calls get results faster
-    private static readonly Dictionary<string, List<FeeQuote>> cache = new Dictionary<string, List<FeeQuote>>(); 
+    private static readonly Dictionary<(string Identity, string IdentityProvider), List<FeeQuote>> cache = new Dictionary<(string Identity, string IdentityProvider), List<FeeQuote>>();
 
     public FeeQuoteRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
     {
@@ -46,18 +46,18 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     }
 
 
-    private string GetCacheKey(FeeQuote feeQuote)
+    private (string identity, string identityProvider) GetCacheKey(FeeQuote feeQuote)
     {
       return GetCacheKey(feeQuote.Identity, feeQuote.IdentityProvider);
     }
 
-    private string GetCacheKey(UserAndIssuer identity)
+    private (string identity, string identityProvider) GetCacheKey(UserAndIssuer identity)
     {
       return GetCacheKey(identity?.Identity, identity?.IdentityProvider);
     }
-    private string GetCacheKey(string identity, string identityProvider)
+    private (string identity, string identityProvider) GetCacheKey(string identity, string identityProvider)
     {
-      return $"{identity ?? ""}_{identityProvider ?? "" }"; // "_" = key for anonymous user
+      return (identity ?? "", identityProvider ?? ""); // ("", "") = key for anonymous user
     }
 
     public FeeQuote GetCurrentFeeQuoteByIdentity(UserAndIssuer identity)
@@ -148,10 +148,14 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       {
         EnsureCache();
         // get keys from cache, that we are interested in
-        List<string> keys = new List<string>();
-        if ((feeQuoteIdentity?.Identity == null && feeQuoteIdentity?.IdentityProvider != null) || (feeQuoteIdentity?.Identity != null && feeQuoteIdentity?.IdentityProvider == null))
+        var keys = new List<(string identity, string identityProvider)>();
+        if (feeQuoteIdentity?.Identity != null && feeQuoteIdentity?.IdentityProvider == null)
         {
-          keys = cache.Keys.Where(k => k.Contains(GetCacheKey(feeQuoteIdentity))).ToList();
+          keys = cache.Keys.Where(k => k.Identity == feeQuoteIdentity.Identity).ToList();
+        }
+        else if (feeQuoteIdentity?.Identity == null && feeQuoteIdentity?.IdentityProvider != null)
+        {
+          keys = cache.Keys.Where(k => k.IdentityProvider == feeQuoteIdentity.IdentityProvider).ToList();
         }
         else if (ignoreIdentity)
         {
