@@ -361,6 +361,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       entryPost.IdentityProvider = "testProvider";
       await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
 
+      entryPost = GetItemToCreateWithIdentity();
+      entryPost.Identity = "";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
+      entryPost = GetItemToCreate();
+      entryPost.IdentityProvider = "  ";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
       // test invalid fees
       entryPost = GetItemToCreate();
       entryPost.Fees = new FeeViewModelCreate[0];
