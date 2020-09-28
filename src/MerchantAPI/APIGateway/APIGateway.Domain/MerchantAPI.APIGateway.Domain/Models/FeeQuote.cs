@@ -19,8 +19,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
     [JsonPropertyName("fees")]
     public Fee[] Fees { get; set; }
 
-    //[JsonPropertyName("expiry")]
-    //public Expiry Expiry { get; set; }
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
       if (CreatedAt > ValidFrom)
