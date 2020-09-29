@@ -16,24 +16,18 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public long N { get; set; }
     public byte[] PrevTxId { get; set; }
     public long Prev_N { get; set; }
-  }
 
-  public class TxWithInputComparer : IEqualityComparer<TxWithInput>
-  {
-    public bool Equals([AllowNull] TxWithInput x, [AllowNull] TxWithInput y)
+    public override bool Equals(object obj)
     {
-      if (x == null || y == null)
-      {
-        return false;
-      }
+      if (obj == null)            return false;
+      if (!(obj is TxWithInput))  return false;
 
-      return new uint256(x.TxExternalId, true) == new uint256(y.TxExternalId, true);
+      return new uint256(this.TxExternalId, true) == new uint256(((TxWithInput)obj).TxExternalId, true);
     }
 
-    public int GetHashCode([DisallowNull] TxWithInput obj)
+    public override int GetHashCode()
     {
-      return new uint256(obj.TxExternalId, true).GetHashCode();
+      return new uint256(TxExternalId, true).GetHashCode();
     }
   }
-
 }

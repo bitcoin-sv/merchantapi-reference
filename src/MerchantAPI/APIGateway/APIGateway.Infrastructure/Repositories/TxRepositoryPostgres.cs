@@ -217,11 +217,11 @@ CREATE TEMPORARY TABLE TxTemp (
       {
         foreach(var tx in transactions)
         {
-          AddToTxImporter(txImporter, txInternalId, tx.TxExternalId, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,  tx.MerkleProof, tx.DSCheck, null, null, null);
+          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,  tx.MerkleProof, tx.DSCheck, null, null, null);
 
           foreach (var txIn in tx.TxIn)
           {
-            AddToTxImporter(txImporter, txInternalId, tx.TxExternalId, null, null, null, null, null, null, null, txIn.N, txIn.PrevTxId, txIn.PrevN);
+            AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, txIn.N, txIn.PrevTxId, txIn.PrevN);
           }
           txInternalId++;
         }
@@ -379,7 +379,7 @@ WHERE sentMerkleProofAt IS NULL AND txExternalId= @txId;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT txInternalId, txExternalId
+SELECT txInternalId, txExternalId TxExternalIdBytes
 FROM Tx
 WHERE NOT EXISTS (SELECT txinternalid FROM TxBlock WHERE TxBlock.txInternalId = Tx.txInternalId);
 ";
@@ -388,11 +388,14 @@ WHERE NOT EXISTS (SELECT txinternalid FROM TxBlock WHERE TxBlock.txInternalId = 
     }
 
     /// <summary>
-    /// Split records from DB to list with items where each item contains a sublist of matching items
+    /// Records from DB contain merged data from 2 tables (Tx, TxInput), which will be split into 2 objects. Unique
+    /// transactions (txId) are created first from the source set, subsequently records that still remain 
+    /// must contain additional inputs for created transactions, so they are added to existing transactions
+    /// as TxInput 
     /// </summary>
     private IEnumerable<Tx> TxWithInputDataToTx(HashSet<TxWithInput> txWithInputs)
     {
-      var distinctItems = new HashSet<TxWithInput>(txWithInputs.Distinct(new TxWithInputComparer()).ToArray());
+      var distinctItems = new HashSet<TxWithInput>(txWithInputs.Distinct().ToArray());
       HashSet<Tx> txSet = new HashSet<Tx>(distinctItems.Select(x =>
                                                                {
                                                                   return new Tx(x);
@@ -455,18 +458,18 @@ WHERE b.blockhash = @blockHash;
       return block;
     }
 
-    public async Task<Tx> GetTransaction(byte[] txId)
+    public async Task<bool> TransactionExists(byte[] txId)
     {
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT *
+SELECT COUNT(*)
 FROM tx
 WHERE tx.txexternalid = @txId;
 ";
 
-      var foundTx = await connection.QueryFirstOrDefaultAsync<Tx>(cmdText, new { txId } );
-      return foundTx;
+      var foundTx = await connection.ExecuteScalarAsync<int>(cmdText, new { txId } );
+      return foundTx > 0;
     }
 
     public async Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)

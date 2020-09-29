@@ -78,11 +78,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               var notificationEvent = new NewNotificationEvent
                                       {
                                         NotificationType = CallbackReason.DoubleSpendAttempt,
-                                        TransactionId = tx.TxExternalId
+                                        TransactionId = tx.TxExternalIdBytes
                                       };
               var notificationData = new NotificationData
                                     {
-                                      TxExternalId = tx.TxExternalId,
+                                      TxExternalId = tx.TxExternalIdBytes,
                                       DoubleSpendTxId = dsTxId,
                                       Payload = dsTxPayload,
                                       CallbackUrl = tx.CallbackUrl,

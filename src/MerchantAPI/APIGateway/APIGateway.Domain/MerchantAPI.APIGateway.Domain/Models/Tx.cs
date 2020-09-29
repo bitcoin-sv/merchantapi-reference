@@ -16,7 +16,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public Tx(TxWithInput txWithInput)
     {
       TxInternalId = txWithInput.TxInternalId;
-      TxExternalId = txWithInput.TxExternalId;
+      TxExternalIdBytes = txWithInput.TxExternalId;
       CallbackToken = txWithInput.CallbackToken;
       CallbackUrl = txWithInput.CallbackUrl;
       CallbackEncryption = txWithInput.CallbackEncryption;
@@ -26,7 +26,16 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public long TxInternalId { get; set; }
 
-    public byte[] TxExternalId { get; set; }
+    public uint256 TxExternalId { get; set; }
+
+    public byte[] TxExternalIdBytes 
+    {
+      get => TxExternalId.ToBytes();
+      set
+      {
+        TxExternalId = new uint256(value);
+      }
+    }
 
     public byte[] TxPayload { get; set; }
 
@@ -43,6 +52,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public bool DSCheck { get; set; }
 
     public IList<TxInput> TxIn { get; set; }
+
+    public override int GetHashCode()
+    {
+      return TxExternalId.GetHashCode();
+    }
   }
 
   public class TxInput
@@ -74,12 +88,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
         return false;
       }
 
-      return new uint256(x.TxExternalId, true) == new uint256(y.TxExternalId, true);
+      return x.TxExternalId == y.TxExternalId;
     }
 
     public int GetHashCode([DisallowNull] Tx obj)
     {
-      return new uint256(obj.TxExternalId, true).GetHashCode();
+      return obj.TxExternalId.GetHashCode();
     }
   }
 }

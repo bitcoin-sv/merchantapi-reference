@@ -13,6 +13,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.EventBus;
 using Block = MerchantAPI.APIGateway.Domain.Models.Block;
 using Microsoft.Extensions.Options;
+using System.Collections.Generic;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -67,9 +68,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     private async Task InsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
     {
       var txsToCheck = await txRepository.GetTxsWithoutBlockAsync();
+      var txIdsFromBlock = new HashSet<uint256>(block.Transactions.Select(x => x.GetHash()));
 
       // Generate a list of transactions that are present in the last block and are also present in our database without a link to existing block
-      var transactionsForMerkleProofCheck = txsToCheck.Where(y => block.Transactions.Any(x => new uint256(y.TxExternalId) == x.GetHash()));
+      var transactionsForMerkleProofCheck = txsToCheck.Where(x => txIdsFromBlock.Contains(x.TxExternalId)).ToArray();
 
       await txRepository.InsertTxBlockAsync(transactionsForMerkleProofCheck.Select(x => x.TxInternalId).ToList(), blockInternalId);
       foreach (var transaction in transactionsForMerkleProofCheck)
@@ -77,7 +79,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var notificationEvent = new NewNotificationEvent
                                 {
                                   NotificationType = CallbackReason.MerkleProof,
-                                  TransactionId = transaction.TxExternalId
+                                  TransactionId = transaction.TxExternalIdBytes
                                 };
         if (NotificationAction.AddNotificationData(notificationEvent, null))
         {

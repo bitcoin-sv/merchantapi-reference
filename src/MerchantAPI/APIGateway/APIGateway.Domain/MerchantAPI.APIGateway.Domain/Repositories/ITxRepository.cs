@@ -50,6 +50,6 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<Block> GetBestBlockAsync();
     
     Task<Block> GetBlockAsync(byte[] blockHash);
-    Task<Tx> GetTransaction(byte[] txId);
+    Task<bool> TransactionExists(byte[] txId);
   }
 }

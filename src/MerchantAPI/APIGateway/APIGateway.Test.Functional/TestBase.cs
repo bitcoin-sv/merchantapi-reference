@@ -403,7 +403,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         DSCheck = dsCheck,
         MerkleProof = merkleProof,
         ReceivedAt = DateTime.UtcNow,
-        TxExternalId = new uint256(txHash).ToBytes(),
+        TxExternalId = new uint256(txHash),
         TxPayload = HelperTools.HexStringToByteArray(txHex)
       };
       var transaction = HelperTools.ParseBytesToTransaction(tx.TxPayload);

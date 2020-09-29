@@ -529,7 +529,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         bool okToRelay = false;
         uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
         string txIdString = txId.ToString();
-        if ((await txRepository.GetTransaction(txId.ToBytes())) != null)
+        if (await txRepository.TransactionExists(txId.ToBytes()))
         {
           var oneResponse = new SubmitTransactionOneResponse
           {
@@ -722,7 +722,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           CallbackEncryption = x.transaction.CallBackEncryption,
           DSCheck = x.transaction.DsCheck,
           MerkleProof = x.transaction.MerkleProof,
-          TxExternalId = new uint256(x.transactionId).ToBytes(),
+          TxExternalId = new uint256(x.transactionId),
           TxPayload = x.transaction.RawTx,
           ReceivedAt = DateTime.UtcNow,
           TxIn = x.transaction.TransactionInputs
