@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Common\Common\MerchantAPI.Common.csproj" />
     <ProjectReference Include="..\APIGateway.Rest\MerchantAPI.APIGateway.Rest.csproj" />
+    <ProjectReference Include="..\APIGateway.Test.Functional\MerchantAPI.APIGateway.Test.Functional.csproj" />
   </ItemGroup>
 
 </Project>

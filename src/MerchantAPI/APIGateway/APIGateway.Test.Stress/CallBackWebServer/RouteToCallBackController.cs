@@ -1,0 +1,30 @@
+﻿// Copyright (c) 2020 Bitcoin Association
+
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Routing;
+
+namespace MerchantAPI.APIGateway.Test.Stress.CallBackWebServer
+{
+  
+  /// <summary>
+  /// Route all calls (regardless of path) to CallBackController
+  /// </summary>
+  public class RouteToCallBackController : DynamicRouteValueTransformer
+  {
+    public override ValueTask<RouteValueDictionary> TransformAsync(HttpContext httpContext, RouteValueDictionary values)
+    {
+      var result = new RouteValueDictionary()
+      {
+        {"controller", "CallBack"},
+        {"action", "ProcessPost"}
+      };
+
+      return new ValueTask<RouteValueDictionary>(result);
+    }
+  }
+}

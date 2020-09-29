@@ -50,7 +50,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     /// <summary>
     /// Deletes node data directory (if exists) and start new instance of bitcoind
     /// </summary>
-    public BitcoindProcess(string hostIp, string bitcoindFullPath, string dataDir, int p2pPort, int rpcPort, string zmqIp, int zmqPort, ILoggerFactory loggerFactory)
+    public BitcoindProcess(string hostIp, string bitcoindFullPath, string dataDir, int p2pPort, int rpcPort, string zmqIp, int zmqPort, ILoggerFactory loggerFactory, bool emptyDataDir = true)
     {
       this.Host = hostIp;
       this.P2Port = p2pPort;
@@ -68,18 +68,28 @@ namespace MerchantAPI.APIGateway.Test.Functional
           "Can not start a new instance of bitcoind. Specified ports are already in use. There might be an old version of bitcoind still running. Terminate it manually and try again-");
       }
 
-      if (Directory.Exists(dataDir))
+      if (emptyDataDir)
       {
-        var regtest = Path.Combine(dataDir, "regtest");
-        if (Directory.Exists(regtest))
+        if (Directory.Exists(dataDir))
         {
-          logger.LogInformation($"Old regtest directory exists. Removing it: {regtest}");
-          Directory.Delete(regtest, true);
+          var regtest = Path.Combine(dataDir, "regtest");
+          if (Directory.Exists(regtest))
+          {
+            logger.LogInformation($"Old regtest directory exists. Removing it: {regtest}");
+            Directory.Delete(regtest, true);
+          }
+        }
+        else
+        {
+          Directory.CreateDirectory(dataDir);
         }
       }
       else
       {
-        Directory.CreateDirectory(dataDir);
+        if (!Directory.Exists(dataDir))
+        {
+          throw new Exception("Data directory does not exists. Can not start new instance of bitcoind");
+        }
       }
 
 
@@ -137,11 +147,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       this.RpcClient = rpcClient;
-      var height = rpcClient.GetBlockHeaderAsync(bestBlockhash).Result.Height;
-      if (height != 0)
+      if (emptyDataDir)
       {
-        throw new Exception("The node that was just started does not have an empty chain. Ca not proceed. Terminate the instance manually. ");
+        var height = rpcClient.GetBlockHeaderAsync(bestBlockhash).Result.Height;
+        if (height != 0)
+        {
+          throw new Exception(
+            "The node that was just started does not have an empty chain. Ca not proceed. Terminate the instance manually. ");
+        }
       }
+
       logger.LogInformation($"Started bitcoind process pid={localProcess.Id } rpcPort={rpcPort}, p2pPort={P2Port}, dataDir={dataDir}");
     }
 
