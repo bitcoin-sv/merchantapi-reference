@@ -159,7 +159,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         //Bits = header.Bits.ToString(),
         Difficulty = 0, // MOCK value
         Chainwork = "0", // MOCK value
-        Previousblockhash = uint256.Zero.ToString() // mock value
+        Previousblockhash = header.HashPrevBlock.ToString()
       };
       return Task.FromResult(result);
     }

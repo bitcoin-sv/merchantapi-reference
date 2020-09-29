@@ -374,15 +374,38 @@ WHERE sentMerkleProofAt IS NULL AND txExternalId= @txId;
       return await connection.QueryFirstOrDefaultAsync<NotificationData>(cmdText, new { txId });
     }
 
-    public async Task<IEnumerable<Tx>> GetTxsWithoutBlockAsync()
+    /// <summary>
+    /// Search for all transactions that are not present in the current chain we are parsing.
+    /// The transaction might already have a record in TxBlock table but from a different fork,
+    /// which means we will need to add a new record to TxBlock if the same transaction is present 
+    /// in new longer chain, to ensure we will send out the required notifications again
+    /// </summary>
+    public async Task<IEnumerable<Tx>> GetTxsNotInCurrentBlockChainAsync(long blockInternalId)
     {
       using var connection = GetDbConnection();
 
       string cmdText = @"
 SELECT txInternalId, txExternalId TxExternalIdBytes
 FROM Tx
-WHERE NOT EXISTS (SELECT txinternalid FROM TxBlock WHERE TxBlock.txInternalId = Tx.txInternalId);
-";
+WHERE NOT EXISTS 
+(
+  WITH RECURSIVE ancestorBlocks AS 
+  (
+    SELECT blockinternalid, blockheight , blockhash, prevblockhash
+    FROM block 
+    WHERE blockinternalid = @blockInternalId
+
+    UNION 
+
+    SELECT b1.blockinternalid, b1.blockheight, b1.blockhash, b1.prevblockhash
+    FROM block b1
+    INNER JOIN ancestorBlocks b2 ON b1.blockhash = b2.prevblockhash
+  )
+  SELECT 1 
+  FROM ancestorBlocks 
+  INNER JOIN TxBlock ON ancestorBlocks.blockinternalid = TxBlock.blockinternalid 
+  WHERE txblock.txInternalId=Tx.txInternalId
+);";
 
       return await connection.QueryAsync<Tx>(cmdText);
     }

@@ -32,8 +32,11 @@ namespace MerchantAPI.APIGateway.Domain
     [Required]
     public string RestAdminAPIKey { get; set; }
 
-    [Required] public 
-    int DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
+    [Required] 
+    public int DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
+
+    [Required]
+    public int MaxBlockChainLengthForFork { get; set; } = 288;
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>

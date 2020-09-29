@@ -174,5 +174,66 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(doubleSpendTx.Inputs.First().PrevOut.N, tx2.Inputs.First().PrevOut.N);
       Assert.AreNotEqual(doubleSpendTx.GetHash(), tx2.GetHash());
     }
+
+    [TestMethod]
+    public async Task TooLongForkCheck()
+    {
+      Assert.AreEqual(20, AppSettings.MaxBlockChainLengthForFork);
+      IList<Tx> txList = new List<Tx>();
+      txList.Add(CreateNewTx(Tx1Hash, Tx1Hex, false, true));
+      txList.Add(CreateNewTx(Tx2Hash, Tx2Hex, false, true));
+      await TxRepositoryPostgres.InsertTxsAsync(txList);
+
+      var node = NodeRepository.GetNodes().First();
+      var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+
+      long blockCount = await RpcClient.GetBlockCountAsync();
+      var blockHex = await RpcClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
+      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
+      firstBlock.Header.HashPrevBlock = uint256.Zero;
+      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
+      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+
+      var nextBlock = firstBlock;
+      var pubKey = nextBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First();
+      // Setup first chain, 20 blocks long
+      do
+      {
+        var tx = Transaction.Parse(Tx1Hex, Network.Main);
+        var prevBlockHash = nextBlock.GetHash();
+        nextBlock = nextBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
+        nextBlock.Header.HashPrevBlock = prevBlockHash;
+        nextBlock.AddTransaction(tx);
+        nextBlock.Check();
+        rpcClientFactoryMock.AddKnownBlock(blockCount++, nextBlock.ToBytes());
+      }
+      while (blockCount < 20);
+      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+
+      uint256 forkBlockHeight8Hash = uint256.Zero;
+      uint256 forkBlockHeight9Hash = uint256.Zero;
+      nextBlock = firstBlock;
+      blockCount = 1;
+      // Setup 2nd chain 30 blocks long that will not be downloaded completely (blockHeight=9 will be saved, blockheight=8 must not be saved)
+      do
+      {
+        var tx = Transaction.Parse(Tx2Hex, Network.Main);
+        var prevBlockHash = nextBlock.GetHash();
+        nextBlock = nextBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
+        nextBlock.Header.HashPrevBlock = prevBlockHash;
+        nextBlock.AddTransaction(tx);
+        nextBlock.Check();
+        rpcClientFactoryMock.AddKnownBlock(blockCount, nextBlock.ToBytes());
+
+        if (blockCount == 9) forkBlockHeight9Hash = nextBlock.GetHash();
+        if (blockCount == 8) forkBlockHeight8Hash = nextBlock.GetHash();
+        blockCount++;
+      }
+      while (blockCount < 30);
+      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+
+      Assert.IsNotNull(await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight9Hash.ToBytes()));
+      Assert.IsNull(await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight8Hash.ToBytes()));
+    }
   }
 }

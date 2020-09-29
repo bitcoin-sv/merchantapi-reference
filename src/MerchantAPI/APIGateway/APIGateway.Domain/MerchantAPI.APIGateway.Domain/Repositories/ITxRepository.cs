@@ -43,7 +43,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<IEnumerable<NotificationData>> GetTxsToSendMempoolDSNotificationsAsync();
 
-    Task<IEnumerable<Tx>> GetTxsWithoutBlockAsync();
+    Task<IEnumerable<Tx>> GetTxsNotInCurrentBlockChainAsync(long blockInternalId);
 
     Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds);
     

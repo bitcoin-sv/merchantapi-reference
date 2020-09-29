@@ -20,6 +20,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
   public class BlockParser : BackgroundServiceWithSubscriptions<BlockParser>, IBlockParser
   {
+    // Use stack for storing new blocks before triggering event for parsing blocks, to ensure
+    // that blocks will be parsed in same order as they were added to the blockchain
+    readonly Stack<NewBlockAvailableInDB> newBlockStack = new Stack<NewBlockAvailableInDB>();
     readonly AppSettings appSettings;
     readonly ITxRepository txRepository;
     readonly IRpcMultiClient rpcMultiClient;
@@ -67,7 +70,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     
     private async Task InsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
     {
-      var txsToCheck = await txRepository.GetTxsWithoutBlockAsync();
+      var txsToCheck = await txRepository.GetTxsNotInCurrentBlockChainAsync(blockInternalId);
       var txIdsFromBlock = new HashSet<uint256>(block.Transactions.Select(x => x.GetHash()));
 
       // Generate a list of transactions that are present in the last block and are also present in our database without a link to existing block
@@ -130,6 +133,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database");
       var blockHash = new uint256(e.BlockHash);
       var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(e.BlockHash);
+      var blockCount = (await rpcMultiClient.GetBestBlockchainInfoAsync()).Blocks;
+
+      // If received block that is too far from the best tip, we don't save the block anymore and 
+      // stop verifying block chain
+      if (blockHeader.Height < blockCount - appSettings.MaxBlockChainLengthForFork)
+      {
+        PushBlocksToEventQueue();
+        return;
+      }
 
       var dbBlock = new Block
       {
@@ -140,10 +152,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         PrevBlockHash = blockHeader.Previousblockhash == null ? uint256.Zero.ToBytes() : new uint256(blockHeader.Previousblockhash).ToBytes()
       };
 
-      // Insert block in DB and trigger NewBlockAvailableInDB event
+      // Insert block in DB and add the event to block stack for later processing
       dbBlock.BlockInternalId = await txRepository.InsertBlockAsync(dbBlock);
 
-      eventBus.Publish(new NewBlockAvailableInDB
+      newBlockStack.Push(new NewBlockAvailableInDB
       {
         BlockHash = new uint256(dbBlock.BlockHash).ToString(),
         BlockDBInternalId = dbBlock.BlockInternalId,
@@ -190,20 +202,36 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     // a block from a fork and we need to fill the gap with missing blocks
     private async Task VerifyBlockChain(string previousBlockHash)
     {
-      if (string.IsNullOrEmpty(previousBlockHash))
+      if (string.IsNullOrEmpty(previousBlockHash) || uint256.Zero.ToString() == previousBlockHash)
       {
         // We reached Genesis block
+        PushBlocksToEventQueue();
         return;
       }
 
       var block = await txRepository.GetBlockAsync(new uint256(previousBlockHash).ToBytes());
-
       if (block == null)
       {
         await NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent
         {
           BlockHash = previousBlockHash
         });
+      }
+      else
+      {
+        PushBlocksToEventQueue();
+      }
+    }
+
+    private void PushBlocksToEventQueue()
+    {
+      if (newBlockStack.Count > 0)
+      {
+        do
+        {
+          var newBlockEvent = newBlockStack.Pop();
+          eventBus.Publish(newBlockEvent);
+        } while (newBlockStack.Any());
       }
     }
   }
