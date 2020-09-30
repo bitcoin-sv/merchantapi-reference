@@ -1,0 +1,396 @@
+openapi: 3.0.1
+
+info:
+  description: >-
+    The mAPI (Merchant API) admin is used as an interface for managing connections to bitcoin nodes and fee quotes.
+
+  version: 1.2.2
+  title: mAPI Admin
+  license:
+    name: Open BSV License
+    url: https://bitcoinassociation.net/open-bsv-license/
+paths:
+  '/api/v1/FeeQuote/{id}':
+    get:
+      tags:
+        - FeeQuote
+      summary: Get selected fee quote.
+      parameters:
+        - name: id
+          in: path
+          description: Id of the selected fee quote.
+          required: true
+          schema:
+            type: integer
+            description: Id of the selected fee quote.
+            format: int64
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+  /api/v1/FeeQuote:
+    get:
+      tags:
+        - FeeQuote
+      summary: Get general list of fee quotes or fee quotes for given identity.
+      parameters:
+        - name: identity
+          in: query
+          description: Identity identifier.
+          schema:
+            type: string
+            description: Identity identifier.
+            nullable: true
+        - name: identityProvider
+          in: query
+          description: Identity provider.
+          schema:
+            type: string
+            description: Identity provider.
+            nullable: true
+        - name: anonymous
+          in: query
+          description: Return only fee quotes for anonymous user.
+          schema:
+            type: boolean
+            description: Return only fee quotes for anonymous user.
+        - name: current
+          in: query
+          description: Return only valid fee quotes.
+          schema:
+            type: boolean
+            description: Return only valid fee quotes.
+        - name: valid
+          in: query
+          description: Return valid fee quotes in interval with QuoteExpiryMinutes.
+          schema:
+            type: boolean
+            description: Return valid fee quotes in interval with QuoteExpiryMinutes.
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+    post:
+      tags:
+        - FeeQuote
+      summary: Create new fee quote.
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeeQuoteViewModelCreate'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/FeeQuoteViewModelCreate'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/FeeQuoteViewModelCreate'
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+  /api/v1/Node:
+    post:
+      tags:
+        - Node
+      summary: Register a new node with merchant api.
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeViewModelCreate'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/NodeViewModelCreate'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/NodeViewModelCreate'
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/NodeViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/NodeViewModelGet'
+    get:
+      tags:
+        - Node
+      summary: Get list of all nodes.
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeViewModelGet'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeViewModelGet'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NodeViewModelGet'
+  '/api/v1/Node/{id}':
+    put:
+      tags:
+        - Node
+      summary: Update selected node information.
+      parameters:
+        - name: id
+          in: path
+          description: Id of the selected node.
+          required: true
+          schema:
+            type: string
+            description: Id of the selected node.
+            nullable: true
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeViewModelCreate'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/NodeViewModelCreate'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/NodeViewModelCreate'
+      responses:
+        '200':
+          description: Success
+    delete:
+      tags:
+        - Node
+      summary: Delete selected node.
+      parameters:
+        - name: id
+          in: path
+          description: Id of the selected node.
+          required: true
+          schema:
+            type: string
+            description: Id of the selected node.
+            nullable: true
+      responses:
+        '200':
+          description: Success
+    get:
+      tags:
+        - Node
+      summary: Get selected node details.
+      parameters:
+        - name: id
+          in: path
+          description: Id of the selected node.
+          required: true
+          schema:
+            type: string
+            description: Id of the selected node.
+            nullable: true
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/NodeViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/NodeViewModelGet'
+components:
+  schemas:
+    FeeAmountViewModelGet:
+      type: object
+      properties:
+        satoshis:
+          type: integer
+          format: int64
+        bytes:
+          type: integer
+          format: int64
+      additionalProperties: false
+    FeeViewModelGet:
+      type: object
+      properties:
+        feeType:
+          type: string
+          nullable: true
+        miningFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+        relayFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+      additionalProperties: false
+    FeeQuoteConfigViewModelGet:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        validFrom:
+          type: string
+          format: date-time
+          nullable: true
+        identity:
+          type: string
+          nullable: true
+        identityProvider:
+          type: string
+          nullable: true
+        fees:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeViewModelGet'
+          nullable: true
+      additionalProperties: false
+    FeeAmountViewModelCreate:
+      type: object
+      properties:
+        satoshis:
+          type: integer
+          format: int64
+        bytes:
+          type: integer
+          format: int64
+      additionalProperties: false
+    FeeViewModelCreate:
+      type: object
+      properties:
+        feeType:
+          type: string
+          nullable: true
+        miningFee:
+          $ref: '#/components/schemas/FeeAmountViewModelCreate'
+        relayFee:
+          $ref: '#/components/schemas/FeeAmountViewModelCreate'
+      additionalProperties: false
+    FeeQuoteViewModelCreate:
+      type: object
+      properties:
+        validFrom:
+          type: string
+          format: date-time
+          nullable: true
+        identity:
+          type: string
+          nullable: true
+        identityProvider:
+          type: string
+          nullable: true
+        fees:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeViewModelCreate'
+          nullable: true
+      additionalProperties: false
+    NodeViewModelCreate:
+      required:
+        - id
+        - password
+        - username
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        remarks:
+          type: string
+          nullable: true
+      additionalProperties: false
+    NodeStatus:
+      enum:
+        - 600
+        - 601
+      type: integer
+      format: int32
+    NodeViewModelGet:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        remarks:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/NodeStatus'
+        lastError:
+          type: string
+          nullable: true
+        lastErrorAt:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: false
+  securitySchemes:
+    Bearer:
+      type: apiKey
+      description: 'Please enter JWT with Bearer needed to access MAPI into field. Authorization: Bearer JWT'
+      name: Authorization
+      in: header
+    Api-Key:
+      type: apiKey
+      description: 'Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key'
+      name: Api-Key
+      in: header
+security:
+  - Bearer: []
+  - Api-Key: []

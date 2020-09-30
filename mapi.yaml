@@ -1,0 +1,317 @@
+openapi: 3.0.1
+info:
+  description: >-
+    mAPI (Merchant API) is an additional service that miners can offer to merchants.
+
+
+    **Note**: Merchant API uses [JSON Envelopes](https://bitbucket.org/nchteamnch/jsonenvelope/src/master/) for its responses.
+  version: 1.2.2
+  title: mAPI
+  license:
+    name: Open BSV License
+    url: https://bitcoinassociation.net/open-bsv-license/
+paths:
+  /mapi/feeQuote:
+    get:
+      tags:
+        - Mapi
+      summary: Get a fee quote.
+      description: This endpoint returns a JSONEnvelope with a payload that contains the fees charged by a specific BSV miner.
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteViewModelGet'
+  '/mapi/tx/{id}':
+    get:
+      tags:
+        - Mapi
+      summary: Query transaction status.
+      description: This endpoint is used to check the current status of a previously submitted transaction.
+      parameters:
+        - name: id
+          in: path
+          description: The transaction ID (32 byte hash) hex string
+          required: true
+          schema:
+            type: string
+            description: The transaction ID (32 byte hash) hex string
+            nullable: true
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/QueryTransactionStatusResponseViewModel'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryTransactionStatusResponseViewModel'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/QueryTransactionStatusResponseViewModel'
+  /mapi/tx:
+    post:
+      tags:
+        - Mapi
+      summary: Submit a transaction.
+      description: This endpoint is used to send a raw transaction to a miner for inclusion in the next block that the miner creates.
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitTransactionViewModel'
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
+  /mapi/txs:
+    post:
+      tags:
+        - Mapi
+      summary: Submit multiple transactions.
+      description: This endpoint is used to send multiple raw transactions to a miner for inclusion in the next block that the miner creates.
+      parameters:
+        - name: defaultCallBackUrl
+          in: query
+          description: Default double spend and merkle proof notification callback endpoint.
+          schema:
+            type: string
+            description: Default double spend and merkle proof notification callback endpoint.
+            nullable: true
+        - name: defaultCallBackToken
+          in: query
+          description: Default access token for notification callback endpoint.
+          schema:
+            type: string
+            description: Default access token for notification callback endpoint.
+            nullable: true
+        - name: defaultCallBackEncryption
+          in: query
+          schema:
+            type: string
+            nullable: true
+        - name: defaultMerkleProof
+          in: query
+          description: Default merkle proof requirement.
+          schema:
+            type: boolean
+            description: Default merkle proof requirement.
+        - name: defaultDsCheck
+          in: query
+          description: Default double spend notification reuest.
+          schema:
+            type: boolean
+            description: Default double spend notification reuest.
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubmitTransactionViewModel'
+              description: ''
+              nullable: true
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
+components:
+  schemas:
+    FeeAmountViewModelGet:
+      type: object
+      properties:
+        satoshis:
+          type: integer
+          format: int64
+        bytes:
+          type: integer
+          format: int64
+      additionalProperties: false
+    FeeViewModelGet:
+      type: object
+      properties:
+        feeType:
+          type: string
+          nullable: true
+        miningFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+        relayFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+      additionalProperties: false
+    FeeQuoteViewModelGet:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        expiryTime:
+          type: string
+          format: date-time
+        minerId:
+          type: string
+          nullable: true
+        currentHighestBlockHash:
+          type: string
+          nullable: true
+        currentHighestBlockHeight:
+          type: integer
+          format: int64
+        fees:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeViewModelGet'
+          nullable: true
+      additionalProperties: false
+    QueryTransactionStatusResponseViewModel:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        txid:
+          type: string
+          nullable: true
+        returnResult:
+          type: string
+          nullable: true
+        resultDescription:
+          type: string
+          nullable: true
+        blockHash:
+          type: string
+          nullable: true
+        BlockHeight:
+          type: integer
+          format: int64
+          nullable: true
+        confirmations:
+          type: integer
+          format: int64
+          nullable: true
+        minerId:
+          type: string
+          nullable: true
+        txSecondMempoolExpiry:
+          type: integer
+          format: int32
+      additionalProperties: false
+    SubmitTransactionViewModel:
+      type: object
+      properties:
+        rawTx:
+          type: string
+          nullable: true
+        callBackUrl:
+          type: string
+          nullable: true
+        callBackToken:
+          type: string
+          nullable: true
+        callBackEncryption:
+          type: string
+          nullable: true
+        merkleProof:
+          type: boolean
+          nullable: true
+        dsCheck:
+          type: boolean
+          nullable: true
+      additionalProperties: false
+    SubmitTransactionConflictedTxResponseViewModel:
+      type: object
+      properties:
+        txid:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          format: int64
+        hex:
+          type: string
+          nullable: true
+      additionalProperties: false
+    SubmitTransactionResponseViewModel:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        txid:
+          type: string
+          nullable: true
+        returnResult:
+          type: string
+          nullable: true
+        resultDescription:
+          type: string
+          nullable: true
+        minerId:
+          type: string
+          nullable: true
+        currentHighestBlockHash:
+          type: string
+          nullable: true
+        currentHighestBlockHeight:
+          type: integer
+          format: int64
+        txSecondMempoolExpiry:
+          type: integer
+          format: int64
+        conflictedWith:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmitTransactionConflictedTxResponseViewModel'
+          nullable: true
+      additionalProperties: false
+  securitySchemes:
+    Bearer:
+      type: apiKey
+      description: 'Please enter JWT with Bearer needed to access MAPI into field. Authorization: Bearer JWT'
+      name: Authorization
+      in: header
+    Api-Key:
+      type: apiKey
+      description: 'Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key'
+      name: Api-Key
+      in: header
+security:
+  - Bearer: []
+  - Api-Key: []
