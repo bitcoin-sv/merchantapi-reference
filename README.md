@@ -1,6 +1,6 @@
 # mAPI
 
-More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi) for Merchant API.  
+More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi/tree/v1.2-beta) for Merchant API.  
 
 ### [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference)  
 
