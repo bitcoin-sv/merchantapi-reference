@@ -690,5 +690,40 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries[0]);
       }
     }
+
+    [TestMethod]
+    public async Task TestFeeQuotesForSimilarIdentitiesAndProviders()
+    {
+      // arrange
+      var entryPostWithIdentity = GetItemToCreateWithIdentity();
+      entryPostWithIdentity.Identity = "test_";
+      entryPostWithIdentity.IdentityProvider = "underline";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity, HttpStatusCode.Created);
+
+      var entryPostWithIdentity2 = GetItemToCreateWithIdentity();
+      entryPostWithIdentity2.Id = 2;
+      entryPostWithIdentity2.Identity = "test";
+      entryPostWithIdentity2.IdentityProvider = "_underline";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity2, HttpStatusCode.Created);
+
+      // test if we properly check for keys in cache
+      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(1)))
+      {
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client,
+             UrlForCurrentFeeQuoteKey(new UserAndIssuer()
+             {
+               Identity = entryPostWithIdentity.Identity,
+               IdentityProvider = entryPostWithIdentity.IdentityProvider
+             }), HttpStatusCode.OK);
+        CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
+
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client,
+                     UrlForCurrentFeeQuoteKey(new UserAndIssuer() { 
+                       Identity = entryPostWithIdentity2.Identity, 
+                       IdentityProvider = entryPostWithIdentity2.IdentityProvider
+                     }), HttpStatusCode.OK); 
+        CheckWasCreatedFrom(entryPostWithIdentity2, getEntries.Single());
+      }
+    }
   }
 }
