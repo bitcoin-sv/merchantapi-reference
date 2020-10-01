@@ -19,8 +19,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
     [JsonPropertyName("fees")]
     public Fee[] Fees { get; set; }
 
-    //[JsonPropertyName("expiry")]
-    //public Expiry Expiry { get; set; }
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
       if (CreatedAt > ValidFrom)
@@ -30,6 +28,14 @@ namespace MerchantAPI.APIGateway.Domain.Models
       if ((Identity != null && IdentityProvider == null) || (Identity == null && IdentityProvider != null))
       {
         yield return new ValidationResult("Must provide both (identity and identityProvider) or none. ");
+      }
+      if (Identity?.Trim() == "")
+      {
+        yield return new ValidationResult("Identity must contain at least one non-whitespace character.");
+      }
+      if (IdentityProvider?.Trim() == "")
+      {
+        yield return new ValidationResult("IdentityProvider must contain at least one non-whitespace character.");
       }
       if (Fees == null || Fees.Length == 0)
       {

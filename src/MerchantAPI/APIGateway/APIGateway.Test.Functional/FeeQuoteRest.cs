@@ -361,6 +361,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       entryPost.IdentityProvider = "testProvider";
       await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
 
+      entryPost = GetItemToCreateWithIdentity();
+      entryPost.Identity = "";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
+      entryPost = GetItemToCreate();
+      entryPost.IdentityProvider = "  ";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
       // test invalid fees
       entryPost = GetItemToCreate();
       entryPost.Fees = new FeeViewModelCreate[0];
@@ -496,6 +504,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
     }
+
 
     [TestMethod]
     public async Task TestFeeQuotesValidOverExpiryGetParameters()
@@ -655,6 +664,66 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entries[1], getEntries[0]);
       }
 
+    }
+
+    [TestMethod]
+    public async Task TestFeeQuotesForSimilarIdentities()
+    {
+      // arrange
+      var entryPostWithIdentity = GetItemToCreateWithIdentity();
+      var testIdentity = GetMockedIdentity;
+      testIdentity.Identity = "test ";
+      entryPostWithIdentity.Identity = testIdentity.Identity;
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity, HttpStatusCode.Created);
+
+      var entryPostWithIdentity2 = GetItemToCreateWithIdentity();
+      entryPostWithIdentity2.Identity = "test _ underline";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity2, HttpStatusCode.Created);
+
+      // test if we properly check for keys in cache
+      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(1)))
+      {
+        testIdentity.IdentityProvider = null;
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client,
+          UrlForValidFeeQuotesKey(testIdentity), HttpStatusCode.OK);
+        Assert.AreEqual(1, getEntries.Length); // must be only one
+        CheckWasCreatedFrom(entryPostWithIdentity, getEntries[0]);
+      }
+    }
+
+    [TestMethod]
+    public async Task TestFeeQuotesForSimilarIdentitiesAndProviders()
+    {
+      // arrange
+      var entryPostWithIdentity = GetItemToCreateWithIdentity();
+      entryPostWithIdentity.Identity = "test_";
+      entryPostWithIdentity.IdentityProvider = "underline";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity, HttpStatusCode.Created);
+
+      var entryPostWithIdentity2 = GetItemToCreateWithIdentity();
+      entryPostWithIdentity2.Id = 2;
+      entryPostWithIdentity2.Identity = "test";
+      entryPostWithIdentity2.IdentityProvider = "_underline";
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity2, HttpStatusCode.Created);
+
+      // test if we properly check for keys in cache
+      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(1)))
+      {
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client,
+             UrlForCurrentFeeQuoteKey(new UserAndIssuer()
+             {
+               Identity = entryPostWithIdentity.Identity,
+               IdentityProvider = entryPostWithIdentity.IdentityProvider
+             }), HttpStatusCode.OK);
+        CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
+
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client,
+                     UrlForCurrentFeeQuoteKey(new UserAndIssuer() { 
+                       Identity = entryPostWithIdentity2.Identity, 
+                       IdentityProvider = entryPostWithIdentity2.IdentityProvider
+                     }), HttpStatusCode.OK); 
+        CheckWasCreatedFrom(entryPostWithIdentity2, getEntries.Single());
+      }
     }
   }
 }

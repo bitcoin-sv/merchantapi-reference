@@ -89,7 +89,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       UserAndIssuer userAndIssuer = null;
       if (identity != null || identityProvider != null)
       {
-        userAndIssuer = new UserAndIssuer() { Identity = HttpUtility.UrlDecode(identity), IdentityProvider = HttpUtility.UrlDecode(identityProvider) };
+        userAndIssuer = new UserAndIssuer() { Identity = identity, IdentityProvider = identityProvider };
       }
 
       IEnumerable<FeeQuote> result = new List<FeeQuote>();
