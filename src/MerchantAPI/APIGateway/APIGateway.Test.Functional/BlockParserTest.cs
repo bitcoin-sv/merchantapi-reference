@@ -112,60 +112,29 @@ namespace MerchantAPI.APIGateway.Test.Functional
       txList.Add(CreateNewTx(Tx5Hash, Tx5Hex, false, true));
       await TxRepositoryPostgres.InsertTxsAsync(txList);
 
-      long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RpcClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
-
-      var pubKey = firstBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First();
-      var block1 = firstBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
 
       var tx = Transaction.Parse(Tx1Hex, Network.Main);
-      block1.AddTransaction(tx);
-      block1.Check();
-      long forkHeight = blockCount++;
-      rpcClientFactoryMock.AddKnownBlock(forkHeight, block1.ToBytes());
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+      long forkHeight = await CreateAndPublishNewBlock(rpcClient, null, tx);
 
-      var block2 = block1.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       var tx2 = Transaction.Parse(Tx2Hex, Network.Main);
-      block2.AddTransaction(tx2);
-      block2.Check();
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, block2.ToBytes());
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+      await CreateAndPublishNewBlock(rpcClient, null, tx2);
 
-      var block3 = block2.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       tx = Transaction.Parse(Tx3Hex, Network.Main);
-      block3.AddTransaction(tx);
-      block3.Check();
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, block3.ToBytes());
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+      await CreateAndPublishNewBlock(rpcClient, null, tx);
 
-      var block4 = block3.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       tx = Transaction.Parse(Tx4Hex, Network.Main);
-      block4.AddTransaction(tx);
-      block4.Check();
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, block4.ToBytes());
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+      await CreateAndPublishNewBlock(rpcClient, null, tx);
 
-      var block5 = block4.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       tx = Transaction.Parse(Tx5Hex, Network.Main);
-      block5.AddTransaction(tx);
-      block5.Check();
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, block5.ToBytes());
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+      await CreateAndPublishNewBlock(rpcClient, null, tx);
+
 
       // Use already inserted tx2 with changing only Version so we get new TxId
-      var nextBlock = block1.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
       doubleSpendTx.Version = 2;
       doubleSpendTx.GetHash();
-      nextBlock.AddTransaction(doubleSpendTx);
-      nextBlock.Check();
-      rpcClientFactoryMock.AddKnownBlock(forkHeight, nextBlock.ToBytes());
-      PublishBlockHashToEventBus(nextBlock.GetHash().ToString());
-      
+      await CreateAndPublishNewBlock(rpcClient, forkHeight, doubleSpendTx);
+
       var dbRecords = (await TxRepositoryPostgres.GetTxsToSendBlockDSNotificationsAsync()).ToList();
 
       Assert.AreEqual(1, dbRecords.Count());
@@ -187,32 +156,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RpcClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
-      firstBlock.Header.HashPrevBlock = uint256.Zero;
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
-
-      var nextBlock = firstBlock;
-      var pubKey = nextBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First();
-      // Setup first chain, 20 blocks long
+      long blockCount;
       do
       {
         var tx = Transaction.Parse(Tx1Hex, Network.Main);
-        var prevBlockHash = nextBlock.GetHash();
-        nextBlock = nextBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
-        nextBlock.Header.HashPrevBlock = prevBlockHash;
-        nextBlock.AddTransaction(tx);
-        nextBlock.Check();
-        rpcClientFactoryMock.AddKnownBlock(blockCount++, nextBlock.ToBytes());
+        blockCount = await CreateAndPublishNewBlock(rpcClient, null, tx);
       }
       while (blockCount < 20);
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
 
       uint256 forkBlockHeight8Hash = uint256.Zero;
       uint256 forkBlockHeight9Hash = uint256.Zero;
-      nextBlock = firstBlock;
+      var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(1), Network.Main);
+      var pubKey = new Key().PubKey;
       blockCount = 1;
       // Setup 2nd chain 30 blocks long that will not be downloaded completely (blockHeight=9 will be saved, blockheight=8 must not be saved)
       do
@@ -234,6 +189,79 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.IsNotNull(await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight9Hash.ToBytes()));
       Assert.IsNull(await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight8Hash.ToBytes()));
+    }
+
+    [TestMethod]
+    public async Task DoubleMerkleProofCheck()
+    {
+      IList<Tx> txList = new List<Tx>();
+      txList.Add(CreateNewTx(Tx1Hash, Tx1Hex, true, true));
+      txList.Add(CreateNewTx(Tx2Hash, Tx2Hex, true, true));
+      await TxRepositoryPostgres.InsertTxsAsync(txList);
+
+      var node = NodeRepository.GetNodes().First();
+      var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+
+      var blockCount = await CreateAndPublishNewBlock(rpcClient, null);
+
+      NBitcoin.Block forkBlock = null;
+      var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);
+      var pubKey = nextBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First();
+      // tx1 will be mined in block 1 and the notification has to be sent only once (1 insert into txBlock)
+      var tx1 = Transaction.Parse(Tx1Hex, Network.Main);
+      // tx2 will be mined in block 15 in chain 1 and in the block 20 in longer chain 2 and the notification 
+      // has to be sent twice (2 inserts into txBlock)
+      var tx2 = Transaction.Parse(Tx2Hex, Network.Main);
+      // Setup first chain, 20 blocks long
+      do
+      {
+        var prevBlockHash = nextBlock.GetHash();
+        nextBlock = nextBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
+        nextBlock.Header.HashPrevBlock = prevBlockHash;
+        if (blockCount == 1)
+        {
+          nextBlock.AddTransaction(tx1);
+        }
+        if (blockCount == 9)
+        {
+          forkBlock = nextBlock;
+        }
+        if (blockCount == 15)
+        {
+          nextBlock.AddTransaction(tx2);
+        }
+        nextBlock.Check();
+        rpcClientFactoryMock.AddKnownBlock(blockCount++, nextBlock.ToBytes());
+      }
+      while (blockCount < 20);
+      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+
+      nextBlock = forkBlock;
+      blockCount = 10;
+      // Setup second chain
+      do
+      {
+        var prevBlockHash = nextBlock.GetHash();
+        nextBlock = nextBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
+        nextBlock.Header.HashPrevBlock = prevBlockHash;
+        if (blockCount == 20)
+        {
+          nextBlock.AddTransaction(tx2);
+        }
+        nextBlock.Check();
+        rpcClientFactoryMock.AddKnownBlock(blockCount++, nextBlock.ToBytes());
+      }
+      while (blockCount < 21);
+      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+
+      var merkleProofs = (await TxRepositoryPostgres.GetTxsToSendMerkleProofNotificationsAsync(0, 100)).ToArray();
+
+      Assert.AreEqual(3, merkleProofs.Length);
+      Assert.IsTrue(merkleProofs.Count(x => new uint256(x.TxExternalId).ToString() == Tx1Hash) == 1);
+      // Tx2 must have 2 requests for merkle proof notification (blocks 15 and 20)
+      Assert.IsTrue(merkleProofs.Count(x => new uint256(x.TxExternalId).ToString() == Tx2Hash) == 2);
+      Assert.IsTrue(merkleProofs.Any(x => new uint256(x.TxExternalId).ToString() == Tx2Hash && x.BlockHeight == 15));
+      Assert.IsTrue(merkleProofs.Any(x => new uint256(x.TxExternalId).ToString() == Tx2Hash && x.BlockHeight == 20));
     }
   }
 }

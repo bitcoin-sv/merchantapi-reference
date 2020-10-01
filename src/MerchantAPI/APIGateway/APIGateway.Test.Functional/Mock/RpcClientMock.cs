@@ -125,6 +125,23 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return Task.FromResult(block.BlockData);
     }
 
+    public Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
+    {
+      var r = SimulateCall<byte[]>();
+      if (r != null)
+      {
+        return r;
+      }
+
+      if ((blocks.Count - 1) < blockHeight)
+      {
+        throw new Exception($"Mock block with height {blockHeight} not found");
+      }
+      var block = blocks.ElementAt((int)blockHeight).Value;
+
+      return Task.FromResult(block.BlockData);
+    }
+
     public Task<string> GetBlockHashAsync(long height, CancellationToken? token = null)
     {
       return SimulateCall<string>() ?? Task.FromResult(blocks.Values.Single(x => x.Height == height).BlockHash.ToString());

@@ -304,7 +304,7 @@ SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.
 FROM Tx
 INNER JOIN TxBlockDoubleSpend ON Tx.txInternalId = TxBlockDoubleSpend.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlockDoubleSpend.blockinternalid 
-WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL 
+WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND Tx.dscheck = true
 ORDER BY callbackUrl;
 ";
 
@@ -320,7 +320,7 @@ SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.
 FROM Tx
 INNER JOIN TxBlockDoubleSpend ON Tx.txInternalId = TxBlockDoubleSpend.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlockDoubleSpend.blockinternalid 
-WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND txExternalId = @txId
+WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND Tx.dscheck = true AND txExternalId = @txId
 ORDER BY callbackUrl;
 ";
 
@@ -335,7 +335,7 @@ ORDER BY callbackUrl;
 SELECT Tx.txInternalId, Tx.txExternalId, callbackUrl, callbackToken, callbackEncryption, dsTxId doubleSpendTxId, dsTxPayload payload
 FROM Tx
 INNER JOIN TxMempoolDoubleSpendAttempt ON Tx.txInternalId = TxMempoolDoubleSpendAttempt.txInternalId
-WHERE sentDsNotificationAt IS NULL
+WHERE sentDsNotificationAt IS NULL AND Tx.dscheck = true
 ORDER BY callbackUrl;
 ";
 
@@ -351,7 +351,7 @@ SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, bl
 FROM Tx
 INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 
-WHERE sentMerkleProofAt IS NULL
+WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true
 OFFSET @skip ROWS
 FETCH NEXT @fetch ROWS ONLY;
 ";
@@ -368,7 +368,7 @@ SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, bl
 FROM Tx
 INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 
-WHERE sentMerkleProofAt IS NULL AND txExternalId= @txId;
+WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true AND txExternalId= @txId;
 ";
 
       return await connection.QueryFirstOrDefaultAsync<NotificationData>(cmdText, new { txId });
@@ -407,7 +407,7 @@ WHERE NOT EXISTS
   WHERE txblock.txInternalId=Tx.txInternalId
 );";
 
-      return await connection.QueryAsync<Tx>(cmdText);
+      return await connection.QueryAsync<Tx>(cmdText, new { blockInternalId });
     }
 
     /// <summary>

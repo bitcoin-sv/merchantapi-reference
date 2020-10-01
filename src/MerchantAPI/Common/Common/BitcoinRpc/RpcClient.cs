@@ -29,6 +29,8 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null);
 
+    Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null);
+
     Task<string> GetBlockHashAsync(long height, CancellationToken? token = null);
 
     Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash, CancellationToken? token = null);
@@ -114,6 +116,12 @@ namespace MerchantAPI.Common.BitcoinRpc
     public async Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null)
     {
       var response = await RequestAsyncWithRetry<string>(token, "getblock", null, blockHash, 0);
+      return HelperTools.HexStringToByteArray(response);
+    }
+
+    public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
+    {
+      var response = await RequestAsyncWithRetry<string>(token, "getblockbyheight", null, blockHeight, 0);
       return HelperTools.HexStringToByteArray(response);
     }
 

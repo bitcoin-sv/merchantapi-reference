@@ -13,6 +13,7 @@ using Dapper;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.Authentication;
@@ -415,6 +416,53 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }).ToList();
 
       return tx;
+    }
+
+    public async Task<long> CreateAndPublishNewBlock(IRpcClient rpcClient, long? blockHeightToStartFork, params Transaction[] transactions)
+    {
+      long blockCount = await rpcClient.GetBlockCountAsync();
+      if (blockCount == 0)
+      {
+        var blockHex = await rpcClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync());
+        var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
+        rpcClientFactoryMock.AddKnownBlock(blockCount, firstBlock.ToBytes());
+        PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+      }
+      PubKey pubKey = new Key().PubKey;
+
+      foreach (var tx in transactions)
+      {
+        NBitcoin.Block lastBlock;
+        if (blockHeightToStartFork.HasValue)
+        {
+          lastBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(blockHeightToStartFork.Value), Network.Main);
+        }
+        else
+        {
+          lastBlock = NBitcoin.Block.Load(await rpcClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync()), Network.Main);
+        }
+        var block = lastBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
+        block.AddTransaction(tx);
+        block.Check();
+        if (blockHeightToStartFork.HasValue)
+        {
+          blockCount = blockHeightToStartFork.Value;
+        }
+
+        rpcClientFactoryMock.AddKnownBlock(++blockCount, block.ToBytes());
+        PublishBlockHashToEventBus(block.GetHash().ToString());
+      }
+
+      return blockCount;
+    }
+    protected void PublishBlockHashToEventBus(string blockHash)
+    {
+      eventBus.Publish(new NewBlockDiscoveredEvent
+      {
+        BlockHash = blockHash
+      });
+
+      WaitUntilEventBusIsIdle();
     }
 
     protected void InsertFeeQuote()
