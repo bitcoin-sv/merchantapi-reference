@@ -15,7 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional;
-using MerchantAPI.APIGateway.Test.Stress.CallBackWebServer;
+using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.CodeAnalysis.CSharp.Syntax;

@@ -3,7 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using MerchantAPI.APIGateway.Test.Stress.CallBackWebServer;
+using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
 using Microsoft.AspNetCore.Http;
 
 namespace MerchantAPI.APIGateway.Test.Stress

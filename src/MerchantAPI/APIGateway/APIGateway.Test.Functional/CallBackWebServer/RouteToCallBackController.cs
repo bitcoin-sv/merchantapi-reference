@@ -1,14 +1,11 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 
-namespace MerchantAPI.APIGateway.Test.Stress.CallBackWebServer
+namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
 {
   
   /// <summary>

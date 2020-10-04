@@ -1,7 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -10,12 +9,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace MerchantAPI.APIGateway.Test.Stress.CallBackWebServer
+namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
 {
   /// <summary>
   /// Configures and starts web server that route POST requests to ICallBackReceived
   /// </summary>
-  static class StartWebServer
+  public static class StartWebServer
   {
 
     public static IHost Start(string url, CancellationToken cancellationToken, ICallBackReceived callBackReceived)
