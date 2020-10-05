@@ -21,6 +21,7 @@ using MerchantAPI.APIGateway.Domain.ExternalServices;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi.Models;
 using System.Linq;
+using System.Net.Http;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Database;
@@ -80,6 +81,15 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<IRpcClientFactory, RpcClientFactory>();
       services.AddTransient<IRpcMultiClient, RpcMultiClient>();
       services.AddTransient<INotificationAction, NotificationAction>();
+      services.AddSingleton<INotificationServiceHttpClientFactory, NotificationServiceHttpClientFactoryDefault>();
+      services.AddHttpClient(NotificationServiceHttpClientFactoryDefault.ClientName) // This could be moved into NotificationServiceHttpClientFactoryDefault
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+          UseCookies =
+            false, // Disable cookies they are not needed and we do not want to leak them - https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-3.1#cookies
+        });
+
+      services.AddHttpClient("minerIdClient"); // will only be used if WifPrivateKey is not provided
       services.AddSingleton<IBlockChainInfo, BlockChainInfo>(); // singleton, thread safe
       services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe
       services.AddTransient<ICreateDB, CreateDB>();
@@ -91,6 +101,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddSingleton<IMinerId>(s =>
         {
           var appSettings = s.GetService<IOptions<AppSettings>>().Value;
+          var httpClientFactory = s.GetRequiredService<IHttpClientFactory>();
 
           if (!string.IsNullOrWhiteSpace(appSettings.WifPrivateKey))
           {
@@ -98,7 +109,8 @@ namespace MerchantAPI.APIGateway.Rest
           }
           else if (appSettings.MinerIdServer != null && !string.IsNullOrEmpty(appSettings.MinerIdServer.Url))
           {
-            return new MinerIdRestClient(appSettings.MinerIdServer.Url, appSettings.MinerIdServer.Alias, appSettings.MinerIdServer.Authentication);
+            return new MinerIdRestClient(appSettings.MinerIdServer.Url, appSettings.MinerIdServer.Alias, appSettings.MinerIdServer.Authentication, 
+              httpClientFactory.CreateClient("minerIdClient"));
           }
           throw new Exception($"Invalid configuration - either {nameof(appSettings.MinerIdServer)} or {nameof(appSettings.WifPrivateKey)} are required.");
         }
@@ -107,7 +119,6 @@ namespace MerchantAPI.APIGateway.Rest
       if (HostEnvironment.EnvironmentName != "Testing")
       {
         services.AddHostedService<StartupChecker>();
-        services.AddHostedService<NotificationService>();
         services.AddTransient<IClock, Clock>();
       }
       else
@@ -116,6 +127,7 @@ namespace MerchantAPI.APIGateway.Rest
         services.AddSingleton<IClock, MockedClock>();
       }
 
+      services.AddHostedService<NotificationService>();
       services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
       services.AddHostedService<InvalidTxHandler>();
 

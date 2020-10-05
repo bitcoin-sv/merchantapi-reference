@@ -2,10 +2,15 @@
 
 using System;
 using System.Text.Json.Serialization;
+using MerchantAPI.Common.BitcoinRpc.Responses;
 
 namespace MerchantAPI.APIGateway.Domain.ViewModels
 {
-  public class CallbackNotificationViewModel
+  /// <summary>
+  /// Base class containing fields common to all callbacks.
+  /// Derived classes contains actual payload.
+  /// </summary>
+  public class CallbackNotificationViewModelBase
   {
     [JsonPropertyName("apiVersion")]
     public string APIVersion { get; set; }
@@ -24,11 +29,31 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
     
     [JsonPropertyName("callbackTxId")]
     public string CallbackTxId { get; set; }
-    
+
     [JsonPropertyName("callbackReason")]
     public string CallbackReason { get; set; }
-    
-    [JsonPropertyName("callbackPayload")]
-    public object CallbackPayload { get; set; }
+
   }
+
+  public class CallbackNotificationMerkeProofViewModel : CallbackNotificationViewModelBase
+  {
+    [JsonPropertyName("callbackPayload")]
+    public RpcGetMerkleProof CallbackPayload { get; set; }
+  }
+
+  public class CallbackNotificationDoubleSpendViewModel : CallbackNotificationViewModelBase
+  {
+    [JsonPropertyName("callbackPayload")]
+    public DsNotificationPayloadCallBackViewModel CallbackPayload { get; set; }
+  }
+
+  public class DsNotificationPayloadCallBackViewModel
+  {
+    [JsonPropertyName("doubleSpendTxId")]
+    public string DoubleSpendTxId { get; set; }
+
+    [JsonPropertyName("payload")]
+    public string Payload { get; set; }
+  }
+
 }

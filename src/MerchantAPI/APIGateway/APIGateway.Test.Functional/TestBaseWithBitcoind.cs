@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.BitcoinRpc;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -199,6 +201,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
       foreach (var coin in GetCoins(rpcClient, 10))
       {
         availableCoins.Enqueue(coin);
+      }
+    }
+
+
+    public async Task<uint256> GenerateBlockAndWaitForItTobeInsertedInDBAsync()
+    {
+
+      WaitUntilEventBusIsIdle(); // make sure that all old events (such activating ZMQ subscriptions) are processed
+      var subscription = eventBus.Subscribe<NewBlockAvailableInDB>();
+      try
+      {
+
+        loggerTest.LogInformation("Generating a block and waiting for it to be inserted in DB");
+        // generate a new block
+        var blockToWaitFor = new uint256((await rpcClient0.GenerateAsync(1))[0]);
+        await WaitForEventBusEventAsync(subscription,
+          $"Waiting for block {blockToWaitFor} to be inserted in DB",
+          (evt) => new uint256(evt.BlockHash) == blockToWaitFor
+        );
+        return blockToWaitFor;
+      }
+      finally
+      {
+        eventBus.TryUnsubscribe(subscription);
       }
     }
   }

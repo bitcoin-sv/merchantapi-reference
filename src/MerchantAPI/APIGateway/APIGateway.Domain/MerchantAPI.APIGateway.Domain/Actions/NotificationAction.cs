@@ -14,9 +14,21 @@ using MerchantAPI.APIGateway.Domain.ExternalServices;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net.Http;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
+
+  /// <summary>
+  /// Used to create a HttpClient that is used for performing callback notification.
+  /// The default implementation (NotificationServiceHttpClientFactoryDefault) uses built in HttpClient
+  /// Functional tests use another implementation that is connected to TestServer
+  /// </summary>
+  public interface INotificationServiceHttpClientFactory
+  {
+    HttpClient CreateClient();
+  }
+
   public class NotificationAction : INotificationAction
   {
     static readonly ConcurrentDictionary<string, NotificationData> newNotificationEvents = new ConcurrentDictionary<string, NotificationData>();
@@ -26,13 +38,21 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly IRpcMultiClient rpcMultiClient;
     IRestClient restClient;
     string last404ErrorCallbackUrl;
+    readonly HttpClient httpClient;
 
-    public NotificationAction(ILogger<NotificationAction> logger, IMinerId minerId, IRpcMultiClient rpcMultiClient, ITxRepository txRepository)
+    public NotificationAction(ILogger<NotificationAction> logger, IMinerId minerId, IRpcMultiClient rpcMultiClient, ITxRepository txRepository, INotificationServiceHttpClientFactory httpClientFactory)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.minerId = minerId ?? throw new ArgumentNullException(nameof(minerId));
+
+      if (httpClientFactory == null)
+      {
+        throw new ArgumentNullException(nameof(httpClientFactory));
+      }
+
+      this.httpClient = httpClientFactory.CreateClient();
 
     }
 
@@ -60,7 +80,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       if (restClient == null || restClient.BaseURL != url || restClient.Authorization != token)
       {
-        restClient = new RestClient(url, token);
+        restClient = new RestClient(url, token, httpClient);
       }
       return restClient;
     }
@@ -142,21 +162,22 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     }
 
-    private async Task<bool> SendNotificationAsync(string callbackReason, byte[] txIdBytes, byte[] blockHashBytes, long blockHeight, object payload, string callbackUrl, string callbackToken, string callbackEncryption)
+    /// <summary>
+    /// Add additional data to supplied cbNotification. The main payload of cbNotification must already be initialized before calling this function.
+    /// </summary>
+    private async Task<bool> SendNotificationAsync(string callbackReason, byte[] txIdBytes, byte[] blockHashBytes, long blockHeight, CallbackNotificationViewModelBase cbNotification, string callbackUrl, string callbackToken, string callbackEncryption)
     {
       var txId = new uint256(txIdBytes).ToString();
       var blockHash = (blockHashBytes == null || blockHashBytes.Length == 0) ? "" : new uint256(blockHashBytes).ToString();
-      var cbNotification = new CallbackNotificationViewModel
-      {
-        APIVersion = Const.MERCHANT_API_VERSION,
-        BlockHash = blockHash,
-        BlockHeight = blockHeight,
-        CallbackPayload = payload,
-        CallbackReason = callbackReason,
-        CallbackTxId = txId,
-        MinerId = lastMinerId ?? await minerId.GetCurrentMinerIdAsync(),
-        TimeStamp = DateTime.UtcNow
-      };
+
+      cbNotification.APIVersion = Const.MERCHANT_API_VERSION;
+      cbNotification.BlockHash = blockHash;
+      cbNotification.BlockHeight = blockHeight;
+      cbNotification.CallbackReason = callbackReason;
+      cbNotification.CallbackTxId = txId;
+      cbNotification.MinerId = lastMinerId ?? await minerId.GetCurrentMinerIdAsync();
+      cbNotification.TimeStamp = DateTime.UtcNow;
+      
 
       var signedPayload = await SignIfRequiredAsync(cbNotification);
 
@@ -176,7 +197,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         rowsFetched = merkleProofTxs.Count();
         foreach (var tx in merkleProofTxs)
         {
-          var merkleProof = await rpcMultiClient.GetMerkleProofAsync(new uint256(tx.TxExternalId).ToString(), new uint256(tx.BlockHash).ToString());
+
+          var merkleProof =
+            new CallbackNotificationMerkeProofViewModel
+            {
+              CallbackPayload = await rpcMultiClient.GetMerkleProofAsync(new uint256(tx.TxExternalId).ToString(),
+                new uint256(tx.BlockHash).ToString())
+            };
           var success = await SendNotificationAsync(CallbackReason.MerkleProof, tx.TxExternalId, tx.BlockHash, tx.BlockHeight, merkleProof, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
           if (success)
           {
@@ -193,7 +220,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       doubleSpends = RemoveWaitingEvents(doubleSpends);
       foreach (var tx in doubleSpends)
       {
-        var success = await SendNotificationAsync(CallbackReason.DoubleSpend, tx.TxExternalId, tx.BlockHash, tx.BlockHeight, new { DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(), tx.Payload }, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
+        var cbNotification = new CallbackNotificationDoubleSpendViewModel
+        {
+          CallbackPayload = new DsNotificationPayloadCallBackViewModel
+          {
+            DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(),
+            Payload = HelperTools.ByteToHexString(tx.Payload)
+          }
+        };
+        var success = await SendNotificationAsync(CallbackReason.DoubleSpend, tx.TxExternalId, tx.BlockHash, tx.BlockHeight, cbNotification, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
         if (success)
         {
           await txRepository.SetBlockDoubleSpendSendDateAsync(tx.TxInternalId, tx.BlockInternalId, tx.DoubleSpendTxId, DateTime.UtcNow);
@@ -208,7 +243,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       doubleSpends = RemoveWaitingEvents(doubleSpends);
       foreach (var tx in doubleSpends)
       {
-        var success = await SendNotificationAsync(CallbackReason.DoubleSpendAttempt, tx.TxExternalId, null, 0, new { DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(), tx.Payload }, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
+        var cbNotification = new CallbackNotificationDoubleSpendViewModel
+        {
+          CallbackPayload = new DsNotificationPayloadCallBackViewModel
+          {
+            DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(),
+            Payload = HelperTools.ByteToHexString(tx.Payload)
+          }
+        };
+        var success = await SendNotificationAsync(CallbackReason.DoubleSpendAttempt, tx.TxExternalId, null, 0, cbNotification, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
         if (success)
         {
           await txRepository.SetMempoolDoubleSpendSendDateAsync(tx.TxInternalId, tx.DoubleSpendTxId, DateTime.UtcNow);
@@ -243,7 +286,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         case CallbackReason.DoubleSpend:
           tx = await txRepository.GetTxToSendBlockDSNotificationAsync(e.TransactionId);
-          success = await SendNotificationAsync(CallbackReason.DoubleSpend, tx.TxExternalId, tx.BlockHash, tx.BlockHeight, new { DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(), tx.Payload }, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
+          
+          var cbNotification1 = new CallbackNotificationDoubleSpendViewModel
+          {
+            CallbackPayload = new DsNotificationPayloadCallBackViewModel
+            {
+              DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(),
+              Payload = HelperTools.ByteToHexString(tx.Payload)
+            }
+          };
+
+          success = await SendNotificationAsync(CallbackReason.DoubleSpend, tx.TxExternalId, tx.BlockHash, tx.BlockHeight, cbNotification1, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
           if (success)
           {
             await txRepository.SetBlockDoubleSpendSendDateAsync(tx.TxInternalId, tx.BlockInternalId, tx.DoubleSpendTxId, DateTime.UtcNow);
@@ -254,7 +307,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           // we saved all necessary data to the dictionary so we will try to retrieve it here
           if (newNotificationEvents.TryGetValue(GetDictionaryKey(e), out tx))
           {
-            success = await SendNotificationAsync(CallbackReason.DoubleSpendAttempt, tx.TxExternalId, null, 0, new { DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(), tx.Payload }, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
+            var cbNotification2 = new CallbackNotificationDoubleSpendViewModel
+            {
+              CallbackPayload = new DsNotificationPayloadCallBackViewModel
+              {
+                DoubleSpendTxId = new uint256(tx.DoubleSpendTxId).ToString(),
+                Payload = HelperTools.ByteToHexString(tx.Payload)
+              }
+            };
+            success = await SendNotificationAsync(CallbackReason.DoubleSpendAttempt, tx.TxExternalId, null, 0, cbNotification2, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
             if (success)
             {
               await txRepository.SetMempoolDoubleSpendSendDateAsync(tx.TxInternalId, tx.DoubleSpendTxId, DateTime.UtcNow);
@@ -264,8 +325,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           break;
         case CallbackReason.MerkleProof:
           tx = await txRepository.GetTxToSendMerkleProofNotificationAsync(e.TransactionId);
-          var merkleProof = await rpcMultiClient.GetMerkleProofAsync(new uint256(tx.TxExternalId).ToString(), new uint256(tx.BlockHash).ToString());
-          success = await SendNotificationAsync(CallbackReason.MerkleProof, tx.TxExternalId, tx.BlockHash, tx.BlockHeight, merkleProof, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
+          var cbNotification3 = new CallbackNotificationMerkeProofViewModel
+          {
+            CallbackPayload = await rpcMultiClient.GetMerkleProofAsync(new uint256(tx.TxExternalId).ToString(),
+              new uint256(tx.BlockHash).ToString())
+          };
+          
+          success = await SendNotificationAsync(CallbackReason.MerkleProof, tx.TxExternalId, tx.BlockHash, tx.BlockHeight, cbNotification3, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption);
           if (success)
           {
             await txRepository.SetMerkleProofSendDateAsync(tx.TxInternalId, tx.BlockInternalId, DateTime.UtcNow);

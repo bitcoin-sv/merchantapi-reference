@@ -7,11 +7,32 @@ using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Rest.Services
 {
+
+  /// <summary>
+  /// Default HttpClient factory used when performing callbacks in production code.
+  /// </summary>
+  public class NotificationServiceHttpClientFactoryDefault : INotificationServiceHttpClientFactory
+  {
+    public const string ClientName = "Notification.Service.Http.Client";
+    IHttpClientFactory factory;
+    public NotificationServiceHttpClientFactoryDefault(IHttpClientFactory defaultFactory)
+    {
+      this.factory = defaultFactory ?? throw new ArgumentNullException(nameof(defaultFactory));
+      
+    }
+    public HttpClient CreateClient()
+    {
+        return factory.CreateClient(ClientName);
+    }
+  }
+
+
   public class NotificationService : BackgroundServiceWithSubscriptions<NotificationService>
   {
     readonly INotificationAction notificationAction;
@@ -30,7 +51,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       while (!stoppingToken.IsCancellationRequested)
       {
         notificationAction.ProcessAndSendNotifications();
-        await Task.Delay(options.CurrentValue.NotificationIntervalSec * 1000);
+        await Task.Delay(options.CurrentValue.NotificationIntervalSec * 1000, stoppingToken);
       }
     }
 

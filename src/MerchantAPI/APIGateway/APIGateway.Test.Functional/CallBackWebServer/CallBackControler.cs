@@ -1,6 +1,8 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using System;
+using System.IO;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
@@ -20,9 +22,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
     }
 
     [HttpPost]
-    public void ProcessPost()
+    public async Task ProcessPost()
     {
-      callBackReceived.CallbackReceived(HttpContext);
+      var ms = new MemoryStream();
+      await HttpContext.Request.Body.CopyToAsync(ms);
+      callBackReceived.CallbackReceived(Request.Path, ms.ToArray());
+      Response.StatusCode = 200;
     }
 
 
@@ -33,7 +38,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
     [HttpGet]
     public string ProcessGet()
     {
-      return "This is mAPI stress test callback controller";
+      return "This is mAPI test callback controller";
     }
   }
 }

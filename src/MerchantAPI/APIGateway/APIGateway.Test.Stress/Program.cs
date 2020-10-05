@@ -229,7 +229,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         if (startListener)
         {
           Console.WriteLine($"Starting web server for url {callbackUrl}");
-          webServer = StartWebServer.Start(callbackUrl, cancellationSource.Token, new CallBackReceived(stats));
+          webServer = CallBackServer.Start(callbackUrl, cancellationSource.Token, new CallBackReceived(stats));
         }
 
 

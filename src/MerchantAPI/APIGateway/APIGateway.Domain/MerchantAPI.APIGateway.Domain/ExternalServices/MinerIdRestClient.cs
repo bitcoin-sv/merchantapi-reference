@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.Common;
@@ -14,7 +15,7 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
     bool? supportPassingInSigningPublicKey; 
     object lockObj = new object();
     readonly RestClient restClient;
-    public MinerIdRestClient(string minerIdUrl, string minerIdAlias, string authorization)
+    public MinerIdRestClient(string minerIdUrl, string minerIdAlias, string authorization, HttpClient httpClient)
     {
       if (minerIdUrl == null)
       {
@@ -25,8 +26,13 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
       {
         throw new ArgumentNullException(nameof(minerIdAlias));
       }
+
+      if (httpClient == null)
+      {
+        throw new ArgumentNullException(nameof(httpClient));
+      }
       var url = minerIdUrl.TrimEnd('/') +"/"+ minerIdAlias;
-      restClient = new RestClient(url, authorization);
+      restClient = new RestClient(url, authorization, httpClient);
     }
     public Task<string> GetCurrentMinerIdAsync()
     {

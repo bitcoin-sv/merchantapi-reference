@@ -19,7 +19,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [AssemblyInitialize]
     public static void AssemblyInit(TestContext context)
     {
-      // Initalization code goes here
+      // Initialization code goes here
       if (!setProvider)
       {
         NpgsqlLogManager.Provider = new ConsoleLoggingProvider(NpgsqlLogLevel.Debug);
@@ -28,7 +28,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       //setup server
-      var server = TestServerBase.CreateServer(false);
+      var server = TestServerBase.CreateServer(false, null);
       var loggerFactory = server.Services.GetRequiredService<ILoggerFactory>();
       var loggerTest = loggerFactory.CreateLogger(TestBase.LOG_CATEGORY);
 

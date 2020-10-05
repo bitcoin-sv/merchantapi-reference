@@ -17,6 +17,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.Authentication;
+using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
@@ -54,7 +55,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public IEventBus eventBus { get; private set; }
 
     protected Microsoft.AspNetCore.TestHost.TestServer server;
-    protected System.Net.Http.HttpClient client;
+    protected HttpClient client;
+
+    protected Microsoft.AspNetCore.TestHost.TestServer serverCallBack;
+    protected HttpClient clientCallBack;
 
 
     protected ILogger loggerTest;
@@ -70,6 +74,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private readonly string dbConnectionString;
 
     public static AutoResetEvent SyncTest = new AutoResetEvent(true);
+
+    public CallBackFunctionalTests CallBack = new CallBackFunctionalTests();
 
     protected UserAndIssuer GetMockedIdentity
     {
@@ -181,6 +187,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public void  WaitUntilEventBusIsIdle()
     {
       eventBus.WaitForIdle();
+      loggerTest.LogInformation("Waiting for the EventBus to become idle completed");
     }
     public static void RepeatUntilException(Action action, int timeOutSeconds = 10)
     {
@@ -217,7 +224,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       dbConnectionString = Configuration["ConnectionStrings:DBConnectionString"];
     }
-
+   
     public void Initialize(bool mockedServices = false)
     {
       SyncTest.WaitOne(); // tests must not run in parallel since each test first deletes database
@@ -229,8 +236,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
         TxRepositoryPostgres.EmptyRepository(dbConnectionString);
         FeeQuoteRepositoryPostgres.EmptyRepository(dbConnectionString);
 
+        // setup call back server
+        serverCallBack = CallBackServer.GetTestServer(CallBack.Url, CallBack);
+        clientCallBack = serverCallBack.CreateClient();
+
         //setup server
-        server = TestServerBase.CreateServer(mockedServices);
+        server = TestServerBase.CreateServer(mockedServices, serverCallBack);
         client = server.CreateClient();
 
         // setup repositories
@@ -498,5 +509,33 @@ namespace MerchantAPI.APIGateway.Test.Functional
         }
       }
     }
+
+    public async Task WaitForEventBusEventAsync<T>(EventBusSubscription<T> subscription, string description, Func<T, bool> predicate) where T : IntegrationEvent
+    {
+      try
+      {
+
+        do
+        {
+          var evt = await subscription.ReadAsync(new CancellationTokenSource(5_000).Token);
+
+          if (predicate(evt))
+          {
+            break;
+          }
+
+          loggerTest.LogInformation($"Got notification event {evt}, but is not the one that we are looking for");
+        } while (true);
+      }
+      catch (OperationCanceledException)
+      {
+        string msg = $"Timeout out while waiting for integration event {typeof(T).Name}. {description}";
+        loggerTest.LogInformation(msg);
+        throw new Exception(msg);
+      }
+
+      loggerTest.LogInformation($"The following wait for event completed successfully: {description}");
+    }
+
   }
 }

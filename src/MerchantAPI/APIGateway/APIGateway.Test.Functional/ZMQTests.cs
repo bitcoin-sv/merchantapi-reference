@@ -8,9 +8,11 @@ using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
@@ -130,12 +132,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       WaitUntilEventBusIsIdle();
 
-      // One notification should be present
-      var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToArray(); 
-      Assert.AreEqual(1, doubleSpends.Count());
-      Assert.AreEqual(new uint256(txId1), new uint256(doubleSpends.First().TxExternalId));
-      Assert.AreEqual(new uint256(txId2), new uint256(doubleSpends.First().DoubleSpendTxId));
+      // Check if callback was received
+      var calls = CallBack.Calls;
+      Assert.AreEqual(1, calls.Length);
+      var callBack = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(calls[0].request)
+        .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
+      Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callBack.CallbackReason);
+      Assert.AreEqual(new uint256(txId1), new uint256(callBack.CallbackTxId));
+      Assert.AreEqual(new uint256(txId2), new uint256(callBack.CallbackPayload.DoubleSpendTxId));
     }
 
     [TestMethod]
@@ -253,7 +258,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"dscheck\": true, \"CallBackUrl\": \"{callbackUrl}\",  \"CallBackToken\": \"xxx\"}}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);      
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+        await Post<MerchantAPI.APIGateway.Rest.ViewModels.SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 

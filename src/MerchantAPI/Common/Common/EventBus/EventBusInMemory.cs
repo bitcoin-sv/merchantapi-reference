@@ -73,7 +73,7 @@ namespace MerchantAPI.Common.EventBus
         }
 
         // if we are not processing events we might still be in Read or somebody is just about to write into the queue 
-        // That's why we wait up to a second to make sure, that everything is idle
+        // That's why we wait up to a second (100*10) to make sure, that everything is idle
         Thread.Sleep(10);
       }
 

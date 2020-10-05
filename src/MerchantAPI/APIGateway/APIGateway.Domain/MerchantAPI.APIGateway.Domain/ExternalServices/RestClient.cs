@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
@@ -17,12 +18,14 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
   {
     static readonly TimeSpan defaultRequestTimeout = TimeSpan.FromSeconds(100);
 
-    static readonly Lazy<HttpClient> SharedHttpClient = new Lazy<HttpClient>(() => new HttpClient() { Timeout = Timeout.InfiniteTimeSpan }); // intended to be instantiated once : ref docs.microsoft.com
+    private readonly HttpClient httpClient;
+    
 
-    public RestClient(string baseUrl, string authorization)
+    public RestClient(string baseUrl, string authorization, HttpClient httpClient)
     {
       this.BaseURL = baseUrl;
       this.Authorization = authorization;
+      this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
 
     public string BaseURL { get;  }
@@ -51,7 +54,7 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
       string response;
       using (var cts = new CancellationTokenSource(requestTimeout ?? defaultRequestTimeout))
       {
-        httpResponse = await SharedHttpClient.Value.SendAsync(reqMessage, cts.Token);
+        httpResponse = await httpClient.SendAsync(reqMessage, cts.Token);
         response = await httpResponse.Content.ReadAsStringAsync();
 
         if (!throwExceptionOn404 && httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)

@@ -8,14 +8,17 @@ using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
+using SignedPayloadViewModel = MerchantAPI.APIGateway.Rest.ViewModels.SignedPayloadViewModel;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -63,11 +66,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    async Task<SubmitTransactionResponseViewModel> SubmitTransaction(string txHex)
+    async Task<SubmitTransactionResponseViewModel> SubmitTransaction(string txHex, bool merkleProof = false)
     {
 
       // Send transaction
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\" }}");
+      var reqContent = new StringContent(
+
+        merkleProof ?
+          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"callBackUrl\" : \"{CallBack.Url}\"}}"
+          :
+          $"{{ \"rawtx\": \"{txHex}\" }}"
+        );
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
       var response =
@@ -104,6 +113,48 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(txId);
 
       Assert.AreEqual(txHex, HelperTools.ByteToHexString(txFromNode));
+    }
+
+
+
+    [TestMethod]
+    public async Task SubmitTransactionAndWaitForProof()
+    {
+      var (txHex, txId) = CreateNewTransaction();
+
+      var payload = await SubmitTransaction(txHex, merkleProof: true);
+
+      Assert.AreEqual(payload.ReturnResult, "success");
+
+      // Try to fetch tx from the node
+      var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(txId);
+      Assert.AreEqual(txHex, HelperTools.ByteToHexString(txFromNode));
+
+      Assert.AreEqual(0, CallBack.Calls.Length);
+
+      var notificationEventSubscription = eventBus.Subscribe<NewNotificationEvent>();
+
+      // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
+      // with troubleshooting:
+      var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
+      loggerTest.LogInformation($"Generated block {generatedBlock} should contain our transaction");
+
+      await WaitForEventBusEventAsync(notificationEventSubscription,
+        $"Waiting for merkle notification event for tx {txId}",
+        (evt) => evt.NotificationType == CallbackReason.MerkleProof
+                 && new uint256(evt.TransactionId) == new uint256(txId)
+      );
+      WaitUntilEventBusIsIdle();
+
+      // Check if callback was received
+      Assert.AreEqual(1, CallBack.Calls.Length);
+
+      var callBack = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(CallBack.Calls[0].request)
+        .ExtractPayload<CallbackNotificationMerkeProofViewModel>();
+      Assert.AreEqual(CallbackReason.MerkleProof, callBack.CallbackReason);
+      Assert.AreEqual(new uint256(txId), new uint256(callBack.CallbackTxId));
+      Assert.AreEqual(new uint256(txId), new uint256(callBack.CallbackPayload.TxOrId));
+
     }
 
     [TestMethod]

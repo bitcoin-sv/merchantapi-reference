@@ -19,10 +19,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
     {
       this.stats = stats;
     }
-    public void CallbackReceived(HttpContext ctx)
+    public void CallbackReceived(string path, byte[] data)
     {
       stats.IncrementCallbackReceived();
-      ctx.Response.StatusCode = 200;
     }
   }
 }
