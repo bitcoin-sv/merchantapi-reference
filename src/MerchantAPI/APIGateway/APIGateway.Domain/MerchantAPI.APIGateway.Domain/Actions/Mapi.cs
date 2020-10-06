@@ -576,7 +576,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         allTxs.Add(txId, oneTx.RawTx);
         bool okToMine = false;
         bool okToRelay = false;
-        if (await txRepository.TransactionExists(txId.ToBytes()))
+        if (await txRepository.TransactionExistsAsync(txId.ToBytes()))
         {
           AddFailureResponse(txIdString, "Transaction already known", ref responses);
 

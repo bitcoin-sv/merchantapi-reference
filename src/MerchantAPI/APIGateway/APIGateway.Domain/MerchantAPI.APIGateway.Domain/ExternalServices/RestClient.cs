@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -46,7 +47,7 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
       return reqMessage;
     }
 
-    async Task<string> PerformRequest(HttpMethod httpMethod, string additionalUrl, HttpContent content , bool throwExceptionOn404 = true, TimeSpan? requestTimeout = null)
+    async Task<string> PerformRequest(HttpMethod httpMethod, string additionalUrl, HttpContent content, bool throwExceptionOn404, CancellationToken token, TimeSpan? requestTimeout = null)
     {
       var reqMessage = CreateRequestMessage(httpMethod, additionalUrl, content);
 
@@ -54,7 +55,9 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
       string response;
       using (var cts = new CancellationTokenSource(requestTimeout ?? defaultRequestTimeout))
       {
-        httpResponse = await httpClient.SendAsync(reqMessage, cts.Token);
+        var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(token, cts.Token);
+        httpResponse = await httpClient.SendAsync(reqMessage, linkedTokenSource.Token);
+
         response = await httpResponse.Content.ReadAsStringAsync();
 
         if (!throwExceptionOn404 && httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -87,37 +90,35 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
           throw new NotFoundException(errMessage);
         }
 
-        throw new HttpRequestException(errMessage);
+        throw new BadRequestException(errMessage);
       }
       return response;
     }
 
     public async Task<string> GetStringAsync(string additionalUrl, bool throwExceptionOn404 = true,
-      TimeSpan? requestTimeout = null)
+      TimeSpan? requestTimeout = null, CancellationToken token = default)
     {
       var response = await PerformRequest(HttpMethod.Get, additionalUrl,
-        null, throwExceptionOn404, requestTimeout);
+        null, throwExceptionOn404, token, requestTimeout);
       return response;
     }
 
-    public async  Task<string> PostJsonAsync(string additionalUrl, string jsonRequest, bool throwExceptionOn404 = true, TimeSpan? requestTimeout = null)
+    public async Task<string> PostJsonAsync(string additionalUrl, string jsonRequest, bool throwExceptionOn404 = true, TimeSpan? requestTimeout = null, CancellationToken token = default)
     {
       var response = await PerformRequest(HttpMethod.Post,
         additionalUrl,
-        new StringContent(jsonRequest, new UTF8Encoding(false), MediaTypeNames.Application.Json), throwExceptionOn404,
-        requestTimeout);
+        new StringContent(jsonRequest, new UTF8Encoding(false), MediaTypeNames.Application.Json), throwExceptionOn404, token, requestTimeout);
       return response;
     }
 
-    public Task<string> PostOctetStream(string additionalUrl, byte[] request, bool throwExceptionOn404 = true, TimeSpan? requestTimeout = null)
+    public Task<string> PostOctetStream(string additionalUrl, byte[] request, bool throwExceptionOn404 = true, TimeSpan? requestTimeout = null, CancellationToken token = default)
     {
       var content = new ByteArrayContent(request);
       content.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
 
       return PerformRequest(HttpMethod.Post,
            additionalUrl,
-           content , throwExceptionOn404,
-           requestTimeout);
+           content, throwExceptionOn404, token, requestTimeout);
       ;
     }
   }

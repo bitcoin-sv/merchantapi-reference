@@ -5,6 +5,7 @@ using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using MerchantAPI.APIGateway.Domain.Actions;
+using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -15,7 +16,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
 {
 
   /// <summary>
-  ///  HttpClient factory that is sued in unit tests and connected to TestServer
+  ///  HttpClient factory that is used in unit tests and connected to TestServer
   /// </summary>
   public class NotificationServiceHttpClientFactoryTest : INotificationServiceHttpClientFactory
   {
@@ -26,6 +27,11 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
 
     }
     public HttpClient CreateClient()
+    {
+      return testServer.CreateClient();
+    }
+
+    public HttpClient CreateClient(string clientName)
     {
       return testServer.CreateClient();
     }

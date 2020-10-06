@@ -1,8 +1,9 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using MerchantAPI.APIGateway.Domain;
-using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.APIGateway.Domain.NotificationsHandler;
+using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,23 +28,29 @@ namespace MerchantAPI.APIGateway.Rest.Services
       this.factory = defaultFactory ?? throw new ArgumentNullException(nameof(defaultFactory));
       
     }
-    public HttpClient CreateClient()
+
+    public HttpClient CreateClient(string clientName)
     {
-        return factory.CreateClient(ClientName);
+      return factory.CreateClient(clientName);
     }
   }
 
 
   public class NotificationService : BackgroundServiceWithSubscriptions<NotificationService>
   {
-    readonly INotificationAction notificationAction;
-    readonly IOptionsMonitor<AppSettings> options;
+    const int NoOfRecordsBatch = 100;
+    int skipRecords = 0;
+    readonly INotificationsHandler notificationsHandler;
+    readonly ITxRepository txRepository;
+    readonly Notification notificationSettings;
     EventBusSubscription<NewNotificationEvent> newNotificationEventSubscription;
 
-    public NotificationService(INotificationAction notificationAction, IOptionsMonitor<AppSettings> options, ILogger<NotificationService> logger, IEventBus eventBus) : base(logger, eventBus)
+    public NotificationService(IOptionsMonitor<AppSettings> options, ILogger<NotificationService> logger, 
+                               IEventBus eventBus, INotificationsHandler notificationsHandler, ITxRepository txRepository) : base(logger, eventBus)
     {
-      this.notificationAction = notificationAction ?? throw new ArgumentNullException(nameof(notificationAction));
-      this.options = options ?? throw new ArgumentNullException(nameof(options));
+      this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
+      this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
+      notificationSettings = options.CurrentValue.Notification;
     }
 
 
@@ -51,8 +58,8 @@ namespace MerchantAPI.APIGateway.Rest.Services
     {
       while (!stoppingToken.IsCancellationRequested)
       {
-        notificationAction.ProcessAndSendNotifications();
-        await Task.Delay(options.CurrentValue.NotificationIntervalSec * 1000, stoppingToken);
+        await PrepareAndSendNotificationsAsync(stoppingToken);
+        await Task.Delay(notificationSettings.NotificationIntervalSec * 1000, stoppingToken);
       }
     }
 
@@ -75,8 +82,41 @@ namespace MerchantAPI.APIGateway.Rest.Services
 
     private async Task ProcessNotificationAsync(NewNotificationEvent e)
     {
-      await notificationAction.SendNotificationFromEventAsync(e);
+      await notificationsHandler.EnqueueNotificationAsync(e);
     }
 
+    private async Task PrepareAndSendNotificationsAsync(CancellationToken stoppingToken)
+    {
+      try
+      {
+        var waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount, skipRecords, NoOfRecordsBatch);
+        int numOfNotifications = waitingNotifications.Count;
+        
+        // We reached the end of failed notifications...let's start from the beginning again
+        if (numOfNotifications == 0 && skipRecords > 0)
+        {
+          skipRecords = 0;
+          waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount, skipRecords, NoOfRecordsBatch);
+        }
+        if (numOfNotifications > 0)
+        {
+          logger.LogInformation($"Processing batch of {numOfNotifications}' notifications.");
+        }
+
+        int successfull = 0;
+        foreach (var notificationData in waitingNotifications)
+        {
+          if (stoppingToken.IsCancellationRequested) break;
+
+          using var client = notificationsHandler.GetClient(notificationData.CallbackUrl);
+          if (await notificationsHandler.ProcessNotificationAsync(client, notificationData, notificationSettings.SlowHostResponseTimeoutMS, stoppingToken)) successfull++;
+        }
+        skipRecords += numOfNotifications - successfull;
+      }
+      catch (Exception ex)
+      {
+        logger.LogError($"Error processing failed notifications from database. Error: {ex.GetBaseException().Message}");
+      }
+    }
   }
 }

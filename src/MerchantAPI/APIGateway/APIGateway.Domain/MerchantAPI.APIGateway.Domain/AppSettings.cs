@@ -18,6 +18,41 @@ namespace MerchantAPI.APIGateway.Domain
     public string Alias { get; set; }
   }
 
+  public class Notification
+  {
+    [Range(1, int.MaxValue)]
+    public int NotificationIntervalSec { get; set; } = 60;
+
+    [Required]
+    [Range(2, 100)]
+    public int InstantNotificationsTasks { get; set; }
+
+    [Required]
+    public int InstantNotificationsQueueSize { get; set; }
+
+    [Required]
+    public int MaxNotificationsInBatch { get; set; }
+
+    [Required]
+    public int SlowHostThresholdInMs { get; set; }
+
+    [Required]
+    [Range(1, 100)]
+    public int InstantNotificationsSlowTaskPercentage { get; set; }
+
+    [Required]
+    public int NoOfSavedExecutionTimes { get; set; }
+
+    [Required]
+    public int NotificationsRetryCount { get; set; }
+
+    [Required]
+    public int SlowHostResponseTimeoutMS { get; set; }
+
+    [Required]
+    public int FastHostResponseTimeoutMS { get; set; }
+  }
+
   public class AppSettings
   {
     [Range(1, double.MaxValue)]
@@ -26,8 +61,8 @@ namespace MerchantAPI.APIGateway.Domain
     
     public MinerIdServer MinerIdServer { get; set; }
 
-    [Range(1,int.MaxValue)]
-    public int NotificationIntervalSec { get; set; } = 60;
+    [Required]
+    public int MaxBlockChainLengthForFork { get; set; } = 288;
 
     [Range(1, int.MaxValue)]
     public int ZmqConnectionTestIntervalSec { get; set; } = 60;
@@ -38,8 +73,8 @@ namespace MerchantAPI.APIGateway.Domain
     [Required] 
     public int DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 
-    [Required]
-    public int MaxBlockChainLengthForFork { get; set; } = 288;
+    public Notification Notification { get; set; }
+
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>
@@ -65,6 +100,13 @@ namespace MerchantAPI.APIGateway.Domain
         {
           return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
         }
+      }
+
+      if (options.Notification == null)
+      {
+        return ValidateOptionsResult.Fail(
+          $"Invalid configuration -  {nameof(AppSettings.Notification)} settings must be specified.");
+
       }
 
       return ValidateOptionsResult.Success;

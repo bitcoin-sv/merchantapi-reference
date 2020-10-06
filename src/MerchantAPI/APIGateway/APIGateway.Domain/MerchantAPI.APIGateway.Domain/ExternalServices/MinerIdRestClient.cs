@@ -34,9 +34,10 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
       var url = minerIdUrl.TrimEnd('/') +"/"+ minerIdAlias;
       restClient = new RestClient(url, authorization, httpClient);
     }
-    public Task<string> GetCurrentMinerIdAsync()
+
+    public async Task<string> GetCurrentMinerIdAsync()
     {
-      return restClient.GetStringAsync("");
+      return await restClient.GetStringAsync("");
     }
 
     string RefreseHash(string hash)

@@ -2,7 +2,11 @@
 
 using System;
 using System.Text.Json.Serialization;
+using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.Common;
 using MerchantAPI.Common.BitcoinRpc.Responses;
+using MerchantAPI.Common.Json;
+using NBitcoin;
 
 namespace MerchantAPI.APIGateway.Domain.ViewModels
 {
@@ -33,6 +37,42 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
     [JsonPropertyName("callbackReason")]
     public string CallbackReason { get; set; }
 
+    public static CallbackNotificationViewModelBase CreateFromNotificationData(NotificationData notificationData)
+    {
+      var txId = new uint256(notificationData.TxExternalId).ToString();
+      var blockHash = (notificationData.BlockHash == null || notificationData.BlockHash.Length == 0) ? "" : new uint256(notificationData.BlockHash).ToString();
+      CallbackNotificationViewModelBase callbackModel;
+      switch (notificationData.NotificationType)
+      {
+        case Domain.CallbackReason.DoubleSpend:
+        case Domain.CallbackReason.DoubleSpendAttempt:
+          callbackModel = new CallbackNotificationDoubleSpendViewModel
+          {
+            CallbackPayload = new DsNotificationPayloadCallBackViewModel
+            {
+              DoubleSpendTxId = new uint256(notificationData.DoubleSpendTxId).ToString(),
+              Payload = HelperTools.ByteToHexString(notificationData.Payload)
+            }
+          };
+          break;
+        case Domain.CallbackReason.MerkleProof:
+          callbackModel = new CallbackNotificationMerkeProofViewModel
+          {
+            CallbackPayload = notificationData.MerkleProof
+          };
+          break;
+        default:
+          throw new BadRequestException("Unknown notification type.");
+      }
+      callbackModel.APIVersion = Const.MERCHANT_API_VERSION;
+      callbackModel.BlockHash = blockHash;
+      callbackModel.BlockHeight = notificationData.BlockHeight;
+      callbackModel.CallbackReason = notificationData.NotificationType;
+      callbackModel.CallbackTxId = txId;
+      callbackModel.TimeStamp = DateTime.UtcNow;
+
+      return callbackModel;
+    }
   }
 
   public class CallbackNotificationMerkeProofViewModel : CallbackNotificationViewModelBase
@@ -55,5 +95,6 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
     [JsonPropertyName("payload")]
     public string Payload { get; set; }
   }
+
 
 }
