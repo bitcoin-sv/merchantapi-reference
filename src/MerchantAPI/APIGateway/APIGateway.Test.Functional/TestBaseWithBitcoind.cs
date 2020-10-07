@@ -4,10 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -43,6 +45,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public const string testPrivateKeyWif = "cNpxQaWe36eHdfU3fo2jHVkWXVt5CakPDrZSYguoZiRHSz9rq8nF";
     public const string testAddress = "msRNSw5hHA1W1jXXadxMDMQCErX1X8whTk";
 
+    EventBusSubscription<ZMQSubscribedEvent> zmqSubscribedEventSubscription;
 
     public virtual void TestInitialize()
     {
@@ -65,7 +68,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       if (!skipNodeStart)
       {
+        zmqSubscribedEventSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
         node0 = CreateAndStartNode(0);
+        _ = zmqSubscribedEventSubscription.ReadAsync(CancellationToken.None).Result;
         rpcClient0 = node0.RpcClient;
         SetupChain(rpcClient0);
       }
@@ -191,7 +196,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     /// <summary>
-    /// Sets ups a new chain, get some coins and store them in availableCOins, so that they can be consumed by test
+    /// Sets ups a new chain, get some coins and store them in availableCoins, so that they can be consumed by test
     /// </summary>
     /// <param name="rpcClient"></param>
     public void SetupChain(IRpcClient rpcClient)
@@ -226,6 +231,50 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         eventBus.TryUnsubscribe(subscription);
       }
+    }
+
+    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions,
+      bool throwOnError = true, string parentBlockHash = null)
+    {
+      if (string.IsNullOrEmpty(parentBlockHash))
+      {
+        parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
+      }
+
+      var parentBlockBytes = await rpcClient0.GetBlockAsBytesAsync(parentBlockHash);
+      var parentBlock = NBitcoin.Block.Load(parentBlockBytes, Network.RegTest);
+      var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
+      return await MineNextBlockAsync(transactions, throwOnError, parentBlock, parentBlockHeight);
+    }
+
+    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions, bool throwOnError,  NBitcoin.Block parentBlock, long parentBlockHeight)
+    {
+      var newBlock = parentBlock.CreateNextBlockWithCoinbase(new Key().PubKey, parentBlockHeight, NBitcoin.Altcoins.BCash.Instance.Regtest.Consensus.ConsensusFactory);
+      newBlock.Transactions.AddRange(transactions);
+      newBlock.Header.Bits = parentBlock.Header.Bits; // assume same difficulty target
+      newBlock.Header.BlockTime = parentBlock.Header.BlockTime.AddSeconds(1);
+      newBlock.UpdateMerkleRoot();
+
+      // Try to solve the block
+      bool found = false;
+      for (int i = 0; !found && i < 10000; i++)
+      {
+        newBlock.Header.Nonce = (uint)i;
+        found = newBlock.Header.CheckProofOfWork();
+      }
+
+      if (!found)
+      {
+        throw new Exception("Bad luck - unable to find nonce that matches required difficulty");
+      }
+
+      var submitResult = await rpcClient0.SubmitBlock(newBlock.ToBytes());
+      if (!string.IsNullOrEmpty(submitResult) && throwOnError)
+      {
+        throw new Exception($"Error while submitting new block - submitBlock returned {submitResult}");
+      }
+
+      return (newBlock, submitResult);
     }
   }
 }

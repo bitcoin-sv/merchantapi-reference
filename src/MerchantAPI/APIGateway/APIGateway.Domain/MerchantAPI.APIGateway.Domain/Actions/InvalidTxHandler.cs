@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.APIGateway.Domain.Models.Zmq;
 using MerchantAPI.Common.EventBus;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
@@ -27,11 +28,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly ITxRepository txRepository;
 
     EventBusSubscription<InvalidTxDetectedEvent> invalidTxDetectedSubscription;
+    EventBusSubscription<RemovedFromMempoolEvent>removedFromMempoolSubscription;
+    IBlockParser blockParser;
 
-    public InvalidTxHandler(ITxRepository txRepository, ILogger<InvalidTxHandler> logger, IEventBus eventBus)
+    public InvalidTxHandler(ITxRepository txRepository, ILogger<InvalidTxHandler> logger, IEventBus eventBus, IBlockParser blockParser)
     : base(logger, eventBus)
     {
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
+      this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
     }
 
 
@@ -45,16 +49,52 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       eventBus?.TryUnsubscribe(invalidTxDetectedSubscription);
       invalidTxDetectedSubscription = null;
+      
+      eventBus?.TryUnsubscribe(removedFromMempoolSubscription);
+      removedFromMempoolSubscription = null;
     }
 
 
     protected override void SubscribeToEventBus(CancellationToken stoppingToken)
     {
       invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      removedFromMempoolSubscription = eventBus.Subscribe<RemovedFromMempoolEvent>();
 
       _ = invalidTxDetectedSubscription.ProcessEventsAsync(stoppingToken, logger, InvalidTxDetectedAsync);
+      _ = removedFromMempoolSubscription.ProcessEventsAsync(stoppingToken, logger, RemovedFromMempoolEventAsync);
+
     }
 
+    public async Task RemovedFromMempoolEventAsync(RemovedFromMempoolEvent e)
+    {
+      if (e.Message.Reason == RemovedFromMempoolMessage.Reasons.CollisionInBlockTx)
+      {
+        var removedTxId = new uint256(e.Message.TxId).ToBytes();
+        
+        var txWithDSCheck = (await txRepository.GetTxsForDSCheckAsync(new[] { removedTxId }, false)).ToArray().SingleOrDefault();
+        if (txWithDSCheck != null)
+        {
+          // Try to insert the block into DB. If block is already present in DB nothing will be done
+          await blockParser.NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent { BlockHash = e.Message.BlockHash });
+
+          await txRepository.InsertBlockDoubleSpendAsync(
+            txWithDSCheck.TxInternalId,
+            new uint256(e.Message.BlockHash).ToBytes(),
+            new uint256(e.Message.CollidedWith.TxId).ToBytes(),
+            HelperTools.HexStringToByteArray(e.Message.CollidedWith.Hex));
+
+          var notificationEvent = new NewNotificationEvent
+          {
+            NotificationType = CallbackReason.DoubleSpend,
+            TransactionId = removedTxId
+          };
+          if (NotificationAction.AddNotificationData(notificationEvent, null))
+          {
+            eventBus.Publish(notificationEvent);
+          }
+        }
+      }
+    }
 
     public async Task InvalidTxDetectedAsync(InvalidTxDetectedEvent e)
     {
@@ -64,7 +104,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         if (e.Message.CollidedWith != null && e.Message.CollidedWith.Length > 0)
         {
           var collisionTxList = e.Message.CollidedWith.Select(t => new uint256(t.TxId).ToBytes());
-          var txsWithDSCheck = (await txRepository.GetTxsForDSCheckAsync(collisionTxList)).ToArray();
+          var txsWithDSCheck = (await txRepository.GetTxsForDSCheckAsync(collisionTxList, true)).ToArray();
           if (txsWithDSCheck.Any())
           {
             var dsTxId = new uint256(e.Message.TxId).ToBytes();

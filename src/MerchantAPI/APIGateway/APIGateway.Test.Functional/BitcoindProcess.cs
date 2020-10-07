@@ -16,7 +16,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   public class BitcoindProcess : IDisposable
   {
     const string defaultParams =
-      "-regtest -logmicros -excessiveblocksize=100000000000 -maxstackmemoryusageconsensus=1000000000 -genesisactivationheight=1 -debug -debugexclude=libevent -debugexclude=tor";
+      "-regtest -logtimemicros -excessiveblocksize=100000000000 -maxstackmemoryusageconsensus=1000000000 -genesisactivationheight=1 -debug -debugexclude=libevent -debugexclude=tor";
 
     Process process;
     
@@ -153,7 +153,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         if (height != 0)
         {
           throw new Exception(
-            "The node that was just started does not have an empty chain. Ca not proceed. Terminate the instance manually. ");
+            "The node that was just started does not have an empty chain. Can not proceed. Terminate the instance manually. ");
         }
       }
 

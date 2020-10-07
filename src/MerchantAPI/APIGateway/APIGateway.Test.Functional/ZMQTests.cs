@@ -16,6 +16,7 @@ using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -39,8 +40,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       zmqService = server.Services.GetRequiredService<ZMQSubscriptionService>();
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
       InsertFeeQuote();
-    }
 
+      // Wait until all events are processed to avoid race conditions - we need to  finish subscribing to ZMQ before checking for any received notifications
+      WaitUntilEventBusIsIdle(); 
+    }
 
     [TestCleanup]
     public override void TestCleanup()
@@ -88,8 +91,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(blockHash[0], newBlockArrivedSubscription.BlockHash);
     }
 
-    [TestMethod]
-    public async Task CatchInMempoolDoubleSpendZMQMessage()
+    private async Task<(string, string)> CatchInMempoolDoubleSpendZMQMessage()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
@@ -108,7 +110,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(txHex1, txHex2);
 
       // Send first transaction using MAPI
-      var payload = await SubmitTransaction(txHex1);
+      var payload = await SubmitTransactionAsync(txHex1);
       Assert.AreEqual(payload.ReturnResult, "success");
 
       // Send second transaction using RPC
@@ -141,6 +143,144 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callBack.CallbackReason);
       Assert.AreEqual(new uint256(txId1), new uint256(callBack.CallbackTxId));
       Assert.AreEqual(new uint256(txId2), new uint256(callBack.CallbackPayload.DoubleSpendTxId));
+
+      return (txHex1, txHex2);
+    }
+
+    [TestMethod]
+    public async Task CatchInMempoolDoubleSpendZMQMessageTest()
+    {
+      await CatchInMempoolDoubleSpendZMQMessage();
+    }
+
+    [TestMethod]
+    public async Task CatchMempoolAndBlockDoubleSpendMessages()
+    {
+      var txs = await CatchInMempoolDoubleSpendZMQMessage();
+      
+      var tx1 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txs.Item1));
+      var tx2 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txs.Item2));
+      var txId1 = tx1.GetHash().ToString();
+      var txId2 = tx2.GetHash().ToString();
+      await MineNextBlockAsync(new[] { tx2 });
+
+      var mempoolTxs2 = await rpcClient0.GetRawMempool();
+
+      // Tx should no longer be in mempool
+      Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
+      WaitUntilEventBusIsIdle();
+
+      var calls = CallBack.Calls;
+      Assert.AreEqual(2, calls.Length);
+      var callBackDS = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(calls[1].request)
+        .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
+      Assert.AreEqual(CallbackReason.DoubleSpend, callBackDS.CallbackReason);
+      Assert.AreEqual(new uint256(txId1), new uint256(callBackDS.CallbackTxId));
+      Assert.AreEqual(new uint256(txId2), new uint256(callBackDS.CallbackPayload.DoubleSpendTxId));
+
+    }
+
+    [TestMethod]
+    public async Task CatchDoubleSpendOfMempoolTxByBlockTx()
+    {
+      // Create two transactions from same input
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var (txHex2, txId2) = CreateNewTransaction(coin, new Money(500L));
+
+      
+      var tx2 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txHex2));
+      // Transactions should not be the same
+      Assert.AreNotEqual(txHex1, txHex2);
+
+      // Send first transaction using mAPI
+      var payload = await SubmitTransactionAsync(txHex1);
+      Assert.AreEqual("success", payload.ReturnResult);
+
+      var mempoolTxs = await rpcClient0.GetRawMempool();
+
+      // Transactions should be in mempool 
+      Assert.IsTrue(mempoolTxs.Contains(txId1), "Submitted tx1 not found in mempool");
+      
+      Assert.AreEqual(0, CallBack.Calls.Length);
+
+      // Mine a new block containing tx2
+      await MineNextBlockAsync(new[] {tx2});
+
+      var mempoolTxs2 = await rpcClient0.GetRawMempool();
+
+      // Tx should no longer be in mempool
+      Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
+      WaitUntilEventBusIsIdle();
+
+      var calls = CallBack.Calls;
+      Assert.AreEqual(1, calls.Length);
+
+      var callBack = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(calls[0].request)
+        .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
+
+      Assert.AreEqual(CallbackReason.DoubleSpend, callBack.CallbackReason);
+      Assert.AreEqual(new uint256(txId1), new uint256(callBack.CallbackTxId));
+      Assert.AreEqual(new uint256(txId2), new uint256(callBack.CallbackPayload.DoubleSpendTxId));
+
+    }
+
+    [TestMethod]
+    public async Task CatchDoubleSpendOfBlockTxByBlockTx()
+    {
+      // Create two transactions from same input
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var (txHex2, txId2) = CreateNewTransaction(coin, new Money(500L));
+
+
+      var tx1 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txHex1));
+      var tx2 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txHex2));
+      // Transactions should not be the same
+      Assert.AreNotEqual(txHex1, txHex2);
+
+      var parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
+      var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
+
+      // Send first transaction using mAPI - we want to get DS notification for it 
+      var payload = await SubmitTransactionAsync(txHex1);
+      Assert.AreEqual(payload.ReturnResult, "success");
+
+      // Mine a new block containing tx1
+      var b1Hash = (await rpcClient0.GenerateAsync(1)).Single();
+
+
+      loggerTest.LogInformation($"Block b1 {b1Hash} was mined containing tx1 {tx1.GetHash()}");
+      WaitUntilEventBusIsIdle();
+
+      var calls = CallBack.Calls;
+      Assert.AreEqual(1, calls.Length);
+      var signedJSON = HelperTools.JSONDeserializeNewtonsoft<Rest.ViewModels.SignedPayloadViewModel>(calls[0].request);
+      var notification = HelperTools.JSONDeserializeNewtonsoft<CallbackNotificationViewModelBase>(signedJSON.Payload);
+      Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
+
+      // Mine sibling block to b1 - without any additional transaction
+      var (b2,_) = await MineNextBlockAsync(new Transaction[0], false, parentBlockHash);
+
+      loggerTest.LogInformation($"Block b2 {b2.Header.GetHash()} was mined with only coinbase transaction");
+
+      // Mine a child block to b2, containing tx2. This will create a longer chain and we should be notified about doubleSpend
+      var (b3, _ ) = await MineNextBlockAsync(new [] {tx2}, true, b2, parentBlockHeight+2);
+
+      loggerTest.LogInformation($"Block b3 {b3.Header.GetHash()} was mined with a ds transaction tx2 {tx2.GetHash()}");
+
+      // Check if b3 was accepted
+      var currentBestBlock = await rpcClient0.GetBestBlockHashAsync();
+      Assert.AreEqual(b3.GetHash().ToString(), currentBestBlock , "b3 was not activated");
+      WaitUntilEventBusIsIdle();
+
+
+      calls = CallBack.Calls;
+      Assert.AreEqual(2, calls.Length);
+      signedJSON = HelperTools.JSONDeserializeNewtonsoft<Rest.ViewModels.SignedPayloadViewModel>(calls[1].request);
+      var dsNotification = HelperTools.JSONDeserializeNewtonsoft<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
+      Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);
+      Assert.AreEqual(txId2, dsNotification.CallbackPayload.DoubleSpendTxId);
     }
 
     [TestMethod]
@@ -251,11 +391,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    async Task<SubmitTransactionResponseViewModel> SubmitTransaction(string txHex)
+    async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex)
     {
       // Send transaction
       var callbackUrl = "http://www.something.com";
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"dscheck\": true, \"CallBackUrl\": \"{callbackUrl}\",  \"CallBackToken\": \"xxx\"}}");
+      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"dscheck\": true, \"CallBackUrl\": \"{callbackUrl}\",  \"CallBackToken\": \"xxx\"}}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);      
       var response =
         await Post<MerchantAPI.APIGateway.Rest.ViewModels.SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);

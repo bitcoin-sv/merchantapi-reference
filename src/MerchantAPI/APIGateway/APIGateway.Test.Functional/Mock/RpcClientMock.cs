@@ -322,6 +322,17 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         );
     }
 
+    public Task<string> SubmitBlock(byte[] block, CancellationToken? token = null)
+    {
+      var r = SimulateCall<string>();
+      if (r != null)
+      {
+        return r;
+      }
+
+      return Task.FromResult<string>(null);
+    }
+
     public Task StopAsync(CancellationToken? token = null)
     {
       throw new NotImplementedException(); // We could add the node to list of disconnected nodes
@@ -382,5 +393,16 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       return Task.FromResult(Const.RequiredZmqNotifications.Select(x => new RpcActiveZmqNotification { Address = "tcp://127.0.0.1:28332", Notification = x}).ToArray());
     }
+    public Task<string[]> GetRawMempool(CancellationToken? token = null)
+    {
+      var r = SimulateCall<string[]>();
+      if (r != null)
+      {
+        return r;
+      }
+      return Task.FromResult(new string[0]);
+    }
+
   }
+
 }

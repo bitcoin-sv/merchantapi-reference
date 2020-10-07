@@ -109,15 +109,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       await txRepository.CheckAndInsertBlockDoubleSpendAsync(allTransactionInputs, appSettings.DeltaBlockHeightForDoubleSpendCheck, blockInternalId);
 
       // If any new double spend records were generated we need to update them with transaction payload
+      // and trigger notification events
       var dsTxIds = await txRepository.GetDSTxWithoutPayload();
-      foreach(var dsTx in dsTxIds)
+      foreach(var (dsTxId, TxId) in dsTxIds)
       {
-        var payload = block.Transactions.Single(x => x.GetHash() == new uint256(dsTx)).ToBytes();
-        await txRepository.UpdateDsTxPayload(dsTx, payload);
+        var payload = block.Transactions.Single(x => x.GetHash() == new uint256(dsTxId)).ToBytes();
+        await txRepository.UpdateDsTxPayload(dsTxId, payload);
         var notificationEvent = new NewNotificationEvent
                                 {
                                   NotificationType = CallbackReason.DoubleSpend,
-                                  TransactionId = dsTx
+                                  TransactionId = TxId
                                 };
         if (NotificationAction.AddNotificationData(notificationEvent, null))
         {
@@ -128,10 +129,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
 
-    private async Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent e)
+    public async Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent e)
     {
-      logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database");
       var blockHash = new uint256(e.BlockHash);
+
+      // If block is already present in DB, there is no need to parse it again
+      var blockInDb = await txRepository.GetBlockAsync(blockHash.ToBytes());
+      if (blockInDb != null) return;
+
+      logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database");
       var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(e.BlockHash);
       var blockCount = (await rpcMultiClient.GetBestBlockchainInfoAsync()).Blocks;
 
@@ -153,7 +159,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       };
 
       // Insert block in DB and add the event to block stack for later processing
-      dbBlock.BlockInternalId = await txRepository.InsertBlockAsync(dbBlock);
+      var blockId = await txRepository.InsertBlockAsync(dbBlock);
+
+      if (blockId.HasValue)
+      {
+        dbBlock.BlockInternalId = blockId.Value;
+      }
+      else
+      {
+        return;
+      }
 
       newBlockStack.Push(new NewBlockAvailableInDB
       {
@@ -165,6 +180,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     private async Task ParseBlockForTransactionsAsync(NewBlockAvailableInDB e)
     {
+
       logger.LogInformation($"Block parser got a new block {e.BlockHash} from database. Parsing it");
       var blockBytes = await rpcMultiClient.GetBlockAsBytesAsync(e.BlockHash);
 

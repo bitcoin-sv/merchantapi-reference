@@ -11,7 +11,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
   {
     Task InsertTxsAsync(IList<Tx> transactions);
 
-    Task<long> InsertBlockAsync(Block block);
+    Task<long?> InsertBlockAsync(Block block);
 
     Task InsertTxBlockAsync(IList<long> txInternalId, long blockInternalId);
 
@@ -29,13 +29,15 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate);
 
+    Task InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload);
+
     Task SetMempoolDoubleSpendSendDateAsync(long txInternalId, byte[] dsTxId, DateTime sendDate);
 
     Task<IEnumerable<NotificationData>> GetTxsToSendMerkleProofNotificationsAsync(long skip, long fetch);
 
     Task<NotificationData> GetTxToSendMerkleProofNotificationAsync(byte[] txId);
 
-    Task<IEnumerable<byte[]>> GetDSTxWithoutPayload();
+    Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayload();
 
     Task<IEnumerable<NotificationData>> GetTxsToSendBlockDSNotificationsAsync();
 
@@ -45,7 +47,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<IEnumerable<Tx>> GetTxsNotInCurrentBlockChainAsync(long blockInternalId);
 
-    Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds);
+    Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds, bool checkDSAttempt);
     
     Task<Block> GetBestBlockAsync();
     

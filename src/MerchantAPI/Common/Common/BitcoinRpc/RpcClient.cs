@@ -60,6 +60,9 @@ namespace MerchantAPI.Common.BitcoinRpc
     Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token = null);
 
     Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null);
+
+    Task<string> SubmitBlock(byte[] block, CancellationToken? token = null);
+    Task<string[]> GetRawMempool(CancellationToken? token = null); // non-verbose options currently not supported
   }
 
   public class RpcClient : IRpcClient
@@ -235,6 +238,17 @@ namespace MerchantAPI.Common.BitcoinRpc
         }).Cast<object>().ToArray();
       return RequestAsync<RpcGetTxOuts>(token, "gettxouts", param, fieldList, true);
     }
+
+    public Task<string> SubmitBlock(byte[] block, CancellationToken? token = null)
+    {
+      return RequestAsync<string>(token, "submitblock", HelperTools.ByteToHexString(block));
+    }
+
+    public  Task<string[]> GetRawMempool(CancellationToken? token = null)
+    {
+      return RequestAsync<string[]>(token, "getrawmempool");
+    }
+
 
     private async Task<T> RequestAsync<T>(CancellationToken? token, string method, params object[] parameters)
     {

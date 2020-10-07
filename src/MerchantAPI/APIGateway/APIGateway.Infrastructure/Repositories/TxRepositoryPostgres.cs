@@ -40,7 +40,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       connection.Execute(cmdText, null);
     }
 
-    public async Task<long> InsertBlockAsync(Block block)
+    public async Task<long?> InsertBlockAsync(Block block)
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
@@ -64,9 +64,25 @@ RETURNING blockInternalId;
       return blockInternalId;
     }
 
+    public async Task InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload)
+    {
+      using var connection = GetDbConnection();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdInsertDS = @"
+INSERT INTO TxBlockDoubleSpend (txInternalId, blockInternalId, dsTxid, dsTxPayload)
+VALUES (@txInternalId,
+(SELECT blockInternalId FROM block WHERE blockhash = @blockhash),
+@dsTxId, @dsTxPayload)
+ON CONFLICT (txInternalId, blockInternalId, dsTxId) DO NOTHING;";
+
+      await connection.ExecuteAsync(cmdInsertDS, new { txInternalId, blockhash, dsTxId, dsTxPayload });
+
+      await transaction.CommitAsync();
+    }
     public async Task CheckAndInsertBlockDoubleSpendAsync(IEnumerable<TxWithInput> txWithInputsEnum, long deltaBlockHeight, long blockInternalId)
     {
-      var txWithInputs = txWithInputsEnum.ToArray(); // Make sure that we donot enumerate multiple times
+      var txWithInputs = txWithInputsEnum.ToArray(); // Make sure that we do not enumerate multiple times
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
 
@@ -283,16 +299,17 @@ WHERE dsTxId = @dsTxId;
       await transaction.CommitAsync();
     }
 
-    public async Task<IEnumerable<byte[]>> GetDSTxWithoutPayload()
+    public async Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayload()
     {
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT t.dsTxId 
-FROM TxBlockDoubleSpend t 
+SELECT t.dsTxId, tx.txexternalid txId
+FROM TxBlockDoubleSpend t
+INNER JOIN Tx ON t.txinternalid = tx.txinternalid
 WHERE t.DsTxPayload IS NULL;
 ";
-      return await connection.QueryAsync<byte[]>(cmdText);
+      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText);
     }
 
     public async Task<IEnumerable<NotificationData>> GetTxsToSendBlockDSNotificationsAsync()
@@ -324,7 +341,7 @@ WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND Tx.dscheck = 
 ORDER BY callbackUrl;
 ";
 
-      return await connection.QueryFirstOrDefaultAsync<NotificationData>(cmdText, new { txId });
+      return await connection.QuerySingleOrDefaultAsync<NotificationData>(cmdText, new { txId });
     }
 
     public async Task<IEnumerable<NotificationData>> GetTxsToSendMempoolDSNotificationsAsync()
@@ -435,8 +452,8 @@ WHERE NOT EXISTS
       return txSet.ToList();
 
     }
-
-    public async Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds)
+       
+    public async Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds, bool checkDSAttempt)
     {
       using var connection = GetDbConnection();
 
@@ -445,9 +462,17 @@ SELECT Tx.txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryp
 FROM Tx 
 INNER JOIN TxInput on TxInput.txInternalId = Tx.txInternalId
 WHERE dsCheck = true
-      AND txExternalId = ANY(@externalIds)
-      AND (SELECT COUNT(*) FROM TxBlockDoubleSpend WHERE TxBlockDoubleSpend.txInternalId = Tx.txInternalId) = 0;
-";
+      AND txExternalId = ANY(@externalIds) ";
+
+      if (checkDSAttempt)
+      {
+        cmdText += "AND (SELECT COUNT(*) FROM TxMempoolDoubleSpendAttempt WHERE TxMempoolDoubleSpendAttempt.txInternalId = Tx.txInternalId) = 0;";
+      }
+      else
+      {
+        cmdText += "AND (SELECT COUNT(*) FROM TxBlockDoubleSpend WHERE TxBlockDoubleSpend.txInternalId = Tx.txInternalId) = 0;";
+      }
+
       var txData = new HashSet<TxWithInput>(await connection.QueryAsync<TxWithInput>(cmdText, new { externalIds = txExternalIds.ToArray() }));
       return TxWithInputDataToTx(txData);
     }

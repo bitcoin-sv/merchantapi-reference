@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using NetMQ;
 using NetMQ.Sockets;
@@ -157,13 +158,22 @@ namespace MerchantAPI.APIGateway.Rest.Services
             logger.LogInformation($"New block with hash {blockHash}.");
             eventBus.Publish(new NewBlockDiscoveredEvent { BlockHash = blockHash });
             break;
+          
           case ZMQTopic.InvalidTx:
             var invalidTxMsg = JsonSerializer.Deserialize<InvalidTxMessage>(msg[0]);
             logger.LogInformation($"Invalid tx notification for tx {invalidTxMsg.TxId} with reason {invalidTxMsg.RejectionCode} - {invalidTxMsg.RejectionReason}.");
             eventBus.Publish(new InvalidTxDetectedEvent { Message = invalidTxMsg }); 
             break;
+
+          case ZMQTopic.RemovedFromMempool:
+            var removedFromMempoolMsg = JsonSerializer.Deserialize<RemovedFromMempoolMessage>(msg[0]);
+            logger.LogInformation($"Removed from mempool tx notification for tx {removedFromMempoolMsg.TxId} with reason {removedFromMempoolMsg.Reason}. ColidedWith.TxId = {removedFromMempoolMsg.CollidedWith?.TxId}");
+            eventBus.Publish(new RemovedFromMempoolEvent { Message = removedFromMempoolMsg });
+            break;
+
           default:
             logger.LogInformation($"Unknown message topic {msgTopic} received. Ignoring.");
+            logger.LogInformation($"Message: {Encoding.UTF8.GetString(msg[0])}");
             break;
         }
         subscription.LastMessageAt = clock.UtcNow(); 
@@ -404,7 +414,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     {
       foreach (var notification in activeZmqNotifications)
       {
-        string topic = notification.Notification.Substring(3); // Chop off "zmq" prefix
+        string topic = notification.Notification.Substring(3); // Chop off "pub" prefix
         if (topic == ZMQTopic.HashBlock ||
           topic == ZMQTopic.InvalidTx ||
           topic == ZMQTopic.RemovedFromMempool ||
