@@ -23,6 +23,7 @@ using Microsoft.OpenApi.Models;
 using System.Linq;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Database;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -81,6 +82,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<INotificationAction, NotificationAction>();
       services.AddSingleton<IBlockChainInfo, BlockChainInfo>(); // singleton, thread safe
       services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe
+      services.AddTransient<ICreateDB, CreateDB>();
 
       services.AddHostedService(p => (BlockChainInfo)p.GetRequiredService<IBlockChainInfo>());
 

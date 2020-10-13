@@ -27,8 +27,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Common\Common\MerchantAPI.Common.csproj" />
+    <ProjectReference Include="..\APIGateway.Database\APIGateway.Database.csproj" />
     <ProjectReference Include="..\APIGateway.Infrastructure\MerchantAPI.APIGateway.Infrastructure.csproj" />
   </ItemGroup>
-
-
+  
 </Project>

@@ -304,9 +304,9 @@ For development, you will need the following
 
 Perform the following set up steps:
 
-1. update `DBConnectionString` setting in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they points to your PostgreSQL server
+1. Update `DBConnectionString`(connection string used by mAPI) and `DBConnectionStringMaster` (connection string with admin privileges used to upgrade database) setting in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they point to your PostgreSQL server
 2. Update `BitcoindFullPath` in `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that it points to bitcoind executable used during functional tests
-3. Run scripts from `src/crea/merchantapi2/src/MerchantAPI/APIGateway/Database/model` to create database.
+3. Run scripts from `src/crea/merchantapi2/src/MerchantAPI/APIGateway.Database/APIGateway/Database/scripts` to create database.
 
 
 ## Run 

@@ -36,7 +36,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         }
         path = Path.Combine(path, "..");
       }
-      throw new Exception($"Can not find '{projectName}' near location {Directory.GetCurrentDirectory()}");
+      throw new Exception($"Can not find '{projectName}' near location {Directory.GetCurrentDirectory()}. Last processed path:{path}");
     }
 
     private FeeQuote GetCurrentFeeQuoteByIdentityFromLoadedFeeQuotes(UserAndIssuer identity)

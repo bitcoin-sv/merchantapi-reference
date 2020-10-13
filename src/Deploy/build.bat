@@ -30,8 +30,6 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 
 copy /y template.env Build\.env
 
-docker build  --build-arg APPVERSION=%APPVERSIONMAPI% -t bitcoinsv/mapi:%VERSIONPREFIX% -f MerchantAPI/APIGateway/APIGateway.Rest/Dockerfile ..
-docker build  -t bitcoinsv/mapi-db:%VERSIONPREFIX% -f MerchantAPI/APIGateway/APIGateway.Infrastructure/Dockerfile ..
+docker build  --build-arg APPVERSION=%APPVERSIONMAPI% -t bitcoinsv/mapi:%VERSIONPREFIX% --file MerchantAPI/APIGateway/APIGateway.Rest/Dockerfile ..
 
 docker save bitcoinsv/mapi -o Build/merchantapiapp.tar
-docker save bitcoinsv/mapi-db -o Build/merchantapidata.tar
