@@ -29,6 +29,9 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(1,int.MaxValue)]
     public int NotificationIntervalSec { get; set; } = 60;
 
+    [Range(1, int.MaxValue)]
+    public int ZmqConnectionTestIntervalSec { get; set; } = 60;
+
     [Required]
     public string RestAdminAPIKey { get; set; }
 

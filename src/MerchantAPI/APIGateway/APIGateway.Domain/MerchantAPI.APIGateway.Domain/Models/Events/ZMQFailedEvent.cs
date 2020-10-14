@@ -5,9 +5,9 @@ using MerchantAPI.Common.EventBus;
 namespace MerchantAPI.APIGateway.Domain.Models.Events
 {
   /// <summary>
-  /// This event is triggered from ZMQSubscriptionService when service unsubscribes from node zmq. Used mainly for tests.
+  /// This event is triggered from ZMQSubscriptionService when call to node rpc method activezmqnotifications fails.
   /// </summary>
-  public class ZMQUnsubscribedEvent : IntegrationEvent
+  public class ZMQFailedEvent : IntegrationEvent
   {
     public Node SourceNode { get; set; }
   }
