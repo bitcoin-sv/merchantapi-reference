@@ -52,7 +52,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var zmqUnsubscribedSubscription = eventBus.Subscribe<ZMQUnsubscribedEvent>();
 
-      await RegisterNodesWithService(cts.Token);
+      await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Delete one node and check that event is fired
@@ -68,7 +68,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
-      await RegisterNodesWithService(cts.Token);
+      await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe new block events
@@ -90,7 +90,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
-      await RegisterNodesWithService(cts.Token);
+      await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
@@ -137,6 +137,98 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
+    [TestMethod]
+    public async Task ReceiveZMQMessagesAfterNodeRestart()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+
+      await RegisterNodesWithServiceAndWait(cts.Token);
+      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
+
+      // Subscribe zmq subscribe, unsubscribe and new block events
+      var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
+      var unscubscribeToZMQSubscription = eventBus.Subscribe<ZMQUnsubscribedEvent>();
+      var newBlockDiscoveredSubscription = eventBus.Subscribe<NewBlockDiscoveredEvent>();
+
+      WaitUntilEventBusIsIdle();
+
+      // Mine one block
+      var blockHash = await rpcClient0.GenerateAsync(1);
+      Assert.AreEqual(1, blockHash.Length);
+
+      // New block discovered event should be fired
+      var firstNewBlockArrivedSubscription = await newBlockDiscoveredSubscription.ReadAsync(cts.Token);
+      Assert.AreEqual(blockHash[0], firstNewBlockArrivedSubscription.BlockHash);
+
+      // Stop bitcoind service
+      StopBitcoind(node0);
+
+      _ = await unscubscribeToZMQSubscription.ReadAsync(cts.Token);
+      WaitUntilEventBusIsIdle();
+
+      // Start bitcoind service
+      StartBitcoind(0);
+
+      _ = await subscribedToZMQSubscription.ReadAsync(cts.Token);
+      WaitUntilEventBusIsIdle();
+
+      // Mine one block
+      blockHash = await rpcClient0.GenerateAsync(1);
+      Assert.AreEqual(1, blockHash.Length);
+
+      // New block discovered event should be fired
+      var secondNewBlockArrivedSubscription = await newBlockDiscoveredSubscription.ReadAsync(cts.Token);
+      Assert.AreEqual(blockHash[0], secondNewBlockArrivedSubscription.BlockHash);
+    }
+
+    [TestMethod]
+    [SkipNodeStart]
+    public async Task SubscribeToZMQOnNodeStart()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+
+      // Subscribe to failed, subscription and new block events
+      var subscribedToZMQFailed = eventBus.Subscribe<ZMQFailedEvent>();
+      var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
+      var newBlockDiscoveredSubscription = eventBus.Subscribe<NewBlockDiscoveredEvent>();
+
+      // Add node to database and emit repository event
+      var node = new Node(0, "localhost", 18332, "user", "password", $"This is a mock node #0",
+        (int)NodeStatus.Connected, null, null);
+      this.NodeRepository.CreateNode(node);
+      eventBus.Publish(new NodeAddedEvent { CreatedNode = node });
+
+      // Should receive failed event
+      _ = await subscribedToZMQFailed.ReadAsync(cts.Token);
+
+      // There should be no active subscriptions
+      Assert.AreEqual(0, zmqService.GetActiveSubscriptions().Count());
+
+      // Cleanup event bus
+      WaitUntilEventBusIsIdle();
+
+      // Start bitcoind service
+      node0 = StartBitcoind(0);
+      rpcClient0 = node0.RpcClient;
+
+      // Should receive subscription event
+      _ = await subscribedToZMQSubscription.ReadAsync(cts.Token);
+
+      // There should be one active subscription
+      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
+
+      // Cleanup event bus
+      WaitUntilEventBusIsIdle();
+
+      // Mine one block
+      var blockHash = await rpcClient0.GenerateAsync(1);
+      Assert.AreEqual(1, blockHash.Length);
+
+      // New block discovered event should be fired
+      var secondNewBlockArrivedSubscription = await newBlockDiscoveredSubscription.ReadAsync(cts.Token);
+      Assert.AreEqual(blockHash[0], secondNewBlockArrivedSubscription.BlockHash);
+    }
+
     (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
     { 
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
@@ -155,7 +247,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     async Task<SubmitTransactionResponseViewModel> SubmitTransaction(string txHex)
     {
-
       // Send transaction
       var callbackUrl = "http://www.something.com";
       var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"dscheck\": true, \"CallBackUrl\": \"{callbackUrl}\",  \"CallBackToken\": \"xxx\"}}");
@@ -167,23 +258,28 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
-
-    private async Task RegisterNodesWithService(CancellationToken cancellationToken)
+    private async Task RegisterNodesWithServiceAndWait(CancellationToken cancellationToken)
     {
       var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
-      
+
       // Register nodes with service
-      var nodes = this.NodeRepository.GetNodes();
-      foreach (var node in nodes)
-      {
-        eventBus.Publish(new NodeAddedEvent { CreatedNode = node });
-      }
+      RegisterNodesWithService(cancellationToken);
 
       // Wait for subscription event so we can make sure that service is listening to node
       _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
 
       // Unsubscribe from event bus
       eventBus.TryUnsubscribe(subscribedToZMQSubscription);
+    }
+
+    private void RegisterNodesWithService(CancellationToken cancellationToken)
+    {
+      // Register all nodes with service
+      var nodes = this.NodeRepository.GetNodes();
+      foreach (var node in nodes)
+      {
+        eventBus.Publish(new NodeAddedEvent { CreatedNode = node });
+      }
     }
 
     [TestMethod]

@@ -13,6 +13,11 @@ using NBitcoin;
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   /// <summary>
+  /// Atribute to skip node start and registration
+  /// </summary>
+  public class SkipNodeStartAttribute : Attribute { }
+
+  /// <summary>
   /// base class for functional tests that require bitcoind instance
   /// During test setup a new instance of bitcoind is setup, some blocks are generated and coins are collected,
   /// so that they can be used during test
@@ -54,9 +59,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
         hostIp = alternativeIp;
       }
 
-      node0 = CreateAndStartNode(0);
-      rpcClient0 = node0.RpcClient;
-      SetupChain(rpcClient0);
+      bool skipNodeStart = GetType().GetMethod(TestContext.TestName).GetCustomAttributes(true).Any(a => a.GetType() == typeof(SkipNodeStartAttribute));
+
+      if (!skipNodeStart)
+      {
+        node0 = CreateAndStartNode(0);
+        rpcClient0 = node0.RpcClient;
+        SetupChain(rpcClient0);
+      }
     }
 
     public BitcoindProcess CreateAndStartNode(int index)
