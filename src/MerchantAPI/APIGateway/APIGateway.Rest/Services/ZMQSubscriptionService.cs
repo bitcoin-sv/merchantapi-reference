@@ -177,7 +177,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     private async Task PingNodesAsync(CancellationToken stoppingToken)
     {
       var nodesToPing = subscriptions
-        .Where(s => (clock.UtcNow() - s.Value.LastMessageAt).TotalSeconds > appSettings.ZmqConnectionTestIntervalSec)
+        .Where(s => (clock.UtcNow() - s.Value.LastContactAt).TotalSeconds >= appSettings.ZmqConnectionTestIntervalSec)
         .Select(s => s.Value.NodeId)
         .Distinct()
         .ToArray();
@@ -203,14 +203,14 @@ namespace MerchantAPI.APIGateway.Rest.Services
             {
               foreach (var subscription in subscriptions.Where(s => s.Value.NodeId == node.Id).ToArray())
               {
-                subscription.Value.LastMessageAt = clock.UtcNow();
+                subscription.Value.LastPingAt = clock.UtcNow();
               }
             }
           }
           catch (Exception ex)
           {
             // Call failed so put node on failed list
-            MarkAsFailed(node);
+            MarkAsFailed(node, ex.Message);
             // Remove any active subscriptions because we need full reconnection to this node
             UnsubscribeZmqNotifications(node);
             logger.LogError(ex, $"Ping failed for node {node.Host}:{node.Port}. Will try to resubscribe.");
@@ -247,6 +247,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         {
           // Call activezmqnotifications rpc method to check that node responds
           var notifications = await bitcoind.ActiveZmqNotificationsAsync(stoppingToken);
+          ValidateNotifications(notifications);
           SubscribeZmqNotifications(failedSubscription.Node, notifications);
           ClearFailed(failedSubscription.Node);
         }
@@ -255,6 +256,8 @@ namespace MerchantAPI.APIGateway.Rest.Services
           logger.LogError(ex, $"Failed to subscribe to ZMQ events. " +
             $"Unable to connect to node {failedSubscription.Node.Host}:{failedSubscription.Node.Port}. " +
             $"Will retry in {appSettings.ZmqConnectionTestIntervalSec} seconds.");
+          failedSubscription.LastError = ex.Message;
+          failedSubscription.LastTryAt = clock.UtcNow();
         }
       }
     }
@@ -290,12 +293,13 @@ namespace MerchantAPI.APIGateway.Rest.Services
         {
           // Call activezmqnotifications rpc method
           var notifications = await bitcoind.ActiveZmqNotificationsAsync(stoppingToken);
+          ValidateNotifications(notifications);
           SubscribeZmqNotifications(node, notifications);
         }
         catch (Exception ex)
         {
           // Subscription failed so put node on failed list and log
-          MarkAsFailed(node);
+          MarkAsFailed(node, ex.Message);
           logger.LogError(ex, $"Failed to subscribe to ZMQ events. Unable to connect to node {node.Host}:{node.Port}. Will retry later.");
         }
       }
@@ -346,6 +350,56 @@ namespace MerchantAPI.APIGateway.Rest.Services
       return subscriptions.Values;
     }
 
+    public ZmqStatus GetStatusForNode(Node node)
+    {
+      // Check active subscriptions
+      var nodeSubscriptions = subscriptions.Where(s => s.Value.NodeId == node.Id).Select(s => s.Value).ToArray();
+      if (nodeSubscriptions.Length > 0)
+      {
+        return new ZmqStatus()
+        {
+          IsResponding = true,
+          LastConnectionAttemptAt = null,
+          LastError = null,
+          Endpoints = nodeSubscriptions.Select(s => new ZmqEndpoint()
+          {
+            Address = s.Address,
+            Topics = s.Topics,
+            LastPingAt = s.LastPingAt,
+            LastMessageAt = s.LastMessageAt
+          }).ToArray()
+        };
+      }
+      // Check for failed status
+      ZMQFailedSubscription failedSubscription;
+      lock (failedSubscriptions)
+      {
+        failedSubscription = failedSubscriptions.FirstOrDefault(f => f.Node.Id == f.Node.Id);
+      }
+      if (failedSubscription != null)
+      {
+        return new ZmqStatus()
+        {
+          IsResponding = false,
+          LastConnectionAttemptAt = failedSubscription.LastTryAt,
+          LastError = failedSubscription.LastError
+        };
+      }
+      // No current status - could happen if the node was just added and node repository
+      // events have not been processed by ZMQ service yet.
+      return null;
+    }
+
+    private void ValidateNotifications(RpcActiveZmqNotification[] notifications)
+    {
+      // Check that we have all required notifications
+      if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(Const.RequiredZmqNotifications).Count() != Const.RequiredZmqNotifications.Length)
+      {
+        var missingNotifications = Const.RequiredZmqNotifications.Except(notifications.Select(x => x.Notification));
+        throw new Exception($"Node does not have all required zmq notifications enabled. Missing notifications ({string.Join(",", missingNotifications)})");
+      }
+    }
+
     private void SubscribeZmqNotifications(Node node, RpcActiveZmqNotification[] activeZmqNotifications)
     {
       foreach (var notification in activeZmqNotifications)
@@ -382,14 +436,14 @@ namespace MerchantAPI.APIGateway.Rest.Services
       }
     }
 
-    private void MarkAsFailed(Node node)
+    private void MarkAsFailed(Node node, string errorMessage)
     {
       // Subscription failed so put node on failed list and log
       lock (failedSubscriptions)
       {
         if (failedSubscriptions.Any(s => s.Node.Id == node.Id))
           return;
-        failedSubscriptions.Add(new ZMQFailedSubscription(node, clock.UtcNow()));
+        failedSubscriptions.Add(new ZMQFailedSubscription(node, errorMessage, clock.UtcNow()));
       }
       eventBus.Publish(new ZMQFailedEvent { SourceNode = node });
     }
@@ -421,17 +475,20 @@ namespace MerchantAPI.APIGateway.Rest.Services
     public const string RemovedFromMempoolBlock = "removedfrommempoolblock";
   }
 
-  public class ZMQFailedSubscription
+  class ZMQFailedSubscription
   {
-    public ZMQFailedSubscription(Node node, DateTime lastTryAt)
+    public ZMQFailedSubscription(Node node, string errorMessage, DateTime lastTryAt)
     {
       Node = node;
       LastTryAt = lastTryAt;
+      LastError = errorMessage;
     }
 
     public Node Node { get; }
 
     public DateTime LastTryAt { get; set; }
+
+    public String LastError { get; set; }
 
   }
 
@@ -439,7 +496,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
   {
     private readonly List<string> topics = new List<string>();
 
-    public ZMQSubscription(long nodeId, string address, DateTime lastMessageAt, string topic = null)
+    public ZMQSubscription(long nodeId, string address, DateTime lastPingAt, string topic = null)
     {
       NodeId = nodeId;
       Address = address;
@@ -447,13 +504,15 @@ namespace MerchantAPI.APIGateway.Rest.Services
       Socket.Connect(address);
       Socket.Options.ReconnectInterval = TimeSpan.FromMilliseconds(100);
       Socket.Options.ReconnectIntervalMax = TimeSpan.FromMilliseconds(0);
-      LastMessageAt = lastMessageAt;
-      
+      LastPingAt = lastPingAt;
+      LastMessageAt = null;
+
       if (topic != null)
       {
         SubscribeTopic(topic);
       }
     }
+
     public void SubscribeTopic(string topic)
     {
       Socket.Subscribe(topic);
@@ -463,6 +522,13 @@ namespace MerchantAPI.APIGateway.Rest.Services
     public bool IsTopicSubscribed(string topic)
     {
       return topics.Contains(topic);
+    }
+
+    public string[] Topics
+    {
+      get {
+        return topics.ToArray();
+      }
     }
 
     void IDisposable.Dispose()
@@ -476,6 +542,19 @@ namespace MerchantAPI.APIGateway.Rest.Services
 
     public SubscriberSocket Socket { get; }
 
-    public DateTime LastMessageAt { get; set; }  
+    public DateTime LastPingAt { get; set; }
+
+    public DateTime? LastMessageAt { get; set; }
+
+    public DateTime LastContactAt
+    {
+      get
+      {
+        if (LastMessageAt.HasValue && LastMessageAt.Value > LastPingAt)
+          return LastMessageAt.Value;
+        else
+          return LastPingAt;
+      }
+    }
   }
 }
