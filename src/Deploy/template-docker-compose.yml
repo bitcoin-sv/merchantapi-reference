@@ -26,6 +26,7 @@ services:
       - ConnectionStrings:DBConnectionString=Server=merchant-gateway-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_gateway;
       - AppSettings:QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
       - AppSettings:NotificationIntervalSec=${NOTIFICATION_INTERVAL_SEC}
+      - AppSettings:ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
       - AppSettings:RestAdminAPIKey=${RESTADMIN_APIKEY}
       - AppSettings:DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
       - AppSettings:WifPrivateKey=${WIF_PRIVATEKEY}

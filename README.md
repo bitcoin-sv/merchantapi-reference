@@ -331,6 +331,7 @@ The following is list of all configuration values available
 * `AppSettings`
   * `QuoteExpiryMinutes` - specified fee quote expiry time. Default: 10 minutes;
   * `NotificationIntervalSec` - how often does notification service  check if there are any new messages available. Default: 60 seconds
+  * `ZmqConnectionTestIntervalSec` - how often does ZMQ subscription service test that the connection with node is still alive. Default: 60 seconds
   * `RestAdminAPIKey` - authorization key for accessing administration interface. Required.
   * `DeltaBlockHeightForDoubleSpendCheck` - Number of old blocks that are checked for  double spends. Default: 144 (one day).
   * `WifPrivateKey` - private key that is used to sign responses with. Can not be specified if `MinerIdServer` is specified
