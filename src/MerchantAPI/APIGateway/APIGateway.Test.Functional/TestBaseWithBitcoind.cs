@@ -145,8 +145,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         throw new Exception($"Can not stop a bitcoind that was not started by {nameof(StartBitcoind)} ");
       }
-
-      bitcoind.RpcClient.StopAsync().Wait(); // stop is implemented as aync in bitcoind, but it should stop receiving new RPC requests before it returns
+      
       bitcoind.Dispose();
 
     }

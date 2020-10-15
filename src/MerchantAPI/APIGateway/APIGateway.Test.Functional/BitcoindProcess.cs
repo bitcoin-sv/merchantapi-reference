@@ -152,7 +152,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
         if (RpcClient != null)
         {
           // Note that bitcoind RPC "stop" call starts the shutdown it does not shutdown the process immediately
-          RpcClient.StopAsync().Wait();
+          try
+          {
+            RpcClient.StopAsync().Wait();            
+          } catch { }
         }
       }
 
@@ -171,6 +174,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
         {
           logger.LogError($"BitcoindProcess with pid={process.Id} did not stop. Will kill it.");
           process.Kill();
+          if (process.WaitForExit(2000))
+            logger.LogError($"BitcoindProcess with pid={process.Id} successfully killed.");
         }
 
         RpcClient = null;
