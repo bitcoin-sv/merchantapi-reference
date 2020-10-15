@@ -35,6 +35,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.TestInitialize();
       zmqService = server.Services.GetRequiredService<ZMQSubscriptionService>();
+      ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
       InsertFeeQuote();
     }
 
@@ -294,6 +295,60 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(info.BestBlockHash, newBlockHash[0], "New block should have been mined");
       loggerTest.LogInformation($"We mined a new block {newBlockHash}. Checking if  GetInfo() reports it");
       await WaitUntilAsync(() => blockChainInfo.GetInfo().BestBlockHash == newBlockHash);
+    }
+
+    [TestMethod]
+    public async Task ZmqStatusReturnsStatusForLiveNode()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+
+      await RegisterNodesWithServiceAndWait(cts.Token);
+      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
+
+      WaitUntilEventBusIsIdle();
+
+      // Get zmq status 
+      var response =
+        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+
+      Assert.AreEqual(1, response.response.Length);
+      Assert.AreEqual(true, response.response.First().IsResponding);
+      Assert.AreEqual(1, response.response.First().Endpoints.Length);
+      Assert.IsTrue(response.response.First().Endpoints.First().Topics.Contains(ZMQTopic.InvalidTx));
+      Assert.IsTrue(response.response.First().Endpoints.First().Topics.Contains(ZMQTopic.HashBlock));
+    }
+
+    [TestMethod]
+    public async Task ZmqStatusReturnsNotRespondingForShutdownNode()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+
+      var subscribedToZMQFailed = eventBus.Subscribe<ZMQFailedEvent>();
+
+      await RegisterNodesWithServiceAndWait(cts.Token);
+      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
+
+      WaitUntilEventBusIsIdle();
+
+      // Get zmq status - node should be responding
+      var response =
+        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+
+      Assert.AreEqual(1, response.response.Length);
+      Assert.AreEqual(true, response.response.First().IsResponding);
+
+      // Stop node
+      StopBitcoind(node0);
+
+      // Should receive failed event
+      _ = await subscribedToZMQFailed.ReadAsync(cts.Token);
+
+      // Get zmq status again - node should be marked as not responding
+      response =
+        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+
+      Assert.AreEqual(1, response.response.Length);
+      Assert.AreEqual(false, response.response.First().IsResponding);
     }
   }
 }

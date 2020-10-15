@@ -25,6 +25,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("lastError")]
     public string LastError { get; set; }
 
+    public ZmqStatusViewModelGet()
+    { }
+
     public ZmqStatusViewModelGet(Node domainNode, ZmqStatus domainZmqStatus)
     {
       NodeId = domainNode.ToExternalId();

@@ -20,6 +20,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("lastMessageAt")]
     public DateTime? LastMessageAt { get; set; }
 
+    public ZmqEndpointViewModelGet()
+    { }
 
     public ZmqEndpointViewModelGet(ZmqEndpoint domain)
     {

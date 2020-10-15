@@ -467,7 +467,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     }
   }
 
-  static class ZMQTopic
+  public static class ZMQTopic
   {
     public const string HashBlock = "hashblock";
     public const string InvalidTx = "invalidtx";
