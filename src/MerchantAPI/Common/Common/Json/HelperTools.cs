@@ -72,11 +72,20 @@ namespace MerchantAPI.Common.Json
     // https://stackoverflow.com/questions/311165/how-do-you-convert-a-byte-array-to-a-hexadecimal-string-and-vice-versa/26304129#26304129
     public static byte[] HexStringToByteArray(string input)
     {
-      var outputLength = input.Length / 2;
-      var output = new byte[outputLength];
-      for (var i = 0; i < outputLength; i++)
-        output[i] = Convert.ToByte(input.Substring(i * 2, 2), 16);
-      return output;
+      if (string.IsNullOrEmpty(input)) return new byte[] { };
+
+      try
+      {
+        var outputLength = input.Length / 2;
+        var output = new byte[outputLength];
+        for (var i = 0; i < outputLength; i++)
+          output[i] = Convert.ToByte(input.Substring(i * 2, 2), 16);
+        return output;
+      }
+      catch(Exception ex)
+      {
+        throw new BadRequestException("Unable to convert string value to byte[]", ex);
+      }
     }
 
     // https://stackoverflow.com/questions/311165/how-do-you-convert-a-byte-array-to-a-hexadecimal-string-and-vice-versa/14333437#14333437

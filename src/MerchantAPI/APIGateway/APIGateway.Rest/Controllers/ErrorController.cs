@@ -40,7 +40,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         detail: ex.Message);
       if (dumpStack)
       {
-        pd.Extensions.Add("stackTrace", ex.StackTrace);
+        pd.Extensions.Add("stackTrace", ex.ToString());
       }
 
       return new ObjectResult(pd);
