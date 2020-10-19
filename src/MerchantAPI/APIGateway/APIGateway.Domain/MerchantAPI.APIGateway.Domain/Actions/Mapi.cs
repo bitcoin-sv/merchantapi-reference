@@ -14,6 +14,8 @@ using Microsoft.Extensions.Logging;
 using NBitcoin.Crypto;
 using Transaction = NBitcoin.Transaction;
 using MerchantAPI.Common.Json;
+using System.ComponentModel.DataAnnotations;
+using System.Collections.ObjectModel;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -501,6 +503,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return (okToMine ? 2 : 0) + (okToRelay ? 1 : 0);
     }
 
+    private void AddFailureResponse(string txId, string errMessage, ref List<SubmitTransactionOneResponse> responses)
+    {
+      var oneResponse = new SubmitTransactionOneResponse
+      {
+        Txid = txId,
+        ReturnResult = ResultCodes.Failure,
+        ResultDescription = errMessage
+      };
+
+      responses.Add(oneResponse);
+    }
+
     public async Task<SubmitTransactionsResponse> SubmitTransactionsAsync(IEnumerable<SubmitTransaction> requestEnum, UserAndIssuer user)
     {
       var request = requestEnum.ToArray();
@@ -521,23 +535,51 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees)>();
       int failureCount = 0;
 
-      var allTxs = request.ToDictionary(x => Hashes.DoubleSHA256(x.RawTx), v => v.RawTx);
+      IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
       foreach (var oneTx in request)
       {
+        if (oneTx.RawTx == null)
+        {
+          try
+          {
+            oneTx.RawTx = HelperTools.HexStringToByteArray(oneTx.RawTxString);
+          }
+          catch (Exception ex)
+          {
+            AddFailureResponse(null, ex.Message, ref responses);
 
-        bool okToMine = false;
-        bool okToRelay = false;
+            failureCount++;
+            continue;
+
+          }
+        }
         uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
         string txIdString = txId.ToString();
+
+        if (allTxs.ContainsKey(txId))
+        {
+          AddFailureResponse(txIdString, "Transaction with this id occurs more than once within request", ref responses);
+
+          failureCount++;
+          continue;
+        }
+
+        var vc = new ValidationContext(oneTx);
+        var errors = oneTx.Validate(vc);
+        if (errors.Count() > 0)
+        {
+          AddFailureResponse(txIdString, string.Join(",", errors.Select(x => x.ErrorMessage)), ref responses);
+
+          failureCount++;
+          continue;
+        }
+        allTxs.Add(txId, oneTx.RawTx);
+        bool okToMine = false;
+        bool okToRelay = false;
         if (await txRepository.TransactionExists(txId.ToBytes()))
         {
-          var oneResponse = new SubmitTransactionOneResponse
-          {
-            Txid = txIdString,
-            ReturnResult = ResultCodes.Failure,
-            ResultDescription = "Transaction already known"
-          };
-          responses.Add(oneResponse);
+          AddFailureResponse(txIdString, "Transaction already known", ref responses);
+
           failureCount++;
           continue;
         }
@@ -554,7 +596,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           {
             throw new ExceptionWithSafeErrorMessage("Invalid transaction - coinbase transactions are not accepted");
           }
-          var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, allTxs, rpcMultiClient);
+          var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, new ReadOnlyDictionary<uint256, byte[]>(allTxs), rpcMultiClient);
 
           prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
           colidedWith = prevOuts.Where(x => x.CollidedWith != null).Select(x => x.CollidedWith).ToArray();
@@ -628,13 +670,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         // Transactions  was successfully analyzed
         if (!okToMine && !okToRelay)
         {
-          var oneResponse = new SubmitTransactionOneResponse
-          {
-            Txid = txIdString,
-            ReturnResult = ResultCodes.Failure,
-            ResultDescription = "Not enough fees"
-          };
-          responses.Add(oneResponse);
+          AddFailureResponse(txIdString, "Not enough fees", ref responses);
+
           failureCount++;
         }
         else

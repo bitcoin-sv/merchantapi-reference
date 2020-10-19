@@ -15,8 +15,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     public SubmitTransactionOneResponseViewModel(SubmitTransactionOneResponse domain)
     {
       Txid = domain.Txid;
-      ReturnResult = domain.ReturnResult;
-      ResultDescription = domain.ResultDescription;
+      ReturnResult = domain.ReturnResult ?? "";
+      ResultDescription = domain.ResultDescription ?? "";
       ConflictedWith = domain.ConflictedWith?.Select(t => new SubmitTransactionConflictedTxResponseViewModel(t)).ToArray();
     }
 

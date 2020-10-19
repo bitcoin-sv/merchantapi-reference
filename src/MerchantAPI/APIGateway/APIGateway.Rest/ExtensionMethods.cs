@@ -19,19 +19,6 @@ namespace MerchantAPI.APIGateway.Rest
 
     }
 
-    public static BadRequestObjectResult ReturnBadRequestIfInvalid(this ControllerBase controller, IEnumerable<IValidatableObject> objs)
-    {
-      var vc = new ValidationContext(objs);
-
-      var errors = new List<ValidationResult>();
-      foreach (var obj in objs)
-      {
-        errors.AddRange(obj.Validate(vc));
-      }
-      return controller.ToBadRequest(errors.ToArray());
-    }
-
-
     public static BadRequestObjectResult ToBadRequest(this ControllerBase controller, ValidationResult[] errors)
     {
       if (!errors.Any())

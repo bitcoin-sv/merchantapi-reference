@@ -11,6 +11,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
   public class SubmitTransaction : IValidatableObject
   {
     public byte[] RawTx { get; set; }
+    public string RawTxString { get; set; }
     public string  CallBackUrl { get; set; }
 
     public string CallBackToken { get; set; }

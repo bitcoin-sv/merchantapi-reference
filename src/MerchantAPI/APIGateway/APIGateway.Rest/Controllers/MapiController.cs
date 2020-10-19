@@ -161,11 +161,6 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       var user = IdentityProviderStore.GetUserAndIssuer(User);
 
       var domainModel = data.ToDomainModel(null, null, null, false, false);
-      var br = this.ReturnBadRequestIfInvalid(domainModel);
-      if (br != null)
-      {
-        return br;
-      }
 
       var result =
         new SubmitTransactionResponseViewModel(
@@ -197,22 +192,12 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool dsCheck)
     {
-      var errors = SubmitTransaction.IsSupportedCallbackUrl(callBackUrl, nameof(callBackUrl))
-        .Concat(SubmitTransaction.IsSupportedEncryption(callBackEncryption, nameof(callBackEncryption))).ToArray();
-
-      var br = this.ToBadRequest(errors);
-      if (br != null)
-      {
-        return br;
-      }
-
       byte[] data;
       using (var ms = new MemoryStream())
       {
         await Request.Body.CopyToAsync(ms);
         data = ms.ToArray();
       }
-
 
       var request = new SubmitTransaction
       {
@@ -223,11 +208,6 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         MerkleProof = merkleProof,
         DsCheck = dsCheck
       };
-      br = this.ReturnBadRequestIfInvalid(request);
-      if (br != null)
-      {
-        return br;
-      }
       
       var result = new SubmitTransactionResponseViewModel(await mapi.SubmitTransactionAsync(request, IdentityProviderStore.GetUserAndIssuer(User)));
       return await SignIfRequiredAsync(result, result.MinerId);
@@ -259,23 +239,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool defaultDsCheck)
     {
-      var errors = SubmitTransaction.IsSupportedCallbackUrl(defaultCallBackUrl, nameof(defaultCallBackUrl))
-          .Concat(SubmitTransaction.IsSupportedEncryption(defaultCallBackEncryption, nameof(defaultCallBackEncryption))).ToArray();
-        
-      var br = this.ToBadRequest(errors);
-      if (br != null)
-      {
-        return br;
-      }
-      
       var domainModel = data.Select(x =>
         x.ToDomainModel(defaultCallBackUrl, defaultCallBackToken, defaultCallBackEncryption, defaultMerkleProof, defaultDsCheck)).ToArray();
 
-      br =this.ReturnBadRequestIfInvalid(domainModel);
-      if (br != null)
-      {
-        return br;
-      }
       var result =
         new SubmitTransactionsResponseViewModel(
           await mapi.SubmitTransactionsAsync(domainModel,
@@ -338,12 +304,6 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
             MerkleProof = merkleProof,
             DsCheck = dsCheck
           }).ToArray();
-
-      var br = this.ReturnBadRequestIfInvalid(request);
-      if (br != null)
-      {
-        return br;
-      }
 
       var result =
         new SubmitTransactionsResponseViewModel(

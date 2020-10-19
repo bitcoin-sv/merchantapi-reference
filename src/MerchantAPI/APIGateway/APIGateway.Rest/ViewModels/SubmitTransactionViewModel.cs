@@ -30,7 +30,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     {
       return new SubmitTransaction
       {
-        RawTx = HelperTools.HexStringToByteArray(RawTx),
+        RawTxString = RawTx,
         CallBackUrl = CallBackUrl ?? defaultCallBackUrl,
         CallBackToken = CallBackToken ?? defaultCallBackToken,
         CallBackEncryption =  CallBackEncryption ?? defaultCallBackEncryption,
