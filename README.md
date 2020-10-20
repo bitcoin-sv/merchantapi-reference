@@ -231,6 +231,14 @@ GET api/v1/Node
 
 NOTE: when returning connection parameters, password is not return for security reasons.
 
+### Status check
+
+To check status of ZMQ subscriptions use:
+
+```
+GET api/v1/status/zmq
+```
+
 ## Build and deploy
 
 ### Building docker images
