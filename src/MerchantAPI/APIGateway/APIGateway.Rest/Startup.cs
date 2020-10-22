@@ -218,6 +218,16 @@ namespace MerchantAPI.APIGateway.Rest
         app.UseExceptionHandler("/error");
       }
 
+      app.Use(async (context, next) =>
+      {
+        context.Response.Headers.Add("cache-control", "no-store");
+        context.Response.Headers.Add("Content-Security-Policy", "frame-ancestors 'none'");
+        context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+        context.Response.Headers.Add("X-Frame-Options", "DENY");
+        context.Response.Headers.Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+        await next();
+      });
+
       app.UseHttpsRedirection();
 
       app.UseSwagger();
