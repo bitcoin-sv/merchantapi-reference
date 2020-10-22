@@ -67,7 +67,10 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
         {
           problemDetails = HelperTools.JSONDeserializeNewtonsoft<ProblemDetails>(response);
         }
-        catch (Exception) { }
+        catch (Exception) 
+        {
+          // We can ignore exception here. If there was an exception, problemDetails will be null and it will be handled later in the code.
+        }
 
         string errMessage;
         if (problemDetails != null)
