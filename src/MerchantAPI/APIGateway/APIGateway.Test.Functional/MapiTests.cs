@@ -98,11 +98,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task GetFeeQuoteAuthenticated()
     {
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
-      _ = await Get<SignedPayloadViewModel>(
-                     MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.NotFound); 
+      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
+                     MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.NotFound);
+      Assert.AreEqual("Not Found", response.httpResponse.ReasonPhrase);
 
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
+      response = await Get<SignedPayloadViewModel>(
                  MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
       var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
