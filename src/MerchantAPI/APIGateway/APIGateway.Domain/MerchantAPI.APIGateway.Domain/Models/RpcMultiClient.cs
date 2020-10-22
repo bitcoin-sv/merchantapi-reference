@@ -33,15 +33,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
       this.logger = logger;
     }
 
-
-    static Random random = new Random();
-
     static void ShuffleArray<T>(T[] array)
     {
       int n = array.Length;
       while (n > 1)
       {
-        int i = random.Next(n--);
+        int i = System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, n--);
         T temp = array[n];
         array[n] = array[i];
         array[i] = temp;
