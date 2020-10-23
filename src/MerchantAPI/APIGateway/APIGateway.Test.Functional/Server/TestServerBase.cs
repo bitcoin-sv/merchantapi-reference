@@ -26,10 +26,6 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
       this.testServer = testServer ?? throw new ArgumentNullException(nameof(testServer));
 
     }
-    public HttpClient CreateClient()
-    {
-      return testServer.CreateClient();
-    }
 
     public HttpClient CreateClient(string clientName)
     {
