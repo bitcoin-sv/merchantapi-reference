@@ -43,7 +43,11 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         pd.Extensions.Add("stackTrace", ex.ToString());
       }
 
-      return new ObjectResult(pd);
+      var result = new ObjectResult(pd)
+      {
+        StatusCode = statusCode
+      };
+      return result;
     }
 
     [Route("/error-development")]
