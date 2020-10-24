@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
@@ -26,7 +27,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
     {
       var ms = new MemoryStream();
       await HttpContext.Request.Body.CopyToAsync(ms);
-      callBackReceived.CallbackReceived(Request.Path, ms.ToArray());
+      callBackReceived.CallbackReceived(Request.Path, Request.Headers, ms.ToArray());
       Response.StatusCode = 200;
     }
 

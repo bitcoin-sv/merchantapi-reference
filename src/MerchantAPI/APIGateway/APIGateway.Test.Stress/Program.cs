@@ -17,11 +17,10 @@ using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional;
 using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
 using MerchantAPI.Common.Json;
-using Microsoft.AspNetCore.Http;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using NBitcoin;
+
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
@@ -67,6 +66,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       string urlWithParams = ub.Uri.ToString();
 
+      string callBackHost = "";
+      if (!string.IsNullOrEmpty(callbackUrl))
+      {
+        callBackHost = new Uri(callbackUrl).Host;
+      }
+
 
       // We currently submit through REST interface., We could also use binary  interface
       var request = transactions.Select(t => new SubmitTransactionViewModel
@@ -95,12 +100,19 @@ namespace MerchantAPI.APIGateway.Test.Stress
         var rEnvelope = HelperTools.JSONDeserializeNewtonsoft<JsonEnvelope>(responseAsString);
         var r = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionsResponseViewModel>(rEnvelope.Payload);
         int printLimit = 10;
-        var errors = r.Txs.Where(t => t.ReturnResult != "success")
+        var errorItems = r.Txs.Where(t => t.ReturnResult != "success").ToArray();
+
+        var okItems = r.Txs.Where(t => t.ReturnResult == "success").ToArray();
+
+        stats.AddRequestTxFailures(callBackHost, errorItems.Select(x=> new uint256(x.Txid)));
+        stats.AddOkSubmited(callBackHost, okItems.Select(x => new uint256(x.Txid)));
+
+        var errors = errorItems
           .Select(t => t.Txid + " " + t.ReturnResult + " " + t.ResultDescription).ToArray();
 
-        stats.AddRequestTxFailures(errors.Length);
-        stats.AddOkSubmited(request.Length - errors.Length);
-        var limitedErrors = string.Join("'", errors.Take(printLimit));
+
+
+        var limitedErrors = string.Join(Environment.NewLine, errors.Take(printLimit));
         if (errors.Any())
         {
           Console.WriteLine($"Error while submitting transactions. Printing  up to {printLimit} out of {errors.Length} errors : {limitedErrors}");
@@ -143,25 +155,38 @@ namespace MerchantAPI.APIGateway.Test.Stress
       return bitcoind;
 
     }
-    static async Task WaitForCallBacksAsync(int timeoutMS, Stats stats)
+    /// <summary>
+    /// Wait until all callback are received or until timeout expires
+    /// Print out any missing callbacks
+    /// </summary>
+    static async Task WaitForCallBacksAsync(int timeoutMs, Stats stats)
     {
 
-      // Wait until all callback are received or until timeout expires
-      const int timeoutMs = 30_000;
-      long callBacksReceived;
-      long OKSubmitted;
+      (string host, uint256[] txs)[] missing;
+      bool timeout;
       do
       {
-        await Task.Delay(100);
-        callBacksReceived = stats.CallBacksReceived;
-        OKSubmitted = stats.OKSubmitted;
+        await Task.Delay(1000);
+        missing = stats.GetMissingCallBacksByHost();
+        timeout = stats.LastUpdateAgeMs > timeoutMs;
 
-      } while (callBacksReceived != OKSubmitted && stats.LastUpdateAgeMs < timeoutMs);
+      } while (missing.Any() && !timeout);
 
-      // NOTE: we have a slight race conditions here if new callbacks are received 
-      if (callBacksReceived != OKSubmitted)
+      if (timeout)
       {
-        Console.WriteLine($"Error: expected to receive {OKSubmitted} callbacks but received {callBacksReceived} ");
+        Console.WriteLine($"Timeout occurred when waiting for callbacks. No new callbacks received for last {timeoutMs} ms");
+      }
+      
+      // TODO: print out multiple callbacks
+      if (missing.Any())
+      {
+        const int printUpTo = 3;
+        Console.WriteLine($"Error: Not all callback were received. Total missing {missing.Sum(x=> x.txs.Length)}");
+        Console.WriteLine($"Printing up to {printUpTo} missing tx per host");
+        foreach (var host in missing)
+        {
+          Console.WriteLine($"   {host.host}  {string.Join(" ",host.txs.Take(printUpTo).Select(x=> x.ToString()).ToArray())} ");
+        }
       }
       else
       {
@@ -169,7 +194,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
     }
 
-    static async Task<int> SendTransactions(string fileName, string url, int batchSize, int txIndex, int threads, string auth, string callbackUrl, string callbackToken, string callbackEncryption, long? limit, 
+    static Random rnd = new Random();
+    static async Task<int> SendTransactions(string fileName, string url, int batchSize, int txIndex, int threads, string auth, string callbackUrl, int? callbackUrlNumber,  string callbackToken, string callbackEncryption, long? limit, 
       bool startListener, string templateData, string authAdmin, string bitcoindPath)
     {
 
@@ -188,6 +214,18 @@ namespace MerchantAPI.APIGateway.Test.Stress
         throw new Exception($"{nameof(authAdmin)} must be specified if and only if {nameof(templateData)} is specified.");
       }
 
+      string GetDynamicCallbackUrl()
+      {
+        if (callbackUrlNumber == null)
+        {
+          return callbackUrl;
+        }
+
+        var uri = new UriBuilder(callbackUrl);
+        
+        uri.Host = uri.Host + rnd.Next(1, callbackUrlNumber.Value+1);
+        return uri.ToString();
+      }
 
 
       var transactions = new TransactionReader(fileName, txIndex, limit ?? long.MaxValue);
@@ -241,7 +279,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
             batch.Add(transaction);
             if (batch.Count >= batchSize)
             {
-              await SendTransactionsBatch(batch, client, stats, url + "mapi/txs", callbackUrl, callbackToken,
+              await SendTransactionsBatch(batch, client, stats, url + "mapi/txs", GetDynamicCallbackUrl(), callbackToken,
                 callbackEncryption);
               batch.Clear();
             }
@@ -251,7 +289,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
           if (batch.Any())
           {
-            await SendTransactionsBatch(batch, client, stats, url + "mapi/txs", callbackUrl, callbackToken,
+            await SendTransactionsBatch(batch, client, stats, url + "mapi/txs", GetDynamicCallbackUrl(), callbackToken,
               callbackEncryption);
             batch.Clear();
           }
@@ -282,12 +320,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         Task.WaitAll(tasks.ToArray());
 
-        stats.StopTiming(); // we are no longer submitting txs. Stop the Stopwatch that is used to calculate submission trhoughput
+        stats.StopTiming(); // we are no longer submitting txs. Stop the Stopwatch that is used to calculate submission throughput
         if (startListener && bitcoind != null && !string.IsNullOrEmpty(callbackUrl) && stats.OKSubmitted > 0)
         {
           Console.WriteLine("Finished sending transactions. Will generate a block to trigger callbacks");
           await bitcoind.RpcClient.GenerateAsync(1);
-          await WaitForCallBacksAsync(30_000, stats);
+          await WaitForCallBacksAsync(30_000, stats); // TODO: move timeout to config file
         }
         // Cancel progress task
         cancellationSource.Cancel(false);
@@ -299,7 +337,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
         catch  
         {
         }
-
 
         if (webServer != null)
         {
@@ -422,6 +459,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           $"Unable to create new {hostPort}. Error: {newNodeResult.StatusCode} {await newNodeResult.Content.ReadAsStringAsync()}");
       }
 
+      await Task.Delay(TimeSpan.FromSeconds(1)); // Give mAPI some time to establish ZMQ subscriptions
     }
 
     static async Task<int> Main(string[] args)
@@ -450,6 +488,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
         new Option<string>(
           new[] {"--callbackUrl", "-cu"},
           description: "Url that will process double spend and merkle proof notifications. When present, transactions will be submitted with MerkleProof and DsCheck set to true. Required when any other callback parameter is supplied. Example: http://localhost:2000/callbacks"
+        )
+        {
+          IsRequired = false
+        },
+
+        new Option<int>(
+          new[] {"--callbackUrlNumber", "-cun"},
+          description: "When specified, a random number between 1 and  --callbackUrlNumber will be appended to host name specified by --callbackUrl when submitting each batch of transactions. This is useful for testing callbacks toward different hosts"
         )
         {
           IsRequired = false
@@ -560,15 +606,15 @@ namespace MerchantAPI.APIGateway.Test.Stress
       rootCommand.Description = "mAPI stress test";
 
       sendCommand.Handler = CommandHandlerCreate(
-        (string fileName, string url, int batchSize, int txIndex, int threads, string auth, string callbackUrl, string callbackToken, string callbackEncryption, long? limit, bool startListener, string templateData, string authAdmin, string bitcoindPath) =>
-        SendTransactions(fileName, url, batchSize, txIndex, threads, auth, callbackUrl, callbackToken, callbackEncryption, limit, startListener, templateData, authAdmin, bitcoindPath).Result);
+        (string fileName, string url, int batchSize, int txIndex, int threads, string auth, string callbackUrl, int? callbackUrlNumber, string callbackToken, string callbackEncryption, long? limit, bool startListener, string templateData, string authAdmin, string bitcoindPath) =>
+        SendTransactions(fileName, url, batchSize, txIndex, threads, auth, callbackUrl, callbackUrlNumber, callbackToken, callbackEncryption, limit, startListener, templateData, authAdmin, bitcoindPath).Result);
 
       return await rootCommand.InvokeAsync(args);
     }
 
     // Helper method. System.CommandLine defines overloads just up to T7
-    static ICommandHandler CommandHandlerCreate<T1, T2, T3, T4, T5, T6, T7, T8, T9,T10,T11, T12, T13, T14>(
-      Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, int> action) =>
+    static ICommandHandler CommandHandlerCreate<T1, T2, T3, T4, T5, T6, T7, T8, T9,T10,T11, T12, T13, T14, T15>(
+      Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, int> action) =>
       HandlerDescriptor.FromDelegate(action).GetCommandHandler();
 
   }

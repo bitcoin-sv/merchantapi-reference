@@ -6,7 +6,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
 {
   public interface ICallBackReceived
   {
-    public void CallbackReceived(string url, byte[] data);
+    public void CallbackReceived(string url, IHeaderDictionary headers, byte[] data);
   }
 
 }

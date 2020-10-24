@@ -2,7 +2,7 @@
   "profiles": {
     "APIGateway.Test.Stress": {
       "commandName": "Project",
-      "commandLineArgs": "send -f D:\\bitcoind\\2MtoSend\\transactionsgenerate2M.2000000.0 -i 2 -u http://localhost:5000/ -t 1 -cu http://this:8013/iscallbackUrl?123 -ct \"Bearer something\" -ce \"libsodium sealed_box AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\" -A 66dd203a-2736-4373-9024-4a525f90f89b  --startListener --templateData D:\\bitcoind\\temp\\regtest2  --bitcoindPath  D:\\src\\crea\\merchantapi2-private\\bitcoind\\windows\\bitcoind.exe -l 230"
+      "commandLineArgs": "send -f D:\\bitcoind\\2MtoSend\\transactionsgenerate2M.2000000.0 -i 2 -u http://localhost:5000/ -t 1 -cu http://localhost:8013/iscallbackUrl?123 -ct \"Bearer something\" -A 66dd203a-2736-4373-9024-4a525f90f89b  --startListener --templateData D:\\bitcoind\\temp\\regtest2  --bitcoindPath  D:\\src\\crea\\merchantapi2-private\\bitcoind\\windows\\bitcoind.exe -l 300 --callbackUrlNumber 3"
     }
   }
 }

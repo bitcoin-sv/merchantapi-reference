@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
+using Microsoft.AspNetCore.Http;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -30,7 +31,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    public void CallbackReceived(string path, byte[] data)
+    public void CallbackReceived(string path, IHeaderDictionary headers, byte[] data)
     {
 
       lock (lockObj)
