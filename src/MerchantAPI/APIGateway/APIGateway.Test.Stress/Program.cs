@@ -3,8 +3,8 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
-using System.CommandLine.Binding;
 using System.CommandLine.Invocation;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -195,45 +195,41 @@ namespace MerchantAPI.APIGateway.Test.Stress
     }
 
     static Random rnd = new Random();
-    static async Task<int> SendTransactions(string fileName, string url, int batchSize, int txIndex, int threads, string auth, string callbackUrl, int? callbackUrlNumber,  string callbackToken, string callbackEncryption, long? limit, 
-      bool startListener, string templateData, string authAdmin, string bitcoindPath)
+    static async Task<int> SendTransactions(string configFileName)
     {
+      var config = HelperTools.JSONDeserializeNewtonsoft<SendConfig>(File.ReadAllText(configFileName));
 
-      if (string.IsNullOrEmpty(callbackUrl) && (!string.IsNullOrEmpty(callbackEncryption) || !string.IsNullOrEmpty(callbackToken)))
+      var validationResults = new List<ValidationResult>();
+      var validationContext = new ValidationContext(config, serviceProvider: null, items: null);
+      if (!Validator.TryValidateObject(config, validationContext, validationResults, true))
       {
-        throw new Exception($"{nameof(callbackUrl)} is required when either {nameof(callbackEncryption)} or {nameof(callbackToken)}");
+        var allErrors = string.Join(Environment.NewLine, validationResults.Select(x => x.ErrorMessage).ToArray());
+        Console.WriteLine($"Invalid configuration {configFileName}. Errors: {allErrors}");
+        return  0;
       }
 
-      if (startListener && string.IsNullOrEmpty(callbackUrl))
-      {
-        throw new Exception($"{nameof(callbackUrl)} is required when {nameof(startListener)} is specified");
-      }
 
-      if (string.IsNullOrEmpty(authAdmin) ^ string.IsNullOrEmpty(templateData))
-      {
-        throw new Exception($"{nameof(authAdmin)} must be specified if and only if {nameof(templateData)} is specified.");
-      }
 
       string GetDynamicCallbackUrl()
       {
-        if (callbackUrlNumber == null)
+        if (config.CallBack?.AddRandomNumberToHost == null)
         {
-          return callbackUrl;
+          return config.CallBack?.Url;
         }
 
-        var uri = new UriBuilder(callbackUrl);
+        var uri = new UriBuilder(config.CallBack.Url);
         
-        uri.Host = uri.Host + rnd.Next(1, callbackUrlNumber.Value+1);
+        uri.Host = uri.Host + rnd.Next(1, config.CallBack.AddRandomNumberToHost.Value+1);
         return uri.ToString();
       }
 
 
-      var transactions = new TransactionReader(fileName, txIndex, limit ?? long.MaxValue);
+      var transactions = new TransactionReader(config.Filename, config.TxIndex, config.Limit ?? long.MaxValue);
 
       var client = new HttpClient();
-      if (auth != null)
+      if (config.Authorization != null)
       {
-        client.DefaultRequestHeaders.Add("Authorization", auth);
+        client.DefaultRequestHeaders.Add("Authorization", config.Authorization);
       }
 
 
@@ -241,21 +237,21 @@ namespace MerchantAPI.APIGateway.Test.Stress
       try
       {
 
-        if (!string.IsNullOrEmpty(templateData))
+        if (!string.IsNullOrEmpty(config.BitcoindConfig?.TemplateData))
         {
 
-          bitcoind = await StartBitcoindWithTemplateDataAsync(templateData, bitcoindPath);
-          await EnsureMapiIsConnectedToNodeAsync(url, authAdmin, bitcoind);
+          bitcoind = await StartBitcoindWithTemplateDataAsync(config.BitcoindConfig.TemplateData, config.BitcoindConfig.BitcoindPath);
+          await EnsureMapiIsConnectedToNodeAsync(config.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization, bitcoind);
         }
 
 
         try
         {
-          _ = await client.GetStringAsync(url + "mapi/feeQuote"); // test call
+          _ = await client.GetStringAsync(config.MapiUrl + "mapi/feeQuote"); // test call
         }
         catch (Exception e)
         {
-          throw new Exception($"Can not connect to mAPI {url}. Check if parameters are correct. Error {e.Message}", e);
+          throw new Exception($"Can not connect to mAPI {config.MapiUrl}. Check if parameters are correct. Error {e.Message}", e);
         }
 
         var stats = new Stats();
@@ -264,23 +260,24 @@ namespace MerchantAPI.APIGateway.Test.Stress
         // Start web server if required
         IHost webServer = null;
         var cancellationSource = new CancellationTokenSource();
-        if (startListener)
+        if (config.CallBack?.StartListener == true)
         {
-          Console.WriteLine($"Starting web server for url {callbackUrl}");
-          webServer = CallBackServer.Start(callbackUrl, cancellationSource.Token, new CallBackReceived(stats));
+          Console.WriteLine($"Starting web server for url {config.CallBack.Url}");
+          webServer = CallBackServer.Start(config.CallBack.Url, cancellationSource.Token, new CallBackReceived(stats));
         }
 
 
         async Task submitThread()
         {
-          var batch = new List<string>(batchSize);
+          var batchSize = config.BatchSize;
+          var batch = new List<string>();
           while (transactions.TryGetnextTransaction(out var transaction))
           {
             batch.Add(transaction);
             if (batch.Count >= batchSize)
             {
-              await SendTransactionsBatch(batch, client, stats, url + "mapi/txs", GetDynamicCallbackUrl(), callbackToken,
-                callbackEncryption);
+              await SendTransactionsBatch(batch, client, stats, config.MapiUrl+ "mapi/txs", GetDynamicCallbackUrl(), config.CallBack.CallbackToken,
+                config.CallBack.CallBackEncryption);
               batch.Clear();
             }
 
@@ -289,8 +286,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
           if (batch.Any())
           {
-            await SendTransactionsBatch(batch, client, stats, url + "mapi/txs", GetDynamicCallbackUrl(), callbackToken,
-              callbackEncryption);
+            await SendTransactionsBatch(batch, client, stats, config.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.CallBack.CallbackToken,
+              config.CallBack.CallBackEncryption);
             batch.Clear();
           }
         }
@@ -309,9 +306,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         var tasks = new List<Task>();
 
-        Console.WriteLine($"Starting {threads} concurrent tasks");
+        Console.WriteLine($"Starting {config.Threads} concurrent tasks");
 
-        for (int i = 0; i < threads; i++)
+        for (int i = 0; i < config.Threads; i++)
         {
           tasks.Add(Task.Run(submitThread));
         }
@@ -321,11 +318,11 @@ namespace MerchantAPI.APIGateway.Test.Stress
         Task.WaitAll(tasks.ToArray());
 
         stats.StopTiming(); // we are no longer submitting txs. Stop the Stopwatch that is used to calculate submission throughput
-        if (startListener && bitcoind != null && !string.IsNullOrEmpty(callbackUrl) && stats.OKSubmitted > 0)
+        if (config.CallBack?.StartListener == true  && bitcoind != null && !string.IsNullOrEmpty(config.CallBack?.Url) && stats.OKSubmitted > 0)
         {
           Console.WriteLine("Finished sending transactions. Will generate a block to trigger callbacks");
           await bitcoind.RpcClient.GenerateAsync(1);
-          await WaitForCallBacksAsync(30_000, stats); // TODO: move timeout to config file
+          await WaitForCallBacksAsync(config.CallBack.IdelTimeoutMS, stats); 
         }
         // Cancel progress task
         cancellationSource.Cancel(false);
@@ -465,134 +462,15 @@ namespace MerchantAPI.APIGateway.Test.Stress
     static async Task<int> Main(string[] args)
     {
 
-
       var sendCommand = new Command("send")
       {
-        new Option<string>(
-          new[] {"--filename", "-f"},
-          description: "File containing transactions"
+        new Argument<string>(
+          name: "configFileName",
+          description: "Config file containing configuration"
         )
         {
-          IsRequired = true
-        },
-
-        new Option<string>(
-          new[] {"--url", "-u"},
-          description: "URL used for submitting transactions. Example: http://localhost:5000/"
-        )
-        {
-          IsRequired = true
-        },
-
-
-        new Option<string>(
-          new[] {"--callbackUrl", "-cu"},
-          description: "Url that will process double spend and merkle proof notifications. When present, transactions will be submitted with MerkleProof and DsCheck set to true. Required when any other callback parameter is supplied. Example: http://localhost:2000/callbacks"
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<int>(
-          new[] {"--callbackUrlNumber", "-cun"},
-          description: "When specified, a random number between 1 and  --callbackUrlNumber will be appended to host name specified by --callbackUrl when submitting each batch of transactions. This is useful for testing callbacks toward different hosts"
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<string>(
-          new[] {"--callbackToken", "-ct"},
-          description: "Full authorization header used when performing callbacks."
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<string>(
-          new[] {"--callbackEncryption", "-ce"},
-          description: "Encryption parameters used when performing callbacks."
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<bool>(
-          new[] {"--startListener", "-s"},
-          description: "Start a listener that will listen to callbacks on port specified by --callBackUrl"
-        )
-        {
-          IsRequired = false
-        },
-
-
-        new Option<int>(
-          new[] {"--batchSize", "-b"},
-          description: "Number of transactions submitted in one call",
-          getDefaultValue: () => 100
-        )
-        {
-          IsRequired = false
-        },
-
-
-        new Option<string>(
-          new[] {"--txIndex", "-i"},
-          description: "Specifies a zero based index of the transaction in case of semi colon separated files"
-        )
-        {
-          IsRequired = false
-        },
-        new Option<int>(
-          new[] {"--threads", "-t"},
-          description: "Number of concurrent threads that will be used to submit the transactions. When using multiple threads, make sure that transactions in the file are not dependent on each other",
-          getDefaultValue: () => 1
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<int>(
-          new[] {"--auth", "-a"},
-          description: "Authorization header used when submitting transactions"
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<long>(
-          new[] {"--limit", "-l"},
-          description: "Only submit up to specified number of transactions"
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<string>(
-          new[] {"--templateData", "-T"},
-          description: "Template directory containing snapshot if data directory that will be used as initial state of new node that is started up. If specified --authAdmin must also be specified."
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<string>(
-          new[] {"--authAdmin", "-A"},
-          description: "Authentication used when adding newly started node to mAPI. Can only be used with --templateData "
-        )
-        {
-          IsRequired = false
-        },
-
-        new Option<string>(
-          new[] {"--bitcoindPath", "-bp"},
-          description: "Full path to bitcoind executable. Used when starting new node if --templateData is specified. If not specified, bitcoind executable must be in current directory. Example :/usr/bitcoin/bircoind "
-        )
-        {
-          IsRequired = false
-        },
-
-
+          Arity = new ArgumentArity(1,1)
+        }
       };
 
       sendCommand.Description = "Reads transactions from a file and submit it to mAPI";
@@ -605,18 +483,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       rootCommand.Description = "mAPI stress test";
 
-      sendCommand.Handler = CommandHandlerCreate(
-        (string fileName, string url, int batchSize, int txIndex, int threads, string auth, string callbackUrl, int? callbackUrlNumber, string callbackToken, string callbackEncryption, long? limit, bool startListener, string templateData, string authAdmin, string bitcoindPath) =>
-        SendTransactions(fileName, url, batchSize, txIndex, threads, auth, callbackUrl, callbackUrlNumber, callbackToken, callbackEncryption, limit, startListener, templateData, authAdmin, bitcoindPath).Result);
+      sendCommand.Handler = CommandHandler.Create( async (string configFileName) =>
+        await SendTransactions(configFileName));
 
       return await rootCommand.InvokeAsync(args);
     }
 
-    // Helper method. System.CommandLine defines overloads just up to T7
-    static ICommandHandler CommandHandlerCreate<T1, T2, T3, T4, T5, T6, T7, T8, T9,T10,T11, T12, T13, T14, T15>(
-      Func<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, int> action) =>
-      HandlerDescriptor.FromDelegate(action).GetCommandHandler();
-
+    
   }
 
 }

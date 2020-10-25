@@ -1,0 +1,20 @@
+{
+  "filename": "D:\\bitcoind\\2MtoSend\\transactionsgenerate2M.2000000.0",
+  "limit": 300,
+  "txIndex": 2,
+  "mapiUrl": "https://localhost:5001/",
+
+  "callBack": {
+    "url": "http://localhost:8013/iscallbackUrl?123",
+    "addRandomNumberToHost": 3,
+    "callbackToken": "Bearer something",
+    "startListener": true
+  },
+
+  "bitcoindConfig":
+  {
+    "bitcoindPath": "D:\\src\\crea\\merchantapi2-private\\bitcoind\\windows\\bitcoind.exe",
+    "templateData": "D:\\bitcoind\\temp\\regtest2",
+    "MapiAdminAuthorization": "66dd203a-2736-4373-9024-4a525f90f89b"
+  }
+}
