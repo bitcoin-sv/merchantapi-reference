@@ -27,7 +27,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
     {
       var ms = new MemoryStream();
       await HttpContext.Request.Body.CopyToAsync(ms);
-      callBackReceived.CallbackReceived(Request.Path, Request.Headers, ms.ToArray());
+      await callBackReceived.CallbackReceivedAsync(Request.Path, Request.Headers, ms.ToArray());
       Response.StatusCode = 200;
     }
 

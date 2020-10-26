@@ -31,7 +31,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    public void CallbackReceived(string path, IHeaderDictionary headers, byte[] data)
+    public Task CallbackReceivedAsync(string path, IHeaderDictionary headers, byte[] data)
     {
 
       lock (lockObj)
@@ -39,6 +39,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
         var str = new StreamReader(new MemoryStream(data));
         calls.Add((path, str.ReadToEnd()));
       }
+
+      return Task.CompletedTask;
     }
   }
 }

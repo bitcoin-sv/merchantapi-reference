@@ -197,7 +197,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     static Random rnd = new Random();
     static async Task<int> SendTransactions(string configFileName)
     {
-      var config = HelperTools.JSONDeserializeNewtonsoft<SendConfig>(File.ReadAllText(configFileName));
+      var config = HelperTools.JSONDeserializeNewtonsoft<SendConfig>(await File.ReadAllTextAsync(configFileName));
 
       var validationResults = new List<ValidationResult>();
       var validationContext = new ValidationContext(config, serviceProvider: null, items: null);
@@ -207,7 +207,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
         Console.WriteLine($"Invalid configuration {configFileName}. Errors: {allErrors}");
         return  0;
       }
-
 
 
       string GetDynamicCallbackUrl()
@@ -263,7 +262,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         if (config.CallBack?.StartListener == true)
         {
           Console.WriteLine($"Starting web server for url {config.CallBack.Url}");
-          webServer = CallBackServer.Start(config.CallBack.Url, cancellationSource.Token, new CallBackReceived(stats));
+          webServer = CallBackServer.Start(config.CallBack.Url, cancellationSource.Token, new CallBackReceived(stats, config.CallBack?.Hosts));
         }
 
 

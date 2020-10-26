@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Text;
 
 namespace MerchantAPI.APIGateway.Test.Stress
@@ -59,9 +60,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
     }
   }
 
-  public class CallbackConfig 
+  public class CallbackConfig : IValidatableObject
   {
-
     // Url that will process double spend and merkle proof notifications. When present, transactions will be submitted
     // with MerkleProof and DsCheck set to true. Example: http://localhost:2000/callbacks
     [Required]
@@ -84,12 +84,48 @@ namespace MerchantAPI.APIGateway.Test.Stress
     /// Maximum number of milliseconds that we are willing to wait for next callbacks 
     public int IdelTimeoutMS { get; set; } = 30_000;
 
+    public CallbackHostConfig[] Hosts { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContextRoot)
+    {
+      if (Hosts != null)
+      {
+        foreach (var host in Hosts)
+        {
+          var validationContext = new ValidationContext(host, serviceProvider: null, items: null);
+          var validationResults = new List<ValidationResult>();
+          Validator.TryValidateObject(host, validationContext, validationResults, true);
+          foreach (var x in validationResults)
+          {
+            yield return x;
+          }
+        }
+
+        var duplicateHosts = Hosts.GroupBy(x => x.HostName, StringComparer.InvariantCultureIgnoreCase)
+          .Where(x => x.Count() > 1).ToArray();
+        foreach (var duplicate in duplicateHosts)
+        {
+          yield return new ValidationResult($"Host {duplicate.Key} is listed in configuration multiple times");
+        }
+      }
+    }
+
+  }
+
+  public class CallbackHostConfig
+  {
+    // Name of host to which configuration applies to. use empty string for default setting
+    public string HostName { get; set; }
+
+    public int? MinCallbackDelayMs { get; set; }
+    public int? MaxCallbackDelayMs { get; set; }
+
+    [Range(0, 100)]
+    public int CallBackFailurePercent { get; set; }
   }
 
   public class BitcoindConfig
   {
-
-    // TODO: Check if this one is validated. It probably is not...
 
     // Full path to bitcoind executable. Used when starting new node if --templateData is specified.
     // TODO: fix this - make it required If not specified, bitcoind executable must be in current directory. Example :/usr/bitcoin/bircoind 
@@ -106,7 +142,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     // bitcoind with mAPI 
     [Required]
     public string MapiAdminAuthorization { get; set; }
-    
-
   }
+
+
 }

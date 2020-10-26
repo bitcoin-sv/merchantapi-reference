@@ -137,6 +137,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
     /// </summary>
     long requestErrors;
 
+    long simulatedCallbackErrors;
+
     TxByHost requestTxFailures = new TxByHost();
     
     TxByHost okSubmitted = new TxByHost();
@@ -181,6 +183,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
       UpdateLastUpdateTime();
     }
 
+    public void IncrementSimulatedCallbackErrors()
+    {
+      Interlocked.Increment(ref simulatedCallbackErrors);
+      UpdateLastUpdateTime();
+    }
+    //
+
     public void IncrementCallbackReceived(string host, uint256 txId)
     {
       callBackReceived.Add(host, new[] {txId});
@@ -201,6 +210,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
 
     public long RequestErrors => Interlocked.Read(ref requestErrors);
+    
+    public long SimulatedCallBackErrors => Interlocked.Read(ref simulatedCallbackErrors);
     public long RequestTxFailures => requestTxFailures.Count;
     public long OKSubmitted => okSubmitted.Count;
     public long CallBacksReceived => callBackReceived.Count;
@@ -221,7 +232,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       var elapsed = Math.Max(1, sw.ElapsedMilliseconds);
 
       long throughput = 1000 * (OKSubmitted + RequestTxFailures) / elapsed;
-      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {throughput} Callbacks: {CallBacksReceived}";
+      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {throughput} Callbacks: {CallBacksReceived} SimulatedErrors: {SimulatedCallBackErrors}";
     }
 
   }
