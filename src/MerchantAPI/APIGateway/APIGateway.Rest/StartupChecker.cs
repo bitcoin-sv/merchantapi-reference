@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Actions;
 using Microsoft.Extensions.Configuration;
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.Common.Database;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -26,14 +27,17 @@ namespace MerchantAPI.APIGateway.Rest
     readonly IList<Node> accessibleNodes = new List<Node>();
     readonly IBlockParser blockParser;
     private readonly IMinerId minerId;
+    private readonly ICreateDB createDB;
     bool nodesAccessible;
     readonly IConfiguration configuration;
+    readonly RDBMS rdbms;
 
     public StartupChecker(INodeRepository nodeRepository,
                           IRpcClientFactory rpcClientFactory,
                           IHostApplicationLifetime hostApplicationLifetime,
                           IMinerId minerId,
                           IBlockParser blockParser,
+                          ICreateDB createDB,
                           ILogger<StartupChecker> logger,
                           IConfiguration configuration)
     {
@@ -42,8 +46,10 @@ namespace MerchantAPI.APIGateway.Rest
       this.hostApplicationLifetime = hostApplicationLifetime;
       this.logger = logger ?? throw new ArgumentException(nameof(logger));
       this.blockParser = blockParser ?? throw new ArgumentException(nameof(blockParser));
+      this.createDB = createDB ?? throw new ArgumentException(nameof(createDB));
       this.minerId = minerId ?? throw new ArgumentException(nameof(nodeRepository));
       this.configuration = configuration ?? throw new ArgumentException(nameof(configuration));
+      rdbms = RDBMS.Postgres;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -52,6 +58,7 @@ namespace MerchantAPI.APIGateway.Rest
       try
       {
         RetryUtils.ExecAsync(() => TestDBConnection(), retry: 10, errorMessage: "Unable to open connection to database").Wait();
+        ExecuteCreateDb();
         TestNodesConnectivityAsync().Wait();
         CheckNodesZmqNotificationsAsync().Wait();
         TestMinerId().Wait();
@@ -75,14 +82,11 @@ namespace MerchantAPI.APIGateway.Rest
 
     private Task TestDBConnection()
     {
-      logger.LogInformation($"Trying to connect to DB: '{configuration["ConnectionStrings:DBConnectionString"]}'");
-      var nodes = nodeRepository.GetNodes();
-      if (!nodes.Any())
+      bool databaseExists = createDB.DatabaseExists("APIGateway", rdbms);
+      if (databaseExists)
       {
-        logger.LogWarning("There are no nodes present in database.");
-      }
-
-      logger.LogInformation($"Successfully connected to DB.");
+        logger.LogInformation($"Successfully connected to DB.");
+      }  
       return Task.CompletedTask;
     }
 
@@ -102,11 +106,34 @@ namespace MerchantAPI.APIGateway.Rest
       }
     }
 
+    private void ExecuteCreateDb()
+    {
+      logger.LogInformation($"Starting with execution of CreateDb ...");
+
+
+      if (createDB.DoCreateDB("APIGateway", rdbms, out string errorMessage, out string errorMessageShort))
+      {
+        logger.LogInformation("CreateDB finished successfully.");
+      }
+      else
+      {
+        // if error we must stop application
+        throw new Exception($"Error when executing CreateDB: { errorMessage }{ Environment.NewLine }ErrorMessage: {errorMessageShort}");
+      }
+
+      logger.LogInformation($"ExecuteCreateDb completed.");
+    }
+
     private async Task TestNodesConnectivityAsync()
     {
       logger.LogInformation($"Checking nodes connectivity");
 
       var nodes = nodeRepository.GetNodes();
+      if (!nodes.Any())
+      {
+        logger.LogWarning("There are no nodes present in database.");
+      }
+
       foreach (var node in nodes)
       {
         var rpcClient = rpcClientFactory.Create(node.Host, node.Port, node.Username, node.Password);

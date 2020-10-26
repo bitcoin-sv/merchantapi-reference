@@ -1,5 +1,5 @@
 
-CREATE TABLE Node (
+CREATE TABLE IF NOT EXISTS Node (
          nodeId              SERIAL         NOT NULL,
          host                VARCHAR(50)    NOT NULL,
          port                INT            NOT NULL,
@@ -12,10 +12,10 @@ CREATE TABLE Node (
 
          PRIMARY KEY (nodeId)    
 );
-
+ALTER TABLE Node DROP CONSTRAINT IF EXISTS node_hostAndPort;
 ALTER TABLE Node ADD CONSTRAINT node_hostAndPort UNIQUE (host,port);
 
-CREATE TABLE Tx (
+CREATE TABLE IF NOT EXISTS Tx (
 		txInternalId		BIGSERIAL		NOT NULL,
 		txExternalId		BYTEA			NOT NULL,
 		txPayload			BYTEA			NOT NULL,
@@ -29,10 +29,10 @@ CREATE TABLE Tx (
 		
 		PRIMARY KEY (txInternalId)
 );
-
+ALTER TABLE Tx DROP CONSTRAINT IF EXISTS tx_txExternalId;
 ALTER TABLE Tx ADD CONSTRAINT tx_txExternalId UNIQUE (txExternalId);
 
-CREATE TABLE Block (
+CREATE TABLE IF NOT EXISTS Block (
 		blockInternalId		BIGSERIAL		NOT NULL,
 		blockTime			TIMESTAMP		NOT NULL,
 		blockHash			BYTEA			NOT NULL,
@@ -45,10 +45,10 @@ CREATE TABLE Block (
 		
 		PRIMARY KEY(blockInternalId)
 );
-
+ALTER TABLE Block DROP CONSTRAINT IF EXISTS block_blockhash;
 ALTER TABLE Block ADD CONSTRAINT block_blockhash UNIQUE (blockHash);
 
-CREATE TABLE TxMempoolDoubleSpendAttempt (
+CREATE TABLE IF NOT EXISTS TxMempoolDoubleSpendAttempt (
 		txInternalId		BIGINT			NOT NULL,
 		dsTxId				BYTEA			NOT NULL,
 		dsTxPayload			BYTEA			NOT NULL,
@@ -59,7 +59,7 @@ CREATE TABLE TxMempoolDoubleSpendAttempt (
 		FOREIGN KEY (txInternalId) REFERENCES Tx(txInternalId)
 );
 
-CREATE TABLE TxBlockDoubleSpend (
+CREATE TABLE IF NOT EXISTS TxBlockDoubleSpend (
 		txInternalId 		BIGINT			NOT NULL,
 		blockInternalId 	BIGINT			NOT NULL,
 		dsTxId				BYTEA			NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE TxBlockDoubleSpend (
 		FOREIGN KEY (blockInternalId) REFERENCES Block(blockInternalId)
 );
 
-CREATE TABLE TxBlock (
+CREATE TABLE IF NOT EXISTS TxBlock (
 		txInternalId 		BIGINT			NOT NULL,
 		blockInternalId 	BIGINT			NOT NULL,
 		
@@ -83,7 +83,7 @@ CREATE TABLE TxBlock (
 		FOREIGN KEY (blockInternalId) REFERENCES Block(blockInternalId)
 );
 
-CREATE TABLE TxInput (
+CREATE TABLE IF NOT EXISTS TxInput (
 		txInternalId 		BIGINT			NOT NULL,
 		n					BIGINT			NOT NULL,
 		prevTxId			BYTEA			NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE TxInput (
 );
 
 
-CREATE TABLE FeeQuote (
+CREATE TABLE IF NOT EXISTS FeeQuote (
   id                        SERIAL          NOT NULL,
   createdAt                 TIMESTAMP       NOT NULL,
   validFrom                 TIMESTAMP       NOT NULL,
@@ -103,11 +103,11 @@ CREATE TABLE FeeQuote (
 
   PRIMARY KEY (id)
 );
-
+ALTER TABLE FeeQuote DROP CONSTRAINT IF EXISTS feeQuote_validFrom_vs_createdAt;
 ALTER TABLE FeeQuote ADD CONSTRAINT feeQuote_validFrom_vs_createdAt CHECK (createdAt <= validFrom);
 
 
-CREATE TABLE Fee (
+CREATE TABLE IF NOT EXISTS Fee (
   id                        SERIAL          NOT NULL,
   feeQuote                  BIGINT          NOT NULL,
   feeType                   VARCHAR(256)    NOT NULL,
@@ -116,7 +116,7 @@ CREATE TABLE Fee (
   FOREIGN KEY (feequote) REFERENCES FeeQuote (id)
 );
 
-CREATE TABLE FeeAmount (
+CREATE TABLE IF NOT EXISTS FeeAmount (
   id                        SERIAL          NOT NULL,
   fee                       BIGINT          NOT NULL,
   satoshis                  INT             NOT NULL,

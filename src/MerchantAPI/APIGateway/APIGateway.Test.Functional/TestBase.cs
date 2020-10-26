@@ -66,7 +66,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public const string LOG_CATEGORY = "MerchantAPI.APIGateway.Test.Functional";
 
-    private static bool providerSet;
     private static double quoteExpiryMinutes = 10;
     private readonly string dbConnectionString;
 
@@ -202,13 +201,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
     public TestBase()
     {
-      if (!providerSet)
-      {
-        // uncomment if needed
-        NpgsqlLogManager.Provider = new ConsoleLoggingProvider(NpgsqlLogLevel.Debug);
-        NpgsqlLogManager.IsParameterLoggingEnabled = true;
-        providerSet = true;
-      }
 
       SqlMapper.AddTypeHandler(new Common.DateTimeHandler());
 
