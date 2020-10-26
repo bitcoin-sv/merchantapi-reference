@@ -3,6 +3,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 
+
 namespace MerchantAPI.APIGateway.Rest.Authentication
 {
   public class ConfigureJwtBearerOptions : IPostConfigureOptions<JwtBearerOptions>
@@ -20,7 +21,7 @@ namespace MerchantAPI.APIGateway.Rest.Authentication
       options.Events = new JwtBearerEvents
       {
         OnTokenValidated = store.OnTokenValidated
-      };
+      };    
     }
   }
 }

@@ -107,9 +107,75 @@ namespace MerchantAPI.APIGateway.Test.Functional
                  MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
       var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
-
     }
 
+    [TestMethod]
+    public async Task GetFeeQuote_WithInvalidAuthentication()
+    {
+      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+      var ValidRestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+     
+      RestAuthentication = ValidRestAuthentication+"invalid";
+      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
+                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response.response);
+    }
+
+    [TestMethod]
+    public async Task GetFeeQuote_TestBearerToken()
+    {
+      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      // test authentication: same provider and identity as defined in json - should succeed
+      // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
+                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+      var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+      AssertIsOK(payload);
+
+      // different user, same provider, same authority - should succeed
+      // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjAyOCwiZXhwIjoxOTE5MjI2MDI4LCJpYXQiOjE2MDM4NjYwMjgsImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoiaHR0cDovL215YXVkaWVuY2UuY29tIn0.01Rm6t4GBScDwgoOnFwBjjvgu6U5YBK7qlCTg-_BF6c";
+      response = await Get<SignedPayloadViewModel>(
+                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+      payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+      AssertIsOK(payload);
+
+      // same user, different (invalid) provider, same authority - should fail
+      //TokenManager.exe generate -n testName - i http://test.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjQ4OCwiZXhwIjoxOTE5MjI2NDg4LCJpYXQiOjE2MDM4NjY0ODgsImlzcyI6Imh0dHA6Ly90ZXN0LmNvbSIsImF1ZCI6Imh0dHA6Ly9teWF1ZGllbmNlLmNvbSJ9.oGxXXbTj0yUf0UrwOF44bbRMt-Xe6YjAyuy4A3jrbbU";
+      response = await Get<SignedPayloadViewModel>(
+           MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response.response);
+
+      // same user and provider, different authority
+      // TokenManager.exe generate -n 5 -i http://mysite.com -a http://testaudience.com -k thisisadevelopmentkey -d 3650
+      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNjAzODY2NzAxLCJleHAiOjE5MTkyMjY3MDEsImlhdCI6MTYwMzg2NjcwMSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vdGVzdGF1ZGllbmNlLmNvbSJ9.d0TU7em4_8ZzO8A3YGxVwyl0ElpDQIu35auPSa24i48";
+      response = await Get<SignedPayloadViewModel>(
+     MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response.response);
+    }
+
+    [TestMethod]
+    public async Task SubmitTransaction_WithInvalidAuthentication()
+    {
+      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      var ValidRestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      RestAuthentication = ValidRestAuthentication + "invalid";
+
+      var txBytes = HelperTools.HexStringToByteArray(txC3Hex);
+
+      var reqContent = new ByteArrayContent(txBytes);
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
+
+      var response =
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response.response);
+
+      Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls
+
+    }
 
     [TestMethod]
     public async Task SubmitTransactionBinary()

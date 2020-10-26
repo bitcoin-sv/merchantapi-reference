@@ -20,6 +20,7 @@ using MerchantAPI.APIGateway.Domain;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using NBitcoin;
+using Newtonsoft.Json.Linq;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -93,8 +94,11 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     [Route("feeQuote")]
     public async Task<ActionResult<FeeQuoteViewModelGet>> GetFeeQuote()
     {
-  
-      var identity = IdentityProviderStore.GetUserAndIssuer(User);
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
+
       logger.LogInformation($"Get FeeQuote for user { ((identity == null) ? "/" : identity.ToString() )} ...");
       FeeQuote feeQuote = feeQuoteRepository.GetCurrentFeeQuoteByIdentity(identity);
 
@@ -132,6 +136,10 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     [Route("tx/{id}")]
     public async Task<ActionResult<QueryTransactionStatusResponseViewModel>> QueryTransactionStatus(string id)
     {
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
       if (!uint256.TryParse(id, out _))
       {
         var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int) HttpStatusCode.BadRequest);
@@ -158,13 +166,16 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     [Consumes(MediaTypeNames.Application.Json)]
     public async Task<ActionResult<SubmitTransactionResponseViewModel>> SubmitTxAsync(SubmitTransactionViewModel data)
     {
-      var user = IdentityProviderStore.GetUserAndIssuer(User);
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
 
       var domainModel = data.ToDomainModel(null, null, null, false, false);
 
       var result =
         new SubmitTransactionResponseViewModel(
-          await mapi.SubmitTransactionAsync(domainModel, user));
+          await mapi.SubmitTransactionAsync(domainModel, identity));
       
       return await SignIfRequiredAsync(result, result.MinerId);
     }
@@ -192,6 +203,11 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool dsCheck)
     {
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
+
       byte[] data;
       using (var ms = new MemoryStream())
       {
@@ -209,7 +225,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         DsCheck = dsCheck
       };
       
-      var result = new SubmitTransactionResponseViewModel(await mapi.SubmitTransactionAsync(request, IdentityProviderStore.GetUserAndIssuer(User)));
+      var result = new SubmitTransactionResponseViewModel(await mapi.SubmitTransactionAsync(request, identity));
       return await SignIfRequiredAsync(result, result.MinerId);
     }
 
@@ -239,13 +255,18 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool defaultDsCheck)
     {
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
+      
       var domainModel = data.Select(x =>
         x.ToDomainModel(defaultCallBackUrl, defaultCallBackToken, defaultCallBackEncryption, defaultMerkleProof, defaultDsCheck)).ToArray();
 
       var result =
         new SubmitTransactionsResponseViewModel(
           await mapi.SubmitTransactionsAsync(domainModel,
-            IdentityProviderStore.GetUserAndIssuer(User)));
+            identity));
 
       return await SignIfRequiredAsync(result, result.MinerId);
 
@@ -270,7 +291,10 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery] bool dsCheck
       )
     {
-
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
       // callbackUrl is validated as part of domainObject - no special validation here
       byte[] data;
       using (var ms = new MemoryStream())
@@ -307,7 +331,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       var result =
         new SubmitTransactionsResponseViewModel(
-          await mapi.SubmitTransactionsAsync(request, IdentityProviderStore.GetUserAndIssuer(User)));
+          await mapi.SubmitTransactionsAsync(request, identity));
       return await SignIfRequiredAsync(result, result.MinerId);
     }
   }

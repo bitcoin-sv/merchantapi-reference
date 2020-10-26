@@ -4,13 +4,17 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 
 namespace MerchantAPI.APIGateway.Rest.Authentication
 {
@@ -36,23 +40,30 @@ namespace MerchantAPI.APIGateway.Rest.Authentication
     /// Extract user and issuer from authenticated user. Returns null if not found or if user is not authenticated
     /// </summary>
     /// <param name="user"></param>
-    /// <returns></returns>
-    public static UserAndIssuer GetUserAndIssuer(ClaimsPrincipal user)
+    /// <returns>
+    /// false: if we were not able to perform authentication because token was not formatted correctly and there was exception during authorization
+    /// When false is returned the request should be rejected
+    /// true: if there was no token (anonymous user) or we were able to extract user identity
+    /// </returns>
+    public static bool GetUserAndIssuer(ClaimsPrincipal user, IHeaderDictionary headers, out UserAndIssuer result)
     {
+      result = null;
+      bool tokenPresentInRequest = headers.TryGetValue("Authorization", out var authorizationHeader) && authorizationHeader.Any(x => x.StartsWith("Bearer"));
 
       // User can have multiple identities. Find the right one
       var theIdentity = user.Identities.FirstOrDefault(ci => ci.IsAuthenticated && ci.HasClaim(c => c.Type == UnifiedIdentityClaimName));
-
+      
       if (theIdentity == null)
       {
-        return null;
+        return !tokenPresentInRequest;
       }
-
-      return new UserAndIssuer
+      
+      result = new UserAndIssuer
       {
         Identity = theIdentity.FindFirst(c => c.Type == UnifiedIdentityClaimName).Value,
         IdentityProvider = theIdentity.FindFirst(c => c.Type == JwtRegisteredClaimNames.Iss).Value,
       };
+      return true;
     }
 
     SecurityKey GetKeyOrNull(IdentityProvider provider)
@@ -75,7 +86,7 @@ namespace MerchantAPI.APIGateway.Rest.Authentication
                    && HelperTools.AreByteArraysEqual(k1s.Key, k2s.Key);
     }
 
-    //
+    
     public IEnumerable<SecurityKey> IssuerSigningKeyResolver(
       string token,
       SecurityToken securityToken,
@@ -153,5 +164,7 @@ namespace MerchantAPI.APIGateway.Rest.Authentication
       arg.Principal.AddIdentity(appIdentity);
       return Task.CompletedTask;
     }
+
+
   }
 }
