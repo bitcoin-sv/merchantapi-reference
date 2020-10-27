@@ -122,6 +122,8 @@ namespace MerchantAPI.Common.Database
     public bool DatabaseExists()
     {
       string databaseName = database.GetDatabaseName(connectionString);
+      logger.LogInformation($"connectionString:{connectionString}");
+      logger.LogInformation($"connectionStringMaster:{connectionStringMaster}");
       string connectionStringMasterPostgres = database.GetConnectionStringWithDefaultDatabaseName(connectionStringMaster);
       logger.LogInformation($"Trying to connect to DB: '{connectionStringMasterPostgres}'");
       return database.DatabaseExists(connectionStringMasterPostgres ?? connectionString, databaseName);
@@ -139,9 +141,7 @@ namespace MerchantAPI.Common.Database
 
       try
       {
-        // folder example: Scripts\Postgres\00_CreateDB\APIGateway
-        string projectName = Path.GetFileName(dbFolder);
-
+        // folder example: Scripts\Postgres\00_CreateDB\
         // if database does not exist yet, process createDb scripts
         bool databaseExists = DatabaseExists();
 
@@ -182,8 +182,7 @@ namespace MerchantAPI.Common.Database
 
       try
       {
-        // folder example: Scripts\Postgres\01\APIGateway
-        string projectName = Path.GetFileName(scriptFolder);
+        // folder example: Scripts\Postgres\01\
 
         int executeIntermediateVersionsFromVersion = -1; // for now we always execute everything in folder, can be set if needed (in config)
         int[] installedVersions;
@@ -200,7 +199,7 @@ namespace MerchantAPI.Common.Database
           return false;
         }
 
-        int newVersion = Int32.Parse(Path.GetFileName(Path.GetDirectoryName(scriptFolder)));
+        int newVersion = Int32.Parse(Path.GetFileName(scriptFolder));
         if (executeIntermediateVersionsFromVersion == -1 && installedVersions.Any(x => x < newVersion) ||
           executeIntermediateVersionsFromVersion > -1 && newVersion >= executeIntermediateVersionsFromVersion && !installedVersions.Any(x => x == newVersion))
         {

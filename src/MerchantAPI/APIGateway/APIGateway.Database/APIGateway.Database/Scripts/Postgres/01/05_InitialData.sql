@@ -10,7 +10,7 @@ begin
   SELECT count(*) INTO cnt FROM public.feequote;
   if cnt = 0 then
     INSERT INTO public.feequote(createdat, validfrom, identity, identityprovider) 
-    VALUES (now()::timestamp, now()::timestamp, null, null) 
+    VALUES (now() at time zone 'utc', now() at time zone 'utc', null, null) 
     returning id INTO feeQuoteId;
 
     INSERT INTO public.Fee(feeQuote, feeType)

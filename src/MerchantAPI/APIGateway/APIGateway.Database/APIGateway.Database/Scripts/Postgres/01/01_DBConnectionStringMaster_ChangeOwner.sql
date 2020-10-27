@@ -7,7 +7,7 @@ begin
 	CREATE ROLE merchant LOGIN
 	PASSWORD 'merchant'
 	NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
-  else
+  end if;
 	ALTER TABLE IF EXISTS Node owner to merchant;
 	ALTER TABLE IF EXISTS Tx owner to merchant;
 	ALTER TABLE IF EXISTS Block owner to merchant;
@@ -18,6 +18,6 @@ begin
 	ALTER TABLE IF EXISTS FeeQuote owner to merchant;
 	ALTER TABLE IF EXISTS Fee owner to merchant;
 	ALTER TABLE IF EXISTS FeeAmount owner to merchant;
-  end if;
+	ALTER SEQUENCE IF EXISTS feequote_id_seq OWNER TO merchant; 
     ALTER TABLE IF EXISTS Version owner to merchant;
 end $$;

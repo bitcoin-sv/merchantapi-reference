@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include=".\Scripts\**">
+    <None Include=".\APIGateway.Database\**">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Remove=".\Uml\**" />
