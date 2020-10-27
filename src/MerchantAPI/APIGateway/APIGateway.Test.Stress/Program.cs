@@ -85,7 +85,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         DsCheck = null
       }).ToArray();
 
-      var requestString = HelperTools.JSONSerializeNewtonsoft(request, false);
+      var requestString = HelperTools.JSONSerialize(request, false);
       var response = await client.PostAsync(urlWithParams,
         new StringContent(requestString, new UTF8Encoding(false), MediaTypeNames.Application.Json));
 
@@ -97,8 +97,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
       else
       {
-        var rEnvelope = HelperTools.JSONDeserializeNewtonsoft<JsonEnvelope>(responseAsString);
-        var r = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionsResponseViewModel>(rEnvelope.Payload);
+        var rEnvelope = HelperTools.JSONDeserialize<JsonEnvelope>(responseAsString);
+        var r = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(rEnvelope.Payload);
         int printLimit = 10;
         var errorItems = r.Txs.Where(t => t.ReturnResult != "success").ToArray();
 
@@ -197,7 +197,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     static Random rnd = new Random();
     static async Task<int> SendTransactions(string configFileName)
     {
-      var config = HelperTools.JSONDeserializeNewtonsoft<SendConfig>(await File.ReadAllTextAsync(configFileName));
+      var config = HelperTools.JSONDeserialize<SendConfig>(await File.ReadAllTextAsync(configFileName));
 
       var validationResults = new List<ValidationResult>();
       var validationContext = new ValidationContext(config, serviceProvider: null, items: null);
@@ -421,7 +421,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
 
       var nodes =
-        HelperTools.JSONDeserializeNewtonsoft<NodeViewModelGet[]>(await nodesResult.Content.ReadAsStringAsync());
+        HelperTools.JSONDeserialize<NodeViewModelGet[]>(await nodesResult.Content.ReadAsStringAsync());
       if (nodes.Any(x => string.Compare(x.Id, hostPort, StringComparison.InvariantCultureIgnoreCase) == 0))
       {
         Console.WriteLine($"Removing existing node {hostPort} from mAPI");
@@ -444,7 +444,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         Remarks = "Node created by mAPI Stress Test at " + DateTime.Now
       };
 
-      var newNodeContent = new StringContent(HelperTools.JSONSerializeNewtonsoft(newNode, true),
+      var newNodeContent = new StringContent(HelperTools.JSONSerialize(newNode, true),
         new UTF8Encoding(false), MediaTypeNames.Application.Json);
 
       var newNodeResult = await adminClient.PostAsync(uri, newNodeContent);

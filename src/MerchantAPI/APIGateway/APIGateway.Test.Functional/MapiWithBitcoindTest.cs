@@ -149,11 +149,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if callback was received
       Assert.AreEqual(1, CallBack.Calls.Length);
 
-      var callBack = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(CallBack.Calls[0].request)
+      var callBack = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(CallBack.Calls[0].request)
         .ExtractPayload<CallbackNotificationMerkeProofViewModel>();
       Assert.AreEqual(CallbackReason.MerkleProof, callBack.CallbackReason);
       Assert.AreEqual(new uint256(txId), new uint256(callBack.CallbackTxId));
       Assert.AreEqual(new uint256(txId), new uint256(callBack.CallbackPayload.TxOrId));
+      Assert.IsTrue(callBack.CallbackPayload.Target.NumTx >0, "A block header contained in merkle proof should have at least 1 tx. This indicates a problem in serialization code.");
 
     }
 

@@ -74,10 +74,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       // assume that responses are signed
       // TODO: decrypting is not currently supported
-      var payload = HelperTools.JSONDeserializeNewtonsoft<SignedPayloadViewModel>(Encoding.UTF8.GetString(data))
+      var payload = HelperTools.JSONDeserialize<SignedPayloadViewModel>(Encoding.UTF8.GetString(data))
         .Payload;
 
-      var notification = HelperTools.JSONDeserializeNewtonsoft<CallbackNotificationViewModelBase>(payload);
+      var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(payload);
 
       stats.IncrementCallbackReceived(host, new uint256(notification.CallbackTxId));
     }

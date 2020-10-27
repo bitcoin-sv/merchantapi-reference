@@ -137,7 +137,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if callback was received
       var calls = CallBack.Calls;
       Assert.AreEqual(1, calls.Length);
-      var callBack = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callBack = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
       Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callBack.CallbackReason);
@@ -172,7 +172,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var calls = CallBack.Calls;
       Assert.AreEqual(2, calls.Length);
-      var callBackDS = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(calls[1].request)
+      var callBackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[1].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
       Assert.AreEqual(CallbackReason.DoubleSpend, callBackDS.CallbackReason);
       Assert.AreEqual(new uint256(txId1), new uint256(callBackDS.CallbackTxId));
@@ -216,7 +216,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var calls = CallBack.Calls;
       Assert.AreEqual(1, calls.Length);
 
-      var callBack = HelperTools.JSONDeserializeNewtonsoft<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callBack = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
       Assert.AreEqual(CallbackReason.DoubleSpend, callBack.CallbackReason);
@@ -255,8 +255,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var calls = CallBack.Calls;
       Assert.AreEqual(1, calls.Length);
-      var signedJSON = HelperTools.JSONDeserializeNewtonsoft<Rest.ViewModels.SignedPayloadViewModel>(calls[0].request);
-      var notification = HelperTools.JSONDeserializeNewtonsoft<CallbackNotificationViewModelBase>(signedJSON.Payload);
+      var signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[0].request);
+      var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
 
       // Mine sibling block to b1 - without any additional transaction
@@ -277,8 +277,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       calls = CallBack.Calls;
       Assert.AreEqual(2, calls.Length);
-      signedJSON = HelperTools.JSONDeserializeNewtonsoft<Rest.ViewModels.SignedPayloadViewModel>(calls[1].request);
-      var dsNotification = HelperTools.JSONDeserializeNewtonsoft<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
+      signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[1].request);
+      var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);
       Assert.AreEqual(txId2, dsNotification.CallbackPayload.DoubleSpendTxId);
     }

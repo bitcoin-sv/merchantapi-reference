@@ -34,6 +34,38 @@ namespace MerchantAPI.Common.Json
       return epoch.Add(TimeSpan.FromSeconds(dateValue));
     }
 
+    /// <summary>
+    /// Serializes an object using System.Text.Json serializer.
+    /// Before using this method make sure that class has JSon serialization attributes from
+    /// the right  namespaces. Mixing Newtonsoft and System.Text.Json serializer will not produce desired results.
+    /// </summary>
+    public static string JSONSerialize(object value, bool writeIndented)
+    {
+      return System.Text.Json.JsonSerializer.Serialize(value , 
+        new System.Text.Json.JsonSerializerOptions
+        {
+          IgnoreNullValues = true,
+          WriteIndented =  writeIndented,
+          // \u0022 -> \"
+          Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+    }
+
+    /// <summary>
+    /// Deserializes an object using System.Text.Json serializer.
+    /// Before using this method make sure that class has JSon serialization attributes from
+    /// the right  namespaces. Mixing Newtonsoft and System.Text.Json serializer will not produce desired results.
+    /// </summary>
+    public static T JSONDeserialize<T>(string value)
+    {
+      return System.Text.Json.JsonSerializer.Deserialize<T>(value);
+    }
+
+    /// <summary>
+    /// Serializes an object using Newtonsoft serializer.
+    /// Before using this method make sure that class has JSon serialization attributes from
+    /// the right  namespaces. Mixing Newtonsoft and System.Text.Json serializer will not produce desired results.
+    /// </summary>
     public static string JSONSerializeNewtonsoft(object value, bool writeIndented)
     {
       DefaultContractResolver contractResolver = new DefaultContractResolver
@@ -52,6 +84,11 @@ namespace MerchantAPI.Common.Json
       return Newtonsoft.Json.JsonConvert.SerializeObject(value, serializeSettings);
     }
 
+    /// <summary>
+    /// Deserializes an object using Newtonsoft serializer.
+    /// Before using this method make sure that class has JSon serialization attributes from
+    /// the right  namespaces. Mixing Newtonsoft and System.Text.Json serializer will not produce desired results.
+    /// </summary>
     public static T JSONDeserializeNewtonsoft<T>(string value)
     {
       DefaultContractResolver contractResolver = new DefaultContractResolver

@@ -170,7 +170,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     string lastMinerId;
     private async Task<string> SignIfRequiredAsync<T>(T response)
     {
-      string payload = HelperTools.JSONSerializeNewtonsoft(response, false);
+      string payload = HelperTools.JSONSerialize(response, false);
 
       if (minerId == null)
       {
