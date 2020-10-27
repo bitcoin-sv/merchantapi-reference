@@ -103,7 +103,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       {
         logger.LogInformation($"There are no active feeQuotes.");
 
-        return NotFound(ProblemDetailsFactory.CreateProblemDetails(HttpContext));
+        return NotFound();
       }
 
       var feeQuoteViewModelGet = new FeeQuoteViewModelGet(feeQuote);
