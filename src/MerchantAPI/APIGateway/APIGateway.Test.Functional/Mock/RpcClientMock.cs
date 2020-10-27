@@ -353,7 +353,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       var r = SimulateCall<string>();
       if (r != null)
       {
-        return r;
+        return Task.FromResult(r);
       }
 
       return Task.FromResult<string>(null);
@@ -424,7 +424,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       var r = SimulateCall<string[]>();
       if (r != null)
       {
-        return r;
+        return Task.FromResult(r);
       }
       return Task.FromResult(new string[0]);
     }
