@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text;
 
 namespace MerchantAPI.Common.Database
@@ -73,7 +74,7 @@ namespace MerchantAPI.Common.Database
 
     public string GetDatabaseSrcRoot()
     {
-      string path = Directory.GetCurrentDirectory();
+      string path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
       string dbFolderName = GetRootDatabaseFolderName();
 
       for (int i = 0; i < 6; i++)
@@ -85,7 +86,7 @@ namespace MerchantAPI.Common.Database
         }
         path = Path.Combine(path, "..");
       }
-      throw new Exception($"Can not find '{dbFolderName}' near location {Directory.GetCurrentDirectory()}");
+      throw new Exception($"Can not find '{dbFolderName}' near location {Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)}");
     }
 
 
@@ -118,20 +119,16 @@ namespace MerchantAPI.Common.Database
         if (!_projectAndVersions.Contains(projectAndVersion))
         {
           _projectAndVersions.Add(projectAndVersion);
-          CreateDBFoldersToProcess.Add(Path.Combine(versionDirectoryName, projectName));
+          CreateDBFoldersToProcess.Add(versionDirectoryName);
         }
-
-        CheckFolderForFiles(logger, versionDirectoryName);
       }
       else if (IsVersionFolder(version))
       {
         if (!_projectAndVersions.Contains(projectAndVersion))
         {
           _projectAndVersions.Add(projectAndVersion);
-          ScriptFoldersToProcess.Add(Path.Combine(versionDirectoryName, projectName));
+          ScriptFoldersToProcess.Add(versionDirectoryName);
         }
-
-        CheckFolderForFiles(logger, versionDirectoryName);
       }
       else
       {
@@ -145,22 +142,6 @@ namespace MerchantAPI.Common.Database
     }
 
 
-    private void CheckFolderForFiles(ILogger logger, string folderName)
-    {
-      string[] files = System.IO.Directory.GetFiles(folderName, "*.*", SearchOption.TopDirectoryOnly);
-      if (files.Length > 0)
-      {
-        string warningMessage = $"Folder '{ folderName }' contains files, that will not be executed:";
-        logger.LogInformation("WARNING!!!!");
-        logger.LogInformation(warningMessage);
-
-        foreach (string fileName in files)
-        {
-          warningMessage = $" { fileName }";
-          logger.LogInformation(warningMessage);
-        }
-      }
-    }
     private bool IsVersionFolder(string versionDirectoryName)
     {
       return Int32.TryParse(versionDirectoryName, out _);
