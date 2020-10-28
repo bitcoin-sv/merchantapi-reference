@@ -690,7 +690,7 @@ WHERE blockInternalId=@blockInternalId;
         default:
           throw new InvalidOperationException($"Invalid notification type {notificationType}");
       }
-      cmdText += @"SET lastErrorAt=@lastErrorAt, lastErroDescription=@errorMessage, errorCount=@errorCount
+      cmdText += @"SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=@errorCount
 WHERE txInternalId = (SELECT Tx.txInternalId FROM Tx WHERE txExternalId=@txId)
 ";
       if (errorMessage.Length > 256)
