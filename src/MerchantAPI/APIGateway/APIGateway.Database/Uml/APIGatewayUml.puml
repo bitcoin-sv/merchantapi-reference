@@ -117,6 +117,7 @@ Fee -> FeeQuote
 class FeeAmount {
   primary_key(id): serial
   not_null(fee): long 
+  not_null(feeAmountType): string 
   not_null(satoshis): int
   not_null(bytes): int
 }
