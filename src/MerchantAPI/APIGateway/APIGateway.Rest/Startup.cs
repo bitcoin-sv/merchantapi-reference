@@ -232,6 +232,21 @@ namespace MerchantAPI.APIGateway.Rest
         app.UseExceptionHandler("/error");
       }
 
+      app.Use(async (context, next) =>
+      {
+        // Prevent sensitive information from being cached.
+        context.Response.Headers.Add("cache-control", "no-store");
+        // To protect against drag-and-drop style clickjacking attacks.
+        context.Response.Headers.Add("Content-Security-Policy", "frame-ancestors 'none'");
+        // To prevent browsers from performing MIME sniffing, and inappropriately interpreting responses as HTML.
+        context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+        // To protect against drag-and-drop style clickjacking attacks.
+        context.Response.Headers.Add("X-Frame-Options", "DENY");
+        // To require connections over HTTPS and to protect against spoofed certificates.
+        context.Response.Headers.Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+        await next();
+      });
+
       app.UseHttpsRedirection();
 
       app.UseSwagger();
