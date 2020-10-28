@@ -417,8 +417,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         string topic = notification.Notification.Substring(3); // Chop off "pub" prefix
         if (topic == ZMQTopic.HashBlock ||
           topic == ZMQTopic.InvalidTx ||
-          topic == ZMQTopic.RemovedFromMempool ||
-          topic == ZMQTopic.RemovedFromMempoolBlock)
+          topic == ZMQTopic.RemovedFromMempool)
         {
           SubscribeTopic(node.Id, notification.Address, topic);
         }
@@ -482,7 +481,6 @@ namespace MerchantAPI.APIGateway.Rest.Services
     public const string HashBlock = "hashblock";
     public const string InvalidTx = "invalidtx";
     public const string RemovedFromMempool = "removedfrommempool";
-    public const string RemovedFromMempoolBlock = "removedfrommempoolblock";
   }
 
   class ZMQFailedSubscription
