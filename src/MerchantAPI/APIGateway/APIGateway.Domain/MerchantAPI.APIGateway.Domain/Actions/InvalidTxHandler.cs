@@ -88,10 +88,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             NotificationType = CallbackReason.DoubleSpend,
             TransactionId = removedTxId
           };
-          if (NotificationAction.AddNotificationData(notificationEvent, null))
-          {
-            eventBus.Publish(notificationEvent);
-          }
+          eventBus.Publish(notificationEvent);
         }
       }
     }
@@ -111,29 +108,31 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             var dsTxPayload = string.IsNullOrEmpty(e.Message.Hex) ? new byte[0] :  HelperTools.HexStringToByteArray(e.Message.Hex);
             foreach (var tx in txsWithDSCheck)
             {
-              await txRepository.InsertMempoolDoubleSpendAsync(
-                tx.TxInternalId,
-                dsTxId,
-                dsTxPayload);
-              var notificationEvent = new NewNotificationEvent
-                                      {
-                                        NotificationType = CallbackReason.DoubleSpendAttempt,
-                                        TransactionId = tx.TxExternalIdBytes
-                                      };
+              var inserted = await txRepository.InsertMempoolDoubleSpendAsync(
+                                  tx.TxInternalId,
+                                  dsTxId,
+                                  dsTxPayload);
+
+              if (inserted == 0) return;
+
               var notificationData = new NotificationData
-                                    {
-                                      TxExternalId = tx.TxExternalIdBytes,
-                                      DoubleSpendTxId = dsTxId,
-                                      Payload = dsTxPayload,
-                                      CallbackUrl = tx.CallbackUrl,
-                                      CallbackEncryption = tx.CallbackEncryption,
-                                      CallbackToken = tx.CallbackToken,
-                                      TxInternalId = tx.TxInternalId
-                                    };
-              if (NotificationAction.AddNotificationData(notificationEvent, notificationData))
               {
-                eventBus.Publish(notificationEvent);
-              }
+                TxExternalId = tx.TxExternalIdBytes,
+                DoubleSpendTxId = dsTxId,
+                CallbackUrl = tx.CallbackUrl,
+                CallbackEncryption = tx.CallbackEncryption,
+                CallbackToken = tx.CallbackToken,
+                TxInternalId = tx.TxInternalId
+              };
+
+              var notificationEvent = new NewNotificationEvent
+              {
+                NotificationType = CallbackReason.DoubleSpendAttempt,
+                TransactionId = tx.TxExternalIdBytes,
+                NotificationData = notificationData
+              };
+
+              eventBus.Publish(notificationEvent);
             }
           }
         }

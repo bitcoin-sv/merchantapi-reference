@@ -26,11 +26,20 @@ services:
       - ConnectionStrings:DBConnectionString=Server=merchant-gateway-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_gateway;
       - ConnectionStrings:DBConnectionStringMaster=Server=merchant-gateway-database;Port=5432;User Id=postgres;Password=postgres;Database=merchant_gateway;
       - AppSettings:QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
-      - AppSettings:NotificationIntervalSec=${NOTIFICATION_INTERVAL_SEC}
       - AppSettings:ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
       - AppSettings:RestAdminAPIKey=${RESTADMIN_APIKEY}
       - AppSettings:DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
       - AppSettings:WifPrivateKey=${WIF_PRIVATEKEY}
+      - AppSettings:Notification:NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
+      - AppSettings:Notification:InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
+      - AppSettings:Notification:InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}
+      - AppSettings:Notification:MaxNotificationsInBatch=${NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH}
+      - AppSettings:Notification:SlowHostThresholdInMs=${NOTIFICATION_SLOW_HOST_THRESHOLD_MS}
+      - AppSettings:Notification:InstantNotificationsSlowTaskPercentage=${NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE}
+      - AppSettings:Notification:NoOfSavedExecutionTimes=${NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES}
+      - AppSettings:Notification:NotificationsRetryCount=${NOTIFICATION_NOTIFICATIONS_RETRY_COUNT}
+      - AppSettings:Notification:SlowHostResponseTimeoutMS=${NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS}
+      - AppSettings:Notification:FastHostResponseTimeoutMS=${NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS}
       - AppSettings:MinerIdServer:Url=${MINERID_SERVER_URL}
       - AppSettings:MinerIdServer:Alias=${MINERID_SERVER_ALIAS}
       - AppSettings:MinerIdServer:Authentication=${MINERID_SERVER_AUTHENTICATION}

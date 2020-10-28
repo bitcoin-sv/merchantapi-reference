@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using Dapper;
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common;
@@ -64,7 +65,7 @@ RETURNING blockInternalId;
       return blockInternalId;
     }
 
-    public async Task InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload)
+    public async Task<int> InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload)
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
@@ -76,9 +77,10 @@ VALUES (@txInternalId,
 @dsTxId, @dsTxPayload)
 ON CONFLICT (txInternalId, blockInternalId, dsTxId) DO NOTHING;";
 
-      await connection.ExecuteAsync(cmdInsertDS, new { txInternalId, blockhash, dsTxId, dsTxPayload });
+      var count = await connection.ExecuteAsync(cmdInsertDS, new { txInternalId, blockhash, dsTxId, dsTxPayload });
 
       await transaction.CommitAsync();
+      return count;
     }
     public async Task CheckAndInsertBlockDoubleSpendAsync(IEnumerable<TxWithInput> txWithInputsEnum, long deltaBlockHeight, long blockInternalId)
     {
@@ -161,7 +163,7 @@ WHERE t.txExternalId <> bin.txExternalId;
       await transaction.CommitAsync();
     }
 
-    public async Task InsertMempoolDoubleSpendAsync(long txInternalId, byte[] dsTxId, byte[] dsTxPayload)
+    public async Task<int> InsertMempoolDoubleSpendAsync(long txInternalId, byte[] dsTxId, byte[] dsTxPayload)
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
@@ -172,8 +174,10 @@ VALUES (@txInternalId, @dsTxId, @dsTxPayload)
 ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { txInternalId, dsTxId, dsTxPayload });
+      var count = await connection.ExecuteAsync(cmdText, new { txInternalId, dsTxId, dsTxPayload });
       await transaction.CommitAsync();
+
+      return count;
     }
 
     private void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
@@ -284,7 +288,7 @@ WHERE txPayload IS NULL;
       await transaction.CommitAsync();
     }
 
-    public async Task UpdateDsTxPayload(byte[] dsTxId, byte[] txPayload)
+    public async Task UpdateDsTxPayloadAsync(byte[] dsTxId, byte[] txPayload)
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
@@ -299,7 +303,7 @@ WHERE dsTxId = @dsTxId;
       await transaction.CommitAsync();
     }
 
-    public async Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayload()
+    public async Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayloadAsync()
     {
       using var connection = GetDbConnection();
 
@@ -317,7 +321,7 @@ WHERE t.DsTxPayload IS NULL;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.dsTxId doubleSpendTxId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, dsTxPayload payload
+SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.dsTxId doubleSpendTxId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
 FROM Tx
 INNER JOIN TxBlockDoubleSpend ON Tx.txInternalId = TxBlockDoubleSpend.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlockDoubleSpend.blockinternalid 
@@ -333,7 +337,7 @@ ORDER BY callbackUrl;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.dsTxId doubleSpendTxId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, dsTxPayload payload
+SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.dsTxId doubleSpendTxId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
 FROM Tx
 INNER JOIN TxBlockDoubleSpend ON Tx.txInternalId = TxBlockDoubleSpend.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlockDoubleSpend.blockinternalid 
@@ -364,7 +368,7 @@ ORDER BY callbackUrl;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption
+SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
 FROM Tx
 INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 
@@ -381,7 +385,7 @@ FETCH NEXT @fetch ROWS ONLY;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption
+SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
 FROM Tx
 INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 
@@ -506,7 +510,7 @@ WHERE b.blockhash = @blockHash;
       return block;
     }
 
-    public async Task<bool> TransactionExists(byte[] txId)
+    public async Task<bool> TransactionExistsAsync(byte[] txId)
     {
       using var connection = GetDbConnection();
 
@@ -520,7 +524,110 @@ WHERE tx.txexternalid = @txId;
       return foundTx > 0;
     }
 
-    public async Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
+    public async Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch)
+    {
+      using var connection = GetDbConnection();
+
+      string cmdText = @"
+SELECT *
+FROM (
+SELECT 'doubleSpend' notificationType, Tx.txInternalId, txExternalId, TxBlockDoubleSpend.dsTxId doubleSpendTxId, dsTxPayload payload, Block.blockInternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
+FROM Tx
+INNER JOIN TxBlockDoubleSpend ON Tx.txInternalId = TxBlockDoubleSpend.txInternalId
+INNER JOIN Block ON block .blockinternalid = TxBlockDoubleSpend.blockinternalid 
+WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND dsCheck = true AND lastErrorAt IS NOT NULL AND errorCount < @errorCount
+
+UNION ALL
+
+SELECT 'doubleSpendAttempt' notificationType, Tx.txInternalId, Tx.txExternalId, dsTxId doubleSpendTxId, dsTxPayload payload, -1 blockInternalId, null blockhash, -1 blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
+FROM Tx
+INNER JOIN TxMempoolDoubleSpendAttempt ON Tx.txInternalId = TxMempoolDoubleSpendAttempt.txInternalId
+WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND dsCheck = true AND lastErrorAt IS NOT NULL AND errorCount < @errorCount
+
+UNION ALL
+
+SELECT 'merkleProof' notificationType, Tx.txInternalId, txExternalId, null doubleSpendTxId, null payload, Block.blockInternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
+FROM Tx
+INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
+INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 
+WHERE sentMerkleProofAt IS NULL AND merkleProof = true AND lastErrorAt IS NOT NULL AND errorCount < @errorCount
+) WaitingNotifications
+ORDER BY txInternalId
+LIMIT @fetch OFFSET @skip
+";
+
+      return (await connection.QueryAsync<NotificationData>(cmdText, new { errorCount, skip, fetch })).ToList();
+    }
+
+    public async Task<byte[]> GetDoublespendTxPayloadAsync(string notificationType, long txInternalId)
+    {
+      using var connection = GetDbConnection();
+
+      string cmdText = "SELECT dsTxPayload";
+      switch(notificationType)
+      {
+        case CallbackReason.DoubleSpend:
+          cmdText += " FROM TxBlockDoublespend ";
+          break;
+
+        case CallbackReason.DoubleSpendAttempt:
+          cmdText += " FROM TxMempoolDoublespendAttempt ";
+          break;
+
+        default:
+          return new byte[] { };
+      }
+
+      cmdText += "WHERE txInternalId = @txInternalId";
+
+      return await connection.QueryFirstOrDefaultAsync<byte[]>(cmdText, new { txInternalId });
+    }
+
+    public async Task SetNotificationSendDateAsync(string notificationType, long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
+    {
+      switch(notificationType)
+      {
+        case CallbackReason.DoubleSpend:
+          await SetBlockDoubleSpendSendDateAsync(txInternalId, blockInternalId, dsTxId, sendDate);
+          break;
+        case CallbackReason.DoubleSpendAttempt:
+          await SetMempoolDoubleSpendSendDateAsync(txInternalId, dsTxId, sendDate);
+          break;
+        case CallbackReason.MerkleProof:
+          await SetMerkleProofSendDateAsync(txInternalId, blockInternalId, sendDate);
+          break;
+      }
+    }
+
+    private async Task SetMempoolDoubleSpendSendDateAsync(long txInternalId, byte[] dsTxId, DateTime sendDate)
+    {
+      using var connection = GetDbConnection();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+UPDATE TxMempoolDoubleSpendAttempt SET sentDsNotificationAt=@sendDate
+WHERE txInternalId=@txInternalId AND dsTxId=@dsTxId;
+";
+
+      await connection.ExecuteAsync(cmdText, new { txInternalId, dsTxId, sendDate });
+      await transaction.CommitAsync();
+    }
+
+    private async Task SetMerkleProofSendDateAsync(long txInternalId, long blockInternalId, DateTime sendDate)
+    {
+      using var connection = GetDbConnection();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+UPDATE TxBlock SET sentMerkleProofAt=@sendDate
+WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
+";
+
+      await connection.ExecuteAsync(cmdText, new { txInternalId, blockInternalId, sendDate });
+      await transaction.CommitAsync();
+    }
+
+    private async Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
@@ -562,31 +669,58 @@ WHERE blockInternalId=@blockInternalId;
       await transaction.CommitAsync();
     }
 
-    public async Task SetMempoolDoubleSpendSendDateAsync(long txInternalId, byte[] dsTxId, DateTime sendDate)
+    public async Task SetNotificationErrorAsync(byte[] txId, string notificationType, string errorMessage, int errorCount)
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
 
-      string cmdText = @"
-UPDATE TxMempoolDoubleSpendAttempt SET sentDsNotificationAt=@sendDate
-WHERE txInternalId=@txInternalId AND dsTxId=@dsTxId;
-";
+      string cmdText = "UPDATE ";
 
-      await connection.ExecuteAsync(cmdText, new { txInternalId, dsTxId, sendDate });
+      switch(notificationType)
+      {
+        case CallbackReason.DoubleSpend:
+          cmdText += "TxBlockDoublespend ";
+          break;
+        case CallbackReason.DoubleSpendAttempt:
+          cmdText += "TxMempoolDoublespendAttempt ";
+          break;
+        case CallbackReason.MerkleProof:
+          cmdText += "TxBlock ";
+          break;
+        default:
+          throw new InvalidOperationException($"Invalid notification type {notificationType}");
+      }
+      cmdText += @"SET lastErrorAt=@lastErrorAt, lastErroDescription=@errorMessage, errorCount=@errorCount
+WHERE txInternalId = (SELECT Tx.txInternalId FROM Tx WHERE txExternalId=@txId)
+";
+      if (errorMessage.Length > 256)
+      {
+        errorMessage = errorMessage.Substring(0, 256);
+      }
+      await connection.ExecuteAsync(cmdText, new { lastErrorAt = DateTime.UtcNow, errorMessage, errorCount, txId });
       await transaction.CommitAsync();
     }
 
-    public async Task SetMerkleProofSendDateAsync(long txInternalId, long blockInternalId, DateTime sendDate)
+    public async Task MarkUncompleteNotificationsAsFailedAsync()
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
-UPDATE TxBlock SET sentMerkleProofAt=@sendDate
-WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
+UPDATE TxBlockDoublespend 
+SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=0
+WHERE sentDsNotificationAt IS NULL;
+
+UPDATE TxMempoolDoublespendAttempt 
+SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=0
+WHERE sentDsNotificationAt IS NULL;
+
+UPDATE TxBlock 
+SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=0
+WHERE sentMerkleproofAt IS NULL;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { txInternalId, blockInternalId, sendDate });
+      await connection.ExecuteAsync(cmdText, new { errorMessage="Unprocessed notification from last run", lastErrorAt = DateTime.UtcNow });
       await transaction.CommitAsync();
     }
   }

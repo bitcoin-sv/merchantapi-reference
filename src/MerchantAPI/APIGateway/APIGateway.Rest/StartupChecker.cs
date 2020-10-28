@@ -15,6 +15,7 @@ using MerchantAPI.APIGateway.Domain.Actions;
 using Microsoft.Extensions.Configuration;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.Common.Database;
+using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -26,6 +27,7 @@ namespace MerchantAPI.APIGateway.Rest
     readonly IRpcClientFactory rpcClientFactory;
     readonly IList<Node> accessibleNodes = new List<Node>();
     readonly IBlockParser blockParser;
+    readonly INotificationsHandler notificationsHandler;
     private readonly IMinerId minerId;
     private readonly ICreateDB createDB;
     bool nodesAccessible;
@@ -38,6 +40,7 @@ namespace MerchantAPI.APIGateway.Rest
                           IMinerId minerId,
                           IBlockParser blockParser,
                           ICreateDB createDB,
+                          INotificationsHandler notificationsHandler,
                           ILogger<StartupChecker> logger,
                           IConfiguration configuration)
     {
@@ -48,6 +51,7 @@ namespace MerchantAPI.APIGateway.Rest
       this.blockParser = blockParser ?? throw new ArgumentException(nameof(blockParser));
       this.createDB = createDB ?? throw new ArgumentException(nameof(createDB));
       this.minerId = minerId ?? throw new ArgumentException(nameof(nodeRepository));
+      this.notificationsHandler = notificationsHandler ?? throw new ArgumentException(nameof(notificationsHandler));
       this.configuration = configuration ?? throw new ArgumentException(nameof(configuration));
       rdbms = RDBMS.Postgres;
     }
@@ -63,6 +67,7 @@ namespace MerchantAPI.APIGateway.Rest
         CheckNodesZmqNotificationsAsync().Wait();
         TestMinerId().Wait();
         CheckBlocksAsync().Wait();
+        MarkUncompleteNotificationsAsFailedAsync().Wait();
         logger.LogInformation("Health checks completed successfully.");
       }
       catch (Exception ex)
@@ -182,6 +187,19 @@ namespace MerchantAPI.APIGateway.Rest
       if (nodesAccessible)
       {
         await blockParser.InitializeDB();
+      }
+    }
+
+    private async Task MarkUncompleteNotificationsAsFailedAsync()
+    {
+      try
+      {
+        await notificationsHandler.MarkUncompleteNotificationsAsFailedAsync();
+        logger.LogInformation("Successfully marked notifications that were not instantly sent to be sent from background job.");
+      }
+      catch(Exception ex)
+      {
+        logger.LogError($"Error while trying to mark all unprocessed notifications for slow queue. Error:{ex.GetBaseException().Message}");
       }
     }
   }

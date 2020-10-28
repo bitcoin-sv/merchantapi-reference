@@ -1,7 +1,6 @@
-﻿using MerchantAPI.Common.EventBus;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿// Copyright (c) 2020 Bitcoin Association
+
+using MerchantAPI.Common.EventBus;
 
 namespace MerchantAPI.APIGateway.Domain.Models.Events
 {
@@ -9,5 +8,6 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
   {
     public string NotificationType { get; set; }
     public byte[] TransactionId { get; set; }
+    public NotificationData NotificationData { get; set; }
   }
 }

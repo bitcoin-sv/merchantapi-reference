@@ -16,9 +16,18 @@ namespace MerchantAPI.Common
     {
       Status = (int)statusCode;
     }
+
+    public HttpResponseException(HttpStatusCode statusCode, string message, long executionTime) : base(message)
+    {
+      Status = (int)statusCode;
+      ExecutionTime = executionTime;
+    }
+
     public int Status { get; private set; }
 
     public object Value { get; set; }
+
+    public long ExecutionTime { get; private set; }
   }
 
   public class DomainException : HttpResponseException
@@ -34,6 +43,8 @@ namespace MerchantAPI.Common
     public BadRequestException(string message) : base(HttpStatusCode.BadRequest, message) { }
 
     public BadRequestException(string message, Exception ex) : base(HttpStatusCode.BadRequest, message, ex) { }
+
+    public BadRequestException(string message, long executionTime) : base(HttpStatusCode.NotFound, message, executionTime) { }
   }
 
   public class NotFoundException : HttpResponseException
@@ -41,6 +52,8 @@ namespace MerchantAPI.Common
     public NotFoundException(string message) : base(HttpStatusCode.NotFound, message) { }
 
     public NotFoundException(string message, Exception ex) : base(HttpStatusCode.NotFound, message, ex) { }
+
+    public NotFoundException(string message, long executionTime) : base(HttpStatusCode.NotFound, message, executionTime) { }
   }
 
   /// <summary>

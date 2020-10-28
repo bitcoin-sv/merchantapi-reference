@@ -25,6 +25,7 @@ using System.Net.Http;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Database;
+using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -80,7 +81,6 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<IMapi, Mapi>();
       services.AddTransient<IRpcClientFactory, RpcClientFactory>();
       services.AddTransient<IRpcMultiClient, RpcMultiClient>();
-      services.AddTransient<INotificationAction, NotificationAction>();
       services.AddSingleton<INotificationServiceHttpClientFactory, NotificationServiceHttpClientFactoryDefault>();
       services.AddHttpClient(NotificationServiceHttpClientFactoryDefault.ClientName) // This could be moved into NotificationServiceHttpClientFactoryDefault
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
@@ -93,8 +93,10 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddSingleton<IBlockChainInfo, BlockChainInfo>(); // singleton, thread safe
       services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe
       services.AddTransient<ICreateDB, CreateDB>();
+      services.AddSingleton<INotificationsHandler, NotificationsHandler>();// singleton, thread safe
 
       services.AddHostedService(p => (BlockChainInfo)p.GetRequiredService<IBlockChainInfo>());
+      services.AddHostedService(p => (NotificationsHandler)p.GetRequiredService<INotificationsHandler>());
 
 
 

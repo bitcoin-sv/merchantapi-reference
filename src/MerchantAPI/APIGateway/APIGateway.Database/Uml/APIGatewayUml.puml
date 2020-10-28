@@ -40,6 +40,9 @@ class TxBlock
   primary_key(txInternalId): long
   primary_key(blockInternalId): long
   sentMerkleProofAt : datetime
+  lastErrorDescription : string
+  lastErrorAt : string
+  errorCount : int
 }
 TxBlock --> "blockInternalId" Block
 TxBlock --> "txInternalId" Tx
@@ -51,6 +54,9 @@ class TxBlockDoubleSpend
   primary_key(dsTxId) : bytea
   dsTxPayload: bytea
   sentDsNotificationAt: datetime
+  lastErrorDescription : string
+  lastErrorAt : string
+  errorCount : int
 }
 TxBlockDoubleSpend --> "txInternalId" Tx
 TxBlockDoubleSpend --> "blockInternalId" Block
@@ -61,6 +67,9 @@ class TxMempoolDoubleSpendAttempt
   primary_key(dsTxId) : bytea
   not_null(dsTxPayload): bytea
   sentDsNotificationAt: datetime
+  lastErrorDescription : string
+  lastErrorAt : string
+  errorCount : int
 }
 TxMempoolDoubleSpendAttempt --> "txInternalId" Tx
 
@@ -113,4 +122,10 @@ class FeeAmount {
 }
 FeeAmount -> Fee
 
+class Version{
+  primary_key(version): int
+  not_null(projectName): string
+  not_null(updating): int
+  not_null(creationDate): datetime
+}
 @enduml

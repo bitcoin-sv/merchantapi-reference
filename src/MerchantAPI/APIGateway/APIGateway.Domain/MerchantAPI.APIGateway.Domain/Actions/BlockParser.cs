@@ -26,19 +26,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly AppSettings appSettings;
     readonly ITxRepository txRepository;
     readonly IRpcMultiClient rpcMultiClient;
-    readonly INotificationAction notificationAction;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
 
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger, 
-                       IEventBus eventBus, IOptions<AppSettings> options, INotificationAction notificationAction)
+                       IEventBus eventBus, IOptions<AppSettings> options)
     : base(logger, eventBus)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
-      this.notificationAction = notificationAction ?? throw new ArgumentNullException(nameof(notificationAction));
       appSettings = options.Value;
     }
 
@@ -84,10 +82,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                                   NotificationType = CallbackReason.MerkleProof,
                                   TransactionId = transaction.TxExternalIdBytes
                                 };
-        if (NotificationAction.AddNotificationData(notificationEvent, null))
-        {
-          eventBus.Publish(notificationEvent);
-        }
+        eventBus.Publish(notificationEvent);
       }
     }
 
@@ -110,20 +105,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       // If any new double spend records were generated we need to update them with transaction payload
       // and trigger notification events
-      var dsTxIds = await txRepository.GetDSTxWithoutPayload();
+      var dsTxIds = await txRepository.GetDSTxWithoutPayloadAsync();
       foreach(var (dsTxId, TxId) in dsTxIds)
       {
         var payload = block.Transactions.Single(x => x.GetHash() == new uint256(dsTxId)).ToBytes();
-        await txRepository.UpdateDsTxPayload(dsTxId, payload);
+        await txRepository.UpdateDsTxPayloadAsync(dsTxId, payload);
         var notificationEvent = new NewNotificationEvent
                                 {
                                   NotificationType = CallbackReason.DoubleSpend,
                                   TransactionId = TxId
                                 };
-        if (NotificationAction.AddNotificationData(notificationEvent, null))
-        {
-          eventBus.Publish(notificationEvent);
-        }
+        eventBus.Publish(notificationEvent);
       }
       await txRepository.SetBlockParsedForDoubleSpendDateAsync(blockInternalId);
     }

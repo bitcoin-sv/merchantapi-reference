@@ -46,16 +46,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.Cleanup();
     }
 
-    private void PublishBlockHashToEventBus(string blockHash)
-    {
-      eventBus.Publish(new NewBlockDiscoveredEvent
-      {
-        BlockHash = blockHash
-      });
-
-      WaitUntilEventBusIsIdle();
-    }
-
     [TestMethod]
     public async Task MerkleProofCheck()
     {

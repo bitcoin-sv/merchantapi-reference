@@ -17,27 +17,27 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task CheckAndInsertBlockDoubleSpendAsync(IEnumerable<TxWithInput> txWithInputs, long deltaBlockHeight, long blockInternalId);
 
-    Task InsertMempoolDoubleSpendAsync(long txInternalId, byte[] dsTxId, byte[] dsTxPayload);
+    Task<int> InsertMempoolDoubleSpendAsync(long txInternalId, byte[] dsTxId, byte[] dsTxPayload);
 
-    Task UpdateDsTxPayload(byte[] dsTxId, byte[] txPayload);
+    Task UpdateDsTxPayloadAsync(byte[] dsTxId, byte[] txPayload);
 
     Task SetBlockParsedForMerkleDateAsync(long blockInternalId);
 
     Task SetBlockParsedForDoubleSpendDateAsync(long blockInternalId);
 
-    Task SetMerkleProofSendDateAsync(long txInternalId, long blockInternalId, DateTime sendDate);
+    Task<int> InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload);
 
-    Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate);
+    Task SetNotificationSendDateAsync(string notificationType, long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate);
 
-    Task InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload);
+    Task SetNotificationErrorAsync(byte[] txId, string notificationType, string errorMessage, int errorCount);
 
-    Task SetMempoolDoubleSpendSendDateAsync(long txInternalId, byte[] dsTxId, DateTime sendDate);
+    Task MarkUncompleteNotificationsAsFailedAsync();
 
     Task<IEnumerable<NotificationData>> GetTxsToSendMerkleProofNotificationsAsync(long skip, long fetch);
 
     Task<NotificationData> GetTxToSendMerkleProofNotificationAsync(byte[] txId);
 
-    Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayload();
+    Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayloadAsync();
 
     Task<IEnumerable<NotificationData>> GetTxsToSendBlockDSNotificationsAsync();
 
@@ -52,6 +52,11 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<Block> GetBestBlockAsync();
     
     Task<Block> GetBlockAsync(byte[] blockHash);
-    Task<bool> TransactionExists(byte[] txId);
+
+    Task<bool> TransactionExistsAsync(byte[] txId);
+    
+    Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch);
+
+    Task<byte[]> GetDoublespendTxPayloadAsync(string notificationType, long txInternalId);
   }
 }
