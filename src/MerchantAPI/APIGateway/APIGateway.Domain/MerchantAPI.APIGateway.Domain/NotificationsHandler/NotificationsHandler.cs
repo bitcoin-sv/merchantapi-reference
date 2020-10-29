@@ -206,7 +206,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       {
         throw new Exception("Error while validating signature. Possible reason: incorrect configuration or key rotation");
       }
-      return HelperTools.JSONSerializeNewtonsoft(new SignedPayloadViewModel(jsonEnvelope), true);
+      return HelperTools.JSONSerialize(new SignedPayloadViewModel(jsonEnvelope), true);
     }
 
     /// <summary>

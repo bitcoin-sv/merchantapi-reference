@@ -547,21 +547,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent($"{{ \"rawtx\": \"{tx1Hex}\", \"callbackUrl\" : \"{url}\" }}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
       var resp  = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, expectedCode);
-      var txRespViewModel = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionResponseViewModel>(resp.response.Payload);
+      var txRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txRespViewModel.ResultDescription);
 
       // Test submitting multiple txs through JSON, include callback in URL
       reqContent = new StringContent($"[ {{ \"rawtx\": \"{tx2Hex}\", \"callbackUrl\" : \"{url}\" }}]");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
       resp = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, expectedCode);
-      var txsRespViewModel = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionsResponseViewModel>(resp.response.Payload);
+      var txsRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txsRespViewModel.Txs[0].ResultDescription);
 
       // Test submitting multiple txs through JSON, use default callback
       reqContent = new StringContent($"[ {{ \"rawtx\": \"{tx3Hex}\" }}]");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
       resp = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions+ $"?defaultCallbackUrl={url}", client, reqContent, expectedCode);
-      txsRespViewModel = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionsResponseViewModel>(resp.response.Payload);
+      txsRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txsRespViewModel.Txs[0].ResultDescription);
 
 
@@ -569,7 +569,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContent = new StringContent($"[ {{ \"rawtx\": \"{tx4Hex}\", \"callbackUrl\" : \"{url}\" }}]");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
       resp = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, expectedCode);
-      txsRespViewModel = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionsResponseViewModel>(resp.response.Payload);
+      txsRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txsRespViewModel.Txs[0].ResultDescription);
 
       // Test submitting single transaction through Binary
@@ -579,7 +579,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContentBin.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
 
       resp = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction+$"?callbackUrl={url}", client, reqContentBin, expectedCode);
-      txRespViewModel = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionResponseViewModel>(resp.response.Payload);
+      txRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txRespViewModel.ResultDescription);
 
       // Test submitting multiple  transaction through Binary
@@ -589,7 +589,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContentBin.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
 
       resp = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions + $"?callbackUrl={url}", client, reqContentBin, expectedCode);
-      txsRespViewModel = HelperTools.JSONDeserializeNewtonsoft<SubmitTransactionsResponseViewModel>(resp.response.Payload);
+      txsRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txsRespViewModel.Txs[0].ResultDescription);
     }
 

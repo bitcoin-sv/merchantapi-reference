@@ -62,7 +62,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <returns></returns>
     async Task<ActionResult> SignIfRequiredAsync<T>(T response, string responseMinerId)
     {
-      string payload = HelperTools.JSONSerializeNewtonsoft(response, false);
+      string payload = HelperTools.JSONSerialize(response, false);
 
       if (string.IsNullOrEmpty(responseMinerId))
       {

@@ -97,7 +97,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
       else
       {
-        var rEnvelope = HelperTools.JSONDeserialize<JsonEnvelope>(responseAsString);
+        var rEnvelope = HelperTools.JSONDeserialize<SignedPayloadViewModel>(responseAsString);
         var r = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(rEnvelope.Payload);
         int printLimit = 10;
         var errorItems = r.Txs.Where(t => t.ReturnResult != "success").ToArray();
@@ -197,7 +197,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
     static Random rnd = new Random();
     static async Task<int> SendTransactions(string configFileName)
     {
-      var config = HelperTools.JSONDeserialize<SendConfig>(await File.ReadAllTextAsync(configFileName));
+      // Use Newtonsoft deserializer with default camel case policy:
+      var config = HelperTools.JSONDeserializeNewtonsoft<SendConfig>(await File.ReadAllTextAsync(configFileName));
 
       var validationResults = new List<ValidationResult>();
       var validationContext = new ValidationContext(config, serviceProvider: null, items: null);
