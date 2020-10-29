@@ -52,7 +52,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
 
       Assert.AreEqual("1.2.3", response.ApiVersion);
-      Assert.IsTrue((DateTime.UtcNow - response.Timestamp).TotalSeconds < 60);
+      Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedResult, response.ReturnResult);
       Assert.AreEqual(expectedDescription, response.ResultDescription);
 

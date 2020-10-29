@@ -1,5 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.Common.Clock;
 using System;
 
 namespace MerchantAPI.Common.EventBus
@@ -20,6 +21,6 @@ namespace MerchantAPI.Common.EventBus
 
     public Guid Id { get; private set; }
 
-    public DateTime CreationDate { get; private set; }
+    public DateTime CreationDate { get; set; }
   }
 }

@@ -10,6 +10,10 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
   /// </summary>
   public class InvalidTxDetectedEvent : IntegrationEvent
   {
+    public InvalidTxDetectedEvent() : base()
+    {
+    }
+
     public InvalidTxMessage Message { get; set; }
   }
 }

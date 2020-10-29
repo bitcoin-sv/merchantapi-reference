@@ -17,6 +17,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     public static double quoteExpiryMinutes;
     private List<FeeQuote> _feeQuotes;
 
+    private readonly IClock clock;
+
+    public FeeQuoteRepositoryMock(IClock clock)
+    {
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+    }
 
     public string FeeFileName { get; set; } = "feeQuotes.json";
 
@@ -51,7 +57,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       // check json
       List<FeeQuote> feeQuotes = JsonConvert.DeserializeObject<List<FeeQuote>>(jsonData);
-      feeQuotes.Where(x => x.CreatedAt == DateTime.MinValue).ToList().ForEach(x => x.CreatedAt = x.ValidFrom = DateTime.UtcNow);
+      feeQuotes.Where(x => x.CreatedAt == DateTime.MinValue).ToList().ForEach(x => x.CreatedAt = x.ValidFrom = clock.UtcNow());
       _feeQuotes = new List<FeeQuote>();
       _feeQuotes.AddRange(feeQuotes.OrderBy(x => x.CreatedAt));
       return GetCurrentFeeQuoteByIdentityFromLoadedFeeQuotes(identity);

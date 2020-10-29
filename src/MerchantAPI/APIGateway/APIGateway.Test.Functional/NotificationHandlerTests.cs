@@ -36,8 +36,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var taskList = new List<Task>();
       for (int i = 0; i < 20; i++)
       {
-        hostExecution.AddExecutionTime(slowHostName, new Random(DateTime.Now.Millisecond).Next(notificationSettings.SlowHostThresholdInMs, notificationSettings.SlowHostThresholdInMs + 500));
-        hostExecution.AddExecutionTime(fastHostName, new Random(DateTime.Now.Millisecond).Next(0, notificationSettings.SlowHostThresholdInMs));
+        hostExecution.AddExecutionTime(slowHostName, new Random(DateTime.UtcNow.Millisecond).Next(notificationSettings.SlowHostThresholdInMs, notificationSettings.SlowHostThresholdInMs + 500));
+        hostExecution.AddExecutionTime(fastHostName, new Random(DateTime.UtcNow.Millisecond).Next(0, notificationSettings.SlowHostThresholdInMs));
       }
 
       Assert.AreEqual(slowHostName, hostExecution.GetHosts(true).Single());

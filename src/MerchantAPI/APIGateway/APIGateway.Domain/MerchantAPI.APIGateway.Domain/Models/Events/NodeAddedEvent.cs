@@ -6,6 +6,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
 {
   public class NodeAddedEvent : IntegrationEvent
   {
+    public NodeAddedEvent() : base()
+    {
+    }
     public Node CreatedNode { get; set; }
   }
 }

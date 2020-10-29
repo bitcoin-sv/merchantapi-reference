@@ -6,6 +6,7 @@ using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Domain.ViewModels;
+using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -29,11 +30,12 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     readonly IRpcMultiClient rpcMultiClient;
     readonly IMinerId minerId;
     readonly Notification notificationSettings;
+    private readonly IClock clock;
 
     readonly NotificationScheduler notificationScheduler;
 
     public NotificationsHandler(ILogger<NotificationsHandler> logger, INotificationServiceHttpClientFactory httpClientFactory, IOptions<AppSettings> options, 
-                                ITxRepository txRepository, IRpcMultiClient rpcMultiClient, IMinerId minerId)
+                                ITxRepository txRepository, IRpcMultiClient rpcMultiClient, IMinerId minerId, IClock clock)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -45,6 +47,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       notificationScheduler = new NotificationScheduler(logger, maxNumberOfSlowNotifications, notificationSettings.InstantNotificationsQueueSize,
                                                         notificationSettings.MaxNotificationsInBatch, notificationSettings.NoOfSavedExecutionTimes,
                                                         notificationSettings.SlowHostThresholdInMs);
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)
@@ -214,7 +217,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     /// </summary>
     private async Task<string> SendNotificationAsync(HttpClient client, NotificationData notificationData, int requestTimeout, CancellationToken stoppingToken)
     {
-      var cbNotification = CallbackNotificationViewModelBase.CreateFromNotificationData(notificationData);
+      var cbNotification = CallbackNotificationViewModelBase.CreateFromNotificationData(clock, notificationData);
       cbNotification.MinerId = lastMinerId ?? await minerId.GetCurrentMinerIdAsync();
 
       string signedPayload;
@@ -269,7 +272,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       var errMessage = await SendNotificationAsync(client, notification, requestTimeout, stoppingToken);
       if (errMessage == null)
       {
-        await txRepository.SetNotificationSendDateAsync(notification.NotificationType, notification.TxInternalId, notification.BlockInternalId, notification.DoubleSpendTxId, DateTime.UtcNow);
+        await txRepository.SetNotificationSendDateAsync(notification.NotificationType, notification.TxInternalId, notification.BlockInternalId, notification.DoubleSpendTxId, clock.UtcNow());
         return true;
       }
       else
@@ -304,7 +307,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
             throw new InvalidOperationException($"Invalid notification type {notificationEvent.NotificationType}");
         }
         notificationData.NotificationType = notificationEvent.NotificationType;
-        notificationData.CreatedAt = DateTime.UtcNow;
+        notificationData.CreatedAt = clock.UtcNow();
         Uri uri = new Uri(notificationData.CallbackUrl);
         var host = uri.Host.ToLower();
 

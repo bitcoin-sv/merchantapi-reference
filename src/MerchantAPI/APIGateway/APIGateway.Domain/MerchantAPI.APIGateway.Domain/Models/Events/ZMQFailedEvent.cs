@@ -9,6 +9,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
   /// </summary>
   public class ZMQFailedEvent : IntegrationEvent
   {
+    public ZMQFailedEvent() : base()
+    {
+    }
     public Node SourceNode { get; set; }
   }
 }

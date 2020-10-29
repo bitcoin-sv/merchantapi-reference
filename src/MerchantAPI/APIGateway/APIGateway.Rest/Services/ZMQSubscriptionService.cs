@@ -156,19 +156,19 @@ namespace MerchantAPI.APIGateway.Rest.Services
           case ZMQTopic.HashBlock:
             string blockHash = HelperTools.ByteToHexString(msg[0]);
             logger.LogInformation($"New block with hash {blockHash}.");
-            eventBus.Publish(new NewBlockDiscoveredEvent { BlockHash = blockHash });
+            eventBus.Publish(new NewBlockDiscoveredEvent() { CreationDate = clock.UtcNow(), BlockHash = blockHash });
             break;
           
           case ZMQTopic.InvalidTx:
             var invalidTxMsg = JsonSerializer.Deserialize<InvalidTxMessage>(msg[0]);
             logger.LogInformation($"Invalid tx notification for tx {invalidTxMsg.TxId} with reason {invalidTxMsg.RejectionCode} - {invalidTxMsg.RejectionReason}.");
-            eventBus.Publish(new InvalidTxDetectedEvent { Message = invalidTxMsg }); 
+            eventBus.Publish(new InvalidTxDetectedEvent() { CreationDate = clock.UtcNow(), Message = invalidTxMsg }); 
             break;
 
           case ZMQTopic.RemovedFromMempool:
             var removedFromMempoolMsg = JsonSerializer.Deserialize<RemovedFromMempoolMessage>(msg[0]);
             logger.LogInformation($"Removed from mempool tx notification for tx {removedFromMempoolMsg.TxId} with reason {removedFromMempoolMsg.Reason}. ColidedWith.TxId = {removedFromMempoolMsg.CollidedWith?.TxId}");
-            eventBus.Publish(new RemovedFromMempoolEvent { Message = removedFromMempoolMsg });
+            eventBus.Publish(new RemovedFromMempoolEvent() { CreationDate = clock.UtcNow(), Message = removedFromMempoolMsg });
             break;
 
           default:
@@ -422,7 +422,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
           SubscribeTopic(node.Id, notification.Address, topic);
         }
       }
-      eventBus.Publish(new ZMQSubscribedEvent { SourceNode = node });
+      eventBus.Publish(new ZMQSubscribedEvent() { CreationDate = clock.UtcNow(), SourceNode = node });
     }
 
     private void UnsubscribeZmqNotifications(Node node)
@@ -433,7 +433,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         subscriptions.TryRemove(subscription.Key, out ZMQSubscription val);
         val?.Socket.Close();
       }
-      eventBus.Publish(new ZMQUnsubscribedEvent { SourceNode = node });
+      eventBus.Publish(new ZMQUnsubscribedEvent() { CreationDate = clock.UtcNow(), SourceNode = node });
     }
 
     private void ClearFailed(Node node)
@@ -454,7 +454,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
           return;
         failedSubscriptions.Add(new ZMQFailedSubscription(node, errorMessage, clock.UtcNow()));
       }
-      eventBus.Publish(new ZMQFailedEvent { SourceNode = node });
+      eventBus.Publish(new ZMQFailedEvent() { CreationDate = clock.UtcNow(), SourceNode = node });
     }
 
     /// <summary>

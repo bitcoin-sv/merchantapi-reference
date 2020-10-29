@@ -9,6 +9,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
   /// </summary>
   public class NewBlockAvailableInDB :  IntegrationEvent
   {
+    public NewBlockAvailableInDB() : base()
+    {
+    }
     public string BlockHash { get; set; }
     public long BlockDBInternalId { get; set; }
   }
