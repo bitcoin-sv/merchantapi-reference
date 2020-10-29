@@ -47,7 +47,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("blockHash")]
     public string BlockHash { get; set; }
 
-    [JsonPropertyName("BlockHeight")]
+    [JsonPropertyName("blockHeight")]
     public long? BlockHeight { get; set; }
 
     [JsonPropertyName("confirmations")]

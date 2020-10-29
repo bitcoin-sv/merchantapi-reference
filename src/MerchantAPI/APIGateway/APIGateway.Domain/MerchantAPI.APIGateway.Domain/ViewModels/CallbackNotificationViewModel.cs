@@ -25,10 +25,10 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
     [JsonPropertyName("minerId")]
     public string MinerId { get; set; }
     
-    [JsonPropertyName("BlockHash")]
+    [JsonPropertyName("blockHash")]
     public string BlockHash { get; set; }
     
-    [JsonPropertyName("BlockHeight")]
+    [JsonPropertyName("blockHeight")]
     public long BlockHeight { get; set; }
     
     [JsonPropertyName("callbackTxId")]
