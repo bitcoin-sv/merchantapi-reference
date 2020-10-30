@@ -2,8 +2,10 @@
 
 using System.Linq;
 using MerchantAPI.APIGateway.Domain.Repositories;
+using MerchantAPI.APIGateway.Test.Functional.CleanUpTx;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.Clock;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +29,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
       // We register  fee repository as singleton, so that we can modify the fee filename in individual tests
       services.AddSingleton<IFeeQuoteRepository, FeeQuoteRepositoryMock>();
 
+      // We register clock as singleton, so that we can set time in individual tests
+      services.AddSingleton<IClock, MockedClock>();
+      services.AddSingleton<CleanUpTxWithPauseHandlerForTest>();
 
     }
   }

@@ -61,7 +61,6 @@ namespace MerchantAPI.APIGateway.Domain
     
     public MinerIdServer MinerIdServer { get; set; }
 
-    [Required]
     public int MaxBlockChainLengthForFork { get; set; } = 288;
 
     [Range(1, int.MaxValue)]
@@ -69,9 +68,14 @@ namespace MerchantAPI.APIGateway.Domain
 
     [Required]
     public string RestAdminAPIKey { get; set; }
-
-    [Required] 
+ 
     public int DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
+
+    [Range(1, int.MaxValue)]
+    public int CleanUpTxAfterDays { get; set; } = 3;
+
+    [Range(600, int.MaxValue)]
+    public int CleanUpTxPeriodSec { get; set; } = 3600;
 
     public Notification Notification { get; set; }
 

@@ -312,9 +312,11 @@ On Windows: build.bat
     | CERTIFICATEPASSWORD | the password of the *.pfx file in the config folder |
     | CERTIFICATEFILENAME | *<certificate_file_name.pfx>* |
     | QUOTE_EXPIRY_MINUTES | Specify fee quote expiry time |
-	| ZMQ_CONNECTION_TEST_INTERVAL_SEC | how often does ZMQ subscription service test that the connection with node is still alive. Default: 60 seconds |
+    | ZMQ_CONNECTION_TEST_INTERVAL_SEC | how often does ZMQ subscription service test that the connection with node is still alive. Default: 60 seconds |
     | RESTADMIN_APIKEY | Authorization key for accessing administration interface |
-    | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK | Number of old blocks that are checked for  double spends |
+    | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK | Number of old blocks that are checked for double spends |
+    | CLEAN_UP_TX_AFTER_DAYS | Number of days transactions and blocks are kept in database. Default: 3 days |
+    | CLEAN_UP_TX_PERIOD_SEC | Time period of transactions cleanup check. Default: 1 hour |
     | WIF_PRIVATEKEY | Private key that is used to sign responses with (must be omited if minerid settings are specified, and vice versa) |
     | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when background service will retry to send notifications with error |
     | NOTIFICATION_INSTANT_NOTIFICATION_TASKS | Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100) |
@@ -378,6 +380,8 @@ Following table lists all configuration settings with mappings to environment va
   | QuoteExpiryMinutes | QUOTE_EXPIRY_MINUTES |
   | RestAdminAPIKey | RESTADMIN_APIKEY |
   | DeltaBlockHeightForDoubleSpendCheck | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK |
+  | CleanUpTxAfterDays| CLEAN_UP_TX_AFTER_DAYS |
+  | CleanUpTxPeriodSec| CLEAN_UP_TX_PERIOD_SEC |
   | WifPrivateKey | WIF_PRIVATEKEY |
   | ZmqConnectionTestIntervalSec | ZMQ_CONNECTION_TEST_INTERVAL_SEC |
   | **Notification region**|
@@ -402,4 +406,5 @@ Following table lists additional configuration settings:
   | Setting | Description |
   | ------- | ----------- |
   | **ConnectionStrings** region |
-  | DBConnectionString | connection string for to PostgreSQL database |
+  | DBConnectionString | connection string for access to PostgreSQL database |
+  | DBConnectionStringMaster | is same as DBConnectionString, but with user that has admin privileges |

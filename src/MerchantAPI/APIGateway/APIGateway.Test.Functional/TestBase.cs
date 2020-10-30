@@ -406,7 +406,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         DSCheck = dsCheck,
         MerkleProof = merkleProof,
-        ReceivedAt = DateTime.UtcNow,
+        ReceivedAt = MockedClock.UtcNow,
         TxExternalId = new uint256(txHash),
         TxPayload = HelperTools.HexStringToByteArray(txHex)
       };
@@ -420,6 +420,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       return tx;
     }
+
 
     public async Task<long> CreateAndPublishNewBlock(IRpcClient rpcClient, long? blockHeightToStartFork, params Transaction[] transactions)
     {
@@ -458,6 +459,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       return blockCount;
     }
+
     protected void PublishBlockHashToEventBus(string blockHash)
     {
       eventBus.Publish(new NewBlockDiscoveredEvent
@@ -467,6 +469,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       WaitUntilEventBusIsIdle();
     }
+
 
     protected void InsertFeeQuote()
     {
