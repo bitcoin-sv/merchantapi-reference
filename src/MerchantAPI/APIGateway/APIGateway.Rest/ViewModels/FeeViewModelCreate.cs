@@ -30,8 +30,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       return new Fee
       {
         FeeType = FeeType,
-        MiningFee = MiningFee?.ToDomainObject(),
-        RelayFee = RelayFee?.ToDomainObject()
+        MiningFee = MiningFee?.ToDomainObject(FeeAmount.AmountType.MiningFee),
+        RelayFee = RelayFee?.ToDomainObject(FeeAmount.AmountType.RelayFee)
       };
     }
   }

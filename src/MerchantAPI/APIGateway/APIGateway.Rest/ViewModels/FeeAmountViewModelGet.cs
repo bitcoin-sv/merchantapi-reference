@@ -12,6 +12,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     [JsonPropertyName("bytes")]
     public long Bytes { get; set; }
+
     public FeeAmountViewModelGet() { }
 
     public FeeAmountViewModelGet(FeeAmount feeAmount)
@@ -20,10 +21,12 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       Bytes = feeAmount.Bytes;
     }
 
-    public FeeAmount ToDomainObject()
-    {
-      return new FeeAmount
+    public FeeAmount ToDomainObject(string feeAmountType)
+    { 
+      return
+      new FeeAmount()
       {
+        FeeAmountType = feeAmountType,
         Satoshis = Satoshis,
         Bytes = Bytes
       };

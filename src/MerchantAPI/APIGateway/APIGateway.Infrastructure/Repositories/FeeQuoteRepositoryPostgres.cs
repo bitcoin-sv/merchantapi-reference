@@ -76,11 +76,19 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     public FeeQuote GetFeeQuoteById(long feeQuoteId)
     {
+      return GetFeeQuoteById(feeQuoteId, false);
+    }
+
+    public FeeQuote GetFeeQuoteById(long feeQuoteId, bool orderByFeeAmountDesc)
+    {
       string selectFeeQuote = @"
               SELECT * FROM FeeQuote feeQuote
-              JOIN Fee fee ON feeQuote.id=fee.feeQuote
-              JOIN FeeAmount feeAmount ON fee.id=feeAmount.fee
-              WHERE feeQuote.id = @id;";
+              JOIN Fee fee ON feeQuote.id=fee.feeQuote " +
+              (!orderByFeeAmountDesc ?
+                  "JOIN FeeAmount feeAmount ON fee.id=feeAmount.fee" :
+                  "JOIN (SELECT * FROM FeeAmount ORDER BY feeAmount.id DESC) feeAmount ON fee.id=feeAmount.fee "
+              ) +
+              " WHERE feeQuote.id = @id;";
 
       return GetFeeQuotesDb(selectFeeQuote, new { id = feeQuoteId }).SingleOrDefault();
     }
@@ -235,12 +243,12 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
               var feeT = allFees[feeQuote.Id].FirstOrDefault(x => x.Id == fee.Id);
               if (feeT == null)
               {
-                fee.MiningFee = feeAmount;
+                fee.SetFeeAmount(feeAmount);
                 allFees[feeQuote.Id].Add(fee);
               }
               else
               {
-                allFees[feeQuote.Id].First(x => x.Id == fee.Id).RelayFee = feeAmount;
+                allFees[feeQuote.Id].First(x => x.Id == fee.Id).SetFeeAmount(feeAmount);
               }
 
               return fEntity;
@@ -307,23 +315,25 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
             }).Single();
 
         string insertFeeAmount =
-        "INSERT INTO FeeAmount (fee, satoshis, bytes) " +
-        "VALUES(@fee, @satoshis, @bytes) " +
+        "INSERT INTO FeeAmount (fee, satoshis, bytes, feeAmountType) " +
+        "VALUES(@fee, @satoshis, @bytes, @feeAmountType) " +
         "RETURNING *;";
 
-        var feeAmountMiningFeeRes = connection.Query<Domain.Models.FeeAmount>(insertFeeAmount,
+        var feeAmountMiningFeeRes = connection.Query<FeeAmount>(insertFeeAmount,
             new
             {
               fee = feeRes.Id,
               satoshis = fee.MiningFee.Satoshis,
               bytes = fee.MiningFee.Bytes,
+              feeAmountType = FeeAmount.AmountType.MiningFee
             }).Single();
-        var feeAmountRelayFeeRes = connection.Query<Domain.Models.FeeAmount>(insertFeeAmount,
+        var feeAmountRelayFeeRes = connection.Query<FeeAmount>(insertFeeAmount,
             new
             {
               fee = feeRes.Id,
               satoshis = fee.RelayFee.Satoshis,
               bytes = fee.RelayFee.Bytes,
+              feeAmountType = FeeAmount.AmountType.RelayFee
             }).Single();
 
         feeRes.MiningFee = feeAmountMiningFeeRes;

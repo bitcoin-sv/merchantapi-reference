@@ -487,22 +487,26 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 FeeType ="standard",
                 MiningFee = new FeeAmount {
                   Satoshis = 500,
-                  Bytes = 1000
+                  Bytes = 1000,
+                  FeeAmountType = FeeAmount.AmountType.MiningFee
                 },
                 RelayFee = new FeeAmount {
                   Satoshis = 250,
-                  Bytes = 1000
+                  Bytes = 1000,
+                  FeeAmountType = FeeAmount.AmountType.RelayFee
                 },
               },
               new Fee {
                 FeeType ="data",
                 MiningFee = new FeeAmount {
                   Satoshis = 500,
-                  Bytes = 1000
+                  Bytes = 1000,
+                  FeeAmountType = FeeAmount.AmountType.MiningFee
                 },
                 RelayFee = new FeeAmount {
                   Satoshis = 250,
-                  Bytes = 1000
+                  Bytes = 1000,
+                  FeeAmountType = FeeAmount.AmountType.RelayFee
                 },
               },
           }

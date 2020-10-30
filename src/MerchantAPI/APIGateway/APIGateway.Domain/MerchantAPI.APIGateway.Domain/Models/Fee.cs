@@ -19,6 +19,22 @@ namespace MerchantAPI.APIGateway.Domain.Models
     [JsonPropertyName("relayFee")]
     public FeeAmount RelayFee { get; set; }
 
+    public void SetFeeAmount(FeeAmount feeAmount)
+    {
+      if (feeAmount.IsMiningFee())
+      {
+        MiningFee = feeAmount;
+      }
+      else if (feeAmount.IsRelayFee())
+      {
+        RelayFee = feeAmount;
+      }
+      else
+      {
+        throw new Exception("Invalid feeAmountType.");
+      }
+    }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
       if (String.IsNullOrEmpty(FeeType))
@@ -31,6 +47,10 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
       else
       {
+        if (!MiningFee.IsMiningFee())
+        {
+          yield return new ValidationResult($"Fee: type of {nameof(MiningFee)} is invalid ({MiningFee.FeeAmountType}).");
+        }
         foreach (var result in MiningFee.Validate(validationContext))
         {
           yield return result;
@@ -43,6 +63,10 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
       else
       {
+        if (!RelayFee.IsRelayFee())
+        {
+          yield return new ValidationResult($"Fee: type of {nameof(RelayFee)} is invalid ({RelayFee.FeeAmountType}).");
+        }
         foreach (var result in RelayFee.Validate(validationContext))
         {
           yield return result;

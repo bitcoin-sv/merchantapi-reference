@@ -119,10 +119,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 ValidFrom = MockedClock.UtcNow.AddSeconds(1),
                 Fees = new[] {
                   new FeeViewModelCreate {
-                  FeeType ="standard",
-                  MiningFee = new FeeAmountViewModelCreate {
-                    Satoshis = 100,
-                    Bytes = 1000
+                    FeeType ="standard",
+                    MiningFee = new FeeAmountViewModelCreate {
+                      Satoshis = 100,
+                      Bytes = 1000
                     },
                     RelayFee = new FeeAmountViewModelCreate {
                       Satoshis = 150,
@@ -137,7 +137,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 ValidFrom = MockedClock.UtcNow.AddSeconds(1),
                 Fees = new[] {
                   new FeeViewModelCreate {
-                  FeeType ="standard",
+                    FeeType ="standard",
                     MiningFee = new FeeAmountViewModelCreate {
                       Satoshis = 200,
                       Bytes = 1000
@@ -164,12 +164,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       for(int i=0; i<post.Fees.Length; i++)
       {
         var postFee = post.Fees[i].ToDomainObject();
-        var getFee = get.Fees[i];
+        var getFee = get.Fees.Single(x => x.FeeType == postFee.FeeType);
         Assert.AreEqual(postFee.FeeType, getFee.FeeType);
-        Assert.AreEqual(postFee.MiningFee.Bytes, getFee.MiningFee.ToDomainObject().Bytes);
-        Assert.AreEqual(postFee.MiningFee.Satoshis, getFee.MiningFee.ToDomainObject().Satoshis);
-        Assert.AreEqual(postFee.RelayFee.Bytes, getFee.RelayFee.ToDomainObject().Bytes);
-        Assert.AreEqual(postFee.RelayFee.Satoshis, getFee.RelayFee.ToDomainObject().Satoshis);
+        Assert.AreEqual(postFee.MiningFee.Bytes, getFee.MiningFee.ToDomainObject(FeeAmount.AmountType.MiningFee).Bytes);
+        Assert.AreEqual(postFee.MiningFee.Satoshis, getFee.MiningFee.ToDomainObject(FeeAmount.AmountType.MiningFee).Satoshis);
+        Assert.AreEqual(postFee.RelayFee.Bytes, getFee.RelayFee.ToDomainObject(FeeAmount.AmountType.RelayFee).Bytes);
+        Assert.AreEqual(postFee.RelayFee.Satoshis, getFee.RelayFee.ToDomainObject(FeeAmount.AmountType.RelayFee).Satoshis);
       }
 
       Assert.AreEqual(post.Identity, get.Identity);
@@ -219,6 +219,35 @@ namespace MerchantAPI.APIGateway.Test.Functional
         url += $"&anonymous=true";
       }
       return UrlWithIdentity(url, userAndIssuer);
+    }
+
+    [TestMethod]
+    public async Task GetByID_CheckFeeAmountsConsistency()
+    {
+      var entryPost = GetItemToCreate();
+      var entryPostKey = ExtractPostKey(entryPost);
+      // Create new feeQuote using POST and check created entry
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.Created);
+      var getEntry = await Get<FeeQuoteConfigViewModelGet>(client, UrlForKey(entryPostKey), HttpStatusCode.OK);
+      CheckWasCreatedFrom(entryPost, getEntry);
+
+      // feeQuoteDb is loaded directly from db, should be equal to the one we GET through REST API
+      var feeQuoteDb = FeeQuoteRepository.GetFeeQuoteById(long.Parse(entryPostKey), false);
+      FeeQuoteConfigViewModelGet getEntryVm = new FeeQuoteConfigViewModelGet(feeQuoteDb);
+      CheckWasCreatedFrom(entryPost, getEntryVm);
+      // getEntryVm should also have same order of fees
+      Assert.IsTrue(getEntry.Fees.First().FeeType == getEntryVm.Fees.First().FeeType);
+      Assert.IsTrue(getEntry.Fees.Last().FeeType == getEntryVm.Fees.Last().FeeType);
+
+      // we check if miningFee and relayFee are correctly loaded from db
+      // if we select feeAmounts ordered by DESC (inside JOIN query)
+      var feeQuoteDbDesc = FeeQuoteRepository.GetFeeQuoteById(long.Parse(entryPostKey), true);
+      getEntryVm = new FeeQuoteConfigViewModelGet(feeQuoteDbDesc);
+      // getEntryVm should should have different order of fees from getEntry
+      Assert.IsTrue(getEntry.Fees.First().FeeType == getEntryVm.Fees.Last().FeeType);
+      Assert.IsTrue(getEntry.Fees.Last().FeeType == getEntryVm.Fees.First().FeeType);
+      // feeAmounts consistency is checked inside CheckWasCreatedFrom
+      CheckWasCreatedFrom(entryPost, getEntryVm);
     }
 
     [TestMethod]
