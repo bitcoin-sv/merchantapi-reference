@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using NBitcoin;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
@@ -18,12 +19,13 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     private readonly string connectionString;
     private static readonly Dictionary<string, Node> cache = new Dictionary<string, Node>();
+    private readonly IClock clock;
 
 
-    public NodeRepositoryPostgres(IConfiguration configuration)
+    public NodeRepositoryPostgres(IConfiguration configuration, IClock clock)
     {
       connectionString = configuration["ConnectionStrings:DBConnectionString"];
-      
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     private void EnsureCache()
@@ -79,7 +81,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
         "  RETURNING *"
       ;
 
-      var now = DateTime.UtcNow;
+      var now = clock.UtcNow();
 
       var insertedNode = connection.Query<Node>(insertOrUpdate,
         new

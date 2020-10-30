@@ -14,6 +14,7 @@ using MerchantAPI.Common.EventBus;
 using Block = MerchantAPI.APIGateway.Domain.Models.Block;
 using Microsoft.Extensions.Options;
 using System.Collections.Generic;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -26,17 +27,19 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly AppSettings appSettings;
     readonly ITxRepository txRepository;
     readonly IRpcMultiClient rpcMultiClient;
+    readonly IClock clock;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
 
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger, 
-                       IEventBus eventBus, IOptions<AppSettings> options)
+                       IEventBus eventBus, IOptions<AppSettings> options, IClock clock)
     : base(logger, eventBus)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       appSettings = options.Value;
     }
 
@@ -77,8 +80,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       await txRepository.InsertTxBlockAsync(transactionsForMerkleProofCheck.Select(x => x.TxInternalId).ToList(), blockInternalId);
       foreach (var transaction in transactionsForMerkleProofCheck)
       {
-        var notificationEvent = new NewNotificationEvent
+        var notificationEvent = new NewNotificationEvent()
                                 {
+                                  CreationDate = clock.UtcNow(),
                                   NotificationType = CallbackReason.MerkleProof,
                                   TransactionId = transaction.TxExternalIdBytes
                                 };
@@ -110,11 +114,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         var payload = block.Transactions.Single(x => x.GetHash() == new uint256(dsTxId)).ToBytes();
         await txRepository.UpdateDsTxPayloadAsync(dsTxId, payload);
-        var notificationEvent = new NewNotificationEvent
-                                {
+        var notificationEvent = new NewNotificationEvent()
+        {
+                                  CreationDate = clock.UtcNow(),
                                   NotificationType = CallbackReason.DoubleSpend,
                                   TransactionId = TxId
-                                };
+        };
         eventBus.Publish(notificationEvent);
       }
       await txRepository.SetBlockParsedForDoubleSpendDateAsync(blockInternalId);
@@ -162,8 +167,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         return;
       }
 
-      newBlockStack.Push(new NewBlockAvailableInDB
+      newBlockStack.Push(new NewBlockAvailableInDB()
       {
+        CreationDate = clock.UtcNow(),
         BlockHash = new uint256(dbBlock.BlockHash).ToString(),
         BlockDBInternalId = dbBlock.BlockInternalId,
       });
@@ -220,8 +226,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var block = await txRepository.GetBlockAsync(new uint256(previousBlockHash).ToBytes());
       if (block == null)
       {
-        await NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent
+        await NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent()
         {
+          CreationDate = clock.UtcNow(),
           BlockHash = previousBlockHash
         });
       }

@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common;
+using MerchantAPI.Common.Clock;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using System;
@@ -18,10 +19,12 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
   public class TxRepositoryPostgres : ITxRepository
   {
     private readonly string connectionString;
+    private readonly IClock clock;
 
-    public TxRepositoryPostgres(IConfiguration configuration)
+    public TxRepositoryPostgres(IConfiguration configuration, IClock clock)
     {
       connectionString = configuration["ConnectionStrings:DBConnectionString"];
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     private NpgsqlConnection GetDbConnection()
@@ -666,7 +669,7 @@ UPDATE Block SET parsedForDSAt=@parsedForDSAt
 WHERE blockInternalId=@blockInternalId;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { blockInternalId, parsedForDSAt=DateTime.Now });
+      await connection.ExecuteAsync(cmdText, new { blockInternalId, parsedForDSAt = clock.UtcNow() });
       await transaction.CommitAsync();
     }
 
@@ -680,7 +683,7 @@ UPDATE Block SET parsedForMerkleAt=@parsedForMerkleAt
 WHERE blockInternalId=@blockInternalId;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { blockInternalId, parsedForMerkleAt = DateTime.Now });
+      await connection.ExecuteAsync(cmdText, new { blockInternalId, parsedForMerkleAt = clock.UtcNow() });
       await transaction.CommitAsync();
     }
 
@@ -712,7 +715,7 @@ WHERE txInternalId = (SELECT Tx.txInternalId FROM Tx WHERE txExternalId=@txId)
       {
         errorMessage = errorMessage.Substring(0, 256);
       }
-      await connection.ExecuteAsync(cmdText, new { lastErrorAt = DateTime.UtcNow, errorMessage, errorCount, txId });
+      await connection.ExecuteAsync(cmdText, new { lastErrorAt = clock.UtcNow(), errorMessage, errorCount, txId });
       await transaction.CommitAsync();
     }
 
@@ -735,7 +738,7 @@ SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=0
 WHERE sentMerkleproofAt IS NULL;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { errorMessage="Unprocessed notification from last run", lastErrorAt = DateTime.UtcNow });
+      await connection.ExecuteAsync(cmdText, new { errorMessage="Unprocessed notification from last run", lastErrorAt = clock.UtcNow() });
       await transaction.CommitAsync();
     }
 

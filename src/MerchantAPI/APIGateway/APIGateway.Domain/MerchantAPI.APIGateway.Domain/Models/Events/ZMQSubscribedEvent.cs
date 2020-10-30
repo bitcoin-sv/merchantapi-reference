@@ -9,6 +9,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
   /// </summary>
   public class ZMQSubscribedEvent : IntegrationEvent
   {
+    public ZMQSubscribedEvent() : base()
+    {
+    }
     public Node SourceNode { get; set; }
   }
 }

@@ -163,7 +163,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       logger.LogInformation($"Create new FeeQuote form data: {data} .");
 
       data.CreatedAt = clock.UtcNow();
-      var domainModel = data.ToDomainObject();
+      var domainModel = data.ToDomainObject(clock.UtcNow());
       
       var br = this.ReturnBadRequestIfInvalid(domainModel);
       if (br != null)

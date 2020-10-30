@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Models.Zmq;
 using MerchantAPI.Common.EventBus;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -30,12 +31,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     EventBusSubscription<InvalidTxDetectedEvent> invalidTxDetectedSubscription;
     EventBusSubscription<RemovedFromMempoolEvent>removedFromMempoolSubscription;
     IBlockParser blockParser;
+    readonly IClock clock;
 
-    public InvalidTxHandler(ITxRepository txRepository, ILogger<InvalidTxHandler> logger, IEventBus eventBus, IBlockParser blockParser)
+    public InvalidTxHandler(ITxRepository txRepository, ILogger<InvalidTxHandler> logger, IEventBus eventBus, IBlockParser blockParser, IClock clock)
     : base(logger, eventBus)
     {
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
 
@@ -75,7 +78,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         if (txWithDSCheck != null)
         {
           // Try to insert the block into DB. If block is already present in DB nothing will be done
-          await blockParser.NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent { BlockHash = e.Message.BlockHash });
+          await blockParser.NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent() { CreationDate = clock.UtcNow(),  BlockHash = e.Message.BlockHash });
 
           await txRepository.InsertBlockDoubleSpendAsync(
             txWithDSCheck.TxInternalId,
@@ -83,8 +86,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             new uint256(e.Message.CollidedWith.TxId).ToBytes(),
             HelperTools.HexStringToByteArray(e.Message.CollidedWith.Hex));
 
-          var notificationEvent = new NewNotificationEvent
+          var notificationEvent = new NewNotificationEvent()
           {
+            CreationDate = clock.UtcNow(),
             NotificationType = CallbackReason.DoubleSpend,
             TransactionId = removedTxId
           };
@@ -125,8 +129,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 TxInternalId = tx.TxInternalId
               };
 
-              var notificationEvent = new NewNotificationEvent
+              var notificationEvent = new NewNotificationEvent()
               {
+                CreationDate = clock.UtcNow(),
                 NotificationType = CallbackReason.DoubleSpendAttempt,
                 TransactionId = tx.TxExternalIdBytes,
                 NotificationData = notificationData

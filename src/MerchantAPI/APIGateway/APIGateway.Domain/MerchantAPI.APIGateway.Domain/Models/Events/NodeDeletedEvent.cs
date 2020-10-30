@@ -6,6 +6,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
 {
   public class NodeDeletedEvent : IntegrationEvent
   {
+    public NodeDeletedEvent() : base()
+    {
+    }
     public Node DeletedNode { get; set; }
   }
 }

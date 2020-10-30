@@ -39,12 +39,12 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       Fees = (from fee in feeQuote.Fees
               select new FeeViewModelCreate(fee)).ToArray();
     }
-    public FeeQuote ToDomainObject()
+    public FeeQuote ToDomainObject(DateTime utcNow)
     {
       return new FeeQuote
       {
         CreatedAt = CreatedAt,
-        ValidFrom = ValidFrom ?? DateTime.UtcNow, // can be null
+        ValidFrom = ValidFrom ?? utcNow, // can be null
         Identity = Identity,
         IdentityProvider = IdentityProvider,
         Fees = (Fees != null) ? (from fee in Fees

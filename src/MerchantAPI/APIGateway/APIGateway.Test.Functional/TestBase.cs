@@ -462,8 +462,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected void PublishBlockHashToEventBus(string blockHash)
     {
-      eventBus.Publish(new NewBlockDiscoveredEvent
+      eventBus.Publish(new NewBlockDiscoveredEvent()
       {
+        CreationDate = MockedClock.UtcNow,
         BlockHash = blockHash
       });
 

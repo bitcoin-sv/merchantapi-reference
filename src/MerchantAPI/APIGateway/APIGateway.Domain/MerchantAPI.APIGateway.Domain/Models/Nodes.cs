@@ -11,6 +11,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.EventBus;
 using System.Linq;
 using MerchantAPI.Common.BitcoinRpc.Responses;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
@@ -21,17 +22,20 @@ namespace MerchantAPI.APIGateway.Domain.Models
     readonly INodeRepository nodeRepository;
     readonly IEventBus eventBus;
     readonly ILogger<Nodes> logger;
+    readonly IClock clock;
 
     public Nodes(INodeRepository nodeRepository,
       IEventBus eventBus,
       IRpcClientFactory bitcoindFactory,
-      ILogger<Nodes> logger
+      ILogger<Nodes> logger,
+      IClock clock
       )
     {
       this.bitcoindFactory = bitcoindFactory ?? throw new ArgumentNullException(nameof(bitcoindFactory));
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     public async Task<Node> CreateNodeAsync(Node node)
@@ -68,7 +72,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       var createdNode = nodeRepository.CreateNode(node);
 
-      eventBus.Publish(new NodeAddedEvent {CreatedNode = createdNode });
+      eventBus.Publish(new NodeAddedEvent() { CreationDate = clock.UtcNow(), CreatedNode = createdNode });
 
       return createdNode;
     }
@@ -107,7 +111,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       var node = nodeRepository.GetNode(id);
       if (node != null)
       {
-        eventBus.Publish(new NodeDeletedEvent { DeletedNode = node });
+        eventBus.Publish(new NodeDeletedEvent() { CreationDate = clock.UtcNow(), DeletedNode = node });
       }
       return nodeRepository.DeleteNode(id);
     }

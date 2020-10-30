@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using NBitcoin;
 using Newtonsoft.Json.Linq;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -39,15 +40,17 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     ILogger<MapiController> logger;
     IBlockChainInfo blockChainInfo;
     IMinerId minerId;
+    private readonly IClock clock;
 
 
-    public MapiController(IOptions<AppSettings> options, IFeeQuoteRepository feeQuoteRepository, IMapi mapi, ILogger<MapiController> logger, IBlockChainInfo blockChainInfo, IMinerId minerId)
+    public MapiController(IOptions<AppSettings> options, IFeeQuoteRepository feeQuoteRepository, IMapi mapi, ILogger<MapiController> logger, IBlockChainInfo blockChainInfo, IMinerId minerId, IClock clock)
     {
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.mapi = mapi ?? throw new ArgumentNullException(nameof(mapi));
       this.blockChainInfo = blockChainInfo ?? throw new ArgumentNullException(nameof(blockChainInfo));
       this.minerId = minerId ?? throw new ArgumentNullException(nameof(minerId));
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       quoteExpiryMinutes = options.Value.QuoteExpiryMinutes;
     }
 
@@ -112,7 +115,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       var feeQuoteViewModelGet = new FeeQuoteViewModelGet(feeQuote);
       //feeQuoteViewModelGet.CreatedAt = DateTime.UtcNow; in db
-      feeQuoteViewModelGet.ExpiryTime = DateTime.UtcNow.Add(TimeSpan.FromMinutes(quoteExpiryMinutes));
+      feeQuoteViewModelGet.ExpiryTime = clock.UtcNow().Add(TimeSpan.FromMinutes(quoteExpiryMinutes));
 
       var info = blockChainInfo.GetInfo();
       feeQuoteViewModelGet.MinerId = await minerId.GetCurrentMinerIdAsync();

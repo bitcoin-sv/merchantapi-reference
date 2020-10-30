@@ -16,6 +16,7 @@ using Transaction = NBitcoin.Transaction;
 using MerchantAPI.Common.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Collections.ObjectModel;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -28,6 +29,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     IMinerId minerId;
     ILogger<Mapi> logger;
     ITxRepository txRepository;
+    private readonly IClock clock;
 
     static class ResultCodes
     {
@@ -35,7 +37,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       public const string Failure = "failure";
     }
 
-    public Mapi(IRpcMultiClient rpcMultiClient, IFeeQuoteRepository feeQuoteRepository, IBlockChainInfo blockChainInfo, IMinerId minerId, ITxRepository txRepository, ILogger<Mapi> logger)
+    public Mapi(IRpcMultiClient rpcMultiClient, IFeeQuoteRepository feeQuoteRepository, IBlockChainInfo blockChainInfo, IMinerId minerId, ITxRepository txRepository, ILogger<Mapi> logger, IClock clock)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
@@ -43,6 +45,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.minerId = minerId ?? throw new ArgumentException(nameof(minerId));
       this.txRepository = txRepository ?? throw new ArgumentException(nameof(txRepository));
       this.logger = logger ?? throw new ArgumentException(nameof(logger));
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
 
@@ -437,7 +440,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         return new QueryTransactionStatusResponse
         {
-          Timestamp = DateTime.UtcNow,
+          Timestamp = clock.UtcNow(),
           Txid = id,
           ReturnResult = "failure",
           ResultDescription = GetSafeExceptionDescription(exception),
@@ -451,7 +454,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         return new QueryTransactionStatusResponse
         {
-          Timestamp = DateTime.UtcNow,
+          Timestamp = clock.UtcNow(),
           Txid = id,
           ReturnResult = "failure",
           ResultDescription = "Mixed results",
@@ -461,7 +464,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       return new QueryTransactionStatusResponse
       {
-        Timestamp = DateTime.UtcNow,
+        Timestamp = clock.UtcNow(),
         Txid = id,
         ReturnResult = "success",
         ResultDescription = null,
@@ -717,7 +720,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       // Initialize common fields
       var result = new SubmitTransactionsResponse
       {
-        Timestamp = DateTime.UtcNow,
+        Timestamp = clock.UtcNow(),
         MinerId = currentMinerId,
         CurrentHighestBlockHash = info.BestBlockHash,
         CurrentHighestBlockHeight = info.BestBlockHeight,
@@ -761,7 +764,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           MerkleProof = x.transaction.MerkleProof,
           TxExternalId = new uint256(x.transactionId),
           TxPayload = x.transaction.RawTx,
-          ReceivedAt = DateTime.UtcNow,
+          ReceivedAt = clock.UtcNow(),
           TxIn = x.transaction.TransactionInputs
         }).ToList());
 

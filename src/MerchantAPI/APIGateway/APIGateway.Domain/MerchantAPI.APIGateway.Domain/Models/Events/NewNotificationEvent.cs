@@ -6,6 +6,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
 {
   public class NewNotificationEvent : IntegrationEvent
   {
+    public NewNotificationEvent() : base()
+    {
+    }
     public string NotificationType { get; set; }
     public byte[] TransactionId { get; set; }
     public NotificationData NotificationData { get; set; }

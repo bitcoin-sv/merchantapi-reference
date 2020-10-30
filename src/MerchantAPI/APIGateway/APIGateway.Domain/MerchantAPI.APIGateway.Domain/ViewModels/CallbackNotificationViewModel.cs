@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.Common;
 using MerchantAPI.Common.BitcoinRpc.Responses;
+using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
 using NBitcoin;
 
@@ -37,7 +38,7 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
     [JsonPropertyName("callbackReason")]
     public string CallbackReason { get; set; }
 
-    public static CallbackNotificationViewModelBase CreateFromNotificationData(NotificationData notificationData)
+    public static CallbackNotificationViewModelBase CreateFromNotificationData(IClock clock, NotificationData notificationData)
     {
       var txId = new uint256(notificationData.TxExternalId).ToString();
       var blockHash = (notificationData.BlockHash == null || notificationData.BlockHash.Length == 0) ? "" : new uint256(notificationData.BlockHash).ToString();
@@ -69,7 +70,7 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
       callbackModel.BlockHeight = notificationData.BlockHeight;
       callbackModel.CallbackReason = notificationData.NotificationType;
       callbackModel.CallbackTxId = txId;
-      callbackModel.TimeStamp = DateTime.UtcNow;
+      callbackModel.TimeStamp = clock.UtcNow();
 
       return callbackModel;
     }

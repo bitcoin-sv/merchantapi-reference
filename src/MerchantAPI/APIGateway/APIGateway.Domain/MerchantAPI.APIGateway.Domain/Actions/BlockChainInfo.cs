@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.Logging;
 
@@ -17,15 +18,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
 
     object objLock = new object();
-    DateTime lastRefreshedAt = DateTime.UtcNow;
+    DateTime lastRefreshedAt;
     BlockChainInfoData cachedBlockChainInfo;
     IRpcMultiClient rpcMultiClient;
+    private readonly IClock clock;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
-    public BlockChainInfo(IRpcMultiClient rpcMultiClient, ILogger<BlockChainInfo> logger, IEventBus eventBus) 
+    public BlockChainInfo(IRpcMultiClient rpcMultiClient, ILogger<BlockChainInfo> logger, IEventBus eventBus, IClock clock)
       : base(logger, eventBus)
     {
       this.rpcMultiClient= rpcMultiClient?? throw new ArgumentNullException(nameof(rpcMultiClient));
+      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+      lastRefreshedAt = clock.UtcNow();
     }
     public BlockChainInfoData GetInfo()
     {
@@ -33,7 +37,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       lock (objLock)
       {
         // Refresh if needed
-        if (cachedBlockChainInfo == null || (DateTime.UtcNow - lastRefreshedAt).TotalSeconds > RefreshIntervalSeconds)
+        if (cachedBlockChainInfo == null || (clock.UtcNow() - lastRefreshedAt).TotalSeconds > RefreshIntervalSeconds)
         {
           var blockChainInfoTask = rpcMultiClient.GetWorstBlockchainInfoAsync();
           var networkInfoTask = rpcMultiClient.GetAnyNetworkInfoAsync();
@@ -46,7 +50,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             blockChainInfoTask.Result.Blocks,
             new ConsolidationTxParameters(networkInfoTask.Result)
           );
-          lastRefreshedAt = DateTime.UtcNow;
+          lastRefreshedAt = clock.UtcNow();
         }
 
         return cachedBlockChainInfo;

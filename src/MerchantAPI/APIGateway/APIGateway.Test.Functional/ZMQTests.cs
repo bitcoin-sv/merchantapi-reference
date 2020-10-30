@@ -342,7 +342,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = new Node(0, "localhost", 18332, "user", "password", $"This is a mock node #0",
         (int)NodeStatus.Connected, null, null);
       this.NodeRepository.CreateNode(node);
-      eventBus.Publish(new NodeAddedEvent { CreatedNode = node });
+      eventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
 
       // Should receive failed event
       _ = await subscribedToZMQFailed.ReadAsync(cts.Token);
@@ -424,7 +424,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var nodes = this.NodeRepository.GetNodes();
       foreach (var node in nodes)
       {
-        eventBus.Publish(new NodeAddedEvent { CreatedNode = node });
+        eventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
       }
     }
 

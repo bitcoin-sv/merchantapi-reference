@@ -10,6 +10,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
   /// </summary>
   public class NewBlockDiscoveredEvent : IntegrationEvent
   {
+    public NewBlockDiscoveredEvent() : base()
+    {
+    }
     public string BlockHash { get; set;}
   }
 }
