@@ -58,5 +58,10 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch);
 
     Task<byte[]> GetDoublespendTxPayloadAsync(string notificationType, long txInternalId);
+
+    Task<long?> GetTransactionInternalId(byte[] txId);
+
+    Task CleanUpTxAsync(DateTime fromDate);
+
   }
 }

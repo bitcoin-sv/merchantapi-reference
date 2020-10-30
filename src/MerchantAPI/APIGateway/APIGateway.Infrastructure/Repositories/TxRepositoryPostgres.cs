@@ -235,9 +235,9 @@ CREATE TEMPORARY TABLE TxTemp (
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof,
                                                                                       dsCheck, n, prevTxId, prev_n) FROM STDIN (FORMAT BINARY)"))
       {
-        foreach(var tx in transactions)
+        foreach (var tx in transactions)
         {
-          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,  tx.MerkleProof, tx.DSCheck, null, null, null);
+          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption, tx.MerkleProof, tx.DSCheck, null, null, null);
 
           foreach (var txIn in tx.TxIn)
           {
@@ -394,6 +394,7 @@ WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true AND txExternalId= @txI
 
       return await connection.QueryFirstOrDefaultAsync<NotificationData>(cmdText, new { txId });
     }
+
 
     /// <summary>
     /// Search for all transactions that are not present in the current chain we are parsing.
@@ -627,7 +628,21 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
       await transaction.CommitAsync();
     }
 
-    private async Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
+
+    public async Task<long?> GetTransactionInternalId(byte[] txId) {
+      using var connection = GetDbConnection();
+
+      string cmdText = @"
+      SELECT TxInternalId
+      FROM tx
+      WHERE tx.txexternalid = @txId;
+      ";
+
+      var foundTx = await connection.QueryFirstOrDefaultAsync<long?>(cmdText, new { txId });
+      return foundTx;
+    }
+
+    public async Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
     {
       using var connection = GetDbConnection();
       using var transaction = await connection.BeginTransactionAsync();
@@ -721,6 +736,35 @@ WHERE sentMerkleproofAt IS NULL;
 ";
 
       await connection.ExecuteAsync(cmdText, new { errorMessage="Unprocessed notification from last run", lastErrorAt = DateTime.UtcNow });
+      await transaction.CommitAsync();
+    }
+
+    public async Task<Block[]> GetBlocksByTxIdAsync(long txInternalId)
+    {
+      using var connection = GetDbConnection();
+
+      string cmdText = @"
+      SELECT *
+      FROM block b
+      LEFT JOIN txBlock txb ON txb.blockInternalId = b.blockInternalId
+      WHERE txb.txInternalId = @txInternalId;
+      ";
+
+      var foundBlock = (await connection.QueryAsync<Block>(cmdText, new { txInternalId })).ToArray();
+      return foundBlock;
+    }
+
+    public async Task CleanUpTxAsync(DateTime lastUpdateBefore)
+    {
+      using var connection = GetDbConnection();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      await transaction.Connection.ExecuteAsync(
+        @"DELETE FROM Block WHERE blocktime < @lastUpdateBefore;", new { lastUpdateBefore });
+      
+      await transaction.Connection.ExecuteAsync(
+        @"DELETE FROM Tx WHERE receivedAt < @lastUpdateBefore;", new { lastUpdateBefore });
+
       await transaction.CommitAsync();
     }
   }

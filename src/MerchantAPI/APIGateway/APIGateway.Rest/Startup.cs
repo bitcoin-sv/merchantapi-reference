@@ -122,6 +122,7 @@ namespace MerchantAPI.APIGateway.Rest
       {
         services.AddHostedService<StartupChecker>();
         services.AddTransient<IClock, Clock>();
+        services.AddHostedService<CleanUpTxHandler>();
       }
       else
       {

@@ -29,6 +29,8 @@ services:
       - AppSettings:ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
       - AppSettings:RestAdminAPIKey=${RESTADMIN_APIKEY}
       - AppSettings:DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
+      - AppSettings:CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
+      - AppSettings:CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
       - AppSettings:WifPrivateKey=${WIF_PRIVATEKEY}
       - AppSettings:Notification:NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
       - AppSettings:Notification:InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
