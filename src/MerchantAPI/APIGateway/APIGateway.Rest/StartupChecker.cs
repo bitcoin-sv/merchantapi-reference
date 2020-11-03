@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Actions;
 using Microsoft.Extensions.Configuration;
@@ -19,10 +18,9 @@ using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 
 namespace MerchantAPI.APIGateway.Rest
 {
-  public class StartupChecker : IHostedService
+  public class StartupChecker: IStartupChecker 
   {
     readonly INodeRepository nodeRepository;
-    readonly IHostApplicationLifetime hostApplicationLifetime;
     readonly ILogger<StartupChecker> logger;
     readonly IRpcClientFactory rpcClientFactory;
     readonly IList<Node> accessibleNodes = new List<Node>();
@@ -31,12 +29,10 @@ namespace MerchantAPI.APIGateway.Rest
     private readonly IMinerId minerId;
     private readonly ICreateDB createDB;
     bool nodesAccessible;
-    readonly IConfiguration configuration;
     readonly RDBMS rdbms;
 
     public StartupChecker(INodeRepository nodeRepository,
                           IRpcClientFactory rpcClientFactory,
-                          IHostApplicationLifetime hostApplicationLifetime,
                           IMinerId minerId,
                           IBlockParser blockParser,
                           ICreateDB createDB,
@@ -46,44 +42,45 @@ namespace MerchantAPI.APIGateway.Rest
     {
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
-      this.hostApplicationLifetime = hostApplicationLifetime;
       this.logger = logger ?? throw new ArgumentException(nameof(logger));
       this.blockParser = blockParser ?? throw new ArgumentException(nameof(blockParser));
       this.createDB = createDB ?? throw new ArgumentException(nameof(createDB));
       this.minerId = minerId ?? throw new ArgumentException(nameof(nodeRepository));
       this.notificationsHandler = notificationsHandler ?? throw new ArgumentException(nameof(notificationsHandler));
-      this.configuration = configuration ?? throw new ArgumentException(nameof(configuration));
       rdbms = RDBMS.Postgres;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task<bool> CheckAsync(bool testingEnvironment)
     {
       logger.LogInformation("Health checks starting.");
       try
       {
         RetryUtils.ExecAsync(() => TestDBConnection(), retry: 10, errorMessage: "Unable to open connection to database").Wait();
         ExecuteCreateDb();
-        TestNodesConnectivityAsync().Wait();
-        CheckNodesZmqNotificationsAsync().Wait();
-        TestMinerId().Wait();
-        CheckBlocksAsync().Wait();
-        MarkUncompleteNotificationsAsFailedAsync().Wait();
+        if (!testingEnvironment)
+        {
+          await TestNodesConnectivityAsync();
+          await CheckNodesZmqNotificationsAsync();
+          await TestMinerId();
+          await CheckBlocksAsync();
+          await MarkUncompleteNotificationsAsFailedAsync();
+        }
         logger.LogInformation("Health checks completed successfully.");
       }
       catch (Exception ex)
       {
         logger.LogError("Health checks failed. {0}", ex.GetBaseException().ToString());
         // If exception was thrown then we stop the application. All methods in try section must pass without exception
-        hostApplicationLifetime.StopApplication();
+        if (testingEnvironment)
+        {
+          throw;
+        }
+        return false;
       }
       
-      return Task.CompletedTask;
+      return true;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-      return Task.CompletedTask;
-    }
 
     private Task TestDBConnection()
     {

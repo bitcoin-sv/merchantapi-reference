@@ -4,8 +4,11 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
+using MerchantAPI.APIGateway.Infrastructure.Repositories;
+using MerchantAPI.APIGateway.Rest;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -36,7 +39,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
   public class TestServerBase
   {
 
-    public static TestServer CreateServer(bool mockedServices, TestServer serverCallBack) 
+    public static TestServer CreateServer(bool mockedServices, TestServer serverCallBack, string dbConnectionString) 
     {
       var path = Assembly.GetAssembly(typeof(MapiServer))
         .Location;
@@ -75,11 +78,27 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
           {
             services.AddSingleton<INotificationServiceHttpClientFactory>((s) =>
               new NotificationServiceHttpClientFactoryTest(serverCallBack));
+            var serviceProvider = services.BuildServiceProvider();
+
+            using var scope = serviceProvider.CreateScope();
+            var scopedServices = scope.ServiceProvider;
+            var startup = scopedServices.GetRequiredService<IStartupChecker>();
+            CheckCreateDbAndClearDbAsync(startup, dbConnectionString).Wait();
           }
         );
       }
 
       return new TestServer(hostBuilder);
+    }
+
+    private static async Task CheckCreateDbAndClearDbAsync(IStartupChecker startup, string dbConnectionString)
+    {
+      await startup.CheckAsync(true);
+
+      // delete database before each test
+      NodeRepositoryPostgres.EmptyRepository(dbConnectionString);
+      TxRepositoryPostgres.EmptyRepository(dbConnectionString);
+      FeeQuoteRepositoryPostgres.EmptyRepository(dbConnectionString);
     }
   }
 }

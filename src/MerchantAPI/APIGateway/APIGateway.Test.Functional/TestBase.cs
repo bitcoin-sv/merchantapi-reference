@@ -70,6 +70,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public const string LOG_CATEGORY = "MerchantAPI.APIGateway.Test.Functional";
 
+    private static bool providerSet;
     private static double quoteExpiryMinutes = 10;
     private readonly string dbConnectionString;
 
@@ -208,6 +209,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
     public TestBase()
     {
+      if (!providerSet)
+      {
+        // uncomment if needed
+        NpgsqlLogManager.Provider = new ConsoleLoggingProvider(NpgsqlLogLevel.Debug);
+        NpgsqlLogManager.IsParameterLoggingEnabled = true;
+        providerSet = true;
+      }
 
       SqlMapper.AddTypeHandler(new Common.DateTimeHandler());
 
@@ -224,6 +232,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       dbConnectionString = Configuration["ConnectionStrings:DBConnectionString"];
     }
+
    
     public void Initialize(bool mockedServices = false)
     {
@@ -231,17 +240,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
       try
       {
 
-        // delete database before each test
-        NodeRepositoryPostgres.EmptyRepository(dbConnectionString);
-        TxRepositoryPostgres.EmptyRepository(dbConnectionString);
-        FeeQuoteRepositoryPostgres.EmptyRepository(dbConnectionString);
 
         // setup call back server
         serverCallBack = CallBackServer.GetTestServer(CallBack.Url, CallBack);
         clientCallBack = serverCallBack.CreateClient();
 
         //setup server
-        server = TestServerBase.CreateServer(mockedServices, serverCallBack);
+        server = TestServerBase.CreateServer(mockedServices, serverCallBack, dbConnectionString);
         client = server.CreateClient();
 
         // setup repositories
