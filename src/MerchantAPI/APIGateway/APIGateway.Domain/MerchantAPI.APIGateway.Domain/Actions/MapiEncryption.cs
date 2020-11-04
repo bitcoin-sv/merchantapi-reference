@@ -9,11 +9,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 {
   public static class MapiEncryption
   {
-    static bool TryExtractEncryptionKey(string callBackEncryption, out byte[] key)
+    static bool TryExtractEncryptionKey(string callbackEncryption, out byte[] key)
     {
       key = null;
       // libsodium sealed_box <blob>"
-      var parts = callBackEncryption.Split(' ')
+      var parts = callbackEncryption.Split(' ')
         .Select(x => x.Trim())
         .Where(x => !string.IsNullOrEmpty(x))
         .ToArray();
@@ -44,14 +44,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return "libsodium sealed_box " + Convert.ToBase64String(keypair.PublicKey);
     }
 
-    public static bool IsEncryptionSupported(string callBackEncryption)
+    public static bool IsEncryptionSupported(string callbackEncryption)
     {
-      return TryExtractEncryptionKey(callBackEncryption, out _);
+      return TryExtractEncryptionKey(callbackEncryption, out _);
     }
 
-    public static byte[] Encrypt(string json, string callBackEncryption)
+    public static byte[] Encrypt(string json, string callbackEncryption)
     {
-      if (!TryExtractEncryptionKey(callBackEncryption, out var key))
+      if (!TryExtractEncryptionKey(callbackEncryption, out var key))
       {
         throw new ArgumentException("Can not extract encryption key");
       }

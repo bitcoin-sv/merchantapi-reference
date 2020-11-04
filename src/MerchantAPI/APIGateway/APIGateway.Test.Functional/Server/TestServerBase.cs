@@ -39,7 +39,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
   public class TestServerBase
   {
 
-    public static TestServer CreateServer(bool mockedServices, TestServer serverCallBack, string dbConnectionString) 
+    public static TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString) 
     {
       var path = Assembly.GetAssembly(typeof(MapiServer))
         .Location;
@@ -72,18 +72,18 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
 
       // Replace HttpClient for INotificationAction with one pointing towards test callback server
       // Alternative approach to this would be registering custom Http client as described here https://github.com/dotnet/aspnetcore/issues/21018 but that does not seem to work.
-      if (serverCallBack != null)
+      if (serverCallback != null)
       {
         hostBuilder.ConfigureTestServices(services =>
           {
             services.AddSingleton<INotificationServiceHttpClientFactory>((s) =>
-              new NotificationServiceHttpClientFactoryTest(serverCallBack));
-            var serviceProvider = services.BuildServiceProvider();
+              new NotificationServiceHttpClientFactoryTest(serverCallback));
+              var serviceProvider = services.BuildServiceProvider();
 
-            using var scope = serviceProvider.CreateScope();
-            var scopedServices = scope.ServiceProvider;
-            var startup = scopedServices.GetRequiredService<IStartupChecker>();
-            CheckCreateDbAndClearDbAsync(startup, dbConnectionString).Wait();
+              using var scope = serviceProvider.CreateScope();
+              var scopedServices = scope.ServiceProvider;
+              var startup = scopedServices.GetRequiredService<IStartupChecker>();
+              CheckCreateDbAndClearDbAsync(startup, dbConnectionString).Wait();
           }
         );
       }

@@ -143,7 +143,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     
     TxByHost okSubmitted = new TxByHost();
     
-    TxByHost callBackReceived = new TxByHost();
+    TxByHost callbackReceived = new TxByHost();
 
     object lockObj = new object();
     DateTime lastUpDateTimeUtc =DateTime.UtcNow;
@@ -157,9 +157,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
     }
 
 
-    public (string host, uint256[] txs)[] GetMissingCallBacksByHost()
+    public (string host, uint256[] txs)[] GetMissingCallbacksByHost()
 
-      => callBackReceived.GetDifference(okSubmitted)
+      => callbackReceived.GetDifference(okSubmitted)
         .Select(x
           => (x.host,
               txs: x.txs.Where(t => t.Value < 0).Select( t=>t.Key).ToArray()))
@@ -192,7 +192,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public void IncrementCallbackReceived(string host, uint256 txId)
     {
-      callBackReceived.Add(host, new[] {txId});
+      callbackReceived.Add(host, new[] {txId});
       UpdateLastUpdateTime();
     }
 
@@ -211,10 +211,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public long RequestErrors => Interlocked.Read(ref requestErrors);
     
-    public long SimulatedCallBackErrors => Interlocked.Read(ref simulatedCallbackErrors);
+    public long SimulatedCallbackErrors => Interlocked.Read(ref simulatedCallbackErrors);
     public long RequestTxFailures => requestTxFailures.Count;
     public long OKSubmitted => okSubmitted.Count;
-    public long CallBacksReceived => callBackReceived.Count;
+    public long CallbacksReceived => callbackReceived.Count;
 
     public int LastUpdateAgeMs
     {
@@ -232,7 +232,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       var elapsed = Math.Max(1, sw.ElapsedMilliseconds);
 
       long throughput = 1000 * (OKSubmitted + RequestTxFailures) / elapsed;
-      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {throughput} Callbacks: {CallBacksReceived} SimulatedErrors: {SimulatedCallBackErrors}";
+      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {throughput} Callbacks: {CallbacksReceived} SimulatedErrors: {SimulatedCallbackErrors}";
     }
 
   }

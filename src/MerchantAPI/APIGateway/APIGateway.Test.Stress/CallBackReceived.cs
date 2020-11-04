@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.ViewModels;
-using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
+using MerchantAPI.APIGateway.Test.Functional.CallbackWebServer;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Http;
 using NBitcoin;
@@ -15,15 +15,15 @@ namespace MerchantAPI.APIGateway.Test.Stress
 {
 
   /// <summary>
-  /// Implementation if ICallBackReceived that just counts call backs
+  /// Implementation if ICallbackReceived that just counts call backs
   /// </summary>
-  public class CallBackReceived : ICallBackReceived
+  public class CallbackReceived : ICallbackReceived
   {
     readonly Stats stats;
     readonly Dictionary<string, CallbackHostConfig> callbackHostConfig;
     Random rnd = new Random();
 
-    public CallBackReceived(Stats stats, CallbackHostConfig[] callbackHostConfig)
+    public CallbackReceived(Stats stats, CallbackHostConfig[] callbackHostConfig)
     {
       this.stats = stats;
 
@@ -52,9 +52,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         if (hostConfig != null)
         {
-          if (hostConfig.CallBackFailurePercent > 0)
+          if (hostConfig.CallbackFailurePercent > 0)
           {
-            if (rnd.Next(0, 100) < hostConfig.CallBackFailurePercent)
+            if (rnd.Next(0, 100) < hostConfig.CallbackFailurePercent)
             {
               stats.IncrementSimulatedCallbackErrors();
               throw new Exception("Stress test tool intentionally failing callback");

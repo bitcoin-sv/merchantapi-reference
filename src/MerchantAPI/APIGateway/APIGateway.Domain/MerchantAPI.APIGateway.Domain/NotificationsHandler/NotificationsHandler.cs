@@ -136,7 +136,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     /// </summary>
     /// <returns>true if the call succeeded, false if the call failed</returns>
     private async Task<string> InitiateCallbackAsync(HttpClient client, string callbackUrl, string callbackToken, 
-                                                     string callBackEncryption, string payload, int requestTimeout, 
+                                                     string callbackEncryption, string payload, int requestTimeout, 
                                                      CancellationToken stoppingToken)
     {
       var hostURI = new Uri(callbackUrl);
@@ -146,13 +146,13 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       {
         var restClient = new RestClient(callbackUrl, callbackToken, client);
         var notificationTimeout = new TimeSpan(0, 0, 0, 0, requestTimeout);
-        if (string.IsNullOrEmpty(callBackEncryption))
+        if (string.IsNullOrEmpty(callbackEncryption))
         {
           _ = await restClient.PostJsonAsync("", payload, requestTimeout: notificationTimeout, token: stoppingToken);
         }
         else
         {
-          _ = await restClient.PostOctetStream("", MapiEncryption.Encrypt(payload, callBackEncryption), requestTimeout: notificationTimeout, token: stoppingToken);
+          _ = await restClient.PostOctetStream("", MapiEncryption.Encrypt(payload, callbackEncryption), requestTimeout: notificationTimeout, token: stoppingToken);
         }
 
         logger.LogDebug($"Successfully sent notification to '{callbackUrl}', with execution time of '{stopwatch.ElapsedMilliseconds}'ms");

@@ -17,7 +17,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.Authentication;
-using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
+using MerchantAPI.APIGateway.Test.Functional.CallbackWebServer;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
@@ -57,8 +57,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     protected Microsoft.AspNetCore.TestHost.TestServer server;
     protected HttpClient client;
 
-    protected Microsoft.AspNetCore.TestHost.TestServer serverCallBack;
-    protected HttpClient clientCallBack;
+    protected Microsoft.AspNetCore.TestHost.TestServer serverCallback;
+    protected HttpClient clientCallback;
 
 
     protected ILogger loggerTest;
@@ -76,7 +76,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public static AutoResetEvent SyncTest = new AutoResetEvent(true);
 
-    public CallBackFunctionalTests CallBack = new CallBackFunctionalTests();
+    public CallbackFunctionalTests Callback = new CallbackFunctionalTests();
 
     protected UserAndIssuer GetMockedIdentity
     {
@@ -241,11 +241,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
         // setup call back server
-        serverCallBack = CallBackServer.GetTestServer(CallBack.Url, CallBack);
-        clientCallBack = serverCallBack.CreateClient();
+        serverCallback = CallbackServer.GetTestServer(Callback.Url, Callback);
+        clientCallback = serverCallback.CreateClient();
 
         //setup server
-        server = TestServerBase.CreateServer(mockedServices, serverCallBack, dbConnectionString);
+        server = TestServerBase.CreateServer(mockedServices, serverCallback, dbConnectionString);
         client = server.CreateClient();
 
         // setup repositories

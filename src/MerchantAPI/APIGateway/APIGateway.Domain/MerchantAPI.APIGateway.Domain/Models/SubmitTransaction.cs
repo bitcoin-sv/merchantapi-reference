@@ -12,11 +12,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
   {
     public byte[] RawTx { get; set; }
     public string RawTxString { get; set; }
-    public string  CallBackUrl { get; set; }
+    public string  CallbackUrl { get; set; }
 
-    public string CallBackToken { get; set; }
+    public string CallbackToken { get; set; }
 
-    public string CallBackEncryption { get; set; }
+    public string CallbackEncryption { get; set; }
 
     public bool MerkleProof { get; set; }
     public bool DsCheck { get; set; }
@@ -64,17 +64,17 @@ namespace MerchantAPI.APIGateway.Domain.Models
         yield return new ValidationResult($"{nameof(RawTx)} is required");
       }
 
-      if (string.IsNullOrWhiteSpace(CallBackUrl) && (MerkleProof || DsCheck))
+      if (string.IsNullOrWhiteSpace(CallbackUrl) && (MerkleProof || DsCheck))
       {
-        yield return new ValidationResult($"{nameof(CallBackUrl)} is required when {nameof(MerkleProof)} or {nameof(DsCheck)} is not false");
+        yield return new ValidationResult($"{nameof(CallbackUrl)} is required when {nameof(MerkleProof)} or {nameof(DsCheck)} is not false");
       }
 
-      foreach (var x in IsSupportedCallbackUrl(CallBackUrl, nameof(CallBackUrl)))
+      foreach (var x in IsSupportedCallbackUrl(CallbackUrl, nameof(CallbackUrl)))
       {
         yield return x;
       }
 
-      foreach (var x in  IsSupportedEncryption(CallBackEncryption, nameof(CallBackEncryption)))
+      foreach (var x in  IsSupportedEncryption(CallbackEncryption, nameof(CallbackEncryption)))
       {
         yield return x;
       }

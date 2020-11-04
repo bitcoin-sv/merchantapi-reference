@@ -135,14 +135,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       WaitUntilEventBusIsIdle();
 
       // Check if callback was received
-      var calls = CallBack.Calls;
+      var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
-      var callBack = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
-      Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callBack.CallbackReason);
-      Assert.AreEqual(new uint256(txId1), new uint256(callBack.CallbackTxId));
-      Assert.AreEqual(new uint256(txId2), new uint256(callBack.CallbackPayload.DoubleSpendTxId));
+      Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callback.CallbackReason);
+      Assert.AreEqual(new uint256(txId1), new uint256(callback.CallbackTxId));
+      Assert.AreEqual(new uint256(txId2), new uint256(callback.CallbackPayload.DoubleSpendTxId));
 
       return (txHex1, txHex2);
     }
@@ -170,13 +170,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
       WaitUntilEventBusIsIdle();
 
-      var calls = CallBack.Calls;
+      var calls = Callback.Calls;
       Assert.AreEqual(2, calls.Length);
-      var callBackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[1].request)
+      var callbackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[1].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
-      Assert.AreEqual(CallbackReason.DoubleSpend, callBackDS.CallbackReason);
-      Assert.AreEqual(new uint256(txId1), new uint256(callBackDS.CallbackTxId));
-      Assert.AreEqual(new uint256(txId2), new uint256(callBackDS.CallbackPayload.DoubleSpendTxId));
+      Assert.AreEqual(CallbackReason.DoubleSpend, callbackDS.CallbackReason);
+      Assert.AreEqual(new uint256(txId1), new uint256(callbackDS.CallbackTxId));
+      Assert.AreEqual(new uint256(txId2), new uint256(callbackDS.CallbackPayload.DoubleSpendTxId));
 
     }
 
@@ -202,7 +202,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Transactions should be in mempool 
       Assert.IsTrue(mempoolTxs.Contains(txId1), "Submitted tx1 not found in mempool");
       
-      Assert.AreEqual(0, CallBack.Calls.Length);
+      Assert.AreEqual(0, Callback.Calls.Length);
 
       // Mine a new block containing tx2
       await MineNextBlockAsync(new[] {tx2});
@@ -213,15 +213,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
       WaitUntilEventBusIsIdle();
 
-      var calls = CallBack.Calls;
+      var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
 
-      var callBack = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
-      Assert.AreEqual(CallbackReason.DoubleSpend, callBack.CallbackReason);
-      Assert.AreEqual(new uint256(txId1), new uint256(callBack.CallbackTxId));
-      Assert.AreEqual(new uint256(txId2), new uint256(callBack.CallbackPayload.DoubleSpendTxId));
+      Assert.AreEqual(CallbackReason.DoubleSpend, callback.CallbackReason);
+      Assert.AreEqual(new uint256(txId1), new uint256(callback.CallbackTxId));
+      Assert.AreEqual(new uint256(txId2), new uint256(callback.CallbackPayload.DoubleSpendTxId));
 
     }
 
@@ -253,7 +253,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       loggerTest.LogInformation($"Block b1 {b1Hash} was mined containing tx1 {tx1.GetHash()}");
       WaitUntilEventBusIsIdle();
 
-      var calls = CallBack.Calls;
+      var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
       var signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[0].request);
       var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
@@ -275,7 +275,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       WaitUntilEventBusIsIdle();
 
 
-      calls = CallBack.Calls;
+      calls = Callback.Calls;
       Assert.AreEqual(2, calls.Length);
       signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[1].request);
       var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
@@ -395,7 +395,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       // Send transaction
       var callbackUrl = "http://www.something.com";
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"dscheck\": true, \"CallBackUrl\": \"{callbackUrl}\",  \"CallBackToken\": \"xxx\"}}");
+      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"dscheck\": true, \"CallbackUrl\": \"{callbackUrl}\",  \"CallbackToken\": \"xxx\"}}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);      
       var response =
         await Post<MerchantAPI.APIGateway.Rest.ViewModels.SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);

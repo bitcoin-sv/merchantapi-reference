@@ -10,21 +10,21 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
+namespace MerchantAPI.APIGateway.Test.Functional.CallbackWebServer
 {
   /// <summary>
-  /// Configures and starts web server that route POST requests to ICallBackReceived
+  /// Configures and starts web server that route POST requests to ICallbackReceived
   /// </summary>
-  public static class CallBackServer
+  public static class CallbackServer
   {
 
     /// <summary>
     /// Starts an actual web server that can process callbacks
     /// </summary>
-    public static IHost Start(string url, CancellationToken cancellationToken, ICallBackReceived callBackReceived)
+    public static IHost Start(string url, CancellationToken cancellationToken, ICallbackReceived callbackReceived)
     {
 
-      var host = CreateHostBuilder(new string[0], url, callBackReceived).Build();
+      var host = CreateHostBuilder(new string[0], url, callbackReceived).Build();
       _ = host.RunAsync(cancellationToken);
       return host;
     }
@@ -32,9 +32,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
     /// <summary>
     /// Returns a TestServer that mocks HttpClient and can be used in unit tests
     /// </summary>
-    public static TestServer GetTestServer(string url, ICallBackReceived callBackReceived)
+    public static TestServer GetTestServer(string url, ICallbackReceived callbackReceived)
     {
-      var hostBuilder = CreateWebHostBuilder(url, callBackReceived);
+      var hostBuilder = CreateWebHostBuilder(url, callbackReceived);
       return new TestServer(hostBuilder);
     }
 
@@ -61,7 +61,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
 }";
 
 
-    static void ConfigureWebHostBuilder(IWebHostBuilder webBuilder, string url, ICallBackReceived callBackReceived,
+    static void ConfigureWebHostBuilder(IWebHostBuilder webBuilder, string url, ICallbackReceived callbackReceived,
       bool logWebServerDetails = false)
     {
 
@@ -71,7 +71,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
       webBuilder.UseStartup<StressTestStartup>();
       webBuilder.UseUrls(hostAndPort);
       webBuilder.UseSetting("callback::url", url);
-      webBuilder.ConfigureServices((s) => { s.AddSingleton(callBackReceived); });
+      webBuilder.ConfigureServices((s) => { s.AddSingleton(callbackReceived); });
 
 
       webBuilder.ConfigureAppConfiguration(cb =>
@@ -80,19 +80,19 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
       });
 
     }
-    static IHostBuilder CreateHostBuilder(string[] args, string url, ICallBackReceived callBackReceived,
+    static IHostBuilder CreateHostBuilder(string[] args, string url, ICallbackReceived callbackReceived,
       bool logWebServerDetails = false)
     {
       return Host.CreateDefaultBuilder(args)
-        .ConfigureWebHostDefaults(webBuilder => ConfigureWebHostBuilder(webBuilder, url, callBackReceived, logWebServerDetails));
+        .ConfigureWebHostDefaults(webBuilder => ConfigureWebHostBuilder(webBuilder, url, callbackReceived, logWebServerDetails));
 
     }
 
-    static IWebHostBuilder CreateWebHostBuilder(string url, ICallBackReceived callBackReceived,
+    static IWebHostBuilder CreateWebHostBuilder(string url, ICallbackReceived callbackReceived,
       bool logWebServerDetails = false)
     {
       var webBuilder = new WebHostBuilder();
-      ConfigureWebHostBuilder(webBuilder, url, callBackReceived, logWebServerDetails);
+      ConfigureWebHostBuilder(webBuilder, url, callbackReceived, logWebServerDetails);
       return webBuilder;
     }
 

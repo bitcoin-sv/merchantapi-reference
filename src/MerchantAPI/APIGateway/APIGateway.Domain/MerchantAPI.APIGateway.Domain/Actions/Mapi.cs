@@ -757,9 +757,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
         await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
         {
-          CallbackToken = x.transaction.CallBackToken,
-          CallbackUrl = x.transaction.CallBackUrl,
-          CallbackEncryption = x.transaction.CallBackEncryption,
+          CallbackToken = x.transaction.CallbackToken,
+          CallbackUrl = x.transaction.CallbackUrl,
+          CallbackEncryption = x.transaction.CallbackEncryption,
           DSCheck = x.transaction.DsCheck,
           MerkleProof = x.transaction.MerkleProof,
           TxExternalId = new uint256(x.transactionId),

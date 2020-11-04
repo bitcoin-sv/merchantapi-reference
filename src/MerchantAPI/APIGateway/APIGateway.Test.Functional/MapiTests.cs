@@ -520,11 +520,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     [TestMethod]
-    [DataRow("something", HttpStatusCode.OK, "CallBackUrl should be a valid URL")]
-    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallBackUrl uses invalid scheme. Only 'http' and 'https' are supported")]
+    [DataRow("something", HttpStatusCode.OK, "CallbackUrl should be a valid URL")]
+    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallbackUrl uses invalid scheme. Only 'http' and 'https' are supported")]
     [DataRow("http://www.something.com", HttpStatusCode.OK, "")]
     [DataRow("https://www.something.com", HttpStatusCode.OK, "")]
-    public async Task SubmitTransactionJsonInvalidCallBackUrl(string url, HttpStatusCode expectedCode, string returnResult)
+    public async Task SubmitTransactionJsonInvalidCallbackUrl(string url, HttpStatusCode expectedCode, string returnResult)
     {
       // Taken from whatsonchain
       // tx0Hex -> tx1Hex -> tx2Hex -> tx3Hex -> tx4Hex -> tx5Hex -> tx6Hex

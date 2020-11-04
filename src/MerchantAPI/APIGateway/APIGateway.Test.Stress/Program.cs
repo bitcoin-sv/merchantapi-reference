@@ -15,7 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional;
-using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
+using MerchantAPI.APIGateway.Test.Functional.CallbackWebServer;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -39,16 +39,16 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       if (!string.IsNullOrEmpty(callbackUrl))
       {
-        query.Add("defaultCallBackUrl=" + WebUtility.UrlEncode(callbackUrl));
+        query.Add("defaultCallbackUrl=" + WebUtility.UrlEncode(callbackUrl));
 
         if (!string.IsNullOrEmpty(callbackToken))
         {
-          query.Add("defaultCallBackToken=" + WebUtility.UrlEncode(callbackToken));
+          query.Add("defaultCallbackToken=" + WebUtility.UrlEncode(callbackToken));
         }
 
         if (!string.IsNullOrEmpty(callbackEncryption))
         {
-          query.Add("defaultCallBackEncryption=" + WebUtility.UrlEncode(callbackEncryption));
+          query.Add("defaultCallbackEncryption=" + WebUtility.UrlEncode(callbackEncryption));
         }
       }
 
@@ -66,10 +66,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       string urlWithParams = ub.Uri.ToString();
 
-      string callBackHost = "";
+      string callbackHost = "";
       if (!string.IsNullOrEmpty(callbackUrl))
       {
-        callBackHost = new Uri(callbackUrl).Host;
+        callbackHost = new Uri(callbackUrl).Host;
       }
 
 
@@ -78,9 +78,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         RawTx = t,
         // All other parameters are passed in query string
-        CallBackUrl = null, 
-        CallBackToken = null,
-        CallBackEncryption = null,
+        CallbackUrl = null, 
+        CallbackToken = null,
+        CallbackEncryption = null,
         MerkleProof = null,
         DsCheck = null
       }).ToArray();
@@ -104,8 +104,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         var okItems = r.Txs.Where(t => t.ReturnResult == "success").ToArray();
 
-        stats.AddRequestTxFailures(callBackHost, errorItems.Select(x=> new uint256(x.Txid)));
-        stats.AddOkSubmited(callBackHost, okItems.Select(x => new uint256(x.Txid)));
+        stats.AddRequestTxFailures(callbackHost, errorItems.Select(x=> new uint256(x.Txid)));
+        stats.AddOkSubmited(callbackHost, okItems.Select(x => new uint256(x.Txid)));
 
         var errors = errorItems
           .Select(t => t.Txid + " " + t.ReturnResult + " " + t.ResultDescription).ToArray();
@@ -159,7 +159,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     /// Wait until all callback are received or until timeout expires
     /// Print out any missing callbacks
     /// </summary>
-    static async Task WaitForCallBacksAsync(int timeoutMs, Stats stats)
+    static async Task WaitForCallbacksAsync(int timeoutMs, Stats stats)
     {
 
       (string host, uint256[] txs)[] missing;
@@ -167,7 +167,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       do
       {
         await Task.Delay(1000);
-        missing = stats.GetMissingCallBacksByHost();
+        missing = stats.GetMissingCallbacksByHost();
         timeout = stats.LastUpdateAgeMs > timeoutMs;
 
       } while (missing.Any() && !timeout);
@@ -212,14 +212,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       string GetDynamicCallbackUrl()
       {
-        if (config.CallBack?.AddRandomNumberToHost == null)
+        if (config.Callback?.AddRandomNumberToHost == null)
         {
-          return config.CallBack?.Url;
+          return config.Callback?.Url;
         }
 
-        var uri = new UriBuilder(config.CallBack.Url);
+        var uri = new UriBuilder(config.Callback.Url);
         
-        uri.Host = uri.Host + rnd.Next(1, config.CallBack.AddRandomNumberToHost.Value+1);
+        uri.Host = uri.Host + rnd.Next(1, config.Callback.AddRandomNumberToHost.Value+1);
         return uri.ToString();
       }
 
@@ -260,10 +260,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
         // Start web server if required
         IHost webServer = null;
         var cancellationSource = new CancellationTokenSource();
-        if (config.CallBack?.StartListener == true)
+        if (config.Callback?.StartListener == true)
         {
-          Console.WriteLine($"Starting web server for url {config.CallBack.Url}");
-          webServer = CallBackServer.Start(config.CallBack.Url, cancellationSource.Token, new CallBackReceived(stats, config.CallBack?.Hosts));
+          Console.WriteLine($"Starting web server for url {config.Callback.Url}");
+          webServer = CallbackServer.Start(config.Callback.Url, cancellationSource.Token, new CallbackReceived(stats, config.Callback?.Hosts));
         }
 
 
@@ -276,8 +276,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
             batch.Add(transaction);
             if (batch.Count >= batchSize)
             {
-              await SendTransactionsBatch(batch, client, stats, config.MapiUrl+ "mapi/txs", GetDynamicCallbackUrl(), config.CallBack.CallbackToken,
-                config.CallBack.CallBackEncryption);
+              await SendTransactionsBatch(batch, client, stats, config.MapiUrl+ "mapi/txs", GetDynamicCallbackUrl(), config.Callback.CallbackToken,
+                config.Callback.CallbackEncryption);
               batch.Clear();
             }
 
@@ -286,8 +286,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
           if (batch.Any())
           {
-            await SendTransactionsBatch(batch, client, stats, config.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.CallBack.CallbackToken,
-              config.CallBack.CallBackEncryption);
+            await SendTransactionsBatch(batch, client, stats, config.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.Callback.CallbackToken,
+              config.Callback.CallbackEncryption);
             batch.Clear();
           }
         }
@@ -318,11 +318,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
         Task.WaitAll(tasks.ToArray());
 
         stats.StopTiming(); // we are no longer submitting txs. Stop the Stopwatch that is used to calculate submission throughput
-        if (config.CallBack?.StartListener == true  && bitcoind != null && !string.IsNullOrEmpty(config.CallBack?.Url) && stats.OKSubmitted > 0)
+        if (config.Callback?.StartListener == true  && bitcoind != null && !string.IsNullOrEmpty(config.Callback?.Url) && stats.OKSubmitted > 0)
         {
           Console.WriteLine("Finished sending transactions. Will generate a block to trigger callbacks");
           await bitcoind.RpcClient.GenerateAsync(1);
-          await WaitForCallBacksAsync(config.CallBack.IdleTimeoutMS, stats); 
+
+          await WaitForCallbacksAsync(config.Callback.IdleTimeoutMS, stats); 
         }
         // Cancel progress task
         cancellationSource.Cancel(false);
