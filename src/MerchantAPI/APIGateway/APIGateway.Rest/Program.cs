@@ -12,7 +12,6 @@ namespace MerchantAPI.APIGateway.Rest
 {
   public class Program
   {
-
     public static async Task Main(string[] args)
     {
       IHost host = CreateHostBuilder(args).Build();
@@ -30,7 +29,6 @@ namespace MerchantAPI.APIGateway.Rest
       {
         await host.RunAsync();
       }
-
     }
 
     public static IHostBuilder CreateHostBuilder(string[] args) =>
@@ -43,6 +41,5 @@ namespace MerchantAPI.APIGateway.Rest
             {
               config.AddJsonFile("providers.json", true);
             });
-
   }
 }

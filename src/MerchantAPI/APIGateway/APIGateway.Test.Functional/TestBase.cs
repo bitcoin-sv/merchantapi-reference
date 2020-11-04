@@ -212,8 +212,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       if (!providerSet)
       {
         // uncomment if needed
-        NpgsqlLogManager.Provider = new ConsoleLoggingProvider(NpgsqlLogLevel.Debug);
-        NpgsqlLogManager.IsParameterLoggingEnabled = true;
+        //NpgsqlLogManager.Provider = new ConsoleLoggingProvider(NpgsqlLogLevel.Debug);
+        //NpgsqlLogManager.IsParameterLoggingEnabled = true;
         providerSet = true;
       }
 
@@ -233,7 +233,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       dbConnectionString = Configuration["ConnectionStrings:DBConnectionString"];
     }
 
-   
     public void Initialize(bool mockedServices = false)
     {
       SyncTest.WaitOne(); // tests must not run in parallel since each test first deletes database
