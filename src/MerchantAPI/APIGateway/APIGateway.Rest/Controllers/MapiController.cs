@@ -113,9 +113,11 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         return NotFound();
       }
 
-      var feeQuoteViewModelGet = new FeeQuoteViewModelGet(feeQuote);
-      //feeQuoteViewModelGet.CreatedAt = DateTime.UtcNow; in db
-      feeQuoteViewModelGet.ExpiryTime = clock.UtcNow().Add(TimeSpan.FromMinutes(quoteExpiryMinutes));
+      var feeQuoteViewModelGet = new FeeQuoteViewModelGet(feeQuote)
+      {
+        Timestamp = clock.UtcNow(),        
+      };
+      feeQuoteViewModelGet.ExpiryTime = feeQuoteViewModelGet.Timestamp.Add(TimeSpan.FromMinutes(quoteExpiryMinutes));
 
       var info = blockChainInfo.GetInfo();
       feeQuoteViewModelGet.MinerId = await minerId.GetCurrentMinerIdAsync();

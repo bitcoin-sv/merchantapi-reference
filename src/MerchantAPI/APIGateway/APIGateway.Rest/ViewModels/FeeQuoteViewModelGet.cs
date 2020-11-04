@@ -15,8 +15,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("apiVersion")]
     public string ApiVersion { get; set; }
 
-    [JsonPropertyName("createdAt")]
-    public DateTime CreatedAt { get; set; }
+    [JsonPropertyName("timestamp")]
+    public DateTime Timestamp { get; set; }
 
     [JsonPropertyName("expiryTime")]
     public DateTime ExpiryTime { get; set; }
@@ -38,7 +38,6 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     public FeeQuoteViewModelGet(FeeQuote feeQuote)
     {
       ApiVersion = Const.MERCHANT_API_VERSION;
-      CreatedAt = feeQuote.CreatedAt;
       Fees = (from fee in feeQuote.Fees
               select new FeeViewModelGet(fee)).ToArray();
 
