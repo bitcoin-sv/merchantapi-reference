@@ -82,7 +82,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<IRpcClientFactory, RpcClientFactory>();
       services.AddTransient<IRpcMultiClient, RpcMultiClient>();
       services.AddSingleton<INotificationServiceHttpClientFactory, NotificationServiceHttpClientFactoryDefault>();
-      services.AddHttpClient(NotificationServiceHttpClientFactoryDefault.ClientName) // This could be moved into NotificationServiceHttpClientFactoryDefault
+      services.AddHttpClient(NotificationServiceHttpClientFactoryDefault.ClientName) 
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
           UseCookies =

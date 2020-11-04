@@ -322,7 +322,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         {
           Console.WriteLine("Finished sending transactions. Will generate a block to trigger callbacks");
           await bitcoind.RpcClient.GenerateAsync(1);
-          await WaitForCallBacksAsync(config.CallBack.IdelTimeoutMS, stats); 
+          await WaitForCallBacksAsync(config.CallBack.IdleTimeoutMS, stats); 
         }
         // Cancel progress task
         cancellationSource.Cancel(false);
