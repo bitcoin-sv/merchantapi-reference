@@ -417,7 +417,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         return Task.FromResult(r);
       }
 
-      return Task.FromResult(Const.RequiredZmqNotifications.Select(x => new RpcActiveZmqNotification { Address = "tcp://127.0.0.1:28332", Notification = x}).ToArray());
+      return Task.FromResult(ZMQTopic.RequiredZmqTopics.Select(x => new RpcActiveZmqNotification { Address = "tcp://127.0.0.1:28332", Notification = x}).ToArray());
     }
     public Task<string[]> GetRawMempool(CancellationToken? token = null)
     {

@@ -165,9 +165,9 @@ namespace MerchantAPI.APIGateway.Rest
         {
           var notifications = await rpcClient.ActiveZmqNotificationsAsync();
           
-          if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(Const.RequiredZmqNotifications).Count() != Const.RequiredZmqNotifications.Length)
+          if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
           {
-            var missingNotifications = Const.RequiredZmqNotifications.Except(notifications.Select(x => x.Notification));
+            var missingNotifications = ZMQTopic.RequiredZmqTopics.Except(notifications.Select(x => x.Notification));
             logger.LogError($"Node '{node.Host}:{node.Port}', does not have all required zmq notifications enabled. Missing notifications ({string.Join(",", missingNotifications)})");
           }
         }
