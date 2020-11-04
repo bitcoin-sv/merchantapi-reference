@@ -541,6 +541,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
       foreach (var oneTx in request)
       {
+        if ((oneTx.RawTx == null || oneTx.RawTx.Length == 0) && string.IsNullOrEmpty(oneTx.RawTxString))
+        {
+          AddFailureResponse(null, $"{nameof(SubmitTransaction.RawTx)} is required", ref responses);
+
+          failureCount++;
+          continue;
+        }
+
         if (oneTx.RawTx == null)
         {
           try

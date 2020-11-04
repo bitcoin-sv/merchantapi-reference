@@ -59,11 +59,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
     }
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-      if (RawTx == null || RawTx.Length == 0)
-      {
-        yield return new ValidationResult($"{nameof(RawTx)} is required");
-      }
-
       if (string.IsNullOrWhiteSpace(CallbackUrl) && (MerkleProof || DsCheck))
       {
         yield return new ValidationResult($"{nameof(CallbackUrl)} is required when {nameof(MerkleProof)} or {nameof(DsCheck)} is not false");
