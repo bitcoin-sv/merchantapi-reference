@@ -97,6 +97,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         {
           skipRecords = 0;
           waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount, skipRecords, NoOfRecordsBatch);
+          numOfNotifications = waitingNotifications.Count;
         }
         if (numOfNotifications > 0)
         {

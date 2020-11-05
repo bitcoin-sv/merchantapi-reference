@@ -82,7 +82,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public bool StartListener { get; set; }
 
     /// Maximum number of milliseconds that we are willing to wait for next callbacks 
-    public int IdelTimeoutMS { get; set; } = 30_000;
+    public int IdleTimeoutMS { get; set; } = 30_000;
 
     public CallbackHostConfig[] Hosts { get; set; }
 
