@@ -102,7 +102,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       argumentList.Add($"-rpcpassword={RpcPassword}");
       argumentList.Add($"-zmqpubhashblock=tcp://{ZmqIp}:{zmqPort}");
       argumentList.Add($"-zmqpubinvalidtx=tcp://{ZmqIp}:{zmqPort}");
-      argumentList.Add($"-zmqpubremovedfrommempool=tcp://{ZmqIp}:{zmqPort}");
+      argumentList.Add($"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}");
       argumentList.Add($"-invalidtxsink=ZMQ");
 
       logger.LogInformation($"Starting {bitcoindFullPath} {string.Join(" ",argumentList.ToArray())}");

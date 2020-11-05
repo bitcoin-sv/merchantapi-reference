@@ -64,9 +64,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
 
       
-      if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(Const.RequiredZmqNotifications).Count() != Const.RequiredZmqNotifications.Length)
+      if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
       {
-        var missingNotifications = Const.RequiredZmqNotifications.Except(notifications.Select(x => x.Notification));
+        var missingNotifications = ZMQTopic.RequiredZmqTopics.Except(notifications.Select(x => x.Notification));
         throw new BadRequestException($"Node '{node.Host}:{node.Port}', does not have all required zmq notifications enabled. Missing notifications ({string.Join(",", missingNotifications)})");
       }
 

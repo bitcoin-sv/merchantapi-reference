@@ -165,7 +165,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
             eventBus.Publish(new InvalidTxDetectedEvent() { CreationDate = clock.UtcNow(), Message = invalidTxMsg }); 
             break;
 
-          case ZMQTopic.RemovedFromMempool:
+          case ZMQTopic.DiscardedFromMempool:
             var removedFromMempoolMsg = JsonSerializer.Deserialize<RemovedFromMempoolMessage>(msg[0]);
             logger.LogInformation($"Removed from mempool tx notification for tx {removedFromMempoolMsg.TxId} with reason {removedFromMempoolMsg.Reason}. ColidedWith.TxId = {removedFromMempoolMsg.CollidedWith?.TxId}");
             eventBus.Publish(new RemovedFromMempoolEvent() { CreationDate = clock.UtcNow(), Message = removedFromMempoolMsg });
@@ -403,9 +403,9 @@ namespace MerchantAPI.APIGateway.Rest.Services
     private void ValidateNotifications(RpcActiveZmqNotification[] notifications)
     {
       // Check that we have all required notifications
-      if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(Const.RequiredZmqNotifications).Count() != Const.RequiredZmqNotifications.Length)
+      if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
       {
-        var missingNotifications = Const.RequiredZmqNotifications.Except(notifications.Select(x => x.Notification));
+        var missingNotifications = ZMQTopic.RequiredZmqTopics.Except(notifications.Select(x => x.Notification));
         throw new Exception($"Node does not have all required zmq notifications enabled. Missing notifications ({string.Join(",", missingNotifications)})");
       }
     }
@@ -417,7 +417,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         string topic = notification.Notification.Substring(3); // Chop off "pub" prefix
         if (topic == ZMQTopic.HashBlock ||
           topic == ZMQTopic.InvalidTx ||
-          topic == ZMQTopic.RemovedFromMempool)
+          topic == ZMQTopic.DiscardedFromMempool)
         {
           SubscribeTopic(node.Id, notification.Address, topic);
         }
@@ -474,13 +474,6 @@ namespace MerchantAPI.APIGateway.Rest.Services
         subscriptions.TryAdd(address, new ZMQSubscription(nodeId, address, clock.UtcNow(), topic));
       }
     }
-  }
-
-  public static class ZMQTopic
-  {
-    public const string HashBlock = "hashblock";
-    public const string InvalidTx = "invalidtx";
-    public const string RemovedFromMempool = "removedfrommempool";
   }
 
   class ZMQFailedSubscription
