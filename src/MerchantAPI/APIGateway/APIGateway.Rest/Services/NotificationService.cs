@@ -89,14 +89,14 @@ namespace MerchantAPI.APIGateway.Rest.Services
     {
       try
       {
-        var waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount, skipRecords, NoOfRecordsBatch);
+        var waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount.Value, skipRecords, NoOfRecordsBatch);
         int numOfNotifications = waitingNotifications.Count;
         
         // We reached the end of failed notifications...let's start from the beginning again
         if (numOfNotifications == 0 && skipRecords > 0)
         {
           skipRecords = 0;
-          waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount, skipRecords, NoOfRecordsBatch);
+          waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount.Value, skipRecords, NoOfRecordsBatch);
           numOfNotifications = waitingNotifications.Count;
         }
         if (numOfNotifications > 0)
@@ -110,7 +110,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
           if (stoppingToken.IsCancellationRequested) break;
 
           using var client = notificationsHandler.GetClient(notificationData.CallbackUrl);
-          if (await notificationsHandler.ProcessNotificationAsync(client, notificationData, notificationSettings.SlowHostResponseTimeoutMS, stoppingToken)) successfull++;
+          if (await notificationsHandler.ProcessNotificationAsync(client, notificationData, notificationSettings.SlowHostResponseTimeoutMS.Value, stoppingToken)) successfull++;
         }
         skipRecords += numOfNotifications - successfull;
       }

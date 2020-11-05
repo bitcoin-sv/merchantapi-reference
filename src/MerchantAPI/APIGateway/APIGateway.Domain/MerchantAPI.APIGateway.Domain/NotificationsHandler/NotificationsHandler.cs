@@ -43,10 +43,10 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.minerId = minerId ?? throw new ArgumentNullException(nameof(minerId));
       notificationSettings = options.Value.Notification;
-      var maxNumberOfSlowNotifications = notificationSettings.InstantNotificationsQueueSize * notificationSettings.InstantNotificationsSlowTaskPercentage / 100;
-      notificationScheduler = new NotificationScheduler(logger, maxNumberOfSlowNotifications, notificationSettings.InstantNotificationsQueueSize,
-                                                        notificationSettings.MaxNotificationsInBatch, notificationSettings.NoOfSavedExecutionTimes,
-                                                        notificationSettings.SlowHostThresholdInMs);
+      var maxNumberOfSlowNotifications = notificationSettings.InstantNotificationsQueueSize.Value * notificationSettings.InstantNotificationsSlowTaskPercentage / 100;
+      notificationScheduler = new NotificationScheduler(logger, maxNumberOfSlowNotifications, notificationSettings.InstantNotificationsQueueSize.Value,
+                                                        notificationSettings.MaxNotificationsInBatch.Value, notificationSettings.NoOfSavedExecutionTimes.Value,
+                                                        notificationSettings.SlowHostThresholdInMs.Value);
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
@@ -111,7 +111,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     private async Task DoWorkAsync(bool slowHostRequested, CancellationToken stoppingToken)
     {
       var notificationsToSend = await notificationScheduler.TakeAsync(slowHostRequested, stoppingToken);
-      int requestTimeout = slowHostRequested ? notificationSettings.SlowHostResponseTimeoutMS : notificationSettings.FastHostResponseTimeoutMS;
+      int requestTimeout = slowHostRequested ? notificationSettings.SlowHostResponseTimeoutMS.Value : notificationSettings.FastHostResponseTimeoutMS.Value;
       if (notificationsToSend?.Count > 0)
       {
         // First callbackUrl is taken because all urls in the list have the same host name
