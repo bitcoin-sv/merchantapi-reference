@@ -31,13 +31,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
       string slowHostName = "slow";
       string fastHostName = "fast";
       var notificationSettings = AppSettings.Notification;
-      var hostExecution = new HostExecutionTimes(notificationSettings.NoOfSavedExecutionTimes, notificationSettings.SlowHostThresholdInMs);
+      var hostExecution = new HostExecutionTimes(notificationSettings.NoOfSavedExecutionTimes.Value, notificationSettings.SlowHostThresholdInMs.Value);
 
       var taskList = new List<Task>();
       for (int i = 0; i < 20; i++)
       {
-        hostExecution.AddExecutionTime(slowHostName, new Random(DateTime.UtcNow.Millisecond).Next(notificationSettings.SlowHostThresholdInMs, notificationSettings.SlowHostThresholdInMs + 500));
-        hostExecution.AddExecutionTime(fastHostName, new Random(DateTime.UtcNow.Millisecond).Next(0, notificationSettings.SlowHostThresholdInMs));
+        hostExecution.AddExecutionTime(slowHostName, new Random(DateTime.UtcNow.Millisecond).Next(notificationSettings.SlowHostThresholdInMs.Value, notificationSettings.SlowHostThresholdInMs.Value + 500));
+        hostExecution.AddExecutionTime(fastHostName, new Random(DateTime.UtcNow.Millisecond).Next(0, notificationSettings.SlowHostThresholdInMs.Value));
       }
 
       Assert.AreEqual(slowHostName, hostExecution.GetHosts(true).Single());

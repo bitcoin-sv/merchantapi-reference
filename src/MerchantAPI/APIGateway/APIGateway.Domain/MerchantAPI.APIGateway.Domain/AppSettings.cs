@@ -23,34 +23,32 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(1, int.MaxValue)]
     public int NotificationIntervalSec { get; set; } = 60;
 
-    [Required]
     [Range(2, 100)]
     public int InstantNotificationsTasks { get; set; }
 
     [Required]
-    public int InstantNotificationsQueueSize { get; set; }
+    public int? InstantNotificationsQueueSize { get; set; }
 
     [Required]
-    public int MaxNotificationsInBatch { get; set; }
+    public int? MaxNotificationsInBatch { get; set; }
 
     [Required]
-    public int SlowHostThresholdInMs { get; set; }
+    public int? SlowHostThresholdInMs { get; set; }
 
-    [Required]
     [Range(1, 100)]
     public int InstantNotificationsSlowTaskPercentage { get; set; }
 
     [Required]
-    public int NoOfSavedExecutionTimes { get; set; }
+    public int? NoOfSavedExecutionTimes { get; set; }
 
     [Required]
-    public int NotificationsRetryCount { get; set; }
+    public int? NotificationsRetryCount { get; set; }
 
     [Required]
-    public int SlowHostResponseTimeoutMS { get; set; }
+    public int? SlowHostResponseTimeoutMS { get; set; }
 
     [Required]
-    public int FastHostResponseTimeoutMS { get; set; }
+    public int? FastHostResponseTimeoutMS { get; set; }
   }
 
   public class AppSettings
@@ -110,7 +108,15 @@ namespace MerchantAPI.APIGateway.Domain
       {
         return ValidateOptionsResult.Fail(
           $"Invalid configuration -  {nameof(AppSettings.Notification)} settings must be specified.");
-
+      }
+      else
+      {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(options.Notification, serviceProvider: null, items: null);
+        if (!Validator.TryValidateObject(options.Notification, validationContext, validationResults, true))
+        {
+          return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
+        }
       }
 
       return ValidateOptionsResult.Success;
