@@ -11,14 +11,14 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("rawTx")]
     public string RawTx { get; set; }
 
-    [JsonPropertyName("callBackUrl")]
-    public string CallBackUrl { get; set; }
+    [JsonPropertyName("callbackUrl")]
+    public string CallbackUrl { get; set; }
 
-    [JsonPropertyName("callBackToken")]
-    public string CallBackToken { get; set; }
+    [JsonPropertyName("callbackToken")]
+    public string CallbackToken { get; set; }
 
-    [JsonPropertyName("callBackEncryption")]
-    public string CallBackEncryption { get; set; }
+    [JsonPropertyName("callbackEncryption")]
+    public string CallbackEncryption { get; set; }
 
     [JsonPropertyName("merkleProof")]
     public bool? MerkleProof { get; set; }
@@ -26,14 +26,14 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("dsCheck")]
     public bool? DsCheck { get; set; }
 
-    public SubmitTransaction ToDomainModel(string defaultCallBackUrl, string defaultCallBackToken, string defaultCallBackEncryption, bool defaultMerkleProof, bool defaultDsCheck)
+    public SubmitTransaction ToDomainModel(string defaultCallbackUrl, string defaultCallbackToken, string defaultCallbackEncryption, bool defaultMerkleProof, bool defaultDsCheck)
     {
       return new SubmitTransaction
       {
         RawTxString = RawTx,
-        CallBackUrl = CallBackUrl ?? defaultCallBackUrl,
-        CallBackToken = CallBackToken ?? defaultCallBackToken,
-        CallBackEncryption =  CallBackEncryption ?? defaultCallBackEncryption,
+        CallbackUrl = CallbackUrl ?? defaultCallbackUrl,
+        CallbackToken = CallbackToken ?? defaultCallbackToken,
+        CallbackEncryption =  CallbackEncryption ?? defaultCallbackEncryption,
         MerkleProof = MerkleProof ?? defaultMerkleProof,
         DsCheck = DsCheck ?? defaultDsCheck
       };

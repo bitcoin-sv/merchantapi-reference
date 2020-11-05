@@ -6,20 +6,20 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
+namespace MerchantAPI.APIGateway.Test.Functional.CallbackWebServer
 {
 
   /// <summary>
-  /// Controller that redirects incoming POST requests to ICallBackReceived
+  /// Controller that redirects incoming POST requests to ICallbackReceived
   /// </summary>
-  [Route("/CallBack")]
+  [Route("/Callback")]
   [ApiController]
-  public class CallBackController : ControllerBase
+  public class CallbackController : ControllerBase
   {
-    readonly ICallBackReceived callBackReceived;
-    public CallBackController(ICallBackReceived callBackReceived)
+    readonly ICallbackReceived callbackReceived;
+    public CallbackController(ICallbackReceived callbackReceived)
     {
-      this.callBackReceived = callBackReceived ?? throw new ArgumentException(nameof(callBackReceived));
+      this.callbackReceived = callbackReceived ?? throw new ArgumentException(nameof(callbackReceived));
     }
 
     [HttpPost]
@@ -27,7 +27,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
     {
       var ms = new MemoryStream();
       await HttpContext.Request.Body.CopyToAsync(ms);
-      await callBackReceived.CallbackReceivedAsync(Request.Path, Request.Headers, ms.ToArray());
+      await callbackReceived.CallbackReceivedAsync(Request.Path, Request.Headers, ms.ToArray());
       Response.StatusCode = 200;
     }
 

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Test.Functional.CallBackWebServer;
+using MerchantAPI.APIGateway.Test.Functional.CallbackWebServer;
 using Microsoft.AspNetCore.Http;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -12,12 +12,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
   /// <summary>
   /// Traces all callbacks received through mocked call back server
   /// </summary>
-  public class CallBackFunctionalTests : ICallBackReceived 
+  public class CallbackFunctionalTests : ICallbackReceived 
   {
     object lockObj = new object();
 
     List<(string path, string request)> calls = new List<(string path, string request)>();
-    public string Url => "http://mockCallBack:8321";
+    public string Url => "http://mockCallback:8321";
 
 
     public (string path, string request)[] Calls

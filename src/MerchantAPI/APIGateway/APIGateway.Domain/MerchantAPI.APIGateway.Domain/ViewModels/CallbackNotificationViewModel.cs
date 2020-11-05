@@ -20,8 +20,8 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
     [JsonPropertyName("apiVersion")]
     public string APIVersion { get; set; }
     
-    [JsonPropertyName("timeStamp")]
-    public DateTime TimeStamp { get; set; }
+    [JsonPropertyName("timestamp")]
+    public DateTime Timestamp { get; set; }
     
     [JsonPropertyName("minerId")]
     public string MinerId { get; set; }
@@ -49,7 +49,7 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
         case Domain.CallbackReason.DoubleSpendAttempt:
           callbackModel = new CallbackNotificationDoubleSpendViewModel
           {
-            CallbackPayload = new DsNotificationPayloadCallBackViewModel
+            CallbackPayload = new DsNotificationPayloadCallbackViewModel
             {
               DoubleSpendTxId = new uint256(notificationData.DoubleSpendTxId).ToString(),
               Payload = HelperTools.ByteToHexString(notificationData.Payload)
@@ -70,7 +70,7 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
       callbackModel.BlockHeight = notificationData.BlockHeight;
       callbackModel.CallbackReason = notificationData.NotificationType;
       callbackModel.CallbackTxId = txId;
-      callbackModel.TimeStamp = clock.UtcNow();
+      callbackModel.Timestamp = clock.UtcNow();
 
       return callbackModel;
     }
@@ -85,10 +85,10 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
   public class CallbackNotificationDoubleSpendViewModel : CallbackNotificationViewModelBase
   {
     [JsonPropertyName("callbackPayload")]
-    public DsNotificationPayloadCallBackViewModel CallbackPayload { get; set; }
+    public DsNotificationPayloadCallbackViewModel CallbackPayload { get; set; }
   }
 
-  public class DsNotificationPayloadCallBackViewModel
+  public class DsNotificationPayloadCallbackViewModel
   {
     [JsonPropertyName("doubleSpendTxId")]
     public string DoubleSpendTxId { get; set; }

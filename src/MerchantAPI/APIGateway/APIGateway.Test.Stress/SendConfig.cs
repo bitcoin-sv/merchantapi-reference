@@ -31,16 +31,16 @@ namespace MerchantAPI.APIGateway.Test.Stress
     // When using multiple threads, make sure that transactions in the file are not dependent on each other"
     public int Threads { get; set; } = 1;
 
-    public CallbackConfig CallBack { get; set; }
+    public CallbackConfig Callback { get; set; }
 
     public BitcoindConfig BitcoindConfig { get; set; }
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContextRoot)
     {
-      if (CallBack != null)
+      if (Callback != null)
       {
-        var validationContext = new ValidationContext(CallBack, serviceProvider: null, items: null);
+        var validationContext = new ValidationContext(Callback, serviceProvider: null, items: null);
         var validationResults = new List<ValidationResult>();
-        Validator.TryValidateObject(CallBack, validationContext, validationResults, true);
+        Validator.TryValidateObject(Callback, validationContext, validationResults, true);
         foreach (var x in validationResults)
         {
           yield return x;
@@ -75,7 +75,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public string CallbackToken { get; set; }
 
     // Encryption parameters used when performing callbacks.
-    public string CallBackEncryption { get; set; }
+    public string CallbackEncryption { get; set; }
 
     // Start a listener that will listen to callbacks on port specified by Url
     // When specified, error will be reported if not all callbacks are received
@@ -121,7 +121,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public int? MaxCallbackDelayMs { get; set; }
 
     [Range(0, 100)]
-    public int CallBackFailurePercent { get; set; }
+    public int CallbackFailurePercent { get; set; }
   }
 
   public class BitcoindConfig

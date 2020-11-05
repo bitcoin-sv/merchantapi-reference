@@ -5,19 +5,19 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 
-namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
+namespace MerchantAPI.APIGateway.Test.Functional.CallbackWebServer
 {
   
   /// <summary>
-  /// Route all calls (regardless of path) to CallBackController
+  /// Route all calls (regardless of path) to CallbackController
   /// </summary>
-  public class RouteToCallBackController : DynamicRouteValueTransformer
+  public class RouteToCallbackController : DynamicRouteValueTransformer
   {
     public override ValueTask<RouteValueDictionary> TransformAsync(HttpContext httpContext, RouteValueDictionary values)
     {
       var result = new RouteValueDictionary()
       {
-        {"controller", "CallBack"},
+        {"controller", "Callback"},
         {"action", "ProcessPost"}
       };
 

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
+namespace MerchantAPI.APIGateway.Test.Functional.CallbackWebServer
 {
 
   /// <summary>
@@ -23,7 +23,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
     public void ConfigureServices(IServiceCollection services)
     {
       services.AddControllers().AddJsonOptions(options => { options.JsonSerializerOptions.WriteIndented = true; });
-      services.AddSingleton<RouteToCallBackController>();
+      services.AddSingleton<RouteToCallbackController>();
     }
 
 
@@ -43,7 +43,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
         //  - Use MapControllerRoute (has some problems)
         //  - use MapDynamicControllerRoute - we use this one
 
-        endpoints.MapDynamicControllerRoute<RouteToCallBackController>(uri.AbsolutePath);
+        endpoints.MapDynamicControllerRoute<RouteToCallbackController>(uri.AbsolutePath);
 
       });
     }

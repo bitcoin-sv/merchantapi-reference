@@ -3,9 +3,9 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
-namespace MerchantAPI.APIGateway.Test.Functional.CallBackWebServer
+namespace MerchantAPI.APIGateway.Test.Functional.CallbackWebServer
 {
-  public interface ICallBackReceived
+  public interface ICallbackReceived
   {
     public Task CallbackReceivedAsync(string url, IHeaderDictionary headers, byte[] data);
   }

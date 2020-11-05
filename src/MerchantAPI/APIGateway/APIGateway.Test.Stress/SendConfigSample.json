@@ -4,7 +4,7 @@
   "txIndex": 2,
   "mapiUrl": "https://localhost:5001/",
 
-  "callBack": {
+  "callback": {
     "url": "http://localhost:8013/iscallbackUrl?123",
     "addRandomNumberToHost": 3,
     "callbackToken": "Bearer something",
@@ -14,13 +14,13 @@
         "hostName": "", // Default for all hosts that are not explicitly named
         "minCallbackDelayMs": 0,
         "maxCallbackDelayMs": 100,
-        "callBackFailurePercent": 0
+        "callbackFailurePercent": 0
       },
       {
         "hostName": "localhost2", // Slow host that never returns errors
         "minCallbackDelayMs": 500,
         "maxCallbackDelayMs": 1500,
-        "callBackFailurePercent": 0
+        "callbackFailurePercent": 0
       }
     ]
   },

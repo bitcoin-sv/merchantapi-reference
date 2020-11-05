@@ -188,8 +188,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <summary>
     /// Submit a transaction in raw format.
     /// </summary>
-    /// <param name="callBackUrl">Double spend and merkle proof notification callback endpoint.</param>
-    /// <param name="callBackToken">Access token for notification callback endpoint.</param>
+    /// <param name="callbackUrl">Double spend and merkle proof notification callback endpoint.</param>
+    /// <param name="callbackToken">Access token for notification callback endpoint.</param>
     /// <param name="merkleProof">Require merkle proof</param>
     /// <param name="dsCheck">Check for double spends.</param>
     /// <remarks>This endpoint is used to send a raw transaction to a miner for inclusion in the next block that the miner creates.</remarks>
@@ -198,11 +198,11 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     [Consumes(MediaTypeNames.Application.Octet)]
     public async Task<ActionResult<SubmitTransactionResponseViewModel>> SubmitTxRawAsync(
       [FromQuery]
-      string callBackUrl,
+      string callbackUrl,
       [FromQuery]
-      string callBackToken,
+      string callbackToken,
       [FromQuery]
-      string callBackEncryption,
+      string callbackEncryption,
       [FromQuery]
       bool merkleProof,
       [FromQuery]
@@ -223,9 +223,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       var request = new SubmitTransaction
       {
         RawTx = data,
-        CallBackUrl = callBackUrl,
-        CallBackToken = callBackToken,
-        CallBackEncryption =  callBackEncryption,
+        CallbackUrl = callbackUrl,
+        CallbackToken = callbackToken,
+        CallbackEncryption =  callbackEncryption,
         MerkleProof = merkleProof,
         DsCheck = dsCheck
       };
@@ -239,10 +239,10 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// Submit multiple transactions.
     /// </summary>
     /// <param name="data"></param>
-    /// <param name="defaultCallBackUrl">Default double spend and merkle proof notification callback endpoint.</param>
-    /// <param name="defaultCallBackToken">Default access token for notification callback endpoint.</param>
+    /// <param name="defaultCallbackUrl">Default double spend and merkle proof notification callback endpoint.</param>
+    /// <param name="defaultCallbackToken">Default access token for notification callback endpoint.</param>
     /// <param name="defaultMerkleProof">Default merkle proof requirement.</param>
-    /// <param name="defaultDsCheck">Default double spend notification reuest.</param>
+    /// <param name="defaultDsCheck">Default double spend notification request.</param>
     /// <remarks>This endpoint is used to send multiple raw transactions to a miner for inclusion in the next block that the miner creates.</remarks>
     [HttpPost]
     [Route("txs")]
@@ -250,11 +250,11 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     public async Task<ActionResult<SubmitTransactionResponseViewModel>> SubmitTxsAsync(
       SubmitTransactionViewModel[] data,
       [FromQuery]
-      string defaultCallBackUrl,
+      string defaultCallbackUrl,
       [FromQuery]
-      string defaultCallBackToken,
+      string defaultCallbackToken,
       [FromQuery]
-      string defaultCallBackEncryption,
+      string defaultCallbackEncryption,
       [FromQuery]
       bool defaultMerkleProof,
       [FromQuery]
@@ -266,7 +266,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       }
       
       var domainModel = data.Select(x =>
-        x.ToDomainModel(defaultCallBackUrl, defaultCallBackToken, defaultCallBackEncryption, defaultMerkleProof, defaultDsCheck)).ToArray();
+        x.ToDomainModel(defaultCallbackUrl, defaultCallbackToken, defaultCallbackEncryption, defaultMerkleProof, defaultDsCheck)).ToArray();
 
       var result =
         new SubmitTransactionsResponseViewModel(
@@ -281,17 +281,17 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <summary>
     /// 
     /// </summary>
-    /// <param name="callBackUrl"></param>
+    /// <param name="callbackUrl"></param>
     /// <param name="merkleProof"></param>
     /// <param name="dsCheck"></param>
-    /// <remarks>Multiple Transactions can be provided in body. Other parameters (such as callBackUrl) applies to all transactions.</remarks>
+    /// <remarks>Multiple Transactions can be provided in body. Other parameters (such as callbackUrl) applies to all transactions.</remarks>
     [HttpPost]
     [Route("txs")]
     [Consumes(MediaTypeNames.Application.Octet)]
     public async Task<ActionResult<SubmitTransactionResponseViewModel>> SubmitTxsRawAsync(
-      [FromQuery] string callBackUrl,
-      [FromQuery] string callBackEncryption,
-      [FromQuery] string callBackToken,
+      [FromQuery] string callbackUrl,
+      [FromQuery] string callbackEncryption,
+      [FromQuery] string callbackToken,
       [FromQuery] bool merkleProof,
       [FromQuery] bool dsCheck
       )
@@ -327,9 +327,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
           new SubmitTransaction
           {
             RawTx = t,
-            CallBackUrl = callBackUrl,
-            CallBackEncryption = callBackEncryption,
-            CallBackToken = callBackToken,
+            CallbackUrl = callbackUrl,
+            CallbackEncryption = callbackEncryption,
+            CallbackToken = callbackToken,
             MerkleProof = merkleProof,
             DsCheck = dsCheck
           }).ToArray();

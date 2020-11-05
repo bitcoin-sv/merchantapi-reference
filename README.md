@@ -48,14 +48,14 @@ To submit a transaction in JSON format use `Content-Type: application/json` with
 ```json
 {
   "rawtx":        "[transaction_hex_string]",
-  "callBackUrl":  "https://your.service.callback/endpoint",
-  "callBackToken" : "Authorization: <your_authorization_header>",
+  "callbackUrl":  "https://your.service.callback/endpoint",
+  "callbackToken" : "Authorization: <your_authorization_header>",
   "merkleProof" : true,
   "dsCheck" : true
 }
 ```
 
-To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transaction in the request body. You can specify `callBackUrl`, `callBackToken`, `merkleProof` and `dsCheck` in the query string.
+To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transaction in the request body. You can specify `callbackUrl`, `callbackToken`, `merkleProof` and `dsCheck` in the query string.
 
 
 ### 3. queryTransactionStatus
@@ -78,8 +78,8 @@ To submit a list of transactions in JSON format use `Content-Type: application/j
   {
 
     "rawtx":        "[transaction_hex_string]",
-    "callBackUrl":  "https://your.service.callback/endpoint",
-    "callBackToken" : "Authorization: <your_authorization_header>",
+    "callbackUrl":  "https://your.service.callback/endpoint",
+    "callbackToken" : "Authorization: <your_authorization_header>",
     "merkleProof" : true,
     "dsCheck" : true
   },
@@ -87,7 +87,7 @@ To submit a list of transactions in JSON format use `Content-Type: application/j
 ]
 ```
 
-You can also omit `callBackUrl`, `callBackToken`, `merkleProof` and `dsCheck` from the request body and provide the values in the query string.
+You can also omit `callbackUrl`, `callbackToken`, `merkleProof` and `dsCheck` from the request body and provide the values in the query string.
 
 To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transactions in the request body. Use query string to specify the remaining parameters.
 
