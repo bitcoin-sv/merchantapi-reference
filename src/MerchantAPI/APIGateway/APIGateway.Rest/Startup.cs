@@ -93,6 +93,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddSingleton<IBlockChainInfo, BlockChainInfo>(); // singleton, thread safe
       services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe
       services.AddTransient<ICreateDB, CreateDB>();
+      services.AddTransient<IStartupChecker, StartupChecker>();
       services.AddSingleton<INotificationsHandler, NotificationsHandler>();// singleton, thread safe
 
       services.AddHostedService(p => (BlockChainInfo)p.GetRequiredService<IBlockChainInfo>());
@@ -120,7 +121,6 @@ namespace MerchantAPI.APIGateway.Rest
 
       if (HostEnvironment.EnvironmentName != "Testing")
       {
-        services.AddHostedService<StartupChecker>();
         services.AddTransient<IClock, Clock>();
         services.AddHostedService<CleanUpTxHandler>();
       }
