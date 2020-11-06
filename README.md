@@ -57,6 +57,8 @@ To submit a transaction in JSON format use `Content-Type: application/json` with
 
 To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transaction in the request body. You can specify `callbackUrl`, `callbackToken`, `merkleProof` and `dsCheck` in the query string.
 
+If a double spend notification or merkle proof is requested in Submit transaction, the response is sent to the specified callbackURL. Where recipients are using [SPV Channels](https://github.com/bitcoin-sv/brfc-spvchannels), this would require the recipient to have a channel setup and ready to receive messages.
+Check [Callback Notifications](#callback-notifications) for details.
 
 ### 3. queryTransactionStatus
 
@@ -92,6 +94,93 @@ You can also omit `callbackUrl`, `callbackToken`, `merkleProof` and `dsCheck` fr
 To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transactions in the request body. Use query string to specify the remaining parameters.
 
 
+### Callback Notifications
+
+Merchants can request callbacks for *merkle proofs* and/or *double spend notifications* in Submit transaction.
+
+Double Spend example:
+```
+POST /mapi/tx
+```
+
+#### Request:
+
+Request Body:
+
+```json
+{
+    "rawtx": "02000000010b86283aa3742d76c9756490e533c42785aba9c04bff1d1b03aefc5db9696a090000000049483045022100fa0710a65f3fc9989e202040a404661c750b2b8edcf4aeca63256db57cf2ec61022029cc2253ec21727e22727509fc6b80c493455c3c21c55863c7e61a917667c1d041ffffffff0210270000000000001976a91462870360a34f460be9f70cfa4d5b5bd6705909d588ac14df2901000000001976a9141d0ef42a5362089f66250df3b876767ab0eb4d3488ac00000000",
+    "callbackUrl": "https://your-server/api/v1/channel/533",
+    "callbackToken": "CNaecHA44nGNJCvvccx3TSxwb4F490574knnkf44S19W6cNmbumVa6k3ESQw",
+    "merkleProof": false,
+    "dsCheck": true
+}
+```
+
+#### Response:
+```json
+{
+    "payload": "{\"apiVersion\":\"1.2.3\",\"timestamp\":\"2020-09-17T12:52:54.5817432Z\",\"txid\":\"8750e986a296d39262736ed8b8f8061c6dce1c262844e1ad674a3bc134772167\",\"returnResult\":\"failure\",\"resultDescription\":\"258 txn-mempool-conflict\",\"minerId\":\"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e\",\"currentHighestBlockHash\":\"5feae707b1dbd08fb2d58d961620e4316edeeff0c4a1ce8b007171aaf7374dd4\",\"currentHighestBlockHeight\":1333,\"txSecondMempoolExpiry\":0}",
+    "signature": "304402200c3ac8054adf9b3e97e021cc1db07101df93fd80992b7e26b1643f7c2320677e02207cf8d470d048822a922015ecb1cee194a8a6268314f8ed0c36661d9c275fb25c",
+    "publicKey": "030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
+    "encoding": "UTF-8",
+    "mimetype": "application/json"
+}
+```
+
+Merkle proof callback can be requested by specifying:
+```json
+{
+ "merkleProof": true
+}
+```
+
+If callback was requested on transaction submit, merchant should receive a notification of doublespend and/or merkle proof via callback URL. mAPI process all requested notifications and sends them out in batches.
+Callbacks have three possible callbackReason: "doubleSpend", "doubleSpendAttempt" and "merkleProof". DoubleSpendAttempt implies, that double spend was detected in mempool.
+
+Double spend callback example:
+```json
+{	
+  "callbackPayload": "{\"doubleSpendTxId\":\"f1f8d3de162f3558b97b052064ce1d0c45805490c210bdbc4d4f8b44cd0f143e\", \"payload\":\"01000000014979e6d8237d7579a19aa657a568a3db46a973f737c120dffd6a8ba9432fa3f6010000006a47304402205fc740f902ccdadc2c3323f0258895f597fb75f92b13d14dd034119bee96e5f302207fd0feb68812dfa4a8e281f9af3a5b341a6fe0d14ff27648ae58c9a8aacee7d94121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff018c949800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000\"}",
+  "apiVersion": "1.2.3",
+  "timestamp": "2020-11-03T13:24:31.233647Z",
+  "minerId": "030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
+  "blockHash": "34bbc00697512058cb040e1c7bbba5d03a2e94270093eb28114747430137f9b7",
+  "blockHeight": 153,
+  "callbackTxId": "8750e986a296d39262736ed8b8f8061c6dce1c262844e1ad674a3bc134772167",
+  "callbackReason": "doubleSpend"
+}
+```
+
+Double spend attempt callback example:
+```json
+{	
+  "callbackPayload": "{\"doubleSpendTxId\":\"7ea230b1610768374285150537323add313c1b9271b1b8110f5ddc629bf77f46\", \"payload\":\"0100000001e75284dc47cb0beae5ebc7041d04dd2c6d29644a000af67810aad48567e879a0000000006a47304402203d13c692142b4b50737141145795ccb5bb9f5f8505b2d9b5a35f2f838b11feb102201cee2f2fe33c3d592f5e990700861baf9605b3b0199142bbc69ae88d1a28fa964121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff018c949800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000\"}",
+  "apiVersion": "1.2.3",
+  "timestamp": "2020-11-03T13:24:31.233647Z",
+  "minerId": "030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
+  "blockHash": "34bbc00697512058cb040e1c7bbba5d03a2e94270093eb28114747430137f9b7",
+  "blockHeight": 153,
+  "callbackTxId": "8750e986a296d39262736ed8b8f8061c6dce1c262844e1ad674a3bc134772167",
+  "callbackReason": "doubleSpendAttempt"
+}
+```
+
+Merkle proof callback example:
+```json
+{	  
+  "callbackPayload": "{\"flags\":2,\"index\":1,\"txOrId\":\"acad8d40b3a17117026ace82ef56d269283753d310ddaeabe7b5d226e8dbe973\",\"target\": {\"hash\":\"0e9a2af27919b30a066383d512d64d4569590f935007198dacad9824af643177\",\"confirmations\":1,\"height\":152,\"version\":536870912,\"versionHex\":"20000000",\"merkleroot\":\"0298acf415976238163cd82b9aab9826fb8fbfbbf438e55185a668d97bf721a8\",\"num_tx\":2,\"time\":1604409778,\"mediantime\":1604409777,\"nonce\":0,\"bits\":\"207fffff\",\"difficulty\":4.656542373906925E-10,\"chainwork\":\"0000000000000000000000000000000000000000000000000000000000000132\",\"previousblockhash\":\"62ae67b463764d045f4cbe54f1f7eb63ccf70d52647981ffdfde43ca4979a8ee\"},\"nodes\":[\"5b537f8fba7b4057971f7e904794c59913d9a9038e6900669d08c1cf0cc48133\"]}",
+  "apiVersion":"1.2.3",
+  "timestamp":"2020-11-03T13:22:42.1341243Z",
+  "minerId":"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
+  "blockHash":"0e9a2af27919b30a066383d512d64d4569590f935007198dacad9824af643177",
+  "blockHeight":152,
+  "callbackTxId":"acad8d40b3a17117026ace82ef56d269283753d310ddaeabe7b5d226e8dbe973",
+  "callbackReason":"merkleProof"
+}
+```
+
+
 ### Authorization/Authentication and Special Rates
 
 Merchant API providers would likely want to offer special or discounted rates to specific customers. To do this they would need to add an extra layer to enable authorization/authentication on public interface. Current implementation supports JSON Web Tokens (JWT) issued to specific users. The users can include that token in their HTTP header and as a result receive lower fee rates.
@@ -112,7 +201,7 @@ The following command line options can be specified when generating a token
 
 ```console
 Options:
-  -n, --name <name> (REQUIRED)        Unique name od the subject token is being issued to
+  -n, --name <name> (REQUIRED)        Unique name of the subject token is being issued to
   -d, --days <days> (REQUIRED)        Days the token will be valid for
   -k, --key <key> (REQUIRED)          Secret shared use to sign the token. At lest 16 characters
   -i, --issuer <issuer> (REQUIRED)    Unique issuer of the token (for example URI identifiably the miner)
@@ -132,7 +221,7 @@ Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzcGVjaWFsdXNlciIsIm5iZiI6
 
 ```
 
-Now anyone `specialuser` using this token will offered special fee rates when uploaded. The special fees needs to be uploaded through admin interface
+Now any `specialuser` using this token will be offered special fee rates when uploaded. The special fees needs to be uploaded through admin interface
 
 To validate a token, you can use `validate` command:
 
@@ -194,7 +283,7 @@ Note: it is not possible to delete or update a fee quote once it is published, b
 
 The reference implementation can talk to one or more instances of bitcoind nodes.
 
-Each node that is being added to the Merchant API has to have zmq notifications enabled (***pubhashblock, pubinvalidtx, pubremovedfrommempool***). When enabling zmq notificationas on node, care should be taken that the URI that will be used for zmq notification is accessible from the host where the MerchantAPI will be running (*WARNING: localhost (127.0.0.1) should only be used if bitcoin node and MerchantAPI are running on same host*)
+Each node that is being added to the Merchant API has to have zmq notifications enabled (***pubhashblock, pubinvalidtx, pubdiscardedfrommempool***). When enabling zmq notificationas on node, care should be taken that the URI that will be used for zmq notification is accessible from the host where the MerchantAPI will be running (*WARNING: localhost (127.0.0.1) should only be used if bitcoin node and MerchantAPI are running on same host*)
 
 
 To create new connection to a new  bitcoind instance use:
