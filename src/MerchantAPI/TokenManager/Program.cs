@@ -119,7 +119,7 @@ namespace TokenManager
       {
         new Option<string>(
           new [] {"--name", "-n"},
-          description: "Unique name od the subject token is being issued to"
+          description: "Unique name of the subject token is being issued to"
         )
         {
           IsRequired = true
