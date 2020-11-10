@@ -131,7 +131,7 @@ namespace MerchantAPI.Common.Database
 
     private string GetConnectionStringFromConfig(string connectionStringName)
     {
-      return configuration[$"{connectionStringPrefix}{connectionStringName}"]; 
+      return configuration[$"{this.projectName + connectionStringPrefix}{connectionStringName}"] ?? configuration[$"{connectionStringPrefix}{connectionStringName}"] ; 
     }
 
     private bool ProcessDBFolder(string dbFolder, out string errorMessage, out string errorMessageShort)

@@ -13,6 +13,7 @@ using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
+using MerchantAPI.Common.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;

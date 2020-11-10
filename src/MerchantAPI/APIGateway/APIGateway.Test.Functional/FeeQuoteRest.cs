@@ -1,10 +1,18 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Repositories;
+using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common;
+using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Test;
+using MerchantAPI.Common.Test.Mock;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
@@ -16,13 +24,26 @@ using System.Web;
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestClass]
-  public class FeeQuoteRest : TestRestBase<FeeQuoteConfigViewModelGet, FeeQuoteViewModelCreate>
+  public class FeeQuoteRest : CommonRestMethodsBase<FeeQuoteConfigViewModelGet, FeeQuoteViewModelCreate, AppSettings> 
   {
+    public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
+    public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString)
+    {
+      return new TestServerBase().CreateServer<MapiServer, APIGatewayTestsStartup, MerchantAPI.APIGateway.Rest.Startup>(mockedServices, serverCallback, dbConnectionString);
+    }
+
+    public FeeQuoteRepositoryPostgres FeeQuoteRepository { get; private set; }
+
     [TestInitialize]
     public void TestInitialize()
     {
       Initialize(mockedServices: false);
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
+
+      FeeQuoteRepository = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryPostgres;
+      FeeQuoteRepositoryMock.quoteExpiryMinutes = 10;
     }
 
     [TestCleanup]
@@ -49,7 +70,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ValidFrom = DateTime.UtcNow.AddSeconds(1),
         Fees = new[] {
               new FeeViewModelCreate {
-                FeeType ="standard",
+                FeeType = Const.FeeType.Standard,
                 MiningFee = new FeeAmountViewModelCreate {
                   Satoshis = 500,
                   Bytes = 1000
@@ -60,7 +81,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 },
               },
               new FeeViewModelCreate {
-                FeeType ="data",
+                FeeType = Const.FeeType.Data,
                 MiningFee = new FeeAmountViewModelCreate {
                   Satoshis = 250,
                   Bytes = 1000
@@ -83,7 +104,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ValidFrom = MockedClock.UtcNow.AddSeconds(5),
         Fees = new[] {
               new FeeViewModelCreate {
-                FeeType ="standard",
+                FeeType = Const.FeeType.Standard,
                 MiningFee = new FeeAmountViewModelCreate {
                   Satoshis = 500,
                   Bytes = 1000
@@ -94,7 +115,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 },
               },
               new FeeViewModelCreate {
-                FeeType ="data",
+                FeeType = Const.FeeType.Data,
                 MiningFee = new FeeAmountViewModelCreate {
                   Satoshis = 250,
                   Bytes = 1000
@@ -119,7 +140,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 ValidFrom = MockedClock.UtcNow.AddSeconds(1),
                 Fees = new[] {
                   new FeeViewModelCreate {
-                    FeeType ="standard",
+                    FeeType = Const.FeeType.Standard,
                     MiningFee = new FeeAmountViewModelCreate {
                       Satoshis = 100,
                       Bytes = 1000
@@ -137,7 +158,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 ValidFrom = MockedClock.UtcNow.AddSeconds(1),
                 Fees = new[] {
                   new FeeViewModelCreate {
-                    FeeType ="standard",
+                    FeeType = Const.FeeType.Standard,
                     MiningFee = new FeeAmountViewModelCreate {
                       Satoshis = 200,
                       Bytes = 1000
@@ -166,10 +187,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
         var postFee = post.Fees[i].ToDomainObject();
         var getFee = get.Fees.Single(x => x.FeeType == postFee.FeeType);
         Assert.AreEqual(postFee.FeeType, getFee.FeeType);
-        Assert.AreEqual(postFee.MiningFee.Bytes, getFee.MiningFee.ToDomainObject(FeeAmount.AmountType.MiningFee).Bytes);
-        Assert.AreEqual(postFee.MiningFee.Satoshis, getFee.MiningFee.ToDomainObject(FeeAmount.AmountType.MiningFee).Satoshis);
-        Assert.AreEqual(postFee.RelayFee.Bytes, getFee.RelayFee.ToDomainObject(FeeAmount.AmountType.RelayFee).Bytes);
-        Assert.AreEqual(postFee.RelayFee.Satoshis, getFee.RelayFee.ToDomainObject(FeeAmount.AmountType.RelayFee).Satoshis);
+        Assert.AreEqual(postFee.MiningFee.Bytes, getFee.MiningFee.ToDomainObject(Const.AmountType.MiningFee).Bytes);
+        Assert.AreEqual(postFee.MiningFee.Satoshis, getFee.MiningFee.ToDomainObject(Const.AmountType.MiningFee).Satoshis);
+        Assert.AreEqual(postFee.RelayFee.Bytes, getFee.RelayFee.ToDomainObject(Const.AmountType.RelayFee).Bytes);
+        Assert.AreEqual(postFee.RelayFee.Satoshis, getFee.RelayFee.ToDomainObject(Const.AmountType.RelayFee).Satoshis);
       }
 
       Assert.AreEqual(post.Identity, get.Identity);

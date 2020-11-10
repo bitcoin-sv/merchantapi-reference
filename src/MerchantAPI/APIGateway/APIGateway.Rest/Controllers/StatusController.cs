@@ -1,19 +1,14 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using System;
-using System.Net;
 using System.Collections.Generic;
 using System.Linq;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.Common;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.Common.Swagger;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {

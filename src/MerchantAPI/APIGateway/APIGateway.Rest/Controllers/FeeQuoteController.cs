@@ -2,10 +2,12 @@
 
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.Common;
+using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Domain.Models;
+using MerchantAPI.Common.Swagger;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;

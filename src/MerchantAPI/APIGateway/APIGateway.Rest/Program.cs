@@ -1,5 +1,6 @@
 // Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.Common;
 using MerchantAPI.Common.Database;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;

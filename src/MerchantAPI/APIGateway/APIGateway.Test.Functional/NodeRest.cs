@@ -1,8 +1,15 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.Json;
+using MerchantAPI.Common.Test;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
 using System.Net;
@@ -14,13 +21,32 @@ using System.Threading.Tasks;
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestClass]
-  public class NodeRest : TestRestBase<NodeViewModelGet, NodeViewModelCreate>
+  public class NodeRest : CommonRestMethodsBase<NodeViewModelGet, NodeViewModelCreate, AppSettings> 
   {
+    public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
+    public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString)
+    {
+      return new TestServerBase().CreateServer<MapiServer, APIGatewayTestsStartup, MerchantAPI.APIGateway.Rest.Startup>(mockedServices, serverCallback, dbConnectionString);
+    }
+
+    protected RpcClientFactoryMock rpcClientFactoryMock;
+
     [TestInitialize]
     public void TestInitialize()
     {
       Initialize(mockedServices: true);
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
+
+      rpcClientFactoryMock = server.Services.GetRequiredService<IRpcClientFactory>() as RpcClientFactoryMock;
+
+      if (rpcClientFactoryMock != null)
+      {
+        rpcClientFactoryMock.AddKnownBlock(0, HelperTools.HexStringToByteArray(TestBase.genesisBlock));
+
+        rpcClientFactoryMock.Reset(); // remove calls that are used to test node connection when adding a new node
+      }
     }
 
     [TestCleanup]
@@ -28,6 +54,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       Cleanup();
     }
+
 
     public override string GetNonExistentKey() => "ThisKeyDoesNotExists:123";
     public override string GetBaseUrl() => MapiServer.ApiNodeUrl;
@@ -89,7 +116,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task CreateNode_WrongIdSyntax_ShouldReturnBadREquest()
+    public async Task CreateNode_WrongIdSyntax_ShouldReturnBadRequest()
     {
       //arrange
       var create = new NodeViewModelCreate
@@ -112,7 +139,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task CreateNode_WrongIdSyntax2_ShouldReturnBadREquest()
+    public async Task CreateNode_WrongIdSyntax2_ShouldReturnBadRequest()
     {
       //arrange
       var create = new NodeViewModelCreate

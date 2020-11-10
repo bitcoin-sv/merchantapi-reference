@@ -25,7 +25,7 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 WORKDIR /
-COPY ["Deploy/run.sh", "."]
+COPY ["Deploy/APIGateway/run.sh", "."]
 
 RUN chmod +x run.sh
 

@@ -44,7 +44,7 @@ namespace MerchantAPI.Common
 
     public BadRequestException(string message, Exception ex) : base(HttpStatusCode.BadRequest, message, ex) { }
 
-    public BadRequestException(string message, long executionTime) : base(HttpStatusCode.NotFound, message, executionTime) { }
+    public BadRequestException(string message, long executionTime) : base(HttpStatusCode.BadRequest, message, executionTime) { }
   }
 
   public class NotFoundException : HttpResponseException
@@ -63,6 +63,15 @@ namespace MerchantAPI.Common
   {
     public ExceptionWithSafeErrorMessage(string message) : base(message) { }
     public ExceptionWithSafeErrorMessage(string message, Exception ex) : base(message, ex) { }
+  }
+
+  public class ServiceUnavailableException : HttpResponseException
+  {
+    public ServiceUnavailableException(string message) : base(HttpStatusCode.NotFound, message) { }
+
+    public ServiceUnavailableException(string message, Exception ex) : base(HttpStatusCode.NotFound, message, ex) { }
+
+    public ServiceUnavailableException(string message, long executionTime) : base(HttpStatusCode.NotFound, message, executionTime) { }
   }
 }
 

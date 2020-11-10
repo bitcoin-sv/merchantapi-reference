@@ -4,7 +4,6 @@ using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common;
 using MerchantAPI.Common.BitcoinRpc;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;

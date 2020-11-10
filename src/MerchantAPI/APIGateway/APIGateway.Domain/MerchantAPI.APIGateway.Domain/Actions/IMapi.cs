@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.Common.Authentication;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {

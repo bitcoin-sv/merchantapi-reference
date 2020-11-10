@@ -1,0 +1,86 @@
+﻿@startuml 
+
+
+skinparam backgroundColor #FFFFFE
+' uncomment the line below if you're using computer with a retina display
+' skinparam dpi 300
+' we use bold for primary key
+' green color for unique
+' and underscore for not_null
+!define primary_key(x) <b>x</b>
+!define unique(x) <color:green>x</color>
+!define not_null(x) <u>x</u>   
+
+class Gateway {
+  primary_key(gatewayId): serial
+  not_null(url): string  
+  not_null(minerRef): string
+  not_null(email): string
+  not_null(organisationName): string
+  not_null(contactFirstName): string
+  not_null(contactLastName): string
+  not_null(createdAt): timestamp
+  remarks: string
+  lastError: string
+  lastErrorAt: timestamp
+  disabledAt: timestamp
+  deletedAt: timestamp
+}
+
+class Account {
+  primary_key(accountId): serial,
+  unique(not_null(identity)): string
+  not_null(identityProvider): string
+  not_null(email): string
+  not_null(organisationName): string
+  contactFirstName: string
+  contactLastName: string
+  not_null(createdAt): timestamp
+}
+
+class Subscription {
+  primary_key(subscriptionId): serial
+  not_null(accountId): long
+  not_null(serviceType): string
+  not_null(validFrom): datetime
+  validTo: datetime
+}
+Subscription --> "accountId" Account
+
+class ServiceRequest {
+  primary_key(serviceRequestId): serial
+  not_null(subscriptionId): long
+  not_null(created): datetime
+  not_null(responseCode): int
+  not_null(executionTimeMs): int
+}
+ServiceRequest --> "subscriptionId" Subscription
+
+class ServiceLevel {
+  primary_key(serviceLevelId): serial
+  not_null(level): int
+  not_null(description): string
+  not_null(feeType): string
+  validTo: datetime
+}
+
+class ServiceLevelFee {
+  primary_key(id): serial
+  not_null(serviceLevelId): long 
+  not_null(feeType): string 
+}
+
+ServiceLevelFee -> ServiceLevel
+
+class ServiceLevelFeeAmount {
+  primary_key(id): serial
+  not_null(serviceLevelFeeId): long 
+  not_null(feeAmountType): string 
+  not_null(satoshis): int
+  not_null(bytes): int
+}
+
+ServiceLevelFeeAmount -> ServiceLevelFee
+
+@enduml
+

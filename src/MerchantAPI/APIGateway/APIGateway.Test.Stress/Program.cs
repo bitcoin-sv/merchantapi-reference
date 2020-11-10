@@ -15,12 +15,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional;
-using MerchantAPI.APIGateway.Test.Functional.CallbackWebServer;
+using MerchantAPI.Common.Test.CallbackWebServer;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NBitcoin;
-
+using MerchantAPI.Common.ViewModels;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {

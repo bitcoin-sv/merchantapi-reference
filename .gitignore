@@ -1,7 +1,7 @@
 /src/MerchantAPI/**/bin
 /src/MerchantAPI/**/obj
 /src/MerchantAPI/**/*.user
-/build/**
+/**/build/**
 /src/.vs/**
 /src/TestResults
 /src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.test.functional.development.json

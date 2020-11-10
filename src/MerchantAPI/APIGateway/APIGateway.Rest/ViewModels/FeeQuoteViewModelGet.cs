@@ -4,7 +4,7 @@ using System;
 using System.Linq;
 using System.Text.Json.Serialization;
 using MerchantAPI.APIGateway.Domain;
-using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.Common.Domain.Models;
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels
 {

@@ -1,10 +1,9 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Text;
 using MerchantAPI.APIGateway.Domain.Actions;
+using MerchantAPI.Common;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
@@ -27,16 +26,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       if (!string.IsNullOrEmpty(url))
       {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsedUrl))
+        if (!CommonValidator.IsUrlValid(url, memberName, out var error))
         {
-          yield return new ValidationResult($"{memberName} should be a valid URL");
-        }
-        else if (
-          string.Compare(parsedUrl.Scheme, "http", StringComparison.InvariantCultureIgnoreCase) != 0 &&
-          string.Compare(parsedUrl.Scheme, "https", StringComparison.InvariantCultureIgnoreCase) != 0)
-        {
-          yield return new ValidationResult(
-            $"{memberName} uses invalid scheme. Only 'http' and 'https' are supported");
+          yield return new ValidationResult(error);
         }
       }
     }

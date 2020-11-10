@@ -5,7 +5,9 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common;
+using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Domain.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -307,7 +309,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
         "VALUES(@feeQuote, @feeType) " +
         "RETURNING *;";
 
-        var feeRes = connection.Query<Domain.Models.Fee>(insertFee,
+        var feeRes = connection.Query<Fee>(insertFee,
             new
             {
               feeQuote = feeQuoteRes.Id,
@@ -325,7 +327,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
               fee = feeRes.Id,
               satoshis = fee.MiningFee.Satoshis,
               bytes = fee.MiningFee.Bytes,
-              feeAmountType = FeeAmount.AmountType.MiningFee
+              feeAmountType = Const.AmountType.MiningFee
             }).Single();
         var feeAmountRelayFeeRes = connection.Query<FeeAmount>(insertFeeAmount,
             new
@@ -333,7 +335,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
               fee = feeRes.Id,
               satoshis = fee.RelayFee.Satoshis,
               bytes = fee.RelayFee.Bytes,
-              feeAmountType = FeeAmount.AmountType.RelayFee
+              feeAmountType = Const.AmountType.RelayFee
             }).Single();
 
         feeRes.MiningFee = feeAmountMiningFeeRes;

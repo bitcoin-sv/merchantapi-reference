@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.EventBus;
+using MerchantAPI.Common.NotificationsHandler;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;

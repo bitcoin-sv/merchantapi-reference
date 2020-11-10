@@ -1,20 +1,22 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.Common;
+
 namespace MerchantAPI.APIGateway.Domain
 {
-  public static class Const
+  public class Const: CommonConst
   {
     public const string MERCHANT_API_VERSION = "1.2.0"; 
   }
 
-  public static class CallbackReason
+  public class CallbackReason
   {
     public const string MerkleProof = "merkleProof";
     public const string DoubleSpend = "doubleSpend";
     public const string DoubleSpendAttempt = "doubleSpendAttempt";
   }
 
-  public static class ZMQTopic
+  public class ZMQTopic
   {
     public const string HashBlock = "hashblock";
     public const string InvalidTx = "invalidtx";

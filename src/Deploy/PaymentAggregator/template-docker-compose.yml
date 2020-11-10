@@ -1,0 +1,42 @@
+﻿version: '3.7'
+
+services:
+
+  merchant-aggregator-database:
+    container_name: aggregator-db
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: merchant_paymentaggregator
+    volumes:
+      - aggregator-volume:/var/lib/postgresql/data
+    networks:
+      - aggregator-network
+
+  merchant-aggregator-api:
+    container_name: aggregator
+    image: bitcoinsv/aggregator:{{VERSION}}
+    ports:
+      - "${HTTPSPORT}:443"
+    depends_on:
+      - merchant-aggregator-database
+    volumes:
+      - ./config/:/config/:ro
+    environment:
+      - PaymentAggregatorConnectionStrings:DBConnectionString=Server=merchant-aggregator-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_paymentaggregator;
+      - PaymentAggregatorConnectionStrings:DBConnectionStringMaster=Server=merchant-aggregator-database;Port=5432;User Id=postgres;Password=postgres;Database=merchant_paymentaggregator;
+      - AppSettings:RestAdminAPIKey=${RESTADMIN_APIKEY}
+      - AppSettings:CleanUpServiceRequestAfterDays=${CLEAN_UP_SERVICE_REQUEST_AFTER_DAYS}
+      - AppSettings:CleanUpServiceRequestPeriodSec=${CLEAN_UP_SERVICE_REQUEST_PERIOD_SEC}
+      - ASPNETCORE_ENVIRONMENT=PRODUCTION
+      - ASPNETCORE_URLS=https://+:443
+      - ASPNETCORE_HTTPS_PORT=${HTTPSPORT}
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=${CERTIFICATEPASSWORD}
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/config/${CERTIFICATEFILENAME}
+    networks:
+      - aggregator-network
+
+volumes:
+  aggregator-volume:
+networks:
+  aggregator-network:

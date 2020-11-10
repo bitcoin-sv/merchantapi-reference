@@ -1,5 +1,5 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
-
+/*
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using MerchantAPI.Common.Json;
@@ -60,3 +60,4 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
   }
 }
+*/

@@ -6,7 +6,6 @@ using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.APIGateway.Rest.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -22,10 +21,13 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi.Models;
 using System.Linq;
 using System.Net.Http;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Database;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
+using MerchantAPI.Common.Swagger;
+using MerchantAPI.Common.Authentication;
+using MerchantAPI.Common;
+using MerchantAPI.Common.NotificationsHandler;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -65,7 +67,7 @@ namespace MerchantAPI.APIGateway.Rest
       {
         options.DefaultAuthenticateScheme = ApiKeyAuthenticationOptions.DefaultScheme;
         options.DefaultChallengeScheme = ApiKeyAuthenticationOptions.DefaultScheme;
-        options.AddScheme(ApiKeyAuthenticationOptions.DefaultScheme, a => a.HandlerType = typeof(ApiKeyAuthenticationHandler));
+        options.AddScheme(ApiKeyAuthenticationOptions.DefaultScheme, a => a.HandlerType = typeof(ApiKeyAuthenticationHandler<AppSettings>));
       });
 
 
@@ -191,11 +193,11 @@ namespace MerchantAPI.APIGateway.Rest
         });
 
         // Add Admin authorization options.
-        c.AddSecurityDefinition(ApiKeyAuthenticationHandler.ApiKeyHeaderName, new OpenApiSecurityScheme
+        c.AddSecurityDefinition(ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName, new OpenApiSecurityScheme
         {
           Description = @"Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key",
           In = ParameterLocation.Header,
-          Name = ApiKeyAuthenticationHandler.ApiKeyHeaderName,
+          Name = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName,
           Type = SecuritySchemeType.ApiKey,
         });
 
@@ -203,13 +205,13 @@ namespace MerchantAPI.APIGateway.Rest
           {
             new OpenApiSecurityScheme
             {
-              Name = ApiKeyAuthenticationHandler.ApiKeyHeaderName,
+              Name = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName,
               Type = SecuritySchemeType.ApiKey,
               In = ParameterLocation.Header,
               Reference = new OpenApiReference
               {
                 Type = ReferenceType.SecurityScheme,
-                Id = ApiKeyAuthenticationHandler.ApiKeyHeaderName
+                Id = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName
               },
             },
             new string[] {}

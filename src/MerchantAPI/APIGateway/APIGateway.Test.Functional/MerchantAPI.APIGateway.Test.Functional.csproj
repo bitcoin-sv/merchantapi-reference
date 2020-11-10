@@ -7,14 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Remove="Mock\MockQuotes\feeQuotes.json" />
-    <Content Remove="Mock\MockQuotes\feeQuotesAllFree.json" />
-    <Content Remove="Mock\MockQuotes\feeQuotesWithCreatedAt.json" />
-    <Content Remove="Mock\MockQuotes\fees.json" />
-    <Content Remove="Mock\MockQuotes\fees_low.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.7" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.7" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
@@ -26,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Common\Common.Test\MerchantAPI.Common.Test\MerchantAPI.Common.Test.csproj" />
     <ProjectReference Include="..\APIGateway.Database\APIGateway.Database.csproj" />
     <ProjectReference Include="..\APIGateway.Domain\MerchantAPI.APIGateway.Domain\MerchantAPI.APIGateway.Domain.csproj" />
     <ProjectReference Include="..\APIGateway.Rest\MerchantAPI.APIGateway.Rest.csproj" />
@@ -38,14 +31,6 @@
     <Content Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Mock\MockQuotes\feeQuotes.json" />
-    <None Include="Mock\MockQuotes\feeQuotesAllFree.json" />
-    <None Include="Mock\MockQuotes\feeQuotesWithCreatedAt.json" />
-    <None Include="Mock\MockQuotes\fees.json" />
-    <None Include="Mock\MockQuotes\fees_low.json" />
   </ItemGroup>
 
 </Project>
