@@ -4,7 +4,7 @@ namespace MerchantAPI.APIGateway.Domain
 {
   public static class Const
   {
-    public const string MERCHANT_API_VERSION = "1.2.3"; 
+    public const string MERCHANT_API_VERSION = "1.2.0"; 
   }
 
   public static class CallbackReason

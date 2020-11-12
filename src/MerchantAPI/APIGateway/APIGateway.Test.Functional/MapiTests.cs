@@ -51,7 +51,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     void AssertIsOK(SubmitTransactionResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
     {
 
-      Assert.AreEqual("1.2.3", response.ApiVersion);
+      Assert.AreEqual("1.2.0", response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedResult, response.ReturnResult);
       Assert.AreEqual(expectedDescription, response.ResultDescription);
@@ -64,7 +64,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     void AssertIsOK(FeeQuoteViewModelGet response)
     {
 
-      Assert.AreEqual("1.2.3", response.ApiVersion);
+      Assert.AreEqual("1.2.0", response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
 
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
@@ -786,7 +786,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txC3Hash + "/" + tx2Hash);
 
       // validate header
-      Assert.AreEqual("1.2.3", response.ApiVersion);
+      Assert.AreEqual("1.2.0", response.ApiVersion);
       Assert.IsTrue((DateTime.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
       Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHeight, response.CurrentHighestBlockHeight);
