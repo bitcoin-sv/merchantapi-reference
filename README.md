@@ -109,19 +109,18 @@ Request Body:
 
 ```json
 {
-    "rawtx": "02000000010b86283aa3742d76c9756490e533c42785aba9c04bff1d1b03aefc5db9696a090000000049483045022100fa0710a65f3fc9989e202040a404661c750b2b8edcf4aeca63256db57cf2ec61022029cc2253ec21727e22727509fc6b80c493455c3c21c55863c7e61a917667c1d041ffffffff0210270000000000001976a91462870360a34f460be9f70cfa4d5b5bd6705909d588ac14df2901000000001976a9141d0ef42a5362089f66250df3b876767ab0eb4d3488ac00000000",
-    "callbackUrl": "https://your-server/api/v1/channel/533",
-    "callbackToken": "CNaecHA44nGNJCvvccx3TSxwb4F490574knnkf44S19W6cNmbumVa6k3ESQw",
-    "merkleProof": false,
+    "rawtx": "01000000015d7d8ffefc2b95a68a95d8e3c50715f8affc0e56ef58a05c773789e6fa3eb537010000006a47304402206c1ba36989bdca944c4ac1e74c23afaaf93fb6ded3a3d6e01f2c28667373c26e0220676085f6fe30071022ea5c8e790e7d9cf52671d0bc3c4d374991be65b6e11bc34121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff018c949800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000",
+    "callbackUrl":"https://your-server/api/v1/channel/533",
+    "callbackToken":"CNaecHA44nGNJCvvccx3TSxwb4F490574knnkf44S19W6cNmbumVa6k3ESQw",
+    "merkleProof":false,
     "dsCheck": true
 }
 ```
-
 #### Response:
 ```json
 {
-    "payload": "{\"apiVersion\":\"1.2.3\",\"timestamp\":\"2020-09-17T12:52:54.5817432Z\",\"txid\":\"8750e986a296d39262736ed8b8f8061c6dce1c262844e1ad674a3bc134772167\",\"returnResult\":\"failure\",\"resultDescription\":\"258 txn-mempool-conflict\",\"minerId\":\"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e\",\"currentHighestBlockHash\":\"5feae707b1dbd08fb2d58d961620e4316edeeff0c4a1ce8b007171aaf7374dd4\",\"currentHighestBlockHeight\":1333,\"txSecondMempoolExpiry\":0}",
-    "signature": "304402200c3ac8054adf9b3e97e021cc1db07101df93fd80992b7e26b1643f7c2320677e02207cf8d470d048822a922015ecb1cee194a8a6268314f8ed0c36661d9c275fb25c",
+    "payload": "{\"apiVersion\":\"1.2.0\",\"timestamp\":\"2020-11-13T08:04:25.9291559Z\",\"txid\":\"0d0ad5677eb0862f94b3eda7f13633f91cf7c4c8c14e1451ffd333d52ff8e207\",\"returnResult\":\"failure\",\"resultDescription\":\"Missing inputs\",\"minerId\":\"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e\",\"currentHighestBlockHash\":\"100677f99bdd7d4f0b8ea3f35d575d0f69a80f89b5b5f14e11005f57e5e63ef5\",\"currentHighestBlockHeight\":151,\"txSecondMempoolExpiry\":0,\"conflictedWith\":[{\"txid\":\"9f817649adde97338bcda695ee13ae1c71960eac60e49671fed0bdcf45581d94\",\"size\":191,\"hex\":\"01000000015d7d8ffefc2b95a68a95d8e3c50715f8affc0e56ef58a05c773789e6fa3eb537010000006a47304402206a9372778ff1ea314cfb2ec4e6bc93a57fe67c5ca915d004850f8079c876977c022066e3581cbec0eb2d525d4d83d01fff4f4e0b13a477f4f6a07d9168cc40bbabe54121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff0198929800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000\"}]}",
+    "signature": "3044022048739a74a7f14b870d410f02c60dafcee2899348c7cd1184977e9ac5096ba63a022038ca0066645d1201ba0f385bd88da4c9bc7410582ae7bb3e248d79b7dbcfd205",
     "publicKey": "030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
     "encoding": "UTF-8",
     "mimetype": "application/json"
