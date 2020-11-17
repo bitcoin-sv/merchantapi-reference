@@ -5,7 +5,7 @@ info:
 
 
     **Note**: Merchant API uses [JSON Envelopes](https://bitbucket.org/nchteamnch/jsonenvelope/src/master/) for its responses.
-  version: 1.2.2
+  version: 1.2.0-beta
   title: mAPI
   license:
     name: Open BSV License

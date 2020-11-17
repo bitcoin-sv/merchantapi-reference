@@ -4,7 +4,7 @@ info:
   description: >-
     The mAPI (Merchant API) admin is used as an interface for managing connections to bitcoin nodes and fee quotes.
 
-  version: 1.2.2
+  version: 1.2.0-beta
   title: mAPI Admin
   license:
     name: Open BSV License
