@@ -4,8 +4,8 @@ info:
     mAPI (Merchant API) is an additional service that miners can offer to merchants.
 
 
-    **Note**: Merchant API uses [JSON Envelopes](https://bitbucket.org/nchteamnch/jsonenvelope/src/master/) for its responses.
-  version: 1.2.0-beta
+    **Note**: mAPI uses [JSON Envelopes](https://bitbucket.org/nchteamnch/jsonenvelope/src/master/) for its responses.
+  version: 1.2.0
   title: mAPI
   license:
     name: Open BSV License
@@ -90,21 +90,21 @@ paths:
       summary: Submit multiple transactions.
       description: This endpoint is used to send multiple raw transactions to a miner for inclusion in the next block that the miner creates.
       parameters:
-        - name: defaultCallBackUrl
+        - name: defaultCallbackUrl
           in: query
           description: Default double spend and merkle proof notification callback endpoint.
           schema:
             type: string
             description: Default double spend and merkle proof notification callback endpoint.
             nullable: true
-        - name: defaultCallBackToken
+        - name: defaultCallbackToken
           in: query
           description: Default access token for notification callback endpoint.
           schema:
             type: string
             description: Default access token for notification callback endpoint.
             nullable: true
-        - name: defaultCallBackEncryption
+        - name: defaultCallbackEncryption
           in: query
           schema:
             type: string
@@ -117,10 +117,10 @@ paths:
             description: Default merkle proof requirement.
         - name: defaultDsCheck
           in: query
-          description: Default double spend notification reuest.
+          description: Default double spend notification request.
           schema:
             type: boolean
-            description: Default double spend notification reuest.
+            description: Default double spend notification request.
       requestBody:
         description: ''
         content:
@@ -173,7 +173,7 @@ components:
         apiVersion:
           type: string
           nullable: true
-        createdAt:
+        timestamp:
           type: string
           format: date-time
         expiryTime:
@@ -215,7 +215,7 @@ components:
         blockHash:
           type: string
           nullable: true
-        BlockHeight:
+        blockHeight:
           type: integer
           format: int64
           nullable: true
@@ -236,13 +236,13 @@ components:
         rawTx:
           type: string
           nullable: true
-        callBackUrl:
+        callbackUrl:
           type: string
           nullable: true
-        callBackToken:
+        callbackToken:
           type: string
           nullable: true
-        callBackEncryption:
+        callbackEncryption:
           type: string
           nullable: true
         merkleProof:

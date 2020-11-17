@@ -4,7 +4,7 @@ info:
   description: >-
     The mAPI (Merchant API) admin is used as an interface for managing connections to bitcoin nodes and fee quotes.
 
-  version: 1.2.0-beta
+  version: 1.2.0
   title: mAPI Admin
   license:
     name: Open BSV License
@@ -247,6 +247,30 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/NodeViewModelGet'
+  /api/v1/Status/zmq:
+    get:
+      tags:
+        - Status
+      summary: Get zmq subscriptions status
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ZmqStatusViewModelGet'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ZmqStatusViewModelGet'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ZmqStatusViewModelGet'
 components:
   schemas:
     FeeAmountViewModelGet:
@@ -380,15 +404,59 @@ components:
           format: date-time
           nullable: true
       additionalProperties: false
+    ZmqEndpointViewModelGet:
+      type: object
+      properties:
+        address:
+          type: string
+          nullable: true
+        topic:
+          type: array
+          items:
+            type: string
+          nullable: true
+        lastPingAt:
+          type: string
+          format: date-time
+        lastMessageAt:
+          type: string
+          format: date-time
+          nullable: true
+      additionalProperties: false
+    ZmqStatusViewModelGet:
+      type: object
+      properties:
+        nodeId:
+          type: string
+          nullable: true
+        endpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZmqEndpointViewModelGet'
+          nullable: true
+        isResponding:
+          type: boolean
+        lastConnectionAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+      additionalProperties: false
   securitySchemes:
     Bearer:
       type: apiKey
-      description: 'Please enter JWT with Bearer needed to access MAPI into field. Authorization: Bearer JWT'
+      description: >-
+        Please enter JWT with Bearer needed to access MAPI into field.
+        Authorization: Bearer JWT
       name: Authorization
       in: header
     Api-Key:
       type: apiKey
-      description: 'Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key'
+      description: >-
+        Please enter API key needed to access admin endpoints into field.
+        Api-Key: My_API_Key
       name: Api-Key
       in: header
 security:
