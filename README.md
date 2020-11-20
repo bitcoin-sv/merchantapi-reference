@@ -2,7 +2,11 @@
 
 More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi) for Merchant API.  
 
-### [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference)  
+> The old golang (v1.1) implementation is no longer being maintained and has been moved to the [golang-v1.1 branch](https://github.com/bitcoin-sv/merchantapi-reference/tree/golang-v1.1).
+
+## Swagger UI
+
+The REST API can also be seen in the [Swagger UI](https://bitcoin-sv.github.io/merchantapi-reference).
 
 ## Support
 
