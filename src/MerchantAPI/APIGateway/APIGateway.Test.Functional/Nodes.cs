@@ -33,7 +33,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       rpcClientFactoryMock.Reset();
 
       // Act
-      await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null));
+      await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null, null));
 
       rpcClientFactoryMock.AssertEqualAndClear(
         "node1:getblockcount", "node1:activezmqnotifications");
@@ -44,7 +44,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       rpcClientFactoryMock.DisconnectNode("node2");
 
       // Node is disconnected, will not be added
-      Assert.ThrowsException<AggregateException>(() => Nodes.CreateNodeAsync(new Node("node2", 0, "mocked", "mocked", null)).Result);
+      Assert.ThrowsException<AggregateException>(() => Nodes.CreateNodeAsync(new Node("node2", 0, "mocked", "mocked", null, null)).Result);
       rpcClientFactoryMock.AssertEqualAndClear(""); // no successful call was made
       Assert.IsNull(Nodes.GetNode("node2:0"));
     }

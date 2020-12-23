@@ -94,6 +94,7 @@ class Node {
   not_null(username): string
   not_null(password): string
   remarks: string
+  ZMQNotificationsEndpoint: string
   not_null(nodeStatus): int
   lastError: string
   lastErrorAt: timestamp

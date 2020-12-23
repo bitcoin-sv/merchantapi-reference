@@ -47,7 +47,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public Node AppendNode(int index)
     {
-      var node = new Node(index, "umockNode" + index, 1000 + index, "", "", "", (int)NodeStatus.Connected, null, null);
+      var node = new Node(index, "umockNode" + index, 1000 + index, "", "", "", null, (int)NodeStatus.Connected, null, null);
       nodes.Add(node);
       return node;
     }

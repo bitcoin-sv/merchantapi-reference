@@ -93,7 +93,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var bitcoind = StartBitcoind(index);
 
       var node = new Node(index, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a mock node #{index}",
-        (int)NodeStatus.Connected, null, null);
+        null, (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.CreateNodeAsync(node).Result;
       return bitcoind;

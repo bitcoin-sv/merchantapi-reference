@@ -25,6 +25,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("remarks")]
     public string Remarks { get; set; }
 
+    [JsonPropertyName("ZMQNotificationsEndpoint")]
+    public string ZMQNotificationsEndpoint { get; set; }
+
     // No NodeStatus
 
     public Node ToDomainObject()
@@ -36,7 +39,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
         port,
         Username,
         Password,
-        Remarks);
+        Remarks,
+        ZMQNotificationsEndpoint);
     }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

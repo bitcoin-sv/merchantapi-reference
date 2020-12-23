@@ -76,8 +76,8 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
       string insertOrUpdate =
         "INSERT INTO Node " +
-        "  (host, port, username, password, nodestatus, remarks) " +
-        "  VALUES (@host, @port, @username, @password, @nodestatus, @remarks)" +
+        "  (host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus) " +
+        "  VALUES (@host, @port, @username, @password, @remarks, @zmqnotificationsendpoint, @nodestatus)" +
         "  ON CONFLICT (host, port) DO NOTHING " +
         "  RETURNING *"
       ;
@@ -91,8 +91,9 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
           port = node.Port,
           username = node.Username,
           password = node.Password,
-          nodestatus = node.Status,
-          remarks = node.Remarks
+          remarks = node.Remarks,
+          zmqnotificationsendpoint = node.ZMQNotificationsEndpoint,
+          nodestatus = node.Status
         },
         transaction
       ).SingleOrDefault();
@@ -132,7 +133,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       using var transaction = connection.BeginTransaction();
       string update =
       "UPDATE Node " +
-      "  SET  username=@username, password=@password, remarks=@remarks " +
+      "  SET  username=@username, password=@password, remarks=@remarks, zmqnotificationsendpoint=@zmqnotificationsendpoint " +
       "  WHERE host=@host AND port=@port" +
       "  RETURNING *";
 
@@ -144,8 +145,8 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
           username = node.Username,
           password = node.Password,
           //nodestatus = node.Status, // NodeStatus is not present in ViewModel
-          remarks = node.Remarks
-
+          remarks = node.Remarks,
+          zmqnotificationsendpoint = node.ZMQNotificationsEndpoint
         },
         transaction
       ).SingleOrDefault();
@@ -255,7 +256,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       RetryUtils.Exec(() => connection.Open());
       using var transaction = connection.BeginTransaction();
       string cmdText =
-        @"SELECT nodeId, host, port, username, password, remarks, nodeStatus, lastError, lastErrorAt FROM node ORDER by host, port";
+        @"SELECT nodeId, host, port, username, password, remarks, zmqnotificationsendpoint, nodeStatus, lastError, lastErrorAt FROM node ORDER by host, port";
       return connection.Query<Node>(cmdText, null, transaction);
     }
 

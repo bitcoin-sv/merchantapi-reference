@@ -83,6 +83,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       entry.Remarks += "Updated remarks";
       entry.Username += "updatedUsername";
+      entry.ZMQNotificationsEndpoint = "updatedEndpoint";
     }
 
     public override NodeViewModelCreate[] GetItemsToCreate()
@@ -114,6 +115,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(post.Id.ToLower(), get.Id.ToLower()); // Ignore key case
       Assert.AreEqual(post.Remarks, get.Remarks);
       Assert.AreEqual(post.Username, get.Username);
+      Assert.AreEqual(post.ZMQNotificationsEndpoint, get.ZMQNotificationsEndpoint);
       // Password can not be retrieved. We also do not check additional fields such as LastErrorAt
     }
 
