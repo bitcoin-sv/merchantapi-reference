@@ -64,12 +64,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var restClient = (Mock.RpcClientMock)rpcClient;
 
       long blockCount;
+      string blockHash;
       do
       {
         var tx = Transaction.Parse(Tx1Hex, Network.Main);
-        blockCount = await CreateAndPublishNewBlock(rpcClient, restClient, null, tx);
+        (blockCount, blockHash) = await CreateAndPublishNewBlock(rpcClient, restClient, null, tx, true);
       }
       while (blockCount < 20);
+      PublishBlockHashToEventBus(blockHash);
 
       uint256 forkBlockHeight8Hash = uint256.Zero;
       uint256 forkBlockHeight9Hash = uint256.Zero;
@@ -108,15 +110,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
       var restClient = rpcClientFactoryMock.Create(node.Host, node.Port);
 
-      long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RestClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
-      PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
-      var firstBlockHash = firstBlock.GetHash();
-
-      blockCount = await CreateAndPublishNewBlock(rpcClient, restClient, null);
+      var (blockCount, _) = await CreateAndPublishNewBlock(rpcClient, restClient, null, null);
 
       NBitcoin.Block forkBlock = null;
       var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);

@@ -58,7 +58,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
       rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
       var firstBlockHash = firstBlock.GetHash();
 
       var pubKey = firstBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First();
@@ -70,7 +69,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long forkHeight = blockCount++;
       rpcClientFactoryMock.AddKnownBlock(forkHeight, block1.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
 
       var block2 = block1.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       var tx2 = Transaction.Parse(Tx2Hex, Network.Main);
@@ -78,7 +76,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       block2.Check();
       rpcClientFactoryMock.AddKnownBlock(blockCount++, block2.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
 
       if (dsCheckMempool)
       {
@@ -236,7 +233,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       List<Tx> txList = await CreateAndInsertTxAsync(false, true);
 
       (_, _, var firstBlockHash) = await InsertDoubleSpend();
-      WaitUntilEventBusIsIdle();
 
       await CheckTxListPresentInDbAsync(txList, true);
       await CheckBlockPresentInDbAsync(firstBlockHash);
@@ -275,7 +271,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var cleanUpTxTriggeredSubscription = eventBus.Subscribe<CleanUpTxTriggeredEvent>();
 
       (List<Tx> txList, uint256 firstBlockHash) = await CreateAndInsertTxWithMempoolAsync(dsCheckMempool: true);
-      WaitUntilEventBusIsIdle();
 
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
       List<byte[]> dsTxId = new List<byte[]>
@@ -292,7 +287,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
           dsTx.TxExternalIdBytes,
           txPayload);
       }
-      WaitUntilEventBusIsIdle();
       var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToList();
       Assert.AreEqual(1, doubleSpends.Count());
 

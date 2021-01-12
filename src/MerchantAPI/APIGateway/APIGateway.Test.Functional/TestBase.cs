@@ -211,19 +211,20 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public async Task<long> CreateAndPublishNewBlock(IRpcClient rpcClient, IRestClient restClient, long? blockHeightToStartFork, params Transaction[] transactions)
+    public async Task<(long, string)> CreateAndPublishNewBlock(IRpcClient rpcClient, IRestClient restClient, long? blockHeightToStartFork, Transaction transaction, bool noPublish = false)
     {
-      long blockCount = await rpcClient.GetBlockCountAsync();
-      if (blockCount == 0)
+      string blockHash = null;
+      long blockHeight = await rpcClient.GetBlockCountAsync();
+      if (blockHeight == 0)
       {
         var blockHex = await restClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync());
         var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
-        rpcClientFactoryMock.AddKnownBlock(blockCount, firstBlock.ToBytes());
+        rpcClientFactoryMock.AddKnownBlock(blockHeight, firstBlock.ToBytes());
         PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
       }
       PubKey pubKey = new Key().PubKey;
 
-      foreach (var tx in transactions)
+      if (transaction != null)
       {
         NBitcoin.Block lastBlock;
         if (blockHeightToStartFork.HasValue)
@@ -235,18 +236,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
           lastBlock = NBitcoin.Block.Load(await restClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync()), Network.Main);
         }
         var block = lastBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
-        block.AddTransaction(tx);
+        block.AddTransaction(transaction);
         block.Check();
         if (blockHeightToStartFork.HasValue)
         {
-          blockCount = blockHeightToStartFork.Value;
+          blockHeight = blockHeightToStartFork.Value;
         }
 
-        rpcClientFactoryMock.AddKnownBlock(++blockCount, block.ToBytes());
-        PublishBlockHashToEventBus(block.GetHash().ToString());
+        rpcClientFactoryMock.AddKnownBlock(++blockHeight, block.ToBytes());
+        blockHash = block.GetHash().ToString();
+        if (!noPublish)
+        {
+          PublishBlockHashToEventBus(block.GetHash().ToString());
+        }
       }
 
-      return blockCount;
+      return (blockHeight, blockHash);
     }
 
     protected void PublishBlockHashToEventBus(string blockHash)

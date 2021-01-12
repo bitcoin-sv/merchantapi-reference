@@ -132,7 +132,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, Callback.Calls.Length);
 
       var notificationEventSubscription = eventBus.Subscribe<NewNotificationEvent>();
-
       // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
       // with troubleshooting:
       var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
