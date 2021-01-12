@@ -128,7 +128,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     static readonly string commonTestPrefix = typeof(TestBaseWithBitcoind).Namespace + ".";
     static readonly int bitcoindInternalPathLength = "regtest/blocks/index/MANIFEST-00000".Length + 10;
-    public BitcoindProcess StartBitcoind(int nodeIndex)
+    public BitcoindProcess StartBitcoind(int nodeIndex, BitcoindProcess[] nodesToConnect = null)
     {
 
       string testPerfix = TestContext.FullyQualifiedTestClassName;
@@ -148,7 +148,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         bitcoindFullPath,
         dataDirRoot,
         nodeIndex, hostIp, zmqIp, loggerFactory,
-        server.Services.GetRequiredService<IHttpClientFactory>());
+        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect);
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }

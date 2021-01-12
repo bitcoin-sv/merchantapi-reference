@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using MerchantAPI.Common.BitcoinRest;
 using MerchantAPI.Common.BitcoinRpc;
@@ -36,7 +37,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     /// </summary>
     ConcurrentDictionary<string,object> disconnectedNodes = new ConcurrentDictionary<string, object>(StringComparer.InvariantCultureIgnoreCase);
     ConcurrentDictionary<string, object> doNotTraceMethods = new ConcurrentDictionary<string,object>(StringComparer.InvariantCultureIgnoreCase);
-
+    IList<(string, int)> validScriptCombinations = new List<(string, int)>();
+    
 
     public RpcClientFactoryMock()
     {
@@ -82,6 +84,10 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       blocks.TryAdd(blockHash, b);
     }
 
+    public void AddScriptCombination(string tx, int n)
+    {
+      validScriptCombinations.Add((tx, n));
+    }
 
     public readonly RpcCallList AllCalls = new RpcCallList(); 
 
@@ -90,14 +96,16 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       // Currently all mocks share same transactions and blocks
       return new RpcClientMock(AllCalls, host, port, username, password,
         transactions,
-        blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse);
+        blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse,
+        validScriptCombinations);
     }
     public virtual IRestClient Create(string host, int port)
     {
       // Currently all mocks share same transactions and blocks
       return new RpcClientMock(AllCalls, host, port, "mockUsername", "mockPassword",
         transactions,
-        blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse);
+        blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse,
+        validScriptCombinations);
     }
 
     /// <summary>

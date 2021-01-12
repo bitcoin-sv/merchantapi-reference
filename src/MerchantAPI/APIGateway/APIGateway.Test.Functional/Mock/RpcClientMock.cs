@@ -26,7 +26,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     ConcurrentDictionary<uint256, BlockWithHeight> blocks;
     ConcurrentDictionary<string, object> disconnectedNodes;
     ConcurrentDictionary<string, object> doNotTraceMethods;
-    
+    IList<(string, int)> validScriptCombinations;
+
     // Key is nodeID:memberName value is value that should be returned to the caller
     private ConcurrentDictionary<string, object> predefinedResponse;
 
@@ -38,7 +39,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       ConcurrentDictionary<uint256, BlockWithHeight> blocks,
       ConcurrentDictionary<string, object> disconnectedNodes,
       ConcurrentDictionary<string, object> doNotTraceMethods,
-      ConcurrentDictionary<string, object> predefinedResponse
+      ConcurrentDictionary<string, object> predefinedResponse,
+      IList<(string, int)> validScriptCombinations
       )
     {
       this.callList = callList;
@@ -48,6 +50,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       this.disconnectedNodes = disconnectedNodes;
       this.doNotTraceMethods = doNotTraceMethods;
       this.predefinedResponse = predefinedResponse;
+      this.validScriptCombinations = validScriptCombinations;
     }
 
     public void ThrowIfDisconnected()
@@ -430,12 +433,26 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return Task.FromResult(new string[0]);
     }
 
-    Task<RpcVerifyScriptResponse[]> IRpcClient.VerifyScriptAsync(bool stopOnFirstInvalid, 
+    public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid, 
                                                                  int totalTimeoutSec,
-                                                                 IEnumerable<(string Tx, int N)> dsTx, CancellationToken? token = null)
+                                                                 IEnumerable<(string Tx, int N)> dsTx, CancellationToken? token)
     {
-      throw new NotImplementedException();
+      var results = new List<RpcVerifyScriptResponse>();
+      foreach (var tx in dsTx)
+      {
+        if (validScriptCombinations.Contains(tx))
+        {
+          results.Add(new RpcVerifyScriptResponse { Result = "ok" });
+        }
+        else
+        {
+          results.Add(new RpcVerifyScriptResponse { Result = "error" });
+        }
+      }
+
+      return Task.FromResult(results.ToArray());
     }
+
   }
 
 }
