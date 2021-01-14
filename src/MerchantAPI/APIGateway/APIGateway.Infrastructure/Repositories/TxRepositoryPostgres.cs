@@ -411,7 +411,7 @@ WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true AND txExternalId= @txI
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT txInternalId, txExternalId TxExternalIdBytes
+SELECT txInternalId, txExternalId TxExternalIdBytes, merkleProof
 FROM Tx
 WHERE NOT EXISTS 
 (

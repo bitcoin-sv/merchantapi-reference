@@ -75,19 +75,20 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var txIdsFromBlock = new HashSet<uint256>(block.Transactions.Select(x => x.GetHash()));
 
       // Generate a list of transactions that are present in the last block and are also present in our database without a link to existing block
-      var transactionsForMerkleProofCheck = txsToCheck.Where(x => txIdsFromBlock.Contains(x.TxExternalId)).ToArray();
+      var txsToLinkToBlock = txsToCheck.Where(x => txIdsFromBlock.Contains(x.TxExternalId)).ToArray();
 
-      await txRepository.InsertTxBlockAsync(transactionsForMerkleProofCheck.Select(x => x.TxInternalId).ToList(), blockInternalId);
-      foreach (var transaction in transactionsForMerkleProofCheck)
+      await txRepository.InsertTxBlockAsync(txsToLinkToBlock.Select(x => x.TxInternalId).ToList(), blockInternalId);
+      foreach (var transactionForMerkleProofCheck in txsToLinkToBlock.Where(x => x.MerkleProof).ToArray())
       {
         var notificationEvent = new NewNotificationEvent()
                                 {
                                   CreationDate = clock.UtcNow(),
                                   NotificationType = CallbackReason.MerkleProof,
-                                  TransactionId = transaction.TxExternalIdBytes
+                                  TransactionId = transactionForMerkleProofCheck.TxExternalIdBytes
                                 };
         eventBus.Publish(notificationEvent);
       }
+      await txRepository.SetBlockParsedForMerkleDateAsync(blockInternalId);
     }
 
     private async Task TransactionsDSCheckAsync(NBitcoin.Block block, long blockInternalId)
