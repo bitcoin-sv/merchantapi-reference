@@ -1,8 +1,9 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using MerchantAPI.Common;
-using MerchantAPI.Common.ViewModels;
+using MerchantAPI.Common.Exceptions;
 using MerchantAPI.PaymentAggregator.Domain.Models;
+using MerchantAPI.PaymentAggregator.Domain.ViewModels;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;

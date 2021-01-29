@@ -1,10 +1,10 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.Common.ViewModels;
+using MerchantAPI.PaymentAggregator.Domain.ViewModels;
 using MerchantAPI.PaymentAggregator.Rest.ViewModels;
 using System.Threading.Tasks;
 
-namespace MerchantAPI.PaymentAggregator.Domain.Actions
+namespace MerchantAPI.PaymentAggregator.Rest.Actions
 {
   public interface IAggregator
   {

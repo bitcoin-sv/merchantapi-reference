@@ -1,0 +1,84 @@
+﻿[
+  {
+    "fees": [
+      {
+        "feeType": "standard",
+        "miningFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 250,
+          "bytes": 1000
+        }
+      },
+      {
+        "feeType": "data",
+        "miningFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 250,
+          "bytes": 1000
+        }
+      }
+    ]
+  },
+  {
+    "fees": [
+      {
+        "feeType": "standard",
+        "miningFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 250,
+          "bytes": 1000
+        }
+      },
+      {
+        "feeType": "data",
+        "miningFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        }
+      }
+    ],
+    "identity": 5,
+    "identityProvider": "http://mysite.com"
+  },
+  {
+    "fees": [
+      {
+        "feeType": "standard",
+        "miningFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 250,
+          "bytes": 1000
+        }
+      },
+      {
+        "feeType": "data",
+        "miningFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 0,
+          "bytes": 1000
+        }
+      }
+    ],
+    "identity": "testName",
+    "identityProvider": "http://mysite.com"
+  }
+]

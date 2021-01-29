@@ -33,7 +33,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PaymentAggregator.Database"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.PaymentAggregator.Test.Functional", "MerchantAPI\PaymentAggregator\PaymentAggregator.Test.Functional\MerchantAPI.PaymentAggregator.Test.Functional.csproj", "{40D4DAA8-5EAD-4924-89C2-55D78043E0B6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MerchantAPI.Common.Test", "MerchantAPI\Common\Common.Test\MerchantAPI.Common.Test\MerchantAPI.Common.Test.csproj", "{BD1AB168-2E1E-40C6-8326-477476A896FC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.Common.Test", "MerchantAPI\Common\Common.Test\MerchantAPI.Common.Test\MerchantAPI.Common.Test.csproj", "{BD1AB168-2E1E-40C6-8326-477476A896FC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

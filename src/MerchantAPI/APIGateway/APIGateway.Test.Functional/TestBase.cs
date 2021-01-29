@@ -1,11 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Dapper;
+using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
@@ -14,24 +9,22 @@ using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.Authentication;
-using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
-using Npgsql.Logging;
-using Microsoft.AspNetCore.TestHost;
-using MerchantAPI.Common.Domain.Models;
-using MerchantAPI.Common.Test.Mock;
-using MerchantAPI.Common;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
-  public class TestBase: CommonTestRestBase<AppSettings>
+  public class TestBase : CommonTestRestBase<AppSettings>
   {
 
     public TxRepositoryPostgres TxRepositoryPostgres { get; private set; }
@@ -42,8 +35,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public IBlockChainInfo BlockChainInfo { get; private set; }
 
-    public INodes Nodes { get; private set;  }
-    
+    public INodes Nodes { get; private set; }
+
     public IRpcMultiClient rpcMultiClient { get; private set; }
 
     public IBlockChainInfo blockChainInfo { get; private set; }
@@ -91,7 +84,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       "01000000017c349529a5007d11ddddb9356a5b137282b4c8f98bb6ed74d6ad65813cbd7da0010000006b483045022100e0a4fb47b9ff8cab51bac9904a7462ea063d4ab588e197231b03cd699d79990602205b9beb6a31ade571f021a117a0bcd1afbc63a786ffc61af898abce402d84c1520121022cd68b60621f51af57f1c87e52e1b1f394584273d104dff2c2b80329115c39b0ffffffff0240420f00000000001976a914cc7ab903497dc6326c5e5135bba23f1a4653db2388acb0f05202000000001976a91461f8d0abc4c919b0693030734f4d9d3ce424fef988ac00000000";
 
     //public const string txC2Input1Hex = tx0Hex;
-      
+
 
     public const string txZeroFeeHash = "54dc90aa618ea1c300aac021399c66f5f5152848a57984a757075036e3046147";
 
@@ -170,7 +163,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public void  WaitUntilEventBusIsIdle()
+    public void WaitUntilEventBusIsIdle()
     {
       eventBus.WaitForIdle();
       loggerTest.LogInformation("Waiting for the EventBus to become idle completed");
@@ -184,7 +177,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         {
           action(); //this could take more than timeOutSeconds - we currently do not use cancellation tokens
         }
-        catch 
+        catch
         {
           return;
         }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.Common;
+using MerchantAPI.Common.Validation;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {

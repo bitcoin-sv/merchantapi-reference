@@ -7,7 +7,7 @@ using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Clock;
-using MerchantAPI.Common.Domain.Models;
+using MerchantAPI.Common.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Npgsql;

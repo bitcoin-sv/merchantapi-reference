@@ -1,10 +1,8 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.Common;
 using MerchantAPI.Common.Clock;
-using MerchantAPI.Common.Test.Mock;
+using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using MerchantAPI.PaymentAggregator.Domain.Client;
-using MerchantAPI.PaymentAggregator.Rest;
 using MerchantAPI.PaymentAggregator.Test.Functional.Mock;
 using MerchantAPI.PaymentAggregator.Test.Functional.Mock.CleanUpServiceRequest;
 using Microsoft.AspNetCore.Hosting;

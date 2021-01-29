@@ -9,7 +9,6 @@ using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.ExternalServices;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.NotificationsHandler;
-using MerchantAPI.Common.ViewModels;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

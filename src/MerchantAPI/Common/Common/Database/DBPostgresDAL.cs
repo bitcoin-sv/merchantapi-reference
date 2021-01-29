@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using Dapper;
+using MerchantAPI.Common.Tasks;
 using Npgsql;
 using System;
 using System.IO;

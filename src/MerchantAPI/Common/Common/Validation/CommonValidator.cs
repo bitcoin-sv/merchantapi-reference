@@ -4,7 +4,7 @@ using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace MerchantAPI.Common
+namespace MerchantAPI.Common.Validation
 {
   public class CommonValidator
   {

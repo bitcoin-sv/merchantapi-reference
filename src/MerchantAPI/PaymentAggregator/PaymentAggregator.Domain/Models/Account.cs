@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using MerchantAPI.Common;
+using MerchantAPI.Common.Validation;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;

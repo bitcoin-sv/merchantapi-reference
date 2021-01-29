@@ -10,6 +10,7 @@ using MerchantAPI.Common;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Tasks;
 
 namespace MerchantAPI.PaymentAggregator.Infrastructure.Repositories
 {

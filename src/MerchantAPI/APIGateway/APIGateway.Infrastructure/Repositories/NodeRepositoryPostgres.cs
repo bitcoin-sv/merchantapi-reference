@@ -11,6 +11,7 @@ using System.Linq;
 using Microsoft.Extensions.Configuration;
 using NBitcoin;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Tasks;
 
 namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {

@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Net;
 
-namespace MerchantAPI.Common
+namespace MerchantAPI.Common.Extensions
 {
   public static class ExtensionMethods
   {

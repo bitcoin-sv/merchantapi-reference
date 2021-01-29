@@ -1,20 +1,18 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.Common;
 using MerchantAPI.Common.Clock;
-using MerchantAPI.Common.Domain.Models;
 using MerchantAPI.Common.Json;
-using MerchantAPI.Common.Test.Mock;
+using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using MerchantAPI.PaymentAggregator.Domain.Client;
+using MerchantAPI.PaymentAggregator.Domain.Models;
 using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using MerchantAPI.Common.ViewModels;
+using MerchantAPI.PaymentAggregator.Domain.ViewModels;
 using MerchantAPI.PaymentAggregator.Rest.ViewModels;
-using MerchantAPI.PaymentAggregator.Consts;
 
 namespace MerchantAPI.PaymentAggregator.Test.Functional.Mock
 {

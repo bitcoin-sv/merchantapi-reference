@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Domain.Models;
-using MerchantAPI.Common.Swagger;
+using MerchantAPI.APIGateway.Rest.Swagger;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {

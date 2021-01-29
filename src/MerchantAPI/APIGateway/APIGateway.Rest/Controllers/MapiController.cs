@@ -10,6 +10,7 @@ using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,13 +19,9 @@ using Microsoft.Extensions.Options;
 using MerchantAPI.APIGateway.Domain;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using NBitcoin;
-using Newtonsoft.Json.Linq;
 using MerchantAPI.Common.Clock;
-using MerchantAPI.Common.Swagger;
+using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Authentication;
-using MerchantAPI.Common;
-using MerchantAPI.Common.Domain.Models;
-using MerchantAPI.Common.ViewModels;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {

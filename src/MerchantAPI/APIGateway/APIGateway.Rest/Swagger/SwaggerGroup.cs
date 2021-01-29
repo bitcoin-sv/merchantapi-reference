@@ -1,6 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-namespace MerchantAPI.Common.Swagger
+namespace MerchantAPI.APIGateway.Rest.Swagger
 {
   public static class SwaggerGroup
   {

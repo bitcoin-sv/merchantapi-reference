@@ -2,8 +2,7 @@
 
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
-using MerchantAPI.Common.ViewModels;
-using MerchantAPI.PaymentAggregator.Consts;
+using MerchantAPI.PaymentAggregator.Domain.ViewModels;
 using MerchantAPI.PaymentAggregator.Infrastructure.Repositories;
 using MerchantAPI.PaymentAggregator.Rest.ViewModels;
 using MerchantAPI.PaymentAggregator.Test.Functional.Mock;

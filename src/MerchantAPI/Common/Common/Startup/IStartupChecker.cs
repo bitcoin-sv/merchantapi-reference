@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace MerchantAPI.Common
+namespace MerchantAPI.Common.Startup
 {
   public interface IStartupChecker
   {

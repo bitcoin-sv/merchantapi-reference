@@ -9,10 +9,11 @@ using Microsoft.Extensions.Logging;
 using MerchantAPI.PaymentAggregator.Rest.ViewModels;
 using System.Net;
 using MerchantAPI.PaymentAggregator.Domain.Models;
-using MerchantAPI.Common.Swagger;
+using MerchantAPI.PaymentAggregator.Rest.Swagger;
 using Microsoft.AspNetCore.Authorization;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common;
+using MerchantAPI.Common.Extensions;
 
 namespace MerchantAPI.PaymentAggregator.Rest.Controllers
 {

@@ -3,6 +3,7 @@
 using MerchantAPI.Common;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.PaymentAggregator.Domain.Client;
+using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using System;
 
 namespace MerchantAPI.PaymentAggregator.Test.Functional.Mock

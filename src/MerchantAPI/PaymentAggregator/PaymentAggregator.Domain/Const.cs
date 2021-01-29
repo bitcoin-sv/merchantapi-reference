@@ -1,16 +1,29 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.Common;
 using System.Linq;
 
 namespace MerchantAPI.PaymentAggregator.Consts
 {
-  public class Const : CommonConst
+  public class Const 
   {
     public const string PAYMENT_AGGREGATOR_API_VERSION = "1.0.0";
 
     public const string EXCEPTION_DETAILS_EXECUTION_TIME = "ExecutionTime";
     public const string EXCEPTION_DETAILS_SUBSCRIPTION_ID = "SubscriptionId";
+
+    public class FeeType
+    {
+      public const string Standard = "standard";
+      public const string Data = "data";
+
+      public static readonly string[] RequiredFeeTypes = { Standard, Data };
+    }
+
+    public class AmountType
+    {
+      public const string MiningFee = "MiningFee";
+      public const string RelayFee = "RelayFee";
+    }
   }
 
   public class ServiceType

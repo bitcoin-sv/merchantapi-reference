@@ -4,7 +4,7 @@ using Dapper;
 using System;
 using System.Data;
 
-namespace MerchantAPI.Common
+namespace MerchantAPI.Common.TypeHandlers
 {
   public class DateTimeHandler : SqlMapper.TypeHandler<DateTime>
   {

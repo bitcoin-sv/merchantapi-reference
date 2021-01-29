@@ -1,6 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.Common.ViewModels;
+using MerchantAPI.PaymentAggregator.Domain.ViewModels;
 using System.Text.Json.Serialization;
 
 namespace MerchantAPI.PaymentAggregator.Rest.ViewModels

@@ -10,7 +10,6 @@ using MerchantAPI.Common.Test.CallbackWebServer;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Http;
 using NBitcoin;
-using MerchantAPI.Common.ViewModels;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {

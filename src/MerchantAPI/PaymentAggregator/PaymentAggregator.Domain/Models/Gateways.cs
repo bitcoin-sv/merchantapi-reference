@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.Common;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Exceptions;
 using MerchantAPI.PaymentAggregator.Domain.Client;
 using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using Microsoft.Extensions.Logging;

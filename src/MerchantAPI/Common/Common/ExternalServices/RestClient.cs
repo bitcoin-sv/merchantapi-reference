@@ -9,6 +9,7 @@ using System.Net.Mime;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MerchantAPI.Common.Exceptions;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Mvc;
 

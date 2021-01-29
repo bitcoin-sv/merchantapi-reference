@@ -3,7 +3,7 @@
 using System;
 using System.Net;
 
-namespace MerchantAPI.Common
+namespace MerchantAPI.Common.Exceptions
 {
   public class HttpResponseException : Exception
   {

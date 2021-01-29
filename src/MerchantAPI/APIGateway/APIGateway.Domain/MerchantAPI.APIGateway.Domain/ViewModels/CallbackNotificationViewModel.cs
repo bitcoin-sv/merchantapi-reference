@@ -8,6 +8,7 @@ using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
 using NBitcoin;
+using MerchantAPI.Common.Exceptions;
 
 namespace MerchantAPI.APIGateway.Domain.ViewModels
 {

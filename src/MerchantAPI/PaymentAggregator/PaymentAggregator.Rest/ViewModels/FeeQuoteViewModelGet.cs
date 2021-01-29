@@ -3,8 +3,7 @@
 using System;
 using System.Linq;
 using System.Text.Json.Serialization;
-using MerchantAPI.Common.Domain.Models;
-using MerchantAPI.PaymentAggregator.Consts;
+using MerchantAPI.PaymentAggregator.Domain.Models;
 
 namespace MerchantAPI.PaymentAggregator.Rest.ViewModels
 {

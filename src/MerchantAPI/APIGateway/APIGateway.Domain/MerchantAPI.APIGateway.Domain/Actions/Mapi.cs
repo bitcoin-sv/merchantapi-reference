@@ -18,7 +18,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Collections.ObjectModel;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Authentication;
-using MerchantAPI.Common.Domain.Models;
+using MerchantAPI.Common.Exceptions;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {

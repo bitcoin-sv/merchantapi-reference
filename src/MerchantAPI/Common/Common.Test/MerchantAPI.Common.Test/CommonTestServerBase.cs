@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MerchantAPI.Common.NotificationsHandler;
+using MerchantAPI.Common.Startup;
 
 namespace MerchantAPI.Common.Test
 {

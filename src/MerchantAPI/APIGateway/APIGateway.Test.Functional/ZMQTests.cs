@@ -18,7 +18,6 @@ using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
-using MerchantAPI.Common.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

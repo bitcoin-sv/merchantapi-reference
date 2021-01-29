@@ -14,6 +14,8 @@ using Microsoft.Extensions.Configuration;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.Common.Database;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
+using MerchantAPI.Common.Startup;
+using MerchantAPI.Common.Tasks;
 
 namespace MerchantAPI.APIGateway.Rest
 {

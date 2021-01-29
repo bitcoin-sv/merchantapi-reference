@@ -4,7 +4,7 @@ using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.Common;
+using MerchantAPI.Common.Exceptions;
 using MerchantAPI.Common.ExternalServices;
 using MerchantAPI.Common.Json;
 

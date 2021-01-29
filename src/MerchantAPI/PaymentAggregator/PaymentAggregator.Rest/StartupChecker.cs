@@ -2,6 +2,8 @@
 
 using MerchantAPI.Common;
 using MerchantAPI.Common.Database;
+using MerchantAPI.Common.Startup;
+using MerchantAPI.Common.Tasks;
 using MerchantAPI.PaymentAggregator.Domain.Client;
 using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using Microsoft.Extensions.Logging;

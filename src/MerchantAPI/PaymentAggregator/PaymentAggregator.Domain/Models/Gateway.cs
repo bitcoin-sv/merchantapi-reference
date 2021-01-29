@@ -3,7 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using MerchantAPI.Common;
+using MerchantAPI.Common.Validation;
 
 namespace MerchantAPI.PaymentAggregator.Domain.Models
 {

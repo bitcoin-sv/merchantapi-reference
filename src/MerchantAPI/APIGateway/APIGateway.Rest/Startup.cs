@@ -24,10 +24,11 @@ using System.Net.Http;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Database;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
-using MerchantAPI.Common.Swagger;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common;
 using MerchantAPI.Common.NotificationsHandler;
+using MerchantAPI.APIGateway.Rest.Swagger;
+using MerchantAPI.Common.Startup;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -49,7 +50,7 @@ namespace MerchantAPI.APIGateway.Rest
     public virtual void ConfigureServices(IServiceCollection services)
     {
       // time in database is UTC so it is automatically mapped to Kind=UTC
-      Dapper.SqlMapper.AddTypeHandler(new Common.DateTimeHandler());
+      Dapper.SqlMapper.AddTypeHandler(new MerchantAPI.Common.TypeHandlers.DateTimeHandler());
 
       services.AddOptions<IdentityProviders>()
         .Bind(Configuration.GetSection("IdentityProviders"))

@@ -1,6 +1,6 @@
 // Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.Common;
+using MerchantAPI.Common.Startup;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

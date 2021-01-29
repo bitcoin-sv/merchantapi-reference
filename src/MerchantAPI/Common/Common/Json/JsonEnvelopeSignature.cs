@@ -6,6 +6,7 @@ using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using MerchantAPI.Common.Exceptions;
 using NBitcoin;
 using NBitcoin.Crypto;
 using NBitcoin.DataEncoders;

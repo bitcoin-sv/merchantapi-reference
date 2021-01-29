@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 using MerchantAPI.Common.Json;
 using Newtonsoft.Json;
 
-namespace MerchantAPI.Common.ViewModels
+namespace MerchantAPI.PaymentAggregator.Domain.ViewModels
 {
   public class SignedPayloadViewModel
   {

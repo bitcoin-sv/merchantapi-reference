@@ -1,5 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.Common.Exceptions;
 using NBitcoin;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;

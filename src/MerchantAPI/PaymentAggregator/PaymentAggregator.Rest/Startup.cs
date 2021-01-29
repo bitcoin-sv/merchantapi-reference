@@ -6,7 +6,7 @@ using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Database;
 using MerchantAPI.Common.EventBus;
-using MerchantAPI.Common.Swagger;
+using MerchantAPI.PaymentAggregator.Rest.Swagger;
 using MerchantAPI.PaymentAggregator.Consts;
 using MerchantAPI.PaymentAggregator.Domain;
 using MerchantAPI.PaymentAggregator.Domain.Actions;
@@ -23,6 +23,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
+using MerchantAPI.PaymentAggregator.Rest.Actions;
+using MerchantAPI.Common.Startup;
 
 namespace MerchantAPI.PaymentAggregator.Rest
 {
@@ -42,7 +44,7 @@ namespace MerchantAPI.PaymentAggregator.Rest
     public virtual void ConfigureServices(IServiceCollection services)
     {
       // time in database is UTC so it is automatically mapped to Kind=UTC
-      Dapper.SqlMapper.AddTypeHandler(new Common.DateTimeHandler());
+      Dapper.SqlMapper.AddTypeHandler(new Common.TypeHandlers.DateTimeHandler());
 
       services.AddOptions<IdentityProviders>()
         .Bind(Configuration.GetSection("IdentityProviders"))
@@ -119,8 +121,8 @@ namespace MerchantAPI.PaymentAggregator.Rest
 
       services.AddSwaggerGen(c =>
       {
-        c.SwaggerDoc(SwaggerGroup.API, new OpenApiInfo { Title = "Merchant API", Version = Const.PAYMENT_AGGREGATOR_API_VERSION });
-        c.SwaggerDoc(SwaggerGroup.Admin, new OpenApiInfo { Title = "Merchant API Admin", Version = Const.PAYMENT_AGGREGATOR_API_VERSION });
+        c.SwaggerDoc(SwaggerGroup.API, new OpenApiInfo { Title = "Payment Aggregator", Version = Const.PAYMENT_AGGREGATOR_API_VERSION });
+        c.SwaggerDoc(SwaggerGroup.Admin, new OpenApiInfo { Title = "Payment Aggregator Admin", Version = Const.PAYMENT_AGGREGATOR_API_VERSION });
         c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
 
         // Add MAPI authorization options
@@ -211,8 +213,8 @@ namespace MerchantAPI.PaymentAggregator.Rest
       app.UseSwagger();
       app.UseSwaggerUI(c =>
       {
-        c.SwaggerEndpoint($"/swagger/{SwaggerGroup.API}/swagger.json", "Merchant API");
-        c.SwaggerEndpoint($"/swagger/{SwaggerGroup.Admin}/swagger.json", "Merchant API Admin");
+        c.SwaggerEndpoint($"/swagger/{SwaggerGroup.API}/swagger.json", "Payment Aggregator API");
+        c.SwaggerEndpoint($"/swagger/{SwaggerGroup.Admin}/swagger.json", "Payment Aggregator API Admin");
       });
 
       app.UseRouting();

@@ -142,7 +142,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNull(firstBlockTest);
     }
 
-    private async Task ResumeAndWaitForCleanup(Common.EventBus.EventBusSubscription<CleanUpTxTriggeredEvent> cleanUpTxTriggeredSubscription)
+    private async Task ResumeAndWaitForCleanup(MerchantAPI.Common.EventBus.EventBusSubscription<CleanUpTxTriggeredEvent> cleanUpTxTriggeredSubscription)
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
       await cleanUpTxService.ResumeAsync(cts.Token);

@@ -8,9 +8,10 @@ using System.Threading.Tasks;
 using System.Linq;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Authentication;
-using MerchantAPI.Common.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Repositories;
 
-namespace MerchantAPI.Common.Test.Mock
+namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
   public class FeeQuoteRepositoryMock : IFeeQuoteRepository
   {
@@ -31,7 +32,7 @@ namespace MerchantAPI.Common.Test.Mock
     {
       string path = Directory.GetCurrentDirectory();
 
-      string projectName = Path.Combine("Common","Common.Test", "MerchantAPI.Common.Test");
+      string projectName = Path.Combine("APIGateway.Test.Functional");
 
       for (int i = 0; i < 6; i++)
       {

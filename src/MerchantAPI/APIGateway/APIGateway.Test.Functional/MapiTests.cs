@@ -2,13 +2,12 @@
 
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
-using MerchantAPI.Common.Test.Mock;
-using MerchantAPI.Common.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;

@@ -1,6 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.Common.Swagger;
+using MerchantAPI.PaymentAggregator.Rest.Swagger;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
@@ -8,16 +8,16 @@ using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using MerchantAPI.PaymentAggregator.Rest.ViewModels;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using MerchantAPI.PaymentAggregator.Domain.Actions;
 using Microsoft.Extensions.Logging;
 using System.Net;
 using NBitcoin;
 using MerchantAPI.PaymentAggregator.Domain.Models;
+using MerchantAPI.PaymentAggregator.Domain.ViewModels;
 using System.Diagnostics;
 using System.Net.Mime;
 using System.IO;
-using MerchantAPI.Common.ViewModels;
 using MerchantAPI.PaymentAggregator.Consts;
+using MerchantAPI.PaymentAggregator.Rest.Actions;
 
 namespace MerchantAPI.PaymentAggregator.Rest.Controllers
 {

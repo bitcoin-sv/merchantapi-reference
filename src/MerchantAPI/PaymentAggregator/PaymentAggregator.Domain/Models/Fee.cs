@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace MerchantAPI.Common.Domain.Models
+namespace MerchantAPI.PaymentAggregator.Domain.Models
 {
   public class Fee: IValidatableObject
   {

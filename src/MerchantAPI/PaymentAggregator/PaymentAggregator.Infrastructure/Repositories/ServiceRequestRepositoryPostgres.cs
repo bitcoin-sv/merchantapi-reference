@@ -3,6 +3,7 @@
 using Dapper;
 using MerchantAPI.Common;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Tasks;
 using MerchantAPI.PaymentAggregator.Domain.Models;
 using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using Microsoft.Extensions.Configuration;

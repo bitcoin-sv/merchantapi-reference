@@ -6,7 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using MerchantAPI.Common.Swagger;
+using MerchantAPI.PaymentAggregator.Rest.Swagger;
 using MerchantAPI.PaymentAggregator.Domain.Repositories;
 using MerchantAPI.PaymentAggregator.Rest.ViewModels;
 using Microsoft.AspNetCore.Authorization;

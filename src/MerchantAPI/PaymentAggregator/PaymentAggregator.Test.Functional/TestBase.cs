@@ -9,9 +9,7 @@ using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.DependencyInjection;
 using MerchantAPI.Common.Test;
 using Microsoft.AspNetCore.TestHost;
-using MerchantAPI.Common.Test.Mock;
-using MerchantAPI.Common;
-using System;
+using MerchantAPI.PaymentAggregator.Test.Functional.Mock;
 
 namespace MerchantAPI.PaymentAggregator.Test.Functional
 {

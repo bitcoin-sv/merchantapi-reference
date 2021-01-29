@@ -6,55 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Mock\MockQuotes\feeQuotesNonePublic.json" />
-    <None Remove="Mock\MockQuotes\feeQuotesSLA0.json" />
-    <None Remove="Mock\MockQuotes\feeQuotesSLA1.json" />
-    <None Remove="Mock\MockQuotes\feeQuotesSLA2.json" />
-    <None Remove="Mock\MockQuotes\feeQuotesWithIdentity.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Mock\MockQuotes\feeQuotesSLA2.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-    <Content Include="Mock\MockQuotes\feeQuotesSLA1.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-    <Content Include="Mock\MockQuotes\feeQuotesSLA0.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-    <Content Include="Mock\MockQuotes\feeQuotesNonePublic.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-    <Content Include="Mock\MockQuotes\feeQuotesWithIdentity.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="MSTest.TestFramework" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Common\MerchantAPI.Common.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Mock\MockQuotes\feeQuotes.json" />
-    <None Include="Mock\MockQuotes\feeQuotesAllFree.json" />
-    <None Include="Mock\MockQuotes\feeQuotesWithCreatedAt.json" />
-    <None Include="Mock\MockQuotes\fees.json" />
-    <None Include="Mock\MockQuotes\fees_low.json" />
   </ItemGroup>
 
 </Project>

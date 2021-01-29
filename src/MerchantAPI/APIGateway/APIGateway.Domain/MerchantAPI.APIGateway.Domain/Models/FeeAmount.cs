@@ -2,9 +2,9 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using static MerchantAPI.Common.CommonConst;
+using static MerchantAPI.APIGateway.Domain.Const;
 
-namespace MerchantAPI.Common.Domain.Models
+namespace MerchantAPI.APIGateway.Domain.Models
 {
   public class FeeAmount : IValidatableObject 
   {

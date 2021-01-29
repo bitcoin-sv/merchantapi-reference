@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
-namespace MerchantAPI.Common.Domain.Models
+namespace MerchantAPI.APIGateway.Domain.Models
 {
   public class FeeQuote : IValidatableObject
   {

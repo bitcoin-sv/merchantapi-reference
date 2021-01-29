@@ -1,6 +1,8 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-namespace MerchantAPI.Common.ViewModels
+using MerchantAPI.APIGateway.Domain.ViewModels;
+
+namespace MerchantAPI.APIGateway.Rest.ViewModels
 {
   public class JSONEnvelopeViewModel : SignedPayloadViewModel
   {

@@ -4,7 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MerchantAPI.Common
+namespace MerchantAPI.Common.Tasks
 {
   public static class RetryUtils
   {

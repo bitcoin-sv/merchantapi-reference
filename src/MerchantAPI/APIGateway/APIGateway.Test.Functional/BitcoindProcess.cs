@@ -10,6 +10,7 @@ using System.Threading;
 using MerchantAPI.Common;
 using MerchantAPI.Common.BitcoinRpc;
 using Microsoft.Extensions.Logging;
+using MerchantAPI.Common.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {

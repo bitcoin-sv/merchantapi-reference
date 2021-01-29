@@ -110,7 +110,7 @@ namespace MerchantAPI.Common.Test
         providerSet = true;
       }
 
-      SqlMapper.AddTypeHandler(new Common.DateTimeHandler());
+      SqlMapper.AddTypeHandler(new Common.TypeHandlers.DateTimeHandler());
 
       string appPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
       Configuration = new ConfigurationBuilder()

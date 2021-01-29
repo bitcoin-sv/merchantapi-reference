@@ -2,7 +2,7 @@
 
 using System;
 using System.Net;
-using MerchantAPI.Common;
+using MerchantAPI.Common.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;

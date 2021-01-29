@@ -1,11 +1,11 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.Common.Authentication;
-using MerchantAPI.Common.Domain.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace MerchantAPI.Common
+namespace MerchantAPI.APIGateway.Domain.Repositories
 {
   public interface IFeeQuoteRepository
   {
