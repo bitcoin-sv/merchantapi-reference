@@ -1,0 +1,27 @@
+# editor files
+*.swp
+*-swp
+.vscode/
+common.code-workspace
+
+#build files
+**/bin/
+**/obj/
+/src/published/
+
+#deploy files
+/src/Deploy/Build/
+/src/Deploy/nuget.config
+
+# log/tmp files
+nohup.out
+**---*
+
+# artefacts
+TestResults
+
+################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/src/.vs

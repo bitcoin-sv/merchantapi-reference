@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30717.126
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.Common", "MerchantAPI.Common\MerchantAPI.Common.csproj", "{54476C30-6969-4333-9700-863E8956633C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.Common.Test", "MerchantAPI.Common.Test\MerchantAPI.Common.Test.csproj", "{3B00D92C-1E5A-4E70-9C57-79B39E1C3281}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{54476C30-6969-4333-9700-863E8956633C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54476C30-6969-4333-9700-863E8956633C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54476C30-6969-4333-9700-863E8956633C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54476C30-6969-4333-9700-863E8956633C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3B00D92C-1E5A-4E70-9C57-79B39E1C3281}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3B00D92C-1E5A-4E70-9C57-79B39E1C3281}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3B00D92C-1E5A-4E70-9C57-79B39E1C3281}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3B00D92C-1E5A-4E70-9C57-79B39E1C3281}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {40953A7E-D43D-4181-84D4-29582B05CB4C}
+	EndGlobalSection
+EndGlobal
