@@ -63,7 +63,7 @@ namespace MerchantAPI.Common.Test
 
 
     [TestMethod]
-    public async Task GetByID_NonExistingKey_ShouldReturn404()
+    public virtual async Task GetByID_NonExistingKey_ShouldReturn404()
     {
       var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, UrlForKey(GetNonExistentKey()));
       Assert.AreEqual(HttpStatusCode.NotFound, httpResponse.StatusCode);
@@ -80,7 +80,7 @@ namespace MerchantAPI.Common.Test
     }
 
     [TestMethod]
-    public async Task GetKeyShouldBeCaseInsensitive()
+    public virtual async Task GetKeyShouldBeCaseInsensitive()
     {
       var item1 = GetItemToCreate();
       var item1Key = ExtractPostKey(item1);
@@ -100,7 +100,7 @@ namespace MerchantAPI.Common.Test
     }
 
     [TestMethod]
-    public async Task TestPost()
+    public virtual async Task TestPost()
     {
       var entryPost = GetItemToCreate();
       var entryPostKey = ExtractPostKey(entryPost);
