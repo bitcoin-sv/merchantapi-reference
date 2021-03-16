@@ -33,9 +33,13 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-      if (Satoshis < 0 || Bytes < 0)
+      if (Satoshis < 0)
       {
-        yield return new ValidationResult($"FeeAmount: value for {nameof(Satoshis)} and {nameof(Bytes)} must be non negative.");
+        yield return new ValidationResult($"FeeAmount: value for {nameof(Satoshis)} must be non negative.");
+      }
+      if (Bytes <= 0)
+      {
+        yield return new ValidationResult($"FeeAmount: value for {nameof(Bytes)} must be greater than zero.");
       }
       if (string.IsNullOrEmpty(FeeAmountType))
       {
