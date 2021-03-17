@@ -292,6 +292,21 @@ namespace MerchantAPI.APIGateway.Domain.Models
       public int? RejectCode { get; set; }
       public string RejectReason { get; set; }
       public ResponseCollidedTransaction[] CollidedWith { get; set; }
+      public UnconfirmedAncestor[] UnconfirmedAncestors { get; set; }
+    }
+
+    class UnconfirmedAncestor
+    {
+      public string Txid { get; set; }
+
+      public UnconfirmedAncestorVin[] Vin { get; set; }
+    }
+
+    class UnconfirmedAncestorVin
+    {
+      public string Txid { get; set; }
+
+      public int Vout { get; set; }
     }
 
     Dictionary<string, ResponseTransactionType> CategorizeTransactions(
@@ -365,7 +380,19 @@ namespace MerchantAPI.APIGateway.Domain.Models
           {
             Type = GroupType.OK,
             RejectCode = null,
-            RejectReason = null
+            RejectReason = null,
+            UnconfirmedAncestors = rpcResponse.Unconfirmed?.FirstOrDefault(x => x.Txid == ok)?.Ancestors.Select(y => 
+              new UnconfirmedAncestor() 
+              { 
+                Txid = y.Txid, 
+                Vin = y.Vin.Select(i => 
+                new UnconfirmedAncestorVin()
+                {
+                  Txid = i.Txid,
+                  Vout = i.Vout
+                }).ToArray()
+              }
+            ).ToArray()
           }
         );
       }
@@ -412,7 +439,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     }
 
     public async Task<RpcSendTransactions> SendRawTransactionsAsync(
-      (byte[] transaction, bool allowhighfees, bool dontCheckFees)[] transactions)
+      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] transactions)
     {
       var allTxs = transactions.Select(x => Hashes.DoubleSHA256(x.transaction).ToString()).ToArray();
 
@@ -455,7 +482,25 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
         Known = results.Where(x => x.Value.Type == GroupType.Known)
           .Select(x => x.Key).ToArray(),
-
+        Unconfirmed = results.Where (x => x.Value.UnconfirmedAncestors != null)
+          .Select(x => new RpcSendTransactions.RpcUnconfirmedTx
+          {
+            Txid = x.Key,
+            Ancestors = x.Value.UnconfirmedAncestors.Select(y => 
+              new RpcSendTransactions.RpcUnconfirmedAncestor()
+              {
+                Txid = y.Txid,
+                Vin = y.Vin.Select(i => 
+                  new RpcSendTransactions.RpcUnconfirmedAncestorVin()
+                  {
+                    Txid = i.Txid,
+                    Vout = i.Vout
+                  }
+                ).ToArray()
+              }
+            ).ToArray()
+          })
+        .ToArray()
       };
 
       return result;

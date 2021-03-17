@@ -110,7 +110,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(txHex1, txHex2);
 
       // Send first transaction using MAPI
-      var payload = await SubmitTransactionAsync(txHex1);
+      var payload = await SubmitTransactionAsync(txHex1, true, true);
       Assert.AreEqual(payload.ReturnResult, "success");
 
       // Send second transaction using RPC
@@ -194,7 +194,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(txHex1, txHex2);
 
       // Send first transaction using mAPI
-      var payload = await SubmitTransactionAsync(txHex1);
+      var payload = await SubmitTransactionAsync(txHex1, true, true);
       Assert.AreEqual("success", payload.ReturnResult);
 
       var mempoolTxs = await rpcClient0.GetRawMempool();
@@ -243,7 +243,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
 
       // Send first transaction using mAPI - we want to get DS notification for it 
-      var payload = await SubmitTransactionAsync(txHex1);
+      var payload = await SubmitTransactionAsync(txHex1, true, true);
       Assert.AreEqual(payload.ReturnResult, "success");
 
       // Mine a new block containing tx1
@@ -375,35 +375,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(blockHash[0], secondNewBlockArrivedSubscription.BlockHash);
     }
 
-    (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
-    { 
-      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
-      var tx = BCash.Instance.Regtest.CreateTransaction();
-
-      tx.Inputs.Add(new TxIn(coin.Outpoint));
-      tx.Outputs.Add(coin.Amount - amount, address);
-
-      var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-
-      tx.Sign(key.GetBitcoinSecret(Network.RegTest), coin);
-
-      return (tx.ToHex(), tx.GetHash().ToString());
-    }
-
-
-    async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex)
-    {
-      // Send transaction
-      var callbackUrl = "http://www.something.com";
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"dscheck\": true, \"CallbackUrl\": \"{callbackUrl}\",  \"CallbackToken\": \"xxx\"}}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);      
-      var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-
-    }
-
     private async Task RegisterNodesWithServiceAndWait(CancellationToken cancellationToken)
     {
       var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
@@ -495,5 +466,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, response.Length);
       Assert.AreEqual(false, response.First().IsResponding);
     }
+
   }
 }

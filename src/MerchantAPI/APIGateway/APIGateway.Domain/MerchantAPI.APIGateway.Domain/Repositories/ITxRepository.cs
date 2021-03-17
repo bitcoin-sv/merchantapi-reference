@@ -11,6 +11,8 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
   {
     Task InsertTxsAsync(IList<Tx> transactions);
 
+    Task InsertUnconfirmedAncestorsAsync(IList<Tx> unconfirmedAncestors);
+
     Task<long?> InsertBlockAsync(Block block);
 
     Task InsertTxBlockAsync(IList<long> txInternalId, long blockInternalId);

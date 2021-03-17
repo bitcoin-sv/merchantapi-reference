@@ -537,7 +537,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
 
       var responses = new List<SubmitTransactionOneResponse>();
-      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees)>();
+      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)>();
       int failureCount = 0;
 
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
@@ -690,15 +690,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         else
         {
           bool allowHighFees = false;
-          bool dontcheckfee = okToMine; 
-
+          bool dontcheckfee = okToMine;
+          bool listUnconfirmedAncestors = oneTx.DsCheck;
+          
           oneTx.TransactionInputs = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput 
                                                                                     { 
                                                                                       N = x.Index, 
                                                                                       PrevN = x.PrevOut.N, 
                                                                                       PrevTxId = x.PrevOut.Hash.ToBytes() 
                                                                                     }).ToList();
-          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee));
+          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors));
         }
       }
 
@@ -711,7 +712,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         try
         {
           rpcResponse = await rpcMultiClient.SendRawTransactionsAsync(
-            transactionsToSubmit.Select(x => (x.transaction.RawTx, x.allowhighfees, x.dontCheckFees))
+            transactionsToSubmit.Select(x => (x.transaction.RawTx, x.allowhighfees, x.dontCheckFees, x.listUnconfirmedAncestors))
               .ToArray());
         }
         catch (Exception ex)
@@ -778,6 +779,25 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           TxIn = x.transaction.TransactionInputs
         }).ToList());
 
+        if (rpcResponse.Unconfirmed != null)
+        {
+          List<Tx> unconfirmedAncestors = new List<Tx>();
+          foreach (var unconfirmed in rpcResponse.Unconfirmed)
+          {
+            unconfirmedAncestors.AddRange(unconfirmed.Ancestors.Select(u => new Tx
+            {
+              TxExternalId = new uint256(u.Txid),
+              ReceivedAt = clock.UtcNow(),
+              TxIn = u.Vin.Select(i => new TxInput()
+              {
+                PrevTxId = (new uint256(i.Txid)).ToBytes(),
+                PrevN = i.Vout
+              }).ToList()
+            })
+            );
+          }
+          await txRepository.InsertUnconfirmedAncestorsAsync(unconfirmedAncestors);
+        }
         return result;
       }
 

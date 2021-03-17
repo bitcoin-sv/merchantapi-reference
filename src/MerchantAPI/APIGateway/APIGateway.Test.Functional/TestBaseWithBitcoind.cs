@@ -16,6 +16,13 @@ using System.Threading.Tasks;
 using MerchantAPI.Common.BitcoinRest;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using NBitcoin.Altcoins;
+using MerchantAPI.APIGateway.Rest.ViewModels;
+using System.Net.Http.Headers;
+using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.APIGateway.Domain.ViewModels;
+using System.Net.Mime;
+using System.Net;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -282,6 +289,55 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       return (newBlock, submitResult);
+    }
+
+    public (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
+    {
+      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
+      var tx = BCash.Instance.Regtest.CreateTransaction();
+
+      tx.Inputs.Add(new TxIn(coin.Outpoint));
+      tx.Outputs.Add(coin.Amount - amount, address);
+
+      var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
+
+      tx.Sign(key.GetBitcoinSecret(Network.RegTest), coin);
+
+      return (tx.ToHex(), tx.GetHash().ToString());
+    }
+
+    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false)
+    {
+
+      // Send transaction
+      var reqContent = new StringContent(
+
+        merkleProof || dsCheck ?
+          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": {merkleProof.ToString().ToLower()}, \"dsCheck\": {dsCheck.ToString().ToLower()}, \"callbackUrl\" : \"{Callback.Url}\"}}"
+          :
+          $"{{ \"rawtx\": \"{txHex}\" }}"
+        );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      var response =
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+
+      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+    }
+
+    public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList)
+    {
+
+      // Send transaction
+
+      var reqJSON = "[{\"rawtx\": \"" + string.Join("\"}, {\"rawtx\": \"", txHexList) + "\"}]";
+      var reqContent = new StringContent(reqJSON);
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      var response =
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, HttpStatusCode.OK);
+
+      return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
   }
 }
