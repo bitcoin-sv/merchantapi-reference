@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels
 {
-  public class NodeViewModelCreate : IValidatableObject // used for POST/PUT
+  public class NodeViewModelCreate : IValidatableObject // used for POST
   {
 
     [JsonPropertyName("id")]

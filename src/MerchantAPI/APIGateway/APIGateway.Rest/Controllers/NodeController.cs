@@ -65,14 +65,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <param name="data"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    public async Task<ActionResult> Put(string id, NodeViewModelCreate data)
+    public async Task<ActionResult> Put(string id, NodeViewModelPut data)
     {
-      if (!string.IsNullOrEmpty(data.Id) && data.Id.ToLower() != id.ToLower())
-      {
-        var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
-        problemDetail.Title = "The public id does not match the one from message body";
-        return BadRequest(problemDetail);
-      }
+      data.Id = id;
 
       if (!await nodes.UpdateNodeAsync(data.ToDomainObject()))
       {
