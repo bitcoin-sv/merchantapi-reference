@@ -2,7 +2,6 @@
 
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.Common;
 using MerchantAPI.Common.BitcoinRpc;
 using Microsoft.Extensions.Logging;
 using System;
@@ -12,10 +11,10 @@ using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Actions;
 using Microsoft.Extensions.Configuration;
 using MerchantAPI.APIGateway.Domain;
-using MerchantAPI.Common.Database;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.Common.Startup;
 using MerchantAPI.Common.Tasks;
+using MerchantAPI.APIGateway.Rest.Database;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -28,15 +27,14 @@ namespace MerchantAPI.APIGateway.Rest
     readonly IBlockParser blockParser;
     readonly INotificationsHandler notificationsHandler;
     private readonly IMinerId minerId;
-    private readonly ICreateDB createDB;
+    private readonly IDbManager dbManager;
     bool nodesAccessible;
-    readonly RDBMS rdbms;
 
     public StartupChecker(INodeRepository nodeRepository,
                           IRpcClientFactory rpcClientFactory,
                           IMinerId minerId,
                           IBlockParser blockParser,
-                          ICreateDB createDB,
+                          IDbManager dbManager,
                           INotificationsHandler notificationsHandler,
                           ILogger<StartupChecker> logger,
                           IConfiguration configuration)
@@ -45,10 +43,9 @@ namespace MerchantAPI.APIGateway.Rest
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.logger = logger ?? throw new ArgumentException(nameof(logger));
       this.blockParser = blockParser ?? throw new ArgumentException(nameof(blockParser));
-      this.createDB = createDB ?? throw new ArgumentException(nameof(createDB));
+      this.dbManager = dbManager ?? throw new ArgumentException(nameof(dbManager));
       this.minerId = minerId ?? throw new ArgumentException(nameof(nodeRepository));
       this.notificationsHandler = notificationsHandler ?? throw new ArgumentException(nameof(notificationsHandler));
-      rdbms = RDBMS.Postgres;
     }
 
     public async Task<bool> CheckAsync(bool testingEnvironment)
@@ -85,11 +82,10 @@ namespace MerchantAPI.APIGateway.Rest
 
     private Task TestDBConnection()
     {
-      bool databaseExists = createDB.DatabaseExists("APIGateway", rdbms);
-      if (databaseExists)
+      if (dbManager.DatabaseExists())
       {
         logger.LogInformation($"Successfully connected to DB.");
-      }  
+      }
       return Task.CompletedTask;
     }
 
@@ -114,7 +110,7 @@ namespace MerchantAPI.APIGateway.Rest
       logger.LogInformation($"Starting with execution of CreateDb ...");
 
 
-      if (createDB.DoCreateDB("APIGateway", rdbms, out string errorMessage, out string errorMessageShort))
+      if (dbManager.CreateDb(out string errorMessage, out string errorMessageShort))
       {
         logger.LogInformation("CreateDB finished successfully.");
       }

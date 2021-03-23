@@ -22,13 +22,12 @@ using Microsoft.OpenApi.Models;
 using System.Linq;
 using System.Net.Http;
 using MerchantAPI.Common.Clock;
-using MerchantAPI.Common.Database;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.Common.Authentication;
-using MerchantAPI.Common;
 using MerchantAPI.Common.NotificationsHandler;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Startup;
+using MerchantAPI.APIGateway.Rest.Database;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -95,7 +94,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddHttpClient("minerIdClient"); // will only be used if WifPrivateKey is not provided
       services.AddSingleton<IBlockChainInfo, BlockChainInfo>(); // singleton, thread safe
       services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe
-      services.AddTransient<ICreateDB, CreateDB>();
+      services.AddTransient<IDbManager, MerchantAPIDbManager>();
       services.AddTransient<IStartupChecker, StartupChecker>();
       services.AddSingleton<INotificationsHandler, NotificationsHandler>();// singleton, thread safe
 

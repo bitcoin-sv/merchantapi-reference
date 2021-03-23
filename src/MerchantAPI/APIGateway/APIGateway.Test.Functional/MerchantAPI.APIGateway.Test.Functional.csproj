@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MerchantAPI.Common.Test" Version="0.1.2" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.7" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.7" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
@@ -18,7 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Common\Common.Test\MerchantAPI.Common.Test\MerchantAPI.Common.Test.csproj" />
     <ProjectReference Include="..\APIGateway.Database\APIGateway.Database.csproj" />
     <ProjectReference Include="..\APIGateway.Domain\MerchantAPI.APIGateway.Domain\MerchantAPI.APIGateway.Domain.csproj" />
     <ProjectReference Include="..\APIGateway.Rest\MerchantAPI.APIGateway.Rest.csproj" />
