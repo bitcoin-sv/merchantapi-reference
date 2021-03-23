@@ -1,3 +1,5 @@
+-- Copyright (c) 2020 Bitcoin Association
+
 -- insert initial data into FeeQuote
 
 do $$

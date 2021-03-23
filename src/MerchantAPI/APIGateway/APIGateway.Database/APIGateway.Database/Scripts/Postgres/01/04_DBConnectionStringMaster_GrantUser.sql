@@ -1,6 +1,0 @@
- 
- GRANT ALL PRIVILEGES ON DATABASE merchant_gateway TO merchant;
-  
- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO merchant;
- GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO merchant;
- 

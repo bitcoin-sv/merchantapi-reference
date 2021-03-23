@@ -110,6 +110,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
     public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
+    public string DbConnectionStringDDL { get { return Configuration["ConnectionStrings:DBConnectionStringDDL"]; } }
 
     public override string GetBaseUrl()
     {
@@ -159,7 +160,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString)
     {
-      return new TestServerBase().CreateServer<MapiServer, APIGatewayTestsStartup, MerchantAPI.APIGateway.Rest.Startup>(mockedServices, serverCallback, dbConnectionString);
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsStartup, MerchantAPI.APIGateway.Rest.Startup>(mockedServices, serverCallback, dbConnectionString);
     }
 
 
