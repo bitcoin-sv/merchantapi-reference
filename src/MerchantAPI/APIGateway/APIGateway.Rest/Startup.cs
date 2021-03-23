@@ -93,8 +93,7 @@ namespace MerchantAPI.APIGateway.Rest
 
       services.AddHttpClient("minerIdClient"); // will only be used if WifPrivateKey is not provided
       services.AddSingleton<IBlockChainInfo, BlockChainInfo>(); // singleton, thread safe
-      services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe
-      services.AddTransient<IDbManager, MerchantAPIDbManager>();
+      services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe      
       services.AddTransient<IStartupChecker, StartupChecker>();
       services.AddSingleton<INotificationsHandler, NotificationsHandler>();// singleton, thread safe
 
@@ -123,6 +122,7 @@ namespace MerchantAPI.APIGateway.Rest
 
       if (HostEnvironment.EnvironmentName != "Testing")
       {
+        services.AddTransient<IDbManager, MerchantAPIDbManager>();
         services.AddTransient<IClock, Clock>();
         services.AddHostedService<CleanUpTxHandler>();
       }

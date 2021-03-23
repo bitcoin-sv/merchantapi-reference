@@ -160,7 +160,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString)
     {
-      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsStartup, MerchantAPI.APIGateway.Rest.Startup>(mockedServices, serverCallback, dbConnectionString);
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString);
     }
 
 

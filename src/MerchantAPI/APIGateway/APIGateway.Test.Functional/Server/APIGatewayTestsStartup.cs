@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Linq;
+using MerchantAPI.APIGateway.Rest.Database;
+using MerchantAPI.APIGateway.Test.Functional.Database;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Server
 {
@@ -22,16 +24,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
     public override void ConfigureServices(IServiceCollection services)
     {
       base.ConfigureServices(services);
-      // replace IRpcClientFactory with mock version
-      var serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IRpcClientFactory));
-      services.Remove(serviceDescriptor);
-      services.AddSingleton<IRpcClientFactory, RpcClientFactoryMock>();
-      // We register  fee repository as singleton, so that we can modify the fee filename in individual tests
-      services.AddSingleton<IFeeQuoteRepository, FeeQuoteRepositoryMock>();
 
-      // We register clock as singleton, so that we can set time in individual tests
-      services.AddSingleton<IClock, MockedClock>();
-      services.AddSingleton<CleanUpTxWithPauseHandlerForTest>();
+      // use test implementation of IDbManager that uses test database
+      services.AddTransient<IDbManager, MerchantAPITestDbManager>();
 
     }
   }
