@@ -27,8 +27,6 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     Task<RpcGetBlock> GetBlockAsync(string blockHash, int verbosity, CancellationToken? token = null);
 
-    Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null);
-
     Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null);
 
     Task<string> GetBlockHashAsync(long height, CancellationToken? token = null);
@@ -76,24 +74,14 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     private static Lazy<HttpClient> SharedHttpClient = new Lazy<HttpClient>(() => new HttpClient() { Timeout = Timeout.InfiniteTimeSpan }); // intended to be instantiated once : ref docs.microsoft.com
 
-    HttpClient httpClient;
-    public HttpClient HttpClient
-    {
-      get
-      {
-        return httpClient ?? SharedHttpClient.Value;
-      }
-      set
-      {
-        httpClient = value;
-      }
-    }
+    public HttpClient HttpClient { get; set; }
 
-    public RpcClient(Uri address, NetworkCredential credentials, ILogger<RpcClient> logger)
+    public RpcClient(Uri address, NetworkCredential credentials, ILogger<RpcClient> logger, HttpClient httpClient)
     {
       Address = address;
       Credentials = credentials;
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+      HttpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
 
     public async Task<long> GetBlockCountAsync(CancellationToken? token = null)
@@ -114,12 +102,6 @@ namespace MerchantAPI.Common.BitcoinRpc
         throw new Exception("GetBlockAsync method does not accept verbosity level 0, 1.");
       }
       return await RequestAsyncWithRetry<RpcGetBlock>(token, "getblock", null, blockHash, verbosity);
-    }
-
-    public async Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null)
-    {
-      var response = await RequestAsyncWithRetry<string>(token, "getblock", null, blockHash, 0);
-      return HelperTools.HexStringToByteArray(response);
     }
 
     public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
