@@ -6,12 +6,40 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MerchantAPI.Common.Json
 {
   public class HelperTools
   {
+    const int BufferChunkSize = 1024 * 1024;
+    public static async Task<byte[]> HexStringToByteArrayAsync(Stream stream)
+    {
+      IList<byte> outputBuffer = new List<byte>();
+      using var strReader = new StreamReader(stream);
+      do
+      {
+        var chBuffer = new char[BufferChunkSize];
+        var readSize = await strReader.ReadBlockAsync(chBuffer, 0, BufferChunkSize);
+        for (int i = 0; i < (readSize / 2); i++)
+        {
+          var hexChar = new char[] { chBuffer[i * 2], chBuffer[i * 2 + 1] };
+          var byteVal = int.Parse(hexChar, NumberStyles.AllowHexSpecifier);
+          if (byteVal < Byte.MinValue || byteVal > Byte.MaxValue)
+          {
+            throw new OverflowException($"Byte value exceeds limits 0-255");
+          }
+          outputBuffer.Add((byte)byteVal);
+        }
+      }
+      while (!strReader.EndOfStream);
+
+      return outputBuffer.ToArray();
+    }
+
     public static bool AreByteArraysEqual(byte[] a1, byte[] a2)
     {
       var a1Length = a1.Length;
