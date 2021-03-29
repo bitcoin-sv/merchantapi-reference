@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Linq;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Test.Functional.Database;
+using MerchantAPI.Common.BitcoinRest;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Server
 {
@@ -22,7 +23,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
     }
 
     public override void ConfigureServices(IServiceCollection services)
-    {
+    {     
       base.ConfigureServices(services);
 
       // use test implementation of IDbManager that uses test database

@@ -21,6 +21,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MerchantAPI.Common.BitcoinRest;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -210,12 +211,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public async Task<long> CreateAndPublishNewBlock(IRpcClient rpcClient, long? blockHeightToStartFork, params Transaction[] transactions)
+    public async Task<long> CreateAndPublishNewBlock(IRpcClient rpcClient, IRestClient restClient, long? blockHeightToStartFork, params Transaction[] transactions)
     {
       long blockCount = await rpcClient.GetBlockCountAsync();
       if (blockCount == 0)
       {
-        var blockHex = await rpcClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync());
+        var blockHex = await restClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync());
         var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
         rpcClientFactoryMock.AddKnownBlock(blockCount, firstBlock.ToBytes());
         PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
@@ -231,7 +232,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         }
         else
         {
-          lastBlock = NBitcoin.Block.Load(await rpcClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync()), Network.Main);
+          lastBlock = NBitcoin.Block.Load(await restClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync()), Network.Main);
         }
         var block = lastBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
         block.AddTransaction(tx);

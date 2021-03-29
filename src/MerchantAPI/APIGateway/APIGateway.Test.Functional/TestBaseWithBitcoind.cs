@@ -13,6 +13,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MerchantAPI.Common.BitcoinRest;
+using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -36,6 +39,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     protected List<BitcoindProcess> bitcoindProcesses = new List<BitcoindProcess>();
 
     public IRpcClient rpcClient0;
+    public IRestClient restClient0;
     public BitcoindProcess node0;
 
     public Queue<Coin> availableCoins = new Queue<Coin>();
@@ -73,6 +77,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         _ = zmqSubscribedEventSubscription.ReadAsync(CancellationToken.None).Result;
         rpcClient0 = node0.RpcClient;
         SetupChain(rpcClient0);
+        restClient0 = node0.RestClient;
       }
     }
 
@@ -138,10 +143,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
         // LevelDB refuses to open file with path length  longer than 260 
         throw new Exception($"Length of data directory path is too long. This might cause problems when running bitcoind on Windows. Please run tests from directory with a short path. Data directory path: {dataDirRoot}");
       }
+      
       var bitcoind = new BitcoindProcess(
         bitcoindFullPath,
         dataDirRoot,
-        nodeIndex, hostIp, zmqIp, loggerFactory);
+        nodeIndex, hostIp, zmqIp, loggerFactory,
+        server.Services.GetRequiredService<IHttpClientFactory>());
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }
@@ -241,7 +248,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
       }
 
-      var parentBlockBytes = await rpcClient0.GetBlockAsBytesAsync(parentBlockHash);
+      var parentBlockBytes = await restClient0.GetBlockAsBytesAsync(parentBlockHash);
       var parentBlock = NBitcoin.Block.Load(parentBlockBytes, Network.RegTest);
       var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
       return await MineNextBlockAsync(transactions, throwOnError, parentBlock, parentBlockHeight);

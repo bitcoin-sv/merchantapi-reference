@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using MerchantAPI.Common.BitcoinRest;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
 using NBitcoin;
@@ -20,7 +21,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
   }
 
-  public class RpcClientFactoryMock : IRpcClientFactory
+  public class RpcClientFactoryMock : IRpcClientFactory, IRestClientFactory
   {
     ConcurrentDictionary<uint256, byte[]> transactions = new ConcurrentDictionary<uint256, byte[]>();
     ConcurrentDictionary<uint256, BlockWithHeight> blocks = new ConcurrentDictionary<uint256, BlockWithHeight>();
@@ -88,6 +89,13 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     {
       // Currently all mocks share same transactions and blocks
       return new RpcClientMock(AllCalls, host, port, username, password,
+        transactions,
+        blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse);
+    }
+    public virtual IRestClient Create(string host, int port)
+    {
+      // Currently all mocks share same transactions and blocks
+      return new RpcClientMock(AllCalls, host, port, "mockUsername", "mockPassword",
         transactions,
         blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse);
     }
