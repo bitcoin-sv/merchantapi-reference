@@ -16,7 +16,7 @@ namespace MerchantAPI.Common.BitcoinRest
     }
     public IRestClient Create(string host, int port)
     {
-      return new RestClient(httpClientFactory, CreateAddress(host, port));
+      return new RestClient(httpClientFactory.CreateClient(host), CreateAddress(host, port));
     }
 
     public static Uri CreateAddress(string host, int port)

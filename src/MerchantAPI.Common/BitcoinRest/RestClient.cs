@@ -21,13 +21,10 @@ namespace MerchantAPI.Common.BitcoinRest
 
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(100);
 
-    public RestClient(IHttpClientFactory httpClientFactory, Uri address)
+    public RestClient(HttpClient httpClient, Uri address)
     {
       this.Address = address;
-      if (httpClientFactory != null)
-      {
-        HttpClient = httpClientFactory.CreateClient(address.Host);
-      }
+      HttpClient = httpClient;
     }
 
     public async Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null)
