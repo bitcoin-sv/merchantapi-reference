@@ -54,7 +54,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private async Task<uint256> AddBlocks(bool dsCheckMempool)
     {
       long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RpcClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
+      var blockHex = await RestClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
       var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
       rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
@@ -142,7 +142,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNull(firstBlockTest);
     }
 
-    private async Task ResumeAndWaitForCleanup(Common.EventBus.EventBusSubscription<CleanUpTxTriggeredEvent> cleanUpTxTriggeredSubscription)
+    private async Task ResumeAndWaitForCleanup(MerchantAPI.Common.EventBus.EventBusSubscription<CleanUpTxTriggeredEvent> cleanUpTxTriggeredSubscription)
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
       await cleanUpTxService.ResumeAsync(cts.Token);

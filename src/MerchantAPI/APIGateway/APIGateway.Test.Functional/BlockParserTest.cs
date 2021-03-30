@@ -1,13 +1,10 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.APIGateway.Domain.Models;
-using MerchantAPI.Common.BitcoinRpc;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Domain.Models.Events;
+
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -64,12 +61,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+      var restClient = (Mock.RpcClientMock)rpcClient;
 
       long blockCount;
       do
       {
         var tx = Transaction.Parse(Tx1Hex, Network.Main);
-        blockCount = await CreateAndPublishNewBlock(rpcClient, null, tx);
+        blockCount = await CreateAndPublishNewBlock(rpcClient, restClient, null, tx);
       }
       while (blockCount < 20);
 
@@ -108,16 +106,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+      var restClient = rpcClientFactoryMock.Create(node.Host, node.Port);
 
       long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RpcClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
+      var blockHex = await RestClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
       var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
       rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
       WaitUntilEventBusIsIdle();
       var firstBlockHash = firstBlock.GetHash();
 
-      blockCount = await CreateAndPublishNewBlock(rpcClient, null);
+      blockCount = await CreateAndPublishNewBlock(rpcClient, restClient, null);
 
       NBitcoin.Block forkBlock = null;
       var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);

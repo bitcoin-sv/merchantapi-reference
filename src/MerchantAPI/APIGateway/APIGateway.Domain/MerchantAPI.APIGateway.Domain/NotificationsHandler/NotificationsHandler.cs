@@ -1,13 +1,14 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.ExternalServices;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.ExternalServices;
 using MerchantAPI.Common.Json;
+using MerchantAPI.Common.NotificationsHandler;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

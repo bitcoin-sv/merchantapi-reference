@@ -1,6 +1,8 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
@@ -76,18 +78,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task GetFeeQuote()
     {
       var response = await Get<SignedPayloadViewModel>(
-        MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+        client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
 
-      var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+      var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes + 1)))
       {
         // should return same
         response = await Get<SignedPayloadViewModel>(
-          MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+          client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
 
-        payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+        payload = response.ExtractPayload<FeeQuoteViewModelGet>();
         AssertIsOK(payload);
       }
 
@@ -98,13 +100,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task GetFeeQuoteAuthenticated()
     {
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
-      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
-                     MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.NotFound);
+      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
+                     client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.NotFound);
       Assert.AreEqual("Not Found", response.httpResponse.ReasonPhrase);
 
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+      response = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
     }
@@ -117,9 +119,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var ValidRestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
      
       RestAuthentication = ValidRestAuthentication+"invalid";
-      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
-      Assert.IsNull(response.response);
+      var response = await Get<SignedPayloadViewModel>(
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response);
     }
 
     [TestMethod]
@@ -129,32 +131,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // test authentication: same provider and identity as defined in json - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
-      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
-      var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+      var response = await Get<SignedPayloadViewModel>(
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
+      var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
 
       // different user, same provider, same authority - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjAyOCwiZXhwIjoxOTE5MjI2MDI4LCJpYXQiOjE2MDM4NjYwMjgsImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoiaHR0cDovL215YXVkaWVuY2UuY29tIn0.01Rm6t4GBScDwgoOnFwBjjvgu6U5YBK7qlCTg-_BF6c";
       response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
-      payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
+      payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
 
       // same user, different (invalid) provider, same authority - should fail
       //TokenManager.exe generate -n testName - i http://test.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjQ4OCwiZXhwIjoxOTE5MjI2NDg4LCJpYXQiOjE2MDM4NjY0ODgsImlzcyI6Imh0dHA6Ly90ZXN0LmNvbSIsImF1ZCI6Imh0dHA6Ly9teWF1ZGllbmNlLmNvbSJ9.oGxXXbTj0yUf0UrwOF44bbRMt-Xe6YjAyuy4A3jrbbU";
       response = await Get<SignedPayloadViewModel>(
-           MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
-      Assert.IsNull(response.response);
+           client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response);
 
       // same user and provider, different authority
       // TokenManager.exe generate -n 5 -i http://mysite.com -a http://testaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNjAzODY2NzAxLCJleHAiOjE5MTkyMjY3MDEsImlhdCI6MTYwMzg2NjcwMSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vdGVzdGF1ZGllbmNlLmNvbSJ9.d0TU7em4_8ZzO8A3YGxVwyl0ElpDQIu35auPSa24i48";
       response = await Get<SignedPayloadViewModel>(
-     MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
-      Assert.IsNull(response.response);
+     client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response);
     }
 
     [TestMethod]
@@ -337,7 +339,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx0 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txC0Hex));
 
       int txLength = 160;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       var minRequiredFees = Math.Min((txLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 40
                           (txLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 80
 
@@ -366,7 +368,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx0 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txC0Hex));
  
       int txLength = 160;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       var minRequiredFees = Math.Min((txLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 40
                           (txLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 80
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees - 1); // submit tx1 should fail
@@ -410,10 +412,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long txLength = 160;
       long dataLength = 100;
       long standard = txLength-dataLength;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "data");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Data);
       var minRequiredFees = Math.Min((dataLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 20
                     (dataLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 40
-      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       minRequiredFees +=  Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 15
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 30
 
@@ -444,10 +446,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long txLength = 160;
       long dataLength = 100;
       long standard = txLength - dataLength;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "data");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Data);
       var minRequiredFees = Math.Min((dataLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 20
                     (dataLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 40
-      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       minRequiredFees += Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 15
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 30
 
@@ -493,10 +495,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long txLength = 400000;
       long dataLength = 350000;
       long standard = txLength - dataLength;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "data");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Data);
       var minRequiredFees = Math.Min((dataLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, 
                     (dataLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); 
-      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       minRequiredFees += Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, 
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); 
 
@@ -520,8 +522,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     [TestMethod]
-    [DataRow("something", HttpStatusCode.OK, "CallbackUrl should be a valid URL")]
-    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallbackUrl uses invalid scheme. Only 'http' and 'https' are supported")]
+    [DataRow("something", HttpStatusCode.OK, "CallbackUrl: something should be a valid URL")]
+    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallbackUrl: invalidScheme://www.something.com uses invalid scheme. Only 'http' and 'https' are supported")]
     [DataRow("http://www.something.com", HttpStatusCode.OK, "")]
     [DataRow("https://www.something.com", HttpStatusCode.OK, "")]
     public async Task SubmitTransactionJsonInvalidCallbackUrl(string url, HttpStatusCode expectedCode, string returnResult)

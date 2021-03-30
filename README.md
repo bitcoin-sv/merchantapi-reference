@@ -357,7 +357,7 @@ For each transaction that is submitted to mAPI it can be set if the submiter sho
 
 ### Building docker images
 
-Build docker images for **MerchantAPI App & Data**  running this commands in folder `/src/Deploy`
+Build docker images for **MerchantAPI App & Data**  running this commands in folder `/src/Deploy/APIGateway`
 
 ```bash
 On Linux: ./build.sh

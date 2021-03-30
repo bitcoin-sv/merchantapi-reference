@@ -17,6 +17,8 @@ using MerchantAPI.Common.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Collections.ObjectModel;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Authentication;
+using MerchantAPI.Common.Exceptions;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -258,12 +260,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       foreach (var fee in feeQuote.Fees)
       {
-        if (fee.FeeType == "standard")
+        if (fee.FeeType == Const.FeeType.Standard)
         {
           feesRequiredMining += (normalBytes * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes;
           feesRequiredRelay += (normalBytes * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes;
         }
-        else if (fee.FeeType == "data")
+        else if (fee.FeeType == Const.FeeType.Data)
         {
           feesRequiredMining += (dataBytes * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes;
           feesRequiredRelay += (dataBytes * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes;

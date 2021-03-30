@@ -10,7 +10,7 @@ using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.APIGateway.Rest.Authentication;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,10 +18,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MerchantAPI.APIGateway.Domain;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using NBitcoin;
-using Newtonsoft.Json.Linq;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.APIGateway.Rest.Swagger;
+using MerchantAPI.Common.Authentication;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -70,7 +70,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       if (string.IsNullOrEmpty(responseMinerId))
       {
         // Do not sing if we do not have miner id
-        return Ok(new JSONEnvelopeViewModelGet(payload));
+        return Ok(new JSONEnvelopeViewModel(payload));
       }
 
 
@@ -148,7 +148,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       if (!uint256.TryParse(id, out _))
       {
         var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int) HttpStatusCode.BadRequest);
-        problemDetail.Title = "invalid format of TransactionId";
+        problemDetail.Title = "Invalid format of TransactionId";
         return BadRequest(problemDetail);
       }
 

@@ -9,8 +9,8 @@ using System.Net;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Domain.Actions;
+using MerchantAPI.APIGateway.Rest.Swagger;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {

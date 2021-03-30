@@ -1,4 +1,6 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿
+/*
+// Copyright (c) 2020 Bitcoin Association
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels
 {
@@ -17,3 +19,4 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     }
   }
 }
+*/

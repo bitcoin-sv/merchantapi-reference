@@ -137,7 +137,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if callback was received
       var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
-      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
       Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callback.CallbackReason);
@@ -172,7 +172,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var calls = Callback.Calls;
       Assert.AreEqual(2, calls.Length);
-      var callbackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[1].request)
+      var callbackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[1].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
       Assert.AreEqual(CallbackReason.DoubleSpend, callbackDS.CallbackReason);
       Assert.AreEqual(new uint256(txId1), new uint256(callbackDS.CallbackTxId));
@@ -216,7 +216,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
 
-      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
       Assert.AreEqual(CallbackReason.DoubleSpend, callback.CallbackReason);
@@ -255,7 +255,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
-      var signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[0].request);
+      var signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[0].request);
       var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
 
@@ -277,7 +277,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       calls = Callback.Calls;
       Assert.AreEqual(2, calls.Length);
-      signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[1].request);
+      signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[1].request);
       var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);
       Assert.AreEqual(txId2, dsNotification.CallbackPayload.DoubleSpendTxId);
@@ -398,7 +398,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"dscheck\": true, \"CallbackUrl\": \"{callbackUrl}\",  \"CallbackToken\": \"xxx\"}}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);      
       var response =
-        await Post<MerchantAPI.APIGateway.Rest.ViewModels.SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
@@ -454,13 +454,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status 
       var response =
-        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
-      Assert.AreEqual(1, response.response.Length);
-      Assert.AreEqual(true, response.response.First().IsResponding);
-      Assert.AreEqual(1, response.response.First().Endpoints.Length);
-      Assert.IsTrue(response.response.First().Endpoints.First().Topics.Contains(ZMQTopic.InvalidTx));
-      Assert.IsTrue(response.response.First().Endpoints.First().Topics.Contains(ZMQTopic.HashBlock));
+      Assert.AreEqual(1, response.Length);
+      Assert.AreEqual(true, response.First().IsResponding);
+      Assert.AreEqual(1, response.First().Endpoints.Length);
+      Assert.IsTrue(response.First().Endpoints.First().Topics.Contains(ZMQTopic.InvalidTx));
+      Assert.IsTrue(response.First().Endpoints.First().Topics.Contains(ZMQTopic.HashBlock));
     }
 
     [TestMethod]
@@ -477,10 +477,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status - node should be responding
       var response =
-        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
-      Assert.AreEqual(1, response.response.Length);
-      Assert.AreEqual(true, response.response.First().IsResponding);
+      Assert.AreEqual(1, response.Length);
+      Assert.AreEqual(true, response.First().IsResponding);
 
       // Stop node
       StopBitcoind(node0);
@@ -490,10 +490,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status again - node should be marked as not responding
       response =
-        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
-      Assert.AreEqual(1, response.response.Length);
-      Assert.AreEqual(false, response.response.First().IsResponding);
+      Assert.AreEqual(1, response.Length);
+      Assert.AreEqual(false, response.First().IsResponding);
     }
   }
 }

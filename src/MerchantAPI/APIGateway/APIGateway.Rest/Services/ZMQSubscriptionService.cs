@@ -13,7 +13,6 @@ using NetMQ.Sockets;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.BitcoinRpc;
-using MerchantAPI.Common;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
@@ -23,7 +22,6 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models.Zmq;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Clock;
-using System.Security.Permissions;
 
 namespace MerchantAPI.APIGateway.Rest.Services
 {

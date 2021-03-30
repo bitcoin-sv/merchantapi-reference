@@ -3,20 +3,17 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
   public class Fee: IValidatableObject
   {
     public long Id { get; set; }
-    [JsonPropertyName("feeType")]
+
     public string FeeType { get; set; }
 
-    [JsonPropertyName("miningFee")]
     public FeeAmount MiningFee { get; set; }
 
-    [JsonPropertyName("relayFee")]
     public FeeAmount RelayFee { get; set; }
 
     public void SetFeeAmount(FeeAmount feeAmount)

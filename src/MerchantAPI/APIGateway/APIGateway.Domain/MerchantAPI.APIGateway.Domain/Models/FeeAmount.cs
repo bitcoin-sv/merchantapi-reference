@@ -2,24 +2,18 @@
 
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
+using static MerchantAPI.APIGateway.Domain.Const;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
   public class FeeAmount : IValidatableObject 
   {
 
-    public static class AmountType
-    {
-      public const string MiningFee = "MiningFee";
-      public const string RelayFee = "RelayFee";     
-    }
-
     public string FeeAmountType { get; set; }
 
-    public long Satoshis { get; set; }
+    public int Satoshis { get; set; }
 
-    public long Bytes { get; set; }
+    public int Bytes { get; set; }
 
     public bool IsMiningFee()
     {
@@ -29,6 +23,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public bool IsRelayFee()
     {
       return FeeAmountType == AmountType.RelayFee;
+    }
+
+    public float GetSatoshiPerByte()
+    {
+      return (float)Satoshis / Bytes;
     }
 
 

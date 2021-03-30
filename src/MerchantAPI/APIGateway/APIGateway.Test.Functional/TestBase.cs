@@ -1,42 +1,32 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using System;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Dapper;
+using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
-using MerchantAPI.APIGateway.Rest.Authentication;
-using MerchantAPI.APIGateway.Test.Functional.CallbackWebServer;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
-using Microsoft.Extensions.Configuration;
+using MerchantAPI.Common.Test;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
-using Npgsql.Logging;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using MerchantAPI.Common.BitcoinRest;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
-  public class TestBase
+  public class TestBase : CommonTestRestBase<AppSettings>
   {
-    public AppSettings AppSettings;
-    public IConfigurationRoot Configuration { get; private set; }
 
     public TxRepositoryPostgres TxRepositoryPostgres { get; private set; }
     public NodeRepositoryPostgres NodeRepository { get; private set; }
@@ -46,50 +36,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public IBlockChainInfo BlockChainInfo { get; private set; }
 
-    public INodes Nodes { get; private set;  }
-    
+    public INodes Nodes { get; private set; }
+
     public IRpcMultiClient rpcMultiClient { get; private set; }
 
     public IBlockChainInfo blockChainInfo { get; private set; }
 
     public IEventBus eventBus { get; private set; }
 
-    protected Microsoft.AspNetCore.TestHost.TestServer server;
-    protected HttpClient client;
-
-    protected Microsoft.AspNetCore.TestHost.TestServer serverCallback;
-    protected HttpClient clientCallback;
-
-
-    protected ILogger loggerTest;
-    protected ILoggerFactory loggerFactory;
-
     // Mocks are non-null only when we actually use the,
     protected FeeQuoteRepositoryMock feeQuoteRepositoryMock;
     protected RpcClientFactoryMock rpcClientFactoryMock;
 
-    public const string LOG_CATEGORY = "MerchantAPI.APIGateway.Test.Functional";
-
-    private static bool providerSet;
     private static double quoteExpiryMinutes = 10;
-    private readonly string dbConnectionString;
-
-    public static AutoResetEvent SyncTest = new AutoResetEvent(true);
-
-    public CallbackFunctionalTests Callback = new CallbackFunctionalTests();
-
-    protected UserAndIssuer GetMockedIdentity
-    {
-      get
-      {
-        return new UserAndIssuer() { Identity = "5", IdentityProvider = "http://mysite.com" };
-      }
-   }
 
     public const string genesisBlock =
       "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000";
-
-
 
     // Transaction dependency:
     //
@@ -123,7 +85,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       "01000000017c349529a5007d11ddddb9356a5b137282b4c8f98bb6ed74d6ad65813cbd7da0010000006b483045022100e0a4fb47b9ff8cab51bac9904a7462ea063d4ab588e197231b03cd699d79990602205b9beb6a31ade571f021a117a0bcd1afbc63a786ffc61af898abce402d84c1520121022cd68b60621f51af57f1c87e52e1b1f394584273d104dff2c2b80329115c39b0ffffffff0240420f00000000001976a914cc7ab903497dc6326c5e5135bba23f1a4653db2388acb0f05202000000001976a91461f8d0abc4c919b0693030734f4d9d3ce424fef988ac00000000";
 
     //public const string txC2Input1Hex = tx0Hex;
-      
+
 
     public const string txZeroFeeHash = "54dc90aa618ea1c300aac021399c66f5f5152848a57984a757075036e3046147";
 
@@ -147,45 +109,63 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public const string tx2Input2Hex =
       "01000000012a5fe7ae3e0db0eea0d69b492887809e13c7f03aed17252a2281527dc4797afe000000008c493046022100c6ae26aa8435ddbc4aac5d2dd26326e81c85049f4a2893553c86a72af2aac79c022100971ca28c5e5379b49b6aacef1453e76dede1a03d52887688b23c5739683f6f470141043f6e437156c7380266db90a3d35cb0d6e0bfd062fd65481f2114bd0baf8e834273e4c4e52e274aa7a96e861169a0a150d4e723191a873cf68c29d20e9624b739ffffffff0222e40c1d010000001976a9143310b7c20896ca4082b08eaaaa5791ccf18ed36188ace0577f02000000001976a914726ab8a7af161b94c211e60175f1ca3f76fd389588ac00000000";
 
+    public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
+    public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
+    public string DbConnectionStringDDL { get { return Configuration["ConnectionStrings:DBConnectionStringDDL"]; } }
 
-
-    public async Task WaitUntilAsync(Func<bool> predicate, int timeOutSeconds = 10)
+    public override string GetBaseUrl()
     {
-      var start = DateTime.UtcNow;
+      throw new NotImplementedException();
+    }
 
-      while ((DateTime.UtcNow - start).TotalSeconds < timeOutSeconds)
+    public override void Initialize(bool mockedServices = false)
+    {
+      base.Initialize(mockedServices);
+      // setup repositories
+      NodeRepository = server.Services.GetRequiredService<INodeRepository>() as NodeRepositoryPostgres;
+      TxRepositoryPostgres = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryPostgres;
+      FeeQuoteRepository = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryPostgres;
+
+      BlockChainInfo = server.Services.GetRequiredService<IBlockChainInfo>();
+      MinerId = server.Services.GetRequiredService<IMinerId>();
+
+      // setup common services
+
+      Nodes = server.Services.GetRequiredService<INodes>();
+      blockChainInfo = server.Services.GetRequiredService<IBlockChainInfo>();
+      rpcMultiClient = server.Services.GetRequiredService<IRpcMultiClient>();
+
+      eventBus = server.Services.GetRequiredService<IEventBus>();
+
+      rpcClientFactoryMock = server.Services.GetRequiredService<IRpcClientFactory>() as RpcClientFactoryMock;
+      feeQuoteRepositoryMock = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryMock;
+      FeeQuoteRepositoryMock.quoteExpiryMinutes = quoteExpiryMinutes;
+
+      if (rpcClientFactoryMock != null)
       {
-        if (predicate())
-        {
-          return;
-        }
+        rpcClientFactoryMock.SetUpTransaction(
+          txC3Hex,
+          txC2Hex,
+          txZeroFeeHex,
+          txZeroFeeInput1Hex,
+          txZeroFeeInput2Hex,
+          tx2Hex,
+          tx2Input1Hex,
+          tx2Input2Hex);
 
-        await Task.Delay(1000);
+        rpcClientFactoryMock.AddKnownBlock(0, HelperTools.HexStringToByteArray(genesisBlock));
+
+        rpcClientFactoryMock.Reset(); // remove calls that are used to test node connection when adding a new node
       }
-      // Output log entry before throwing to make it easier to pinpoint exact position of failure in log file
-      loggerTest.LogError("WaitUntilAsync: condition was not satisfied in prescribed period - will throw.");
-      throw new Exception("WaitUntilAsync: timeout expired. The conditions was not satisfied in prescribed period.");
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString);
     }
 
 
-    public async Task WaitUntilAsync(Func<Task<bool>> predicate, int timeOutSeconds = 10)
-    {
-      var start = DateTime.UtcNow;
-
-      while ((DateTime.UtcNow - start).TotalSeconds < timeOutSeconds)
-      {
-        if (await predicate())
-        {
-          return;
-        }
-
-        await Task.Delay(1000);
-      }
-
-      throw new Exception("WaitUntilAsync: timeout expired. The conditions was not satisfied in prescribed period.");
-    }
-
-    public void  WaitUntilEventBusIsIdle()
+    public void WaitUntilEventBusIsIdle()
     {
       eventBus.WaitForIdle();
       loggerTest.LogInformation("Waiting for the EventBus to become idle completed");
@@ -199,7 +179,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         {
           action(); //this could take more than timeOutSeconds - we currently do not use cancellation tokens
         }
-        catch 
+        catch
         {
           return;
         }
@@ -207,202 +187,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
       throw new Exception("RepeatUntilException: timeout expired. The exception did not occur in prescribed period.");
     }
-    public TestBase()
-    {
-      if (!providerSet)
-      {
-        // uncomment if needed
-        //NpgsqlLogManager.Provider = new ConsoleLoggingProvider(NpgsqlLogLevel.Debug);
-        //NpgsqlLogManager.IsParameterLoggingEnabled = true;
-        providerSet = true;
-      }
 
-      SqlMapper.AddTypeHandler(new Common.DateTimeHandler());
-
-      string appPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-      Configuration = new ConfigurationBuilder()
-        .AddJsonFile(Path.Combine(appPath, "appsettings.json"))
-        .AddJsonFile(Path.Combine(appPath, "appsettings.development.json"), optional: true)
-        .AddJsonFile(Path.Combine(appPath, "appsettings.test.functional.development.json"), optional: true)
-        .AddEnvironmentVariables()
-        .Build();
-
-
-      AppSettings = Configuration.GetSection("AppSettings").Get<AppSettings>();
-
-      dbConnectionString = Configuration["ConnectionStrings:DBConnectionString"];
-    }
-
-    public void Initialize(bool mockedServices = false)
-    {
-      SyncTest.WaitOne(); // tests must not run in parallel since each test first deletes database
-      try
-      {
-
-
-        // setup call back server
-        serverCallback = CallbackServer.GetTestServer(Callback.Url, Callback);
-        clientCallback = serverCallback.CreateClient();
-
-        //setup server
-        server = TestServerBase.CreateServer(mockedServices, serverCallback, dbConnectionString);
-        client = server.CreateClient();
-
-        // setup repositories
-        NodeRepository = server.Services.GetRequiredService<INodeRepository>() as NodeRepositoryPostgres;
-        TxRepositoryPostgres = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryPostgres;
-        FeeQuoteRepository = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryPostgres;
-
-        BlockChainInfo = server.Services.GetRequiredService<IBlockChainInfo>();
-        MinerId = server.Services.GetRequiredService<IMinerId>();
-
-        // setup common services
-        loggerFactory = server.Services.GetRequiredService<ILoggerFactory>();
-        loggerTest = loggerFactory.CreateLogger(LOG_CATEGORY);
-
-        Nodes = server.Services.GetRequiredService<INodes>();
-        blockChainInfo = server.Services.GetRequiredService<IBlockChainInfo>();
-        rpcMultiClient = server.Services.GetRequiredService<IRpcMultiClient>();
-
-        eventBus = server.Services.GetRequiredService<IEventBus>();
-
-        rpcClientFactoryMock = server.Services.GetRequiredService<IRpcClientFactory>() as RpcClientFactoryMock;
-        feeQuoteRepositoryMock = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryMock;
-        FeeQuoteRepositoryMock.quoteExpiryMinutes = quoteExpiryMinutes;
-
-        if (rpcClientFactoryMock != null)
-        {
-          rpcClientFactoryMock.SetUpTransaction(
-            txC3Hex,
-            txC2Hex,
-            txZeroFeeHex,
-            txZeroFeeInput1Hex,
-            txZeroFeeInput2Hex,
-            tx2Hex,
-            tx2Input1Hex,
-            tx2Input2Hex);
-
-          rpcClientFactoryMock.AddKnownBlock(0, HelperTools.HexStringToByteArray(genesisBlock));
-
-          rpcClientFactoryMock.Reset(); // remove calls that are used to test node connection when adding a new node
-        }
-        loggerTest.LogInformation($"Path: {Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)}");
-        loggerTest.LogInformation($"ConnString: {dbConnectionString}");
-      }
-      catch
-      {
-        SyncTest.Reset();
-        // If there was error during initialization, let the other tests run (although they will probably also fail)
-        throw;
-      }
-
-    }
-
-    public void Cleanup(Action afterServerDisposed = null)
-    {
-      loggerTest?.LogInformation("Starting test cleanup");
-      server?.Dispose();
-      loggerTest?.LogInformation("TestServer disposed");
-
-      afterServerDisposed?.Invoke();
-      SyncTest.Set();
-      loggerTest?.LogInformation("Test cleanup finished");
-    }
-
-
-    // Helper Json related functions
-    public async Task<(TResponse response, HttpResponseMessage httpResponse)> Post<TRequest, TResponse>(
-      string baseUrl,
-      HttpClient client,
-      TRequest request,
-      HttpStatusCode expectedStatusCode)
-      where TResponse : class
-    {
-      return await Post<TResponse>(
-        baseUrl,
-        client,
-        new StringContent(JsonSerializer.Serialize(request),
-          Encoding.UTF8, "application/json"),
-        expectedStatusCode
-      );
-    }
-
-
-    /// <summary>
-    /// When set it is used as Rest authentication header in tests
-    /// </summary>
-    public string RestAuthentication { get; set; }
-
-    /// <summary>
-    /// When set it is used as API Key Rest authentication header in tests
-    /// </summary>
-    public string ApiKeyAuthentication { get; set; }
-
-
-    public async Task<(TResponse response, HttpResponseMessage httpResponse)> ParseResponse<TResponse>(HttpResponseMessage httpResponse, HttpStatusCode expectedStatusCode)  where TResponse: class
-    {
-
-      if (expectedStatusCode != httpResponse.StatusCode)
-      {
-        // include body in assert message to make debugging easier
-        var body = await httpResponse.Content.ReadAsStringAsync();
-        Assert.AreEqual(expectedStatusCode, httpResponse.StatusCode, "body: " + body);
-      }
-
-
-      string responseString = await httpResponse.Content.ReadAsStringAsync();
-      TResponse response = null;
-
-      if (httpResponse.IsSuccessStatusCode) // Only try to deserialize in case there are no exception
-      {
-        response = JsonSerializer.Deserialize<TResponse>(responseString);
-      }
-
-      return (response, httpResponse);
-    }
-
-    HttpRequestMessage BuildHttpRequestMessage(HttpMethod httpMethod, string url, HttpContent content = null)
-    {
-      var requestMessage = new HttpRequestMessage(httpMethod, url)
-      {
-        Content = content
-      };
-
-      if (!string.IsNullOrEmpty(RestAuthentication))
-      {
-        requestMessage.Headers.Add("Authorization", RestAuthentication);
-      }
-      if (!string.IsNullOrEmpty(ApiKeyAuthentication))
-      {
-        requestMessage.Headers.Add(ApiKeyAuthenticationHandler.ApiKeyHeaderName, ApiKeyAuthentication);
-      }
-
-      return requestMessage;
-
-    }
-    public async Task<(TResponse response, HttpResponseMessage httpResponse)> Get<TResponse>(
-      string url,
-      HttpClient client,
-      HttpStatusCode expectedStatusCode)
-      where TResponse : class
-    {
-      var httpResponse = await client.SendAsync(BuildHttpRequestMessage(HttpMethod.Get, url));
-
-      return await ParseResponse<TResponse>(httpResponse, expectedStatusCode);
-    }
-
-    public async Task<(TResponse response, HttpResponseMessage httpResponse)> Post<TResponse>(
-      string url,
-      HttpClient client,
-      ByteArrayContent requestContent,
-      HttpStatusCode expectedStatusCode)
-      where TResponse : class
-    {
-      
-      var httpResponse = await  client.SendAsync(BuildHttpRequestMessage(HttpMethod.Post, url, requestContent));
-
-      return await ParseResponse<TResponse>(httpResponse, expectedStatusCode);
-    }
 
     public Tx CreateNewTx(string txHash, string txHex, bool merkleProof, bool dsCheck)
     {
@@ -426,12 +211,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public async Task<long> CreateAndPublishNewBlock(IRpcClient rpcClient, long? blockHeightToStartFork, params Transaction[] transactions)
+    public async Task<long> CreateAndPublishNewBlock(IRpcClient rpcClient, IRestClient restClient, long? blockHeightToStartFork, params Transaction[] transactions)
     {
       long blockCount = await rpcClient.GetBlockCountAsync();
       if (blockCount == 0)
       {
-        var blockHex = await rpcClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync());
+        var blockHex = await restClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync());
         var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
         rpcClientFactoryMock.AddKnownBlock(blockCount, firstBlock.ToBytes());
         PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
@@ -447,7 +232,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         }
         else
         {
-          lastBlock = NBitcoin.Block.Load(await rpcClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync()), Network.Main);
+          lastBlock = NBitcoin.Block.Load(await restClient.GetBlockAsBytesAsync(await rpcClient.GetBestBlockHashAsync()), Network.Main);
         }
         var block = lastBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
         block.AddTransaction(tx);
@@ -488,29 +273,29 @@ namespace MerchantAPI.APIGateway.Test.Functional
           ValidFrom = MockedClock.UtcNow,
           Fees = new[] {
               new Fee {
-                FeeType ="standard",
+                FeeType = Const.FeeType.Standard,
                 MiningFee = new FeeAmount {
                   Satoshis = 500,
                   Bytes = 1000,
-                  FeeAmountType = FeeAmount.AmountType.MiningFee
+                  FeeAmountType = Const.AmountType.MiningFee
                 },
                 RelayFee = new FeeAmount {
                   Satoshis = 250,
                   Bytes = 1000,
-                  FeeAmountType = FeeAmount.AmountType.RelayFee
+                  FeeAmountType = Const.AmountType.RelayFee
                 },
               },
               new Fee {
-                FeeType ="data",
+                FeeType = Const.FeeType.Data,
                 MiningFee = new FeeAmount {
                   Satoshis = 500,
                   Bytes = 1000,
-                  FeeAmountType = FeeAmount.AmountType.MiningFee
+                  FeeAmountType = Const.AmountType.MiningFee
                 },
                 RelayFee = new FeeAmount {
                   Satoshis = 250,
                   Bytes = 1000,
-                  FeeAmountType = FeeAmount.AmountType.RelayFee
+                  FeeAmountType = Const.AmountType.RelayFee
                 },
               },
           }

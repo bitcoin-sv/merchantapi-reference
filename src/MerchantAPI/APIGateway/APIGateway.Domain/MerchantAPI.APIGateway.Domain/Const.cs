@@ -1,20 +1,36 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.Common;
+
 namespace MerchantAPI.APIGateway.Domain
 {
-  public static class Const
+  public class Const
   {
-    public const string MERCHANT_API_VERSION = "1.2.0"; 
+    public const string MERCHANT_API_VERSION = "1.2.0";
+
+    public class FeeType
+    {
+      public const string Standard = "standard";
+      public const string Data = "data";
+
+      public static readonly string[] RequiredFeeTypes = { Standard, Data };
+    }
+
+    public class AmountType
+    {
+      public const string MiningFee = "MiningFee";
+      public const string RelayFee = "RelayFee";
+    }
   }
 
-  public static class CallbackReason
+  public class CallbackReason
   {
     public const string MerkleProof = "merkleProof";
     public const string DoubleSpend = "doubleSpend";
     public const string DoubleSpendAttempt = "doubleSpendAttempt";
   }
 
-  public static class ZMQTopic
+  public class ZMQTopic
   {
     public const string HashBlock = "hashblock";
     public const string InvalidTx = "invalidtx";

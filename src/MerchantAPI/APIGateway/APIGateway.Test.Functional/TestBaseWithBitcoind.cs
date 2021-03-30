@@ -1,18 +1,21 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.Common.EventBus;
+using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NBitcoin;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Domain.Models;
-using MerchantAPI.APIGateway.Domain.Models.Events;
-using MerchantAPI.Common.BitcoinRpc;
-using MerchantAPI.Common.EventBus;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NBitcoin;
+using MerchantAPI.Common.BitcoinRest;
+using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -35,7 +38,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected List<BitcoindProcess> bitcoindProcesses = new List<BitcoindProcess>();
 
-    public IRpcClient rpcClient0; 
+    public IRpcClient rpcClient0;
+    public IRestClient restClient0;
     public BitcoindProcess node0;
 
     public Queue<Coin> availableCoins = new Queue<Coin>();
@@ -57,7 +61,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         throw new Exception($"Required parameter {bitcoindConfigKey} is missing from configuration");
       }
-      
+
       var alternativeIp = Configuration["HostIp"];
       if (!string.IsNullOrEmpty(alternativeIp))
       {
@@ -73,6 +77,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         _ = zmqSubscribedEventSubscription.ReadAsync(CancellationToken.None).Result;
         rpcClient0 = node0.RpcClient;
         SetupChain(rpcClient0);
+        restClient0 = node0.RestClient;
       }
     }
 
@@ -125,23 +130,25 @@ namespace MerchantAPI.APIGateway.Test.Functional
     static readonly int bitcoindInternalPathLength = "regtest/blocks/index/MANIFEST-00000".Length + 10;
     public BitcoindProcess StartBitcoind(int nodeIndex)
     {
-     
+
       string testPerfix = TestContext.FullyQualifiedTestClassName;
       if (testPerfix.StartsWith(commonTestPrefix))
       {
         testPerfix = testPerfix.Substring(commonTestPrefix.Length);
       }
 
-      var dataDirRoot = Path.Combine(TestContext.TestRunDirectory, "node" + nodeIndex,  testPerfix, TestContext.TestName);
+      var dataDirRoot = Path.Combine(TestContext.TestRunDirectory, "node" + nodeIndex, testPerfix, TestContext.TestName);
       if (Environment.OSVersion.Platform == PlatformID.Win32NT && dataDirRoot.Length + bitcoindInternalPathLength >= 260)
       {
         // LevelDB refuses to open file with path length  longer than 260 
         throw new Exception($"Length of data directory path is too long. This might cause problems when running bitcoind on Windows. Please run tests from directory with a short path. Data directory path: {dataDirRoot}");
-      } 
+      }
+      
       var bitcoind = new BitcoindProcess(
         bitcoindFullPath,
         dataDirRoot,
-        nodeIndex, hostIp, zmqIp, loggerFactory);
+        nodeIndex, hostIp, zmqIp, loggerFactory,
+        server.Services.GetRequiredService<IHttpClientFactory>());
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }
@@ -152,7 +159,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         throw new Exception($"Can not stop a bitcoind that was not started by {nameof(StartBitcoind)} ");
       }
-      
+
       bitcoind.Dispose();
 
     }
@@ -241,13 +248,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
         parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
       }
 
-      var parentBlockBytes = await rpcClient0.GetBlockAsBytesAsync(parentBlockHash);
+      var parentBlockBytes = await restClient0.GetBlockAsBytesAsync(parentBlockHash);
       var parentBlock = NBitcoin.Block.Load(parentBlockBytes, Network.RegTest);
       var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
       return await MineNextBlockAsync(transactions, throwOnError, parentBlock, parentBlockHeight);
     }
 
-    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions, bool throwOnError,  NBitcoin.Block parentBlock, long parentBlockHeight)
+    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions, bool throwOnError, NBitcoin.Block parentBlock, long parentBlockHeight)
     {
       var newBlock = parentBlock.CreateNextBlockWithCoinbase(new Key().PubKey, parentBlockHeight, NBitcoin.Altcoins.BCash.Instance.Regtest.Consensus.ConsensusFactory);
       newBlock.Transactions.AddRange(transactions);

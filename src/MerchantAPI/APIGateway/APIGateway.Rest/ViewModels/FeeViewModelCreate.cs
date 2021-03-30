@@ -1,5 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using System.Text.Json.Serialization;
 
@@ -30,8 +31,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       return new Fee
       {
         FeeType = FeeType,
-        MiningFee = MiningFee?.ToDomainObject(FeeAmount.AmountType.MiningFee),
-        RelayFee = RelayFee?.ToDomainObject(FeeAmount.AmountType.RelayFee)
+        MiningFee = MiningFee?.ToDomainObject(Const.AmountType.MiningFee),
+        RelayFee = RelayFee?.ToDomainObject(Const.AmountType.RelayFee)
       };
     }
   }

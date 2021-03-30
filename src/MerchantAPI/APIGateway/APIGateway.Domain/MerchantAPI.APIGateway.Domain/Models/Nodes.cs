@@ -12,6 +12,7 @@ using MerchantAPI.Common.EventBus;
 using System.Linq;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Exceptions;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {

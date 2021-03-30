@@ -18,7 +18,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
-using SignedPayloadViewModel = MerchantAPI.APIGateway.Rest.ViewModels.SignedPayloadViewModel;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -149,7 +148,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if callback was received
       Assert.AreEqual(1, Callback.Calls.Length);
 
-      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(Callback.Calls[0].request)
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(Callback.Calls[0].request)
         .ExtractPayload<CallbackNotificationMerkeProofViewModel>();
       Assert.AreEqual(CallbackReason.MerkleProof, callback.CallbackReason);
       Assert.AreEqual(new uint256(txId), new uint256(callback.CallbackTxId));
@@ -177,9 +176,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
     async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId)
     {
       var response = await Get<SignedPayloadViewModel>(
-        MapiServer.ApiMapiQueryTransactionStatus + txId, client, HttpStatusCode.OK);
+        client, MapiServer.ApiMapiQueryTransactionStatus + txId, HttpStatusCode.OK);
 
-      return response.response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
+      return response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
     }
 
     [TestMethod]

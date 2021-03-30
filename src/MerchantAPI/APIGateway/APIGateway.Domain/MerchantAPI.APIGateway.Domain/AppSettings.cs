@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using MerchantAPI.Common.Authentication;
 using Microsoft.Extensions.Options;
 
 namespace MerchantAPI.APIGateway.Domain
@@ -51,7 +52,7 @@ namespace MerchantAPI.APIGateway.Domain
     public int? FastHostResponseTimeoutMS { get; set; }
   }
 
-  public class AppSettings
+  public class AppSettings : CommonAppSettings
   {
     [Range(1, double.MaxValue)]
     public double QuoteExpiryMinutes { get; set; } = 10;
@@ -63,9 +64,6 @@ namespace MerchantAPI.APIGateway.Domain
 
     [Range(1, int.MaxValue)]
     public int ZmqConnectionTestIntervalSec { get; set; } = 60;
-
-    [Required]
-    public string RestAdminAPIKey { get; set; }
  
     public int DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 

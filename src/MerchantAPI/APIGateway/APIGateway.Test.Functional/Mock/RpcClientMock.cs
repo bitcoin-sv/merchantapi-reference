@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.Common.BitcoinRest;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
@@ -17,7 +18,7 @@ using NBitcoin;
 namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
 
-  class RpcClientMock : IRpcClient
+  class RpcClientMock : IRpcClient, IRestClient
   {
     RpcCallList callList;
     string nodeId;
@@ -128,7 +129,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       return Task.FromResult(block.BlockData);
     }
-
+    
     public Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
     {
       var r = SimulateCall<byte[]>();

@@ -1,3 +1,4 @@
+-- Copyright (c) 2020 Bitcoin Association
 
 CREATE INDEX IF NOT EXISTS IFeeQuote_Id ON FeeQuote (id);
 CREATE INDEX IF NOT EXISTS IFeeQuote_CreatedAt_ValidFrom ON FeeQuote (createdAt, validFrom);
