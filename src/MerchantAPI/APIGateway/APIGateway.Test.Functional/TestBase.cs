@@ -22,6 +22,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.Common.BitcoinRest;
+using System.Collections.Generic;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -118,9 +119,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       throw new NotImplementedException();
     }
 
-    public override void Initialize(bool mockedServices = false)
+    public override void Initialize(bool mockedServices = false, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
-      base.Initialize(mockedServices);
+      base.Initialize(mockedServices, overridenSettings);
       // setup repositories
       NodeRepository = server.Services.GetRequiredService<INodeRepository>() as NodeRepositoryPostgres;
       TxRepositoryPostgres = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryPostgres;
@@ -159,7 +160,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString)
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
       return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString);
     }

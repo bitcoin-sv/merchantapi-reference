@@ -28,9 +28,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
     public string DbConnectionStringDDL { get { return Configuration["ConnectionStrings:DBConnectionStringDDL"]; } }
 
-    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString)
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
-        return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString);
+        return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     public FeeQuoteRepositoryPostgres FeeQuoteRepository { get; private set; }
