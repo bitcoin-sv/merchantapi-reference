@@ -2,6 +2,8 @@
 
 using MerchantAPI.Common.Authentication;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -146,6 +148,11 @@ namespace MerchantAPI.Common.Test
       var httpResponse = await PerformRequestAsync(client, HttpMethod.Post, url, requestContent);
 
       return await ParseResponse<TResponse>(httpResponse, expectedStatusCode);
+    }
+
+    public string PrepareQueryParams(string url, IEnumerable<(string Name, string Value)> queryParams)
+    {
+      return url + "?" + string.Join("&", queryParams.Select(x => x.Name + "=" + x.Value));
     }
   }
 }
