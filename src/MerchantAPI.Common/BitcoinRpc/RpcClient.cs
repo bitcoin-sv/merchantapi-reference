@@ -23,11 +23,10 @@ namespace MerchantAPI.Common.BitcoinRpc
 
 
     Task<long> GetBlockCountAsync(CancellationToken? token = null);
+    
     Task<RpcGetBlockWithTxIds> GetBlockWithTxIdsAsync(string blockHash, CancellationToken? token = null);
 
     Task<RpcGetBlock> GetBlockAsync(string blockHash, int verbosity, CancellationToken? token = null);
-
-    Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null);
 
     Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null);
 
@@ -40,6 +39,7 @@ namespace MerchantAPI.Common.BitcoinRpc
     Task<RpcGetRawTransaction> GetRawTransactionAsync(string txId, int retryCount = 0, CancellationToken? token = null);
 
     Task<byte[]> GetRawTransactionAsBytesAsync(string txId, CancellationToken? token = null);
+    
     Task<string> GetBestBlockHashAsync(CancellationToken? token = null);
 
     Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token = null);
@@ -51,6 +51,7 @@ namespace MerchantAPI.Common.BitcoinRpc
     Task<string[]> GenerateAsync(int n, CancellationToken? token = null);
 
     Task<string> SendToAddressAsync(string address, double amount, CancellationToken? token = null);
+   
     Task<RpcGetBlockchainInfo> GetBlockchainInfoAsync(CancellationToken? token = null);
 
     Task<RpcGetMerkleProof> GetMerkleProofAsync(string txId, string blockHash, CancellationToken? token = null);
@@ -62,7 +63,12 @@ namespace MerchantAPI.Common.BitcoinRpc
     Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null);
 
     Task<string> SubmitBlock(byte[] block, CancellationToken? token = null);
+
     Task<string[]> GetRawMempool(CancellationToken? token = null); // non-verbose options currently not supported
+
+    Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
+                                                      int totalTimeoutSec,
+                                                      IEnumerable<(string Tx, int N)> dsTx, CancellationToken? token = null);
   }
 
   public class RpcClient : IRpcClient
@@ -76,24 +82,14 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     private static Lazy<HttpClient> SharedHttpClient = new Lazy<HttpClient>(() => new HttpClient() { Timeout = Timeout.InfiniteTimeSpan }); // intended to be instantiated once : ref docs.microsoft.com
 
-    HttpClient httpClient;
-    public HttpClient HttpClient
-    {
-      get
-      {
-        return httpClient ?? SharedHttpClient.Value;
-      }
-      set
-      {
-        httpClient = value;
-      }
-    }
+    public HttpClient HttpClient { get; set; }
 
-    public RpcClient(Uri address, NetworkCredential credentials, ILogger<RpcClient> logger)
+    public RpcClient(Uri address, NetworkCredential credentials, ILogger<RpcClient> logger, HttpClient httpClient)
     {
       Address = address;
       Credentials = credentials;
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+      HttpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
 
     public async Task<long> GetBlockCountAsync(CancellationToken? token = null)
@@ -114,12 +110,6 @@ namespace MerchantAPI.Common.BitcoinRpc
         throw new Exception("GetBlockAsync method does not accept verbosity level 0, 1.");
       }
       return await RequestAsyncWithRetry<RpcGetBlock>(token, "getblock", null, blockHash, verbosity);
-    }
-
-    public async Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null)
-    {
-      var response = await RequestAsyncWithRetry<string>(token, "getblock", null, blockHash, 0);
-      return HelperTools.HexStringToByteArray(response);
     }
 
     public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
@@ -249,6 +239,23 @@ namespace MerchantAPI.Common.BitcoinRpc
       return RequestAsync<string[]>(token, "getrawmempool");
     }
 
+    public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
+                                                         int totalTimeoutSec,
+                                                         IEnumerable<(string Tx, int N)> dsTx,
+                                                         CancellationToken? token = null)
+    {
+      var reqParams = dsTx.Select(
+        x => new RpcVerifyScriptRequest
+        {
+          Tx = x.Tx,
+          N = x.N
+        }).ToArray();
+
+      return RequestAsync<RpcVerifyScriptResponse[]>(
+          token,
+          "verifyscript",
+          reqParams, stopOnFirstInvalid, totalTimeoutSec);
+    }
 
     private async Task<T> RequestAsync<T>(CancellationToken? token, string method, params object[] parameters)
     {
