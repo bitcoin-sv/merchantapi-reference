@@ -467,7 +467,7 @@ WHERE NOT EXISTS
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, Tx.txInternalId childId, n, prevTxId, prev_n
+SELECT Tx.txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, Tx.txInternalId childId, n, prevTxId, prev_n, dsCheck
 FROM Tx 
 INNER JOIN TxInput on TxInput.txInternalId = Tx.txInternalId
 WHERE dsCheck = true

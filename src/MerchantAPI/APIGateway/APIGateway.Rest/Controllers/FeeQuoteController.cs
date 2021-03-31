@@ -25,6 +25,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [ApiController]
   [Authorize]
   [ApiExplorerSettings(GroupName = SwaggerGroup.Admin)]
+  [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class FeeQuoteController: ControllerBase
   {
 

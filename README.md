@@ -406,6 +406,12 @@ On Windows: build.bat
     | CLEAN_UP_TX_AFTER_DAYS | Number of days transactions and blocks are kept in database. Default: 3 days |
     | CLEAN_UP_TX_PERIOD_SEC | Time period of transactions cleanup check. Default: 1 hour |
     | WIF_PRIVATEKEY | Private key that is used to sign responses with (must be omited if minerid settings are specified, and vice versa) |
+    | DS_HOST_BAN_TIME_SEC | Ban duration for hosts that didn't behave |
+    | DS_MAX_NUM_OF_TX_QUERIES | Maximum number of queries for the same transaction id before a host will be banned |
+    | DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC | Duration how long will the same transaction id query count per host be stored before it's reset to 0 |
+    | DS_MAX_NUM_OF_UNKNOWN_QUERIES | Maximum number of queries for unknown transaction id before a host will be banned |
+    | DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC | Duration how long will the count for queries of unknown transactions be stored before it's reset to 0 |
+    | DS_SCRIPT_VALIDATION_TIMEOUT_SEC | Total time for script validation when nodes RPC method verifyScript will be called |
     | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when background service will retry to send notifications with error |
     | NOTIFICATION_INSTANT_NOTIFICATION_TASKS | Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100) |
     | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE | Maximum number of notifications waiting in instant queue before new notifications will be scheduled for slow background delivery |

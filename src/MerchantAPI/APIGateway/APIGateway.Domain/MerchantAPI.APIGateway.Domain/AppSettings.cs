@@ -73,6 +73,24 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(600, int.MaxValue)]
     public int CleanUpTxPeriodSec { get; set; } = 3600;
 
+    [Range(1, int.MaxValue)]
+    public int DSHostBanTimeSec { get; set; }
+
+    [Range(2, int.MaxValue)]
+    public int DSMaxNumOfTxQueries { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int DSCachedTxRequestsCooldownPeriodSec { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int DSMaxNumOfUnknownTxQueries { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int DSUnknownTxQueryCooldownPeriodSec { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int DSScriptValidationTimeoutSec { get; set; }
+
     public Notification Notification { get; set; }
 
   }

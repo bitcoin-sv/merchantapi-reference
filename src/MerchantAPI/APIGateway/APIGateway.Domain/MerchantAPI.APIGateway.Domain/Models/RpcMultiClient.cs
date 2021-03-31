@@ -262,6 +262,13 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       return GetFirstSucesfullAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
     }
+    
+    public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
+                                        int totalTimeoutSec,
+                                        IEnumerable<(string Tx, int N)> dsTx)
+    {
+      return GetFirstSucesfullAsync(c => c.VerifyScriptAsync(stopOnFirstInvalid, totalTimeoutSec, dsTx));
+    }
 
     enum GroupType
     {

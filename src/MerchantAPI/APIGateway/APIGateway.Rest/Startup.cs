@@ -29,6 +29,7 @@ using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Startup;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.Common.BitcoinRest;
+using MerchantAPI.APIGateway.Domain.DSAccessChecks;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -36,12 +37,12 @@ namespace MerchantAPI.APIGateway.Rest
   public class Startup
   {
 
-    IWebHostEnvironment HostEnvironment { get; set; }
+    public static IWebHostEnvironment HostEnvironment { get; set; }
 
     public Startup(IConfiguration configuration, IWebHostEnvironment hostEnvironment)
     {
       Configuration = configuration;
-      this.HostEnvironment = hostEnvironment;
+      HostEnvironment = hostEnvironment;
     }
 
     public IConfiguration Configuration { get; }
@@ -102,7 +103,13 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddHostedService(p => (BlockChainInfo)p.GetRequiredService<IBlockChainInfo>());
       services.AddHostedService(p => (NotificationsHandler)p.GetRequiredService<INotificationsHandler>());
 
-
+      services.AddSingleton<HostBanListMemoryCache>();
+      services.AddSingleton<TxRequestsMemoryCache>();
+      services.AddSingleton<HostUnknownTxCache>();
+      services.AddSingleton<ITransactionRequestsCheck, TransactionRequestsCheck>();
+      services.AddSingleton<IHostBanList, HostBanList>();
+      services.AddScoped<CheckHostActionFilter>();
+      services.AddScoped<HttpsRequiredAttribute>();
 
       services.AddSingleton<IMinerId>(s =>
         {
@@ -251,10 +258,9 @@ namespace MerchantAPI.APIGateway.Rest
         context.Response.Headers.Add("X-Frame-Options", "DENY");
         // To require connections over HTTPS and to protect against spoofed certificates.
         context.Response.Headers.Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+
         await next();
       });
-
-      app.UseHttpsRedirection();
 
       app.UseSwagger();
       app.UseSwaggerUI(c =>

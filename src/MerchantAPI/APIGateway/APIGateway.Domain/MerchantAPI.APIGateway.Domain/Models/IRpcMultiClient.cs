@@ -25,5 +25,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
     Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash);
     Task<RpcGetNetworkInfo> GetAnyNetworkInfoAsync();
     Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList);
+    Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
+                                                      int totalTimeoutSec,
+                                                      IEnumerable<(string Tx, int N)> dsTx);
+
   }
 }

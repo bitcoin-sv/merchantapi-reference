@@ -430,6 +430,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return Task.FromResult(new string[0]);
     }
 
+    Task<RpcVerifyScriptResponse[]> IRpcClient.VerifyScriptAsync(bool stopOnFirstInvalid, 
+                                                                 int totalTimeoutSec,
+                                                                 IEnumerable<(string Tx, int N)> dsTx, CancellationToken? token = null)
+    {
+      throw new NotImplementedException();
+    }
   }
 
 }

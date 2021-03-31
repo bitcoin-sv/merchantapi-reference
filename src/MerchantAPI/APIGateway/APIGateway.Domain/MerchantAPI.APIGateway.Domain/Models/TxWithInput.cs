@@ -16,6 +16,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public long N { get; set; }
     public byte[] PrevTxId { get; set; }
     public long Prev_N { get; set; }
+    public bool DsCheck { get; set; }
 
     public override bool Equals(object obj)
     {

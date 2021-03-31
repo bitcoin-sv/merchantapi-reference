@@ -20,6 +20,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       CallbackToken = txWithInput.CallbackToken;
       CallbackUrl = txWithInput.CallbackUrl;
       CallbackEncryption = txWithInput.CallbackEncryption;
+      DSCheck = txWithInput.DsCheck;
       TxIn = new List<TxInput>();
       TxIn.Add(new TxInput(txWithInput));
     }

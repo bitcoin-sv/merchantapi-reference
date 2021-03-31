@@ -30,6 +30,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
   [AllowAnonymous]
   [ApiExplorerSettings(GroupName = SwaggerGroup.API)]
+  [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class MapiController : ControllerBase
   {
 
