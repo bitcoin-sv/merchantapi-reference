@@ -777,7 +777,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           TxPayload = x.transaction.RawTx,
           ReceivedAt = clock.UtcNow(),
           TxIn = x.transaction.TransactionInputs
-        }).ToList());
+        }).ToList(), false);
 
         if (rpcResponse.Unconfirmed != null)
         {
@@ -796,7 +796,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             })
             );
           }
-          await txRepository.InsertUnconfirmedAncestorsAsync(unconfirmedAncestors);
+          await txRepository.InsertTxsAsync(unconfirmedAncestors, true);
         }
         return result;
       }
