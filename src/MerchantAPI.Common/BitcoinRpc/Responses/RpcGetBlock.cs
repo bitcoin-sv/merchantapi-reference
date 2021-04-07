@@ -180,8 +180,10 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
     [JsonPropertyName("dontcheckfee")]
     public bool DontCheckFee { get; set; }
 
-
+    [JsonPropertyName("listunconfirmedancestors")]
+    public bool ListUnconfirmedAncestors { get; set; }
   }
+
   [Serializable]
   public partial class RpcSendTransactions
   {
@@ -194,6 +196,10 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
 
     [JsonPropertyName("invalid")]
     public RpcInvalidTx[] Invalid { get; set; }
+
+    [JsonPropertyName("unconfirmed")]
+    public RpcUnconfirmedTx[] Unconfirmed { get; set; }
+
 
     [Serializable]
     public class RpcInvalidTx
@@ -225,5 +231,36 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
       [JsonPropertyName("hex")]
       public string Hex { get; set; }
     }
+
+    [Serializable]
+    public class RpcUnconfirmedTx
+    {
+      [JsonPropertyName("txid")]
+      public string Txid { get; set; }
+
+      [JsonPropertyName("ancestors")]
+      public RpcUnconfirmedAncestor[] Ancestors { get; set; }
+    }
+
+    [Serializable]
+    public class RpcUnconfirmedAncestor
+    {
+      [JsonPropertyName("txid")]
+      public string Txid { get; set; }
+
+      [JsonPropertyName("vin")]
+      public RpcUnconfirmedAncestorVin[] Vin { get; set; }
+    }
+
+    [Serializable]
+    public class RpcUnconfirmedAncestorVin
+    {
+      [JsonPropertyName("txid")]
+      public string Txid { get; set; }
+
+      [JsonPropertyName("vout")]
+      public int Vout { get; set; }
+    }
+
   }
 }

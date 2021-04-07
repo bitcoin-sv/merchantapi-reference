@@ -44,7 +44,7 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token = null);
 
-    Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees)[] transactions, CancellationToken? token = null);
+    Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] transactions, CancellationToken? token = null);
 
     Task StopAsync(CancellationToken? token = null);
 
@@ -174,7 +174,7 @@ namespace MerchantAPI.Common.BitcoinRpc
     }
 
     public async Task<RpcSendTransactions> SendRawTransactionsAsync(
-      (byte[] transaction, bool allowhighfees, bool dontCheckFees)[] transactions, CancellationToken? token = null)
+      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] transactions, CancellationToken? token = null)
     {
 
       var t = transactions.Select(
@@ -182,7 +182,8 @@ namespace MerchantAPI.Common.BitcoinRpc
         {
           Hex = HelperTools.ByteToHexString(tx.transaction),
           AllowHighFees = tx.allowhighfees,
-          DontCheckFee = tx.dontCheckFees
+          DontCheckFee = tx.dontCheckFees,
+          ListUnconfirmedAncestors = tx.listUnconfirmedAncestors
         }).Cast<object>().ToArray();
 
       object param1 = t; // cast to object so that it is not interpreted as multiple arguments
