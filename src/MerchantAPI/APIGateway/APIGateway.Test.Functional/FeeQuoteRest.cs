@@ -94,7 +94,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       };
     }
 
-
     private FeeQuoteViewModelCreate GetItemToCreateWithIdentity()
     {
       return new FeeQuoteViewModelCreate
@@ -289,6 +288,68 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // validFrom is filled
       Assert.IsTrue(get2.CreatedAt <= get2.ValidFrom.Value);
+    }
+
+    [TestMethod]
+    public async Task TestPostInvalidFee_Satoshis()
+    {
+      var entryPost = GetItemToCreate();
+      // Create new one using POST
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.Created);
+
+      entryPost = GetItemToCreate();
+      foreach (var fee in entryPost.Fees)
+      {
+        fee.MiningFee.Satoshis = 0;
+        fee.RelayFee.Satoshis = 0;
+      }
+      // Create new one using POST
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.Created);
+
+      entryPost = GetItemToCreate();
+      //set invalid minning fee value
+      entryPost.Fees.First().MiningFee.Satoshis = -1;
+      // Create new one using POST - should return badRequest
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
+      entryPost = GetItemToCreate();
+      //set invalid relay fee value
+      entryPost.Fees.First().RelayFee.Satoshis = -1;
+      // Create new one using POST - should return badRequest
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+    }
+
+    [TestMethod]
+    public async Task TestPostInvalidFee_Bytes()
+    {
+      var entryPost = GetItemToCreate();
+
+      // Create new one using POST
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.Created);
+
+      entryPost = GetItemToCreate();
+      //set invalid minning fee value
+      entryPost.Fees.First().MiningFee.Bytes = 0;
+      // Create new one using POST - should return badRequest
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
+      entryPost = GetItemToCreate();
+      //set invalid minning fee value
+      entryPost.Fees.First().RelayFee.Bytes = 0;
+      // Create new one using POST - should return badRequest
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
+      entryPost = GetItemToCreate();
+      //set invalid minning fee value
+      entryPost.Fees.First().MiningFee.Bytes = -1;
+      // Create new one using POST - should return badRequest
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
+
+      entryPost = GetItemToCreate();
+      //set invalid relay fee value
+      entryPost.Fees.First().RelayFee.Bytes = -1;
+      // Create new one using POST - should return badRequest
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.BadRequest);
     }
 
     [TestMethod]
