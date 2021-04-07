@@ -60,7 +60,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         txList.Add(CreateNewTx(hashes[i], hexes[i], merkleProof, dsCheck));
       }
 
-      await TxRepositoryPostgres.InsertTxsAsync(txList);
+      await TxRepositoryPostgres.InsertTxsAsync(txList, false);
 
       return txList;
     }

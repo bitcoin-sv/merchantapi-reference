@@ -9,7 +9,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 {
   public interface ITxRepository
   {
-    Task InsertTxsAsync(IList<Tx> transactions);
+    Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors);
 
     Task<long?> InsertBlockAsync(Block block);
 
@@ -37,7 +37,9 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<NotificationData> GetTxToSendMerkleProofNotificationAsync(byte[] txId);
 
-    Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayloadAsync();
+    Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayloadAsync(bool unconfirmedAncestors);
+
+    Task InsertBlockDoubleSpendForAncestorAsync(byte[] ancestorTxId);
 
     Task<IEnumerable<NotificationData>> GetTxsToSendBlockDSNotificationsAsync();
 

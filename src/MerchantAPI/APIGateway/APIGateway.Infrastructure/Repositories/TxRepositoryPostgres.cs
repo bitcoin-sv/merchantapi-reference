@@ -185,7 +185,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
     }
 
     private void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
-                                 string callbackToken, string callbackEncryption, bool? merkleProof, bool? dsCheck, long? n, byte[] prevTxId, long? prevN)
+                                 string callbackToken, string callbackEncryption, bool? merkleProof, bool? dsCheck, long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor)
     {
       txImporter.StartRow();
 
@@ -201,9 +201,10 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
       txImporter.Write((object)n ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bigint);
       txImporter.Write((object)prevTxId ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bytea);
       txImporter.Write((object)prevN ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bigint);
+      txImporter.Write((object)unconfirmedAncestor ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
     }
 
-    public async Task InsertTxsAsync(IList<Tx> transactions)
+    public async Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors)
     {
       using var connection = GetDbConnection();
 
@@ -231,21 +232,24 @@ CREATE TEMPORARY TABLE TxTemp (
 		dsCheck				  BOOLEAN,
 		n					      BIGINT,
 		prevTxId			  BYTEA,
-		prev_n				  BIGINT
+		prev_n				  BIGINT,
+    unconfirmedAncestor BOOLEAN
 ) ON COMMIT DROP;
 ";
       await transaction.Connection.ExecuteAsync(cmdTempTable);
 
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof,
-                                                                                      dsCheck, n, prevTxId, prev_n) FROM STDIN (FORMAT BINARY)"))
+                                                                                      dsCheck, n, prevTxId, prev_n, unconfirmedAncestor) FROM STDIN (FORMAT BINARY)"))
       {
         foreach (var tx in transactions)
         {
-          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption, tx.MerkleProof, tx.DSCheck, null, null, null);
+          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption, tx.MerkleProof, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
 
+          int n = 0;
           foreach (var txIn in tx.TxIn)
           {
-            AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, txIn.N, txIn.PrevTxId, txIn.PrevN);
+            AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
+            n++;
           }
           txInternalId++;
         }
@@ -253,20 +257,44 @@ CREATE TEMPORARY TABLE TxTemp (
         await txImporter.CompleteAsync();
       }
 
+
       string cmdText = @"
-INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, dsCheck)
-SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, dsCheck
-FROM TxTemp
+INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, dsCheck, unconfirmedAncestor)
+SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, dsCheck, unconfirmedAncestor
+FROM TxTemp "
+;
+      if (areUnconfirmedAncestors)
+      {
+        cmdText += @"
+WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId)
+  AND unconfirmedAncestor = true;
+";
+      }
+      else
+      {
+        cmdText += @"
 WHERE txPayload IS NOT NULL;
 ";
+      }
 
       cmdText += @"
 INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
 SELECT txInternalId, n, prevTxId, prev_n
 FROM TxTemp
+";
+      if (areUnconfirmedAncestors)
+      {
+        cmdText += @"
+WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND Tx.txInternalId = TxTemp.txInternalId)
+  AND unconfirmedAncestor = false;
+";
+      }
+      else
+      {
+        cmdText += @"
 WHERE txPayload IS NULL;
 ";
-
+      }
       await transaction.Connection.ExecuteAsync(cmdText);
       await transaction.CommitAsync();
     }
@@ -307,7 +335,7 @@ WHERE dsTxId = @dsTxId;
       await transaction.CommitAsync();
     }
 
-    public async Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayloadAsync()
+    public async Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayloadAsync(bool unconfirmedAncestors)
     {
       using var connection = GetDbConnection();
 
@@ -315,9 +343,41 @@ WHERE dsTxId = @dsTxId;
 SELECT t.dsTxId, tx.txexternalid txId
 FROM TxBlockDoubleSpend t
 INNER JOIN Tx ON t.txinternalid = tx.txinternalid
-WHERE t.DsTxPayload IS NULL;
+WHERE t.DsTxPayload IS NULL
+  AND Tx.UnconfirmedAncestor = @unconfirmedAncestors;
 ";
-      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText);
+      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText, new { unconfirmedAncestors } );
+    }
+
+    public async Task InsertBlockDoubleSpendForAncestorAsync(byte[] ancestorTxId)
+    {
+      using var connection = GetDbConnection();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+INSERT INTO TxBlockDoubleSpend (txInternalId, blockInternalId, dsTxId)
+WITH RECURSIVE r AS (
+    SELECT t.dscheck, t.txInternalId, t.txExternalId, t.callbackUrl, t.callbackToken, t.callbackEncryption, t.txInternalId childId, i.n, i.prevTxId, i.prev_n
+    FROM TxInput i
+    INNER JOIN Tx t on t.txInternalId = i.txInternalId
+    WHERE i.prevTxId = @ancestorTxId
+    
+    UNION ALL 
+   
+    SELECT tr.dscheck, tr.txInternalId, tr.txExternalId, tr.callbackUrl, tr.callbackToken, tr.callbackEncryption, tr.txInternalId childId, ir.n, ir.prevTxId, ir.prev_n
+    FROM TxInput ir
+    INNER JOIN Tx tr ON tr.txInternalId = ir.txInternalId
+    JOIN r ON r.txExternalId = ir.prevTxId
+  )
+SELECT DISTINCT r.txInternalId, BlDs.blockInternalId, BlDs.dsTxId
+FROM r
+INNER JOIN Tx TxP ON TxP.txExternalId = @ancestorTxId
+INNER JOIN TxBlockDoubleSpend BlDs ON BlDs.txInternalId = TxP.txInternalId
+WHERE r.dsCheck = true;
+";
+
+      await transaction.Connection.ExecuteAsync(cmdText, new { ancestorTxId });
+      await transaction.CommitAsync();
     }
 
     public async Task<IEnumerable<NotificationData>> GetTxsToSendBlockDSNotificationsAsync()
@@ -467,19 +527,42 @@ WHERE NOT EXISTS
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, Tx.txInternalId childId, n, prevTxId, prev_n, dsCheck
-FROM Tx 
-INNER JOIN TxInput on TxInput.txInternalId = Tx.txInternalId
-WHERE dsCheck = true
-      AND txExternalId = ANY(@externalIds) ";
+SELECT txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, txInternalId childId, n, prevTxId, prev_n, dsCheck
+FROM (
+  WITH RECURSIVE r AS (
+    SELECT t.dscheck, t.txInternalId, t.txExternalId, t.callbackUrl, t.callbackToken, t.callbackEncryption, t.txInternalId childId, i.n, i.prevTxId, i.prev_n
+    FROM TxInput i
+    INNER JOIN Tx t on t.txInternalId = i.txInternalId
+    WHERE i.prevTxId = ANY(@externalIds)
+    
+    UNION ALL 
+   
+    SELECT tr.dscheck, tr.txInternalId, tr.txExternalId, tr.callbackUrl, tr.callbackToken, tr.callbackEncryption, tr.txInternalId childId, ir.n, ir.prevTxId, ir.prev_n
+    FROM TxInput ir
+    INNER JOIN Tx tr ON tr.txInternalId = ir.txInternalId
+    JOIN r ON r.txExternalId = ir.prevTxId
+  )
+  SELECT DISTINCT txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, txInternalId childId, n, prevTxId, prev_n, dsCheck
+  FROM r
+  WHERE dsCheck = true
+
+  UNION 
+
+  SELECT Tx.txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, Tx.txInternalId childId, n, prevTxId, prev_n, dsCheck
+  FROM Tx 
+  INNER JOIN TxInput on TxInput.txInternalId = Tx.txInternalId
+  WHERE dsCheck = true
+    AND txExternalId = ANY(@externalIds) 
+  ) AS DSNotify
+  WHERE 1 = 1 ";
 
       if (checkDSAttempt)
       {
-        cmdText += "AND (SELECT COUNT(*) FROM TxMempoolDoubleSpendAttempt WHERE TxMempoolDoubleSpendAttempt.txInternalId = Tx.txInternalId) = 0;";
+        cmdText += "AND (SELECT COUNT(*) FROM TxMempoolDoubleSpendAttempt WHERE TxMempoolDoubleSpendAttempt.txInternalId = DSNotify.txInternalId) = 0;";
       }
       else
       {
-        cmdText += "AND (SELECT COUNT(*) FROM TxBlockDoubleSpend WHERE TxBlockDoubleSpend.txInternalId = Tx.txInternalId) = 0;";
+        cmdText += "AND (SELECT COUNT(*) FROM TxBlockDoubleSpend WHERE TxBlockDoubleSpend.txInternalId = DSNotify.txInternalId) = 0;";
       }
 
       var txData = new HashSet<TxWithInput>(await connection.QueryAsync<TxWithInput>(cmdText, new { externalIds = txExternalIds.ToArray() }));

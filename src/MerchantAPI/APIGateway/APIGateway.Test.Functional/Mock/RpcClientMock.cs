@@ -267,7 +267,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return Task.FromResult(txId);
     }
 
-    public Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees)[] txs,
+    public Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] txs,
       CancellationToken? token = null)
     {
       var txIds = 

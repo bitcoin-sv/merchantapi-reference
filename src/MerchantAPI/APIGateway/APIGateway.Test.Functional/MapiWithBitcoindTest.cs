@@ -49,62 +49,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return CreateNewTransaction(coin, amount);
     }
 
-    (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
-    {
-      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
-      var tx = BCash.Instance.Regtest.CreateTransaction();
-
-      tx.Inputs.Add(new TxIn(coin.Outpoint));
-      tx.Outputs.Add(coin.Amount - amount, address);
-
-      var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-
-      tx.Sign(key.GetBitcoinSecret(Network.RegTest), coin);
-
-      return (tx.ToHex(), tx.GetHash().ToString());
-    }
-
-
-    async Task<SubmitTransactionResponseViewModel> SubmitTransaction(string txHex, bool merkleProof = false)
-    {
-
-      // Send transaction
-      var reqContent = new StringContent(
-
-        merkleProof ?
-          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"callbackUrl\" : \"{Callback.Url}\"}}"
-          :
-          $"{{ \"rawtx\": \"{txHex}\" }}"
-        );
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-    }
-
-    async Task<SubmitTransactionsResponseViewModel> SubmitTransactions(string[] txHexList)
-    {
-
-      // Send transaction
-      
-      var reqJSON = "[{\"rawtx\": \"" + string.Join("\"}, {\"rawtx\": \"", txHexList) + "\"}]";
-      var reqContent = new StringContent(reqJSON);
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
-    }
 
     [TestMethod]
     public async Task SubmitTransaction()
     {
       var (txHex, txId) = CreateNewTransaction();
 
-      var payload = await SubmitTransaction(txHex);
+      var payload = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual(payload.ReturnResult, "success");
 
@@ -121,7 +72,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var (txHex, txId) = CreateNewTransaction();
 
-      var payload = await SubmitTransaction(txHex, merkleProof: true);
+      var payload = await SubmitTransactionAsync(txHex, merkleProof: true);
 
       Assert.AreEqual(payload.ReturnResult, "success");
 
@@ -195,7 +146,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (txHex, txHash) = CreateNewTransaction();
 
 
-      var payloadSubmit = await SubmitTransaction(txHex);
+      var payloadSubmit = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
 
@@ -222,7 +173,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Create transaction  and submit it to the first node
       var (txHex, txHash) = CreateNewTransaction();
 
-      var payloadSubmit = await SubmitTransaction(txHex);
+      var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
 
       // Check if transaction was received OK
@@ -263,7 +214,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Send second transaction using MAPI
-      var payload = await SubmitTransaction(txHex2);
+      var payload = await SubmitTransactionAsync(txHex2);
       Assert.AreEqual("failure", payload.ReturnResult);
       Assert.AreEqual(1, payload.ConflictedWith.Length);
       Assert.AreEqual(txId1, payload.ConflictedWith.First().Txid);
@@ -289,7 +240,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Send second and third transaction using MAPI
-      var payload = await SubmitTransactions(new string[]{ txHex2, txHex3});
+      var payload = await SubmitTransactionsAsync(new string[]{ txHex2, txHex3});
       
       // Should have one failure
       Assert.AreEqual(1, payload.FailureCount);
@@ -307,5 +258,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, tx2.ConflictedWith.Length);
       Assert.AreEqual(txId1, tx2.ConflictedWith.First().Txid);
     }
+
+    
   }
 }

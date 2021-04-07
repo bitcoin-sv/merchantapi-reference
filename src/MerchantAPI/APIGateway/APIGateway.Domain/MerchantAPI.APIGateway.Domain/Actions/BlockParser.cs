@@ -108,9 +108,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       // Insert raw data and let the database queries find double spends
       await txRepository.CheckAndInsertBlockDoubleSpendAsync(allTransactionInputs, appSettings.DeltaBlockHeightForDoubleSpendCheck, blockInternalId);
 
+      // Insert DS notifications for unconfirmed ancestors and mark unconfirmed ancestors as processed
+      var dsAncestorTxIds = await txRepository.GetDSTxWithoutPayloadAsync(true);
+      foreach (var (dsTxId, TxId) in dsAncestorTxIds)
+      {
+        await txRepository.InsertBlockDoubleSpendForAncestorAsync(TxId);
+      }
+
       // If any new double spend records were generated we need to update them with transaction payload
       // and trigger notification events
-      var dsTxIds = await txRepository.GetDSTxWithoutPayloadAsync();
+      var dsTxIds = await txRepository.GetDSTxWithoutPayloadAsync(false);
       foreach(var (dsTxId, TxId) in dsTxIds)
       {
         var payload = block.Transactions.Single(x => x.GetHash() == new uint256(dsTxId)).ToBytes();

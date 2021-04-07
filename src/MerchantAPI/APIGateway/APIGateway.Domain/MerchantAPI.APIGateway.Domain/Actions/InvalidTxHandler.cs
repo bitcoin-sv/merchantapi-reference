@@ -73,26 +73,29 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       if (e.Message.Reason == RemovedFromMempoolMessage.Reasons.CollisionInBlockTx)
       {
         var removedTxId = new uint256(e.Message.TxId).ToBytes();
-        
-        var txWithDSCheck = (await txRepository.GetTxsForDSCheckAsync(new[] { removedTxId }, false)).ToArray().SingleOrDefault();
-        if (txWithDSCheck != null)
+
+        var txWithDSCheck = (await txRepository.GetTxsForDSCheckAsync(new[] { removedTxId }, false)).ToArray();
+        if (txWithDSCheck.Any())
         {
           // Try to insert the block into DB. If block is already present in DB nothing will be done
           await blockParser.NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent() { CreationDate = clock.UtcNow(),  BlockHash = e.Message.BlockHash });
 
-          await txRepository.InsertBlockDoubleSpendAsync(
-            txWithDSCheck.TxInternalId,
-            new uint256(e.Message.BlockHash).ToBytes(),
-            new uint256(e.Message.CollidedWith.TxId).ToBytes(),
-            HelperTools.HexStringToByteArray(e.Message.CollidedWith.Hex));
-
-          var notificationEvent = new NewNotificationEvent()
+          foreach (var tx in txWithDSCheck)
           {
-            CreationDate = clock.UtcNow(),
-            NotificationType = CallbackReason.DoubleSpend,
-            TransactionId = removedTxId
-          };
-          eventBus.Publish(notificationEvent);
+            await txRepository.InsertBlockDoubleSpendAsync(
+              tx.TxInternalId,
+              new uint256(e.Message.BlockHash).ToBytes(),
+              new uint256(e.Message.CollidedWith.TxId).ToBytes(),
+              HelperTools.HexStringToByteArray(e.Message.CollidedWith.Hex));
+
+            var notificationEvent = new NewNotificationEvent()
+            {
+              CreationDate = clock.UtcNow(),
+              NotificationType = CallbackReason.DoubleSpend,
+              TransactionId = tx.TxExternalIdBytes
+            };
+            eventBus.Publish(notificationEvent);
+          }
         }
       }
     }
