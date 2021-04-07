@@ -182,6 +182,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, vpd.Errors.Count());
       Assert.AreEqual("Username", vpd.Errors.First().Key);
     }
-    
+
+    [TestMethod]
+    public async Task UpdateNode_NoUsername_ShouldReturnBadRequest()
+    {
+      //arrange
+      var create = new NodeViewModelPut
+      {
+        Remarks = "Some remarks2",
+        Password = "somePassword2",
+        Username = null // missing username
+      };
+      var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
+
+      //act
+      await Put(client, UrlForKey("some.host2:2"), content.ToString(), HttpStatusCode.BadRequest);
+
+    }
   }
 }
