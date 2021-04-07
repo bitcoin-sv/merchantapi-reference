@@ -10,14 +10,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MerchantAPI.Common.NotificationsHandler;
 using MerchantAPI.Common.Startup;
+using System.Collections.Generic;
 
 namespace MerchantAPI.Common.Test
 {
   public class CommonTestServerBase
   {
 
-    public virtual TestServer CreateServer<TMapiServer, TestsStartup, RestStartup>(bool mockedServices, TestServer serverCallback, string dbConnectionString)
-      where TMapiServer : class
+    public virtual TestServer CreateServer<TMapiServer, TestsStartup, RestStartup>(
+      bool mockedServices, 
+      TestServer serverCallback, 
+      string dbConnectionString, 
+      IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    where TMapiServer : class
     where TestsStartup : class
     where RestStartup : class
     {
@@ -32,12 +37,14 @@ namespace MerchantAPI.Common.Test
             .AddJsonFile("appsettings.development.json", optional: true)
             .AddJsonFile("appsettings.test.functional.development.json", optional: true)
             .AddEnvironmentVariables();
+          // override existing settings 
+          if (overridenSettings != null)
+            cb.AddInMemoryCollection(overridenSettings);
         })
         .ConfigureLogging((context, logging) =>
         {
           logging.AddConfiguration(context.Configuration.GetSection("Logging"));
           logging.AddConsole();
-          //logging.AddDebug();
         })
         .UseEnvironment("Testing");
 

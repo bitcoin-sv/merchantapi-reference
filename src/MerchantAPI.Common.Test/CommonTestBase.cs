@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -125,9 +126,9 @@ namespace MerchantAPI.Common.Test
 
     }
 
-    abstract public TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString);
+    abstract public TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null);
 
-    public virtual void Initialize(bool mockedServices = false)
+    public virtual void Initialize(bool mockedServices = false, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
       SyncTest.WaitOne(); // tests must not run in parallel since each test first deletes database
       try
@@ -139,7 +140,7 @@ namespace MerchantAPI.Common.Test
         clientCallback = serverCallback.CreateClient();
 
         //setup server
-        server = this.CreateServer(mockedServices, serverCallback, DbConnectionString);
+        server = this.CreateServer(mockedServices, serverCallback, DbConnectionString, overridenSettings);
         client = server.CreateClient();
 
         // setup common services
