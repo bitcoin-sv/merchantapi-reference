@@ -21,6 +21,6 @@ sed s/{{VERSION}}/$VERSIONPREFIX/ < template-docker-compose.yml > Build/docker-c
 
 cp template.env Build/.env
 
-docker build  --build-arg APPVERSION=$APPVERSIONMAPI -t bitcoinsv/mapi:$VERSIONPREFIX -f ../../MerchantAPI/APIGateway/APIGateway.Rest/Dockerfile ../..
+docker build  --build-arg APPVERSION=$APPVERSIONMAPI -t bitcoinsv/mapi:$VERSIONPREFIX -f ../MerchantAPI/APIGateway/APIGateway.Rest/Dockerfile ..
 
 docker save bitcoinsv/mapi:$VERSIONPREFIX > Build/merchantapiapp.tar

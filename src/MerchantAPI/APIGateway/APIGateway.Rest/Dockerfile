@@ -11,7 +11,12 @@ COPY ["MerchantAPI/APIGateway/APIGateway.Rest/MerchantAPI.APIGateway.Rest.csproj
 COPY ["MerchantAPI/APIGateway/APIGateway.Infrastructure/MerchantAPI.APIGateway.Infrastructure.csproj", "MerchantAPI/APIGateway/APIGateway.Infrastructure/"]
 COPY ["MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain/MerchantAPI.APIGateway.Domain.csproj", "MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain/"]
 COPY ["MerchantAPI/APIGateway/APIGateway.Database/APIGateway.Database.csproj", "MerchantAPI/APIGateway/APIGateway.Database/"]
-COPY ["MerchantAPI/Common/Common/MerchantAPI.Common.csproj", "MerchantAPI/Common/Common/"]
+
+### Temporary sloution until we deploy MerchantAPI.Common to nuget.org ########
+COPY ["nuget.config", "nuget.config"]
+###############################################################################
+
+
 RUN dotnet restore "MerchantAPI/APIGateway/APIGateway.Rest/MerchantAPI.APIGateway.Rest.csproj"
 COPY . .
 WORKDIR "/src/MerchantAPI/APIGateway/APIGateway.Rest"
@@ -25,7 +30,7 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 WORKDIR /
-COPY ["Deploy/APIGateway/run.sh", "."]
+COPY ["Deploy/run.sh", "."]
 
 RUN chmod +x run.sh
 
