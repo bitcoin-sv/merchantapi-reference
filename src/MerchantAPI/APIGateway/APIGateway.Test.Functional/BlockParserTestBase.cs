@@ -31,7 +31,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.Initialize(mockedServices: true);
       var mockNode = new Node(0, "mockNode0", 0, "mockuserName", "mockPassword", "This is a mock node",
-      (int)NodeStatus.Connected, null, null);
+        null, (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.CreateNodeAsync(mockNode).Result;
 

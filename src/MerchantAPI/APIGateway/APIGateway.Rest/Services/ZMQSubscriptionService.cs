@@ -417,7 +417,15 @@ namespace MerchantAPI.APIGateway.Rest.Services
           topic == ZMQTopic.InvalidTx ||
           topic == ZMQTopic.DiscardedFromMempool)
         {
-          SubscribeTopic(node.Id, notification.Address, topic);
+          // Use endpoint returned by rpc method if there is no endpoint configured for this node
+          if (string.IsNullOrEmpty(node.ZMQNotificationsEndpoint))
+          {
+            SubscribeTopic(node.Id, notification.Address, topic);
+          }
+          else
+          {
+            SubscribeTopic(node.Id, node.ZMQNotificationsEndpoint, topic);
+          }
         }
       }
       eventBus.Publish(new ZMQSubscribedEvent() { CreationDate = clock.UtcNow(), SourceNode = node });

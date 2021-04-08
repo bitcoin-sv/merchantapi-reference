@@ -14,17 +14,21 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public string Remarks { get; private set; }
 
-
+    public string ZMQNotificationsEndpoint { get; private set; }
     public NodeStatus Status { get; private set; }
     public string LastError { get; private set; }
     public DateTime? LastErrorAt { get; private set; }
 
-    public Node(string host, Int32 port, string username, string password, string remarks)
-        : this(int.MinValue, host, port, username, password, remarks, (int)NodeStatus.Connected, null, null)
+    public Node() 
     {
     }
 
-    public Node(Int32 nodeid, string host, Int32 port, string username, string password, string remarks, Int32 nodestatus, String lasterror, DateTime? lasterrorat)
+    public Node(string host, Int32 port, string username, string password, string remarks, string zmqnotificationsendpoint)
+        : this(int.MinValue, host, port, username, password, remarks, zmqnotificationsendpoint, (int)NodeStatus.Connected, null, null)
+    {
+    }
+
+    public Node(Int32 nodeid, string host, Int32 port, string username, string password, string remarks, string zmqnotificationsendpoint,Int32 nodestatus, String lasterror, DateTime? lasterrorat)
     {
       Id = nodeid;
       Host = host;
@@ -36,6 +40,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       LastError = lasterror;
       LastErrorAt = lasterrorat;
       Remarks = remarks;
+      ZMQNotificationsEndpoint = zmqnotificationsendpoint;
     }
 
     public string ToExternalId()
@@ -67,7 +72,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Node Clone()
     {
-      return new Node((int)Id, Host, Port, Username, Password, Remarks, (int)Status, LastError, LastErrorAt);
+      return new Node((int)Id, Host, Port, Username, Password, Remarks, ZMQNotificationsEndpoint, (int)Status, LastError, LastErrorAt);
     }
 
   }

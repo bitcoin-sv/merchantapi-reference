@@ -340,7 +340,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Add node to database and emit repository event
       var node = new Node(0, "localhost", 18332, "user", "password", $"This is a mock node #0",
-        (int)NodeStatus.Connected, null, null);
+        null, (int)NodeStatus.Connected, null, null);
       this.NodeRepository.CreateNode(node);
       eventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
 

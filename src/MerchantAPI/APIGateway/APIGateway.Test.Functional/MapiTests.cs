@@ -33,7 +33,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     void AddMockNode(int nodeNumber)
     {
       var mockNode = new Node(0, "mockNode" + nodeNumber, 0, "mockuserName", "mockPassword", "This is a mock node #" + nodeNumber,
-        (int)NodeStatus.Connected, null, null);
+        null, (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.CreateNodeAsync(mockNode).Result;
     }

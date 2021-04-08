@@ -197,7 +197,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task RejectSubmitWithInvalidProofAsync()
     {
-      await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null));
+      await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null, null));
 
       await QueryReturnPositiveAsync();
 
@@ -385,7 +385,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new ByteArrayContent(tx2.ToBytes());
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
 
-      var mockNode = new Node(0, "mocked", 0, "mocked", "mocked", "This is a mock node",(int)NodeStatus.Connected, null, null);
+      var mockNode = new Node(0, "mocked", 0, "mocked", "mocked", "This is a mock node", null, (int)NodeStatus.Connected, null, null);
       _ = Nodes.CreateNodeAsync(mockNode).Result;
 
       rpcClientFactoryMock.AddScriptCombination(tx2.ToHex(), (int)tx2.Inputs[0].PrevOut.N);
