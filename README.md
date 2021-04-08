@@ -446,7 +446,7 @@ For development, you will need the following
 
 Perform the following set up steps:
 
-1. Update `DBConnectionString`(connection string used by mAPI) and `DBConnectionStringMaster` (same as DBConnectionString, but with user that has admin privileges - is used to upgrade database) setting in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they point to your PostgreSQL server
+1. Update `DBConnectionString`(connection string used by mAPI), `DBConnectionStringDDL`(same as DBConnectionString, but with user that is owner of the database - it is used to upgrade database) and `DBConnectionStringMaster` (same as DBConnectionString, but with user that has admin privileges - it is used to create database) setting in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they point to your PostgreSQL server
 2. Update `BitcoindFullPath` in `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that it points to bitcoind executable used during functional tests
 3. Run scripts from `src/crea/merchantapi2/src/MerchantAPI/APIGateway.Database/APIGateway/Database/scripts` to create database.
 
@@ -502,5 +502,6 @@ Following table lists additional configuration settings:
   | Setting | Description |
   | ------- | ----------- |
   | **ConnectionStrings** region |
-  | DBConnectionString | connection string for access to PostgreSQL database |
-  | DBConnectionStringMaster | is same as DBConnectionString, but with user that has admin privileges |
+  | DBConnectionString | connection string for CRUD access to PostgreSQL database |
+  | DBConnectionStringDDL | is same as DBConnectionString, but with user that is owner of the database |
+  | DBConnectionStringMaster | is same as DBConnectionString, but with user that has admin privileges (usually postgres) |
