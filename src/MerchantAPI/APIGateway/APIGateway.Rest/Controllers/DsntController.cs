@@ -18,11 +18,13 @@ using MerchantAPI.Common.Clock;
 using Microsoft.Extensions.Options;
 using System.Net.Mime;
 using Microsoft.Extensions.Logging;
+using MerchantAPI.APIGateway.Rest.Swagger;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
   [Route("[controller]/1")]
   [ServiceFilter(typeof(CheckHostActionFilter))]
+  [ApiExplorerSettings(GroupName = SwaggerGroup.API)]
   public class DsntController : Controller
   {
     public const string DSHeader = "x-bsv-dsnt";
