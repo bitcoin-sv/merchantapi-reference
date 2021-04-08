@@ -13,6 +13,7 @@ COPY ["MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain/Me
 COPY ["MerchantAPI/APIGateway/APIGateway.Database/APIGateway.Database.csproj", "MerchantAPI/APIGateway/APIGateway.Database/"]
 
 ### Temporary sloution until we deploy MerchantAPI.Common to nuget.org ########
+COPY ["Packages", "Packages"]
 COPY ["nuget.config", "nuget.config"]
 ###############################################################################
 
