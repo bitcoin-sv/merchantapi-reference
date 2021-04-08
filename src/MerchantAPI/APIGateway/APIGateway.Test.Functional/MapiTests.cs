@@ -6,12 +6,15 @@ using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -21,12 +24,15 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+
   [TestClass]
   public class MapiTests : TestBase
   {
+    public TestContext TestContext { get; set; }
+
     void AddMockNode(int nodeNumber)
     {
-      var mockNode = new Node(0, "mockNode"+nodeNumber, 0, "mockuserName", "mockPassword", "This is a mock node #"+nodeNumber,
+      var mockNode = new Node(0, "mockNode" + nodeNumber, 0, "mockuserName", "mockPassword", "This is a mock node #" + nodeNumber,
         (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.CreateNodeAsync(mockNode).Result;
@@ -35,9 +41,24 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestInitialize]
     public void TestInitialize()
     {
-      Initialize(mockedServices: true);
+      //Retrive OverrideSettingAttribute data (setting name and value)
+      List<KeyValuePair<string, string>> overridenSettings = new List<KeyValuePair<string, string>>();     
+      var overrideSettingsAttributes = GetType().GetMethod(TestContext.TestName).GetCustomAttributes(true).Where(a => a.GetType() == typeof(OverrideSettingAttribute));
+      foreach (var attribute in overrideSettingsAttributes)
+      {
+        OverrideSettingAttribute overrideSettingsAttribute = (OverrideSettingAttribute)attribute;
+        overridenSettings.Add(new KeyValuePair<string, string>(overrideSettingsAttribute.SettingName, overrideSettingsAttribute.SettingValue.ToString()));
+      }
+
+      Initialize(mockedServices: true, overridenSettings);
       AddMockNode(0);
     }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
+    }
+
 
     [TestCleanup]
     public void TestCleanup()
@@ -199,7 +220,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       AssertIsOK(payload, txC3Hash);
     }
 
-        [TestMethod]
+    [TestMethod]
     public async Task SubmitTransactionDuplicateError()
     {
       var txBytes = HelperTools.HexStringToByteArray(txC3Hex);
@@ -416,7 +437,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var minRequiredFees = Math.Min((dataLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 20
                     (dataLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 40
       fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
-      minRequiredFees +=  Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 15
+      minRequiredFees += Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 15
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 30
 
 
@@ -548,7 +569,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Test submitting single tx through JSON
       var reqContent = new StringContent($"{{ \"rawtx\": \"{tx1Hex}\", \"callbackUrl\" : \"{url}\" }}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-      var resp  = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, expectedCode);
+      var resp = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, expectedCode);
       var txRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txRespViewModel.ResultDescription);
 
@@ -776,10 +797,26 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txZeroFeeHash,"failure", "Not enough fees");
+      AssertIsOK(payload, txZeroFeeHash, "failure", "Not enough fees");
     }
 
+    [TestMethod]
+    [OverrideSetting("AppSettings:CheckFeeDisabled", true)]
+    public async Task SubmitTransactionJsonCheckFeeDisabled()
+    {
+      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      Assert.AreEqual(1, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      // Check if all fields are set
+      AssertIsOK(payload, txZeroFeeHash);      
+    }
 
     void Assert2ValidAnd1Invalid(SubmitTransactionsResponseViewModel response)
     {

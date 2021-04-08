@@ -405,6 +405,7 @@ On Windows: build.bat
     | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK | Number of old blocks that are checked for double spends |
     | CLEAN_UP_TX_AFTER_DAYS | Number of days transactions and blocks are kept in database. Default: 3 days |
     | CLEAN_UP_TX_PERIOD_SEC | Time period of transactions cleanup check. Default: 1 hour |
+    | CHECK_FEE_DISABLED | Disable fee check |
     | WIF_PRIVATEKEY | Private key that is used to sign responses with (must be omited if minerid settings are specified, and vice versa) |
     | DS_HOST_BAN_TIME_SEC | Ban duration for hosts that didn't behave |
     | DS_MAX_NUM_OF_TX_QUERIES | Maximum number of queries for the same transaction id before a host will be banned |

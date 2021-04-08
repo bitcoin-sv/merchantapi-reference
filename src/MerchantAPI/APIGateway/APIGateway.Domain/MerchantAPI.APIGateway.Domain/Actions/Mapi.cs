@@ -19,6 +19,7 @@ using System.Collections.ObjectModel;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Exceptions;
+using Microsoft.Extensions.Options;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -32,6 +33,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     ILogger<Mapi> logger;
     ITxRepository txRepository;
     private readonly IClock clock;
+    readonly AppSettings appSettings;
 
     static class ResultCodes
     {
@@ -39,7 +41,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       public const string Failure = "failure";
     }
 
-    public Mapi(IRpcMultiClient rpcMultiClient, IFeeQuoteRepository feeQuoteRepository, IBlockChainInfo blockChainInfo, IMinerId minerId, ITxRepository txRepository, ILogger<Mapi> logger, IClock clock)
+    public Mapi(IRpcMultiClient rpcMultiClient, IFeeQuoteRepository feeQuoteRepository, IBlockChainInfo blockChainInfo, IMinerId minerId, ITxRepository txRepository, ILogger<Mapi> logger, IClock clock, IOptions<AppSettings> appSettingOptions)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
@@ -48,6 +50,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.txRepository = txRepository ?? throw new ArgumentException(nameof(txRepository));
       this.logger = logger ?? throw new ArgumentException(nameof(logger));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+
+      this.appSettings = appSettingOptions.Value;
     }
 
 
@@ -614,7 +618,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
           colidedWith = prevOuts.Where(x => x.CollidedWith != null).Select(x => x.CollidedWith).ToArray();
 
-          if (IsConsolidationTxn(transaction, consolidationParameters, prevOuts))
+          if (appSettings.CheckFeeDisabled || IsConsolidationTxn(transaction, consolidationParameters, prevOuts))
           {
             (okToMine, okToRelay) = (true, true);
           }

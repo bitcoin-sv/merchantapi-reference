@@ -31,6 +31,7 @@ services:
       - AppSettings:DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
       - AppSettings:CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
       - AppSettings:CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
+      - AppSettings:CheckFeeDisabled=${CHECK_FEE_DISABLED}
       - AppSettings:WifPrivateKey=${WIF_PRIVATEKEY}
       - AppSettings:DSHostBanTimeSec=${DS_HOST_BAN_TIME_SEC}
       - AppSettings:DSMaxNumOfTxQueries=${DS_MAX_NUM_OF_TX_QUERIES}
