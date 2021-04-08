@@ -94,6 +94,8 @@ namespace MerchantAPI.APIGateway.Domain
     public Notification Notification { get; set; }
 
     public bool CheckFeeDisabled { get; set; } = false;
+
+    public bool EnableHTTP { get; set; } = false;
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>

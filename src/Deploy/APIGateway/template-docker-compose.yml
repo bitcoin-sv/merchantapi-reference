@@ -39,6 +39,7 @@ services:
       - AppSettings:DSMaxNumOfUnknownTxQueries=${DS_MAX_NUM_OF_UNKNOWN_QUERIES}
       - AppSettings:DSUnknownTxQueryCooldownPeriodSec=${DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC}
       - AppSettings:DSScriptValidationTimeoutSec=${DS_SCRIPT_VALIDATION_TIMEOUT_SEC}
+      - AppSettings:EnableHTTP=${ENABLEHTTP}
       - AppSettings:Notification:NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
       - AppSettings:Notification:InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
       - AppSettings:Notification:InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}

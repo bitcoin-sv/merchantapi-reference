@@ -413,6 +413,7 @@ On Windows: build.bat
     | DS_MAX_NUM_OF_UNKNOWN_QUERIES | Maximum number of queries for unknown transaction id before a host will be banned |
     | DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC | Duration how long will the count for queries of unknown transactions be stored before it's reset to 0 |
     | DS_SCRIPT_VALIDATION_TIMEOUT_SEC | Total time for script validation when nodes RPC method verifyScript will be called |
+    | ENABLEHTTP | Enables requests through HTTP when set to True. This should only be used for testing and must be set to False in production environment. |
     | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when background service will retry to send notifications with error |
     | NOTIFICATION_INSTANT_NOTIFICATION_TASKS | Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100) |
     | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE | Maximum number of notifications waiting in instant queue before new notifications will be scheduled for slow background delivery |
