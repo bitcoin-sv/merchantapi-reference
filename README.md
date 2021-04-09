@@ -505,3 +505,49 @@ Following table lists additional configuration settings:
   | DBConnectionString | connection string for CRUD access to PostgreSQL database |
   | DBConnectionStringDDL | is same as DBConnectionString, but with user that is owner of the database |
   | DBConnectionStringMaster | is same as DBConnectionString, but with user that has admin privileges (usually postgres) |
+
+## Configuration with standalone database server
+
+mAPI can be configured to use standalone Postgres database instead of mapi-db Docker container by updating connection strings in docker-compose.yml
+
+  | Setting | Description |
+  | ------- | ----------- |
+  | ConnectionStrings:DBConnectionString | connection string with user that has mapi_crud role granted |
+  | ConnectionStrings:DBConnectionStringDDL | connection string with user that has DDL privileges |
+
+Additional requirements is existence of mapi_crud role.
+
+### Example
+
+To execute commands from this example connect to database created for mAPI with admin priveleges. 
+
+In this example we create mapi_crud role and two user roles. One user role (myddluser) has DDL priveleges and the other (mycruduser) has CRUD priveleges.
+
+1. Create pa_crud role:
+```
+	  CREATE ROLE "mapi_crud" WITH
+	    NOLOGIN
+	    NOSUPERUSER
+	    INHERIT
+	    NOCREATEDB
+	    NOCREATEROLE
+	    NOREPLICATION;
+```
+2. Create DDL user and make it owner of public schema
+```
+  CREATE ROLE myddluser LOGIN
+    PASSWORD 'mypassword'
+	NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
+
+  ALTER SCHEMA public OWNER TO myddluser;
+```
+
+3. Create CRUD user and grant mapi_crud role
+```
+  CREATE ROLE mycruduser LOGIN
+    PASSWORD 'mypassword'
+    NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
+
+  GRANT mapi_crud TO mycruduser;
+
+```
