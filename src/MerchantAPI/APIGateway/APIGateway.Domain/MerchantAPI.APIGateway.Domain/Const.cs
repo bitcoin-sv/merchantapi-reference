@@ -6,7 +6,7 @@ namespace MerchantAPI.APIGateway.Domain
 {
   public class Const
   {
-    public const string MERCHANT_API_VERSION = "1.2.0";
+    public const string MERCHANT_API_VERSION = "1.3.0";
 
     public class FeeType
     {
