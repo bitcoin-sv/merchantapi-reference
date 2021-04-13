@@ -1,13 +1,6 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using System;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
-using System.Threading;
-using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
@@ -18,6 +11,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Mime;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {

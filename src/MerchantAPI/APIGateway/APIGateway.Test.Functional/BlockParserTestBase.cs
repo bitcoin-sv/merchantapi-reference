@@ -1,4 +1,7 @@
-﻿using MerchantAPI.APIGateway.Domain.Models;
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,6 @@ using System.Threading.Tasks;
 using NBitcoin;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.Common;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using Microsoft.Extensions.Logging;

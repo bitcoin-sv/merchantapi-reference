@@ -1,15 +1,12 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Rest.Database;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using nChain.CreateDB;
 using nChain.CreateDB.DB;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Database
 {

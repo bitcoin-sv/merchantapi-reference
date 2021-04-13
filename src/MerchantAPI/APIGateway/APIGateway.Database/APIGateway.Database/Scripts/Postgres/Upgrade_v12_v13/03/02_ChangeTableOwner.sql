@@ -1,4 +1,5 @@
--- Copyright (c) 2020 Bitcoin Association
+-- Copyright (c) 2020 Bitcoin Association.
+-- Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 ALTER TABLE IF EXISTS Node owner to merchantddl;
 ALTER TABLE IF EXISTS Tx owner to merchantddl;

@@ -1,7 +1,8 @@
-﻿using MerchantAPI.Common.EventBus;
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.Common.EventBus;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace MerchantAPI.APIGateway.Test.Functional.CleanUpTx
 {

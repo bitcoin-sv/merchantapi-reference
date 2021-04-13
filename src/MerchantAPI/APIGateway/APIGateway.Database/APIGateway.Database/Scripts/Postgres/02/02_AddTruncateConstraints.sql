@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Bitcoin Association.
+-- Distributed under the Open BSV software license, see the accompanying file LICENSE
+
 SELECT create_pg_constraint_if_not_exists(
         'txMempoolDoubleSpendAttempt_txInternalId_fk',
         'ALTER TABLE TxMempoolDoubleSpendAttempt ADD CONSTRAINT txMempoolDoubleSpendAttempt_txInternalId_fk FOREIGN KEY (txInternalId) REFERENCES Tx(txInternalId) ON DELETE CASCADE;');

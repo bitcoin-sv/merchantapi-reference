@@ -1,4 +1,5 @@
--- Copyright (c) 2020 Bitcoin Association
+-- Copyright (c) 2020 Bitcoin Association.
+-- Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 CREATE INDEX IF NOT EXISTS IFeeQuote_Id ON FeeQuote (id);
 CREATE INDEX IF NOT EXISTS IFeeQuote_CreatedAt_ValidFrom ON FeeQuote (createdAt, validFrom);

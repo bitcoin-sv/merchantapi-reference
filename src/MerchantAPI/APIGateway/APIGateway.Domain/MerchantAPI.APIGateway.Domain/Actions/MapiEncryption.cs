@@ -1,9 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security;
-using System.Text;
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
 using Sodium;
+using System;
+using System.Linq;
+using System.Text;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
