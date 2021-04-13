@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -27,6 +28,8 @@ namespace MerchantAPI.Common.BitcoinRpc
     Task<RpcGetBlockWithTxIds> GetBlockWithTxIdsAsync(string blockHash, CancellationToken? token = null);
 
     Task<RpcGetBlock> GetBlockAsync(string blockHash, int verbosity, CancellationToken? token = null);
+
+    Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null);
 
     Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null);
 
@@ -110,6 +113,11 @@ namespace MerchantAPI.Common.BitcoinRpc
         throw new Exception("GetBlockAsync method does not accept verbosity level 0, 1.");
       }
       return await RequestAsyncWithRetry<RpcGetBlock>(token, "getblock", null, blockHash, verbosity);
+    }
+
+    public async Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
+    {
+      return await RequestAsyncWithRetry<RpcBitcoinStreamReader>(token, "getblock", null, blockHash, 0 );
     }
 
     public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
@@ -284,9 +292,17 @@ namespace MerchantAPI.Common.BitcoinRpc
         try
         {
           retriesLeft--;
-          var rpcResponse = await MakeRequestAsync<T>(token, new RpcRequest(1, method, parameters));
+          RpcResponse<T> rpcResponse;
+          if (method == "getblock" && (int)parameters[1] == 0)
+          {
+            object response = await MakeRequestReturnStreamAsync(token, new RpcRequest(1, method, parameters));
+            return (T)response;
+          }
+          else
+          {
+            rpcResponse = await MakeRequestAsync<T>(token, new RpcRequest(1, method, parameters));
+          }
           return rpcResponse.Result;
-
         }
         catch (TaskCanceledException)
         {
@@ -321,12 +337,16 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     }
   
-
-
     private async Task<RpcResponse<T>> MakeRequestAsync<T>(CancellationToken? token, RpcRequest rpcRequest)
     {
       using var httpResponse = await MakeHttpRequestAsync(token, rpcRequest);
       return await GetRpcResponseAsync<T>(httpResponse);
+    }
+
+    private async Task<RpcBitcoinStreamReader> MakeRequestReturnStreamAsync(CancellationToken? token, RpcRequest rpcRequest)
+    {
+      var httpResponse = await MakeHttpRequestAsync(token, rpcRequest);
+      return await GetRpcResponseAsStreamAsync(httpResponse, token);
     }
 
     private HttpRequestMessage CreateRequestMessage(string json)
@@ -384,6 +404,64 @@ namespace MerchantAPI.Common.BitcoinRpc
         // Unable to parse error, so we return status code.
         throw new RpcException($"Error when executing bitcoin RPC method Response code {responseMessage.StatusCode} was returned, exception message was '{ex.Message}'.", Address.AbsoluteUri, ex);
       }
+    }
+
+    static readonly char[] validChars = new char[] { ':', '"', ' ', '\n', '\r', '\t' };
+
+    private async Task ReadUntilAsync(char characterToFind, StreamReader streamReader, CancellationToken? token)
+    {
+      char[] character = new char[1];
+      do
+      {
+        token?.ThrowIfCancellationRequested();
+
+        await streamReader.ReadBlockAsync(character, 0, 1);
+        if (!validChars.Contains(character[0]))
+        {
+          throw new RpcException($"Error when executing bitcoin RPC method. RPC response contains invalid JSON.", Address.AbsoluteUri, null);
+        }
+      } while (!streamReader.EndOfStream && character[0] != characterToFind);
+    }
+
+    /// <summary>
+    /// This method bypasses JSON wrapper so it can stream the value part of the "result" field in JSON response which can contain huge amount of HEX encoded data, that JSON 
+    /// parsers are unable to deserialize, and pass it out as a Stream so that NBitcoin can directly use the stream when creating instances
+    /// </summary>
+    private async Task<RpcBitcoinStreamReader> GetRpcResponseAsStreamAsync(HttpResponseMessage responseMessage, CancellationToken? token)
+    {
+      var responseStream = await responseMessage.Content.ReadAsStreamAsync();
+      var strReader = new StreamReader(responseStream);
+      // Bucket to hold data that is present between quotation marks, used to find field names
+      StringBuilder bucket = new StringBuilder();
+      do
+      {
+        token?.ThrowIfCancellationRequested();
+
+        char[] charFromStream = new char[1];
+        await strReader.ReadBlockAsync(charFromStream, 0, 1);
+        
+        // Once we find " we clear the content of the bucket to start storing a new value
+        if (charFromStream[0] == '"')
+        {
+          // We found field name "result" now we just check if it looks like this "result":" before we return the stream with the position
+          // on the first char after the "
+          if (bucket.ToString().ToLower() == "result")
+          {
+            await ReadUntilAsync(':', strReader, token);
+            await ReadUntilAsync('\"', strReader, token);
+
+            return new RpcBitcoinStreamReader(strReader, token);
+          }
+          bucket.Clear();
+        }
+        else
+        {
+          bucket.Append(charFromStream);
+        }
+
+      } while (!strReader.EndOfStream);
+
+      throw new RpcException($"Error when executing bitcoin RPC method. RPC response contains invalid JSON.", Address.AbsoluteUri, null);
     }
 
     public override string ToString()

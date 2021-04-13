@@ -1,5 +1,6 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
+using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Exceptions;
 using NBitcoin;
 using Newtonsoft.Json;
@@ -197,6 +198,18 @@ namespace MerchantAPI.Common.Json
 
       var block = Block.CreateBlock(Network.Main);
       block.ReadWrite(s);
+      return block;
+    }
+
+    public static Block ParseByteStreamToBlock(RpcBitcoinStreamReader streamReader)
+    {
+      // Create or own MemoryStream, so that we support bigger blocks
+      BitcoinStream s = new BitcoinStream(streamReader, false);
+      s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
+
+      var block = Block.CreateBlock(Network.Main);
+      block.ReadWrite(s);
+      streamReader.Close();
       return block;
     }
 
