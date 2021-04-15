@@ -107,6 +107,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
+    [Ignore("Test ignored untill CORE-1299 will be merged into develop")]
     [TestMethod]
     public async Task SubmitTransactionAndWaitForProof2()
     {
@@ -147,6 +148,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
+    [Ignore("Test ignored untill CORE-1299 will be merged into develop")]
     [TestMethod]
     public async Task SubmitTransactionWithInvalidMerkleFormat()
     {
