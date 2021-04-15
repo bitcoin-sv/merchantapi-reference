@@ -39,4 +39,11 @@ namespace MerchantAPI.APIGateway.Domain
     public static readonly string[] RequiredZmqTopics = { "pubhashblock", "pubdiscardedfrommempool", "pubinvalidtx" };
   }
 
+  public class MerkleFormat
+  {
+    public const string TSC = "TSC";
+
+    public static readonly string[] ValidFormats = { TSC };
+  }
+
 }

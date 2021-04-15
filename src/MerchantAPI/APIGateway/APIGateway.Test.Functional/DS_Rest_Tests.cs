@@ -36,7 +36,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task InsertTXAsync()
     {
-      var txList = new List<Tx>() { CreateNewTx(txC0Hash, txC0Hex, false, true) };
+      var txList = new List<Tx>() { CreateNewTx(txC0Hash, txC0Hex, false, null, true) };
       await TxRepositoryPostgres.InsertTxsAsync(txList, false);
     }
 

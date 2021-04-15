@@ -50,6 +50,8 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public bool MerkleProof { get; set; }
 
+    public string MerkleFormat { get; set; }
+
     public bool DSCheck { get; set; }
 
     public IList<TxInput> TxIn { get; set; }

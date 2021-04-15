@@ -19,6 +19,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public string CallbackEncryption { get; set; }
 
     public bool MerkleProof { get; set; }
+
+    public string MerkleFormat { get; set; }
+
     public bool DsCheck { get; set; }
 
     public IList<TxInput> TransactionInputs { get; set; }

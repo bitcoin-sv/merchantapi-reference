@@ -177,7 +177,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         return Unauthorized("Incorrectly formatted token");
       }
 
-      var domainModel = data.ToDomainModel(null, null, null, false, false);
+      var domainModel = data.ToDomainModel(null, null, null, false, null, false);
 
       var result =
         new SubmitTransactionResponseViewModel(
@@ -207,6 +207,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool merkleProof,
       [FromQuery]
+      string merkleFormat,
+      [FromQuery]
       bool dsCheck)
     {
       if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
@@ -228,6 +230,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         CallbackToken = callbackToken,
         CallbackEncryption =  callbackEncryption,
         MerkleProof = merkleProof,
+        MerkleFormat = merkleFormat,
         DsCheck = dsCheck
       };
       
@@ -259,6 +262,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool defaultMerkleProof,
       [FromQuery]
+      string defaultMerkleFormat,
+      [FromQuery]
       bool defaultDsCheck)
     {
       if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
@@ -267,7 +272,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       }
       
       var domainModel = data.Select(x =>
-        x.ToDomainModel(defaultCallbackUrl, defaultCallbackToken, defaultCallbackEncryption, defaultMerkleProof, defaultDsCheck)).ToArray();
+        x.ToDomainModel(defaultCallbackUrl, defaultCallbackToken, defaultCallbackEncryption, defaultMerkleProof, defaultMerkleFormat, defaultDsCheck)).ToArray();
 
       var result =
         new SubmitTransactionsResponseViewModel(
@@ -294,6 +299,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery] string callbackEncryption,
       [FromQuery] string callbackToken,
       [FromQuery] bool merkleProof,
+      [FromQuery] string merkleFormat,
       [FromQuery] bool dsCheck
       )
     {
@@ -332,6 +338,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
             CallbackEncryption = callbackEncryption,
             CallbackToken = callbackToken,
             MerkleProof = merkleProof,
+            MerkleFormat = merkleFormat,
             DsCheck = dsCheck
           }).ToArray();
 

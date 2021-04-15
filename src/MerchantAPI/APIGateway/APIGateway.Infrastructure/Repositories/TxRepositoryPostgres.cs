@@ -185,7 +185,8 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
     }
 
     private void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
-                                 string callbackToken, string callbackEncryption, bool? merkleProof, bool? dsCheck, long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor)
+                                 string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck, 
+                                 long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor)
     {
       txImporter.StartRow();
 
@@ -197,6 +198,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
       txImporter.Write((object)callbackToken ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Varchar);
       txImporter.Write((object)callbackEncryption ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Varchar);
       txImporter.Write((object)merkleProof ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
+      txImporter.Write((object)merkleFormat ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Varchar);
       txImporter.Write((object)dsCheck ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
       txImporter.Write((object)n ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bigint);
       txImporter.Write((object)prevTxId ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bytea);
@@ -229,6 +231,7 @@ CREATE TEMPORARY TABLE TxTemp (
 		callbackToken		VARCHAR(256),
     callbackEncryption VARCHAR(1024),
 		merkleProof			BOOLEAN,
+    merkleFormat		VARCHAR(32),
 		dsCheck				  BOOLEAN,
 		n					      BIGINT,
 		prevTxId			  BYTEA,
@@ -238,17 +241,18 @@ CREATE TEMPORARY TABLE TxTemp (
 ";
       await transaction.Connection.ExecuteAsync(cmdTempTable);
 
-      using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof,
-                                                                                      dsCheck, n, prevTxId, prev_n, unconfirmedAncestor) FROM STDIN (FORMAT BINARY)"))
+      using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, 
+                                                                                      merkleProof, merkleFormat, dsCheck, n, prevTxId, prev_n, unconfirmedAncestor) FROM STDIN (FORMAT BINARY)"))
       {
         foreach (var tx in transactions)
         {
-          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption, tx.MerkleProof, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
+          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption, 
+                          tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
 
           int n = 0;
           foreach (var txIn in tx.TxIn)
           {
-            AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
+            AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
             n++;
           }
           txInternalId++;
@@ -259,8 +263,8 @@ CREATE TEMPORARY TABLE TxTemp (
 
 
       string cmdText = @"
-INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, dsCheck, unconfirmedAncestor)
-SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, dsCheck, unconfirmedAncestor
+INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor)
+SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor
 FROM TxTemp "
 ;
       if (areUnconfirmedAncestors)
@@ -432,7 +436,7 @@ ORDER BY callbackUrl;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
+SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount, merkleFormat
 FROM Tx
 INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 
@@ -449,7 +453,7 @@ FETCH NEXT @fetch ROWS ONLY;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
+SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount, merkleFormat
 FROM Tx
 INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 

@@ -304,14 +304,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return (tx.ToHex(), tx.GetHash().ToString());
     }
 
-    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false)
+    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "")
     {
 
       // Send transaction
       var reqContent = new StringContent(
 
         merkleProof || dsCheck ?
-          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": {merkleProof.ToString().ToLower()}, \"dsCheck\": {dsCheck.ToString().ToLower()}, \"callbackUrl\" : \"{Callback.Url}\"}}"
+          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": {merkleProof.ToString().ToLower()}, \"merkleFormat\": \"{merkleFormat}\", \"dsCheck\": {dsCheck.ToString().ToLower()}, \"callbackUrl\" : \"{Callback.Url}\"}}"
           :
           $"{{ \"rawtx\": \"{txHex}\" }}"
         );

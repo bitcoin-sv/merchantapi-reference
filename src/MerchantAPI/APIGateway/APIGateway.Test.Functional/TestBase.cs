@@ -189,12 +189,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public Tx CreateNewTx(string txHash, string txHex, bool merkleProof, bool dsCheck)
+    public Tx CreateNewTx(string txHash, string txHex, bool merkleProof, string merkleFormat, bool dsCheck)
     {
       var tx = new Tx
       {
         DSCheck = dsCheck,
         MerkleProof = merkleProof,
+        MerkleFormat = merkleFormat,
         ReceivedAt = MockedClock.UtcNow,
         TxExternalId = new uint256(txHash),
         TxPayload = HelperTools.HexStringToByteArray(txHex)

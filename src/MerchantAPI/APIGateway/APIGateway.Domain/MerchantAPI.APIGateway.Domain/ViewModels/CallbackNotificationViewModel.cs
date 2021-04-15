@@ -58,10 +58,20 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
           };
           break;
         case Domain.CallbackReason.MerkleProof:
-          callbackModel = new CallbackNotificationMerkeProofViewModel
+          if (notificationData.MerkleFormat == MerkleFormat.TSC)
           {
-            CallbackPayload = notificationData.MerkleProof
-          };
+            callbackModel = new CallbackNotificationMerkeProof2ViewModel
+            {
+              CallbackPayload = notificationData.MerkleProof2
+            };
+          }
+          else
+          {
+            callbackModel = new CallbackNotificationMerkeProofViewModel
+            {
+              CallbackPayload = notificationData.MerkleProof
+            };
+          }
           break;
         default:
           throw new BadRequestException("Unknown notification type.");
@@ -81,6 +91,12 @@ namespace MerchantAPI.APIGateway.Domain.ViewModels
   {
     [JsonPropertyName("callbackPayload")]
     public RpcGetMerkleProof CallbackPayload { get; set; }
+  }
+
+  public class CallbackNotificationMerkeProof2ViewModel : CallbackNotificationViewModelBase
+  {
+    [JsonPropertyName("callbackPayload")]
+    public RpcGetMerkleProof2 CallbackPayload { get; set; }
   }
 
   public class CallbackNotificationDoubleSpendViewModel : CallbackNotificationViewModelBase
