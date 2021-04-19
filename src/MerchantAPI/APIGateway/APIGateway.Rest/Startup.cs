@@ -28,7 +28,6 @@ using MerchantAPI.Common.NotificationsHandler;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Startup;
 using MerchantAPI.APIGateway.Rest.Database;
-using MerchantAPI.Common.BitcoinRest;
 using MerchantAPI.APIGateway.Domain.DSAccessChecks;
 
 namespace MerchantAPI.APIGateway.Rest
@@ -84,7 +83,6 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<ITxRepository, TxRepositoryPostgres>();
       services.AddTransient<IMapi, Mapi>();
       services.AddTransient<IRpcClientFactory, RpcClientFactory>();
-      services.AddTransient<IRestClientFactory, RestClientFactory>();
       services.AddTransient<IRpcMultiClient, RpcMultiClient>();
       services.AddSingleton<INotificationServiceHttpClientFactory, NotificationServiceHttpClientFactoryDefault>();
       services.AddHttpClient(NotificationServiceHttpClientFactoryDefault.ClientName) 

@@ -1,17 +1,10 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
-using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.Common.BitcoinRpc;
-using MerchantAPI.APIGateway.Test.Functional.CleanUpTx;
-using MerchantAPI.APIGateway.Test.Functional.Mock;
-using MerchantAPI.Common.Clock;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System.Linq;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Test.Functional.Database;
-using MerchantAPI.Common.BitcoinRest;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Server
 {

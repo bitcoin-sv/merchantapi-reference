@@ -54,8 +54,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private async Task<uint256> AddBlocks(bool dsCheckMempool)
     {
       long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RestClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
+      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
+      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
       rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
       var firstBlockHash = firstBlock.GetHash();

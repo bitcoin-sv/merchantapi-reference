@@ -1,11 +1,11 @@
 ﻿using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MerchantAPI.Common.BitcoinRest;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -24,7 +24,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     protected const string Tx5Hex = "0100000001538a38f67c4e8e101172e66ea495ee0efd6cf96a8b9e3177673ff4055ce1054f010000006b4830450221008c77794d317e7eb41af8ce0d16edd5c6506353cf5b273abd6cddf2773eca3c2f02204838aefa8b290b3279b2dea5d49b4a9569f7c9a283fed2ee534bcbc1d948f6b0412103f6aa4988d41e9522f33a7b71fba4e4f3cbc268409c4e581ce1b35560966c5495ffffffff021e5b8016040000001976a914299bc9e2afb881d43b2c3a3616161f1ac8960f4688acc0a41f20860000001976a91480ed030d83dd64545bc73b0074d35e0f6752b65888ac00000000";
 
     protected IRpcClient RpcClient;
-    protected IRestClient RestClient;
 
     [TestInitialize]
     virtual public void TestInitialize()
@@ -37,7 +36,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var node = NodeRepository.GetNodes().First();
       RpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
-      RestClient = rpcClientFactoryMock.Create(node.Host, node.Port);
     }
 
     [TestCleanup]
@@ -67,8 +65,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public async Task<uint256> InsertMerkleProof()
     {
-      var blockHex = await RestClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
+      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
+      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
       var block = firstBlock.CreateNextBlockWithCoinbase(firstBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First(), new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       var firstBlockHash = firstBlock.GetHash();
 
@@ -100,32 +98,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var restClient = rpcClient;
 
       long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RestClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
+      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
+      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
       rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
       var firstBlockHash = firstBlock.GetHash();
 
       var tx = Transaction.Parse(Tx1Hex, Network.Main);
-      var (forkHeight, _) = await CreateAndPublishNewBlock(rpcClient, restClient, null, tx, true);
+      var (forkHeight, _) = await CreateAndPublishNewBlock(rpcClient, null, tx, true);
 
       var tx2 = Transaction.Parse(Tx2Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, restClient, null, tx2, true);
+      await CreateAndPublishNewBlock(rpcClient, null, tx2, true);
 
       tx = Transaction.Parse(Tx3Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, restClient, null, tx, true);
+      await CreateAndPublishNewBlock(rpcClient, null, tx, true);
 
       tx = Transaction.Parse(Tx4Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, restClient, null, tx, true);
+      await CreateAndPublishNewBlock(rpcClient, null, tx, true);
 
       tx = Transaction.Parse(Tx5Hex, Network.Main);
-      var (_, blockHash) = await CreateAndPublishNewBlock(rpcClient, restClient, null, tx, true);
+      var (_, blockHash) = await CreateAndPublishNewBlock(rpcClient, null, tx, true);
       PublishBlockHashToEventBus(blockHash);
 
       // Use already inserted tx2 with changing only Version so we get new TxId
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
       doubleSpendTx.Version = 2;
       doubleSpendTx.GetHash();
-      await CreateAndPublishNewBlock(rpcClient, restClient, forkHeight, doubleSpendTx);
+      await CreateAndPublishNewBlock(rpcClient, forkHeight, doubleSpendTx);
 
       return (doubleSpendTx, tx2, firstBlockHash);
     }

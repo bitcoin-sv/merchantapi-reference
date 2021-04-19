@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using MerchantAPI.Common.BitcoinRest;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using Microsoft.Extensions.Logging;
@@ -25,14 +24,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
   {
     INodes nodes;
     IRpcClientFactory rpcClientFactory;
-    IRestClientFactory restClientFactory;
     private ILogger logger;
 
-    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, IRestClientFactory restClientFactory, ILogger<RpcMultiClient> logger)
+    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger)
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
-      this.restClientFactory = restClientFactory ?? throw new ArgumentNullException(nameof(restClientFactory));
       this.logger = logger;
     }
 
@@ -62,20 +59,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     }
 
-    IRestClient[] GetRestClients()
-    {
-      var result = nodes.GetNodes().Select(
-        n => restClientFactory.Create(n.Host, n.Port)).ToArray();
-
-      if (!result.Any())
-      {
-        throw new Exception("No nodes available");
-      }
-
-      return result;
-
-    }
-
     Task<T> GetFirstSucesfullAsync<T>(Func<IRpcClient, Task<T>> call)
     {
       Exception lastError = null;
@@ -96,28 +79,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
 
       throw lastError ?? new Exception("No nodes available"); 
-    }
-
-    Task<T> GetFirstSucesfullRestAsync<T>(Func<IRestClient, Task<T>> call)
-    {
-      Exception lastError = null;
-      var restClients = GetRestClients();
-      ShuffleArray(restClients);
-      foreach (var restClient in restClients)
-      {
-        try
-        {
-          return call(restClient);
-        }
-        catch (Exception e)
-        {
-          lastError = e;
-          logger.LogError($"Error while calling node {restClient}. {e} ");
-          // try with the next node
-        }
-      }
-
-      throw lastError ?? new Exception("No nodes available");
     }
 
     async Task<Task<T>[]> GetAll<T>(Func<IRpcClient, Task<T>> call)
@@ -237,9 +198,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return GetFirstSucesfullAsync(x => x.GetMerkleProofAsync(txId, blockHash));
     }
 
-    public Task<byte[]> GetBlockAsBytesAsync(string blockHash)
+    public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash)
     {
-      return GetFirstSucesfullRestAsync(x => x.GetBlockAsBytesAsync(blockHash));
+      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash));
     }
 
     public Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash)

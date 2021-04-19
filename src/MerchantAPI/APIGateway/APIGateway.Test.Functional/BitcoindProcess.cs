@@ -10,7 +10,6 @@ using System.Threading;
 using MerchantAPI.Common.BitcoinRpc;
 using Microsoft.Extensions.Logging;
 using MerchantAPI.Common.Tasks;
-using MerchantAPI.Common.BitcoinRest;
 using System.Net.Http;
 
 
@@ -27,8 +26,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     /// A IRpcClient that can be used to access this node 
     /// </summary>
     public IRpcClient RpcClient { get; private set; }
-
-    public IRestClient RestClient { get; private set; }
 
     ILogger<BitcoindProcess> logger;
 
@@ -155,7 +152,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var rpcClient = new RpcClient(RpcClientFactory.CreateAddress(Host, rpcPort),
         new System.Net.NetworkCredential(RpcUser, RpcPassword), loggerFactory.CreateLogger<RpcClient>(),
         httpClientFactory.CreateClient(Host));
-      var restClient = new RestClient(httpClientFactory.CreateClient(Host), RpcClientFactory.CreateAddress(Host, rpcPort));
       try
       {
 
@@ -168,7 +164,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       this.RpcClient = rpcClient;
-      this.RestClient = restClient;
       if (nodesToConnect is null && emptyDataDir)
       {
         var height = rpcClient.GetBlockHeaderAsync(bestBlockhash).Result.Height;
