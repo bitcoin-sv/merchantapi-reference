@@ -3,22 +3,23 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
-using MerchantAPI.Common.BitcoinRest;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
+using MerchantAPI.Common.Test;
 using NBitcoin;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
 
-  class RpcClientMock : IRpcClient, IRestClient
+  class RpcClientMock : IRpcClient
   {
     RpcCallList callList;
     string nodeId;
@@ -117,9 +118,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new NotImplementedException();
     }
 
-    public Task<byte[]> GetBlockAsBytesAsync(string blockHash, CancellationToken? token = null)
+    public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
     {
-      var r = SimulateCall<byte[]>();
+      var r = SimulateCall<RpcBitcoinStreamReader>();
       if (r != null)
       {
         return Task.FromResult(r);
@@ -130,9 +131,11 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         throw new Exception($"Mock block {blockHash} not found");
       }
 
-      return Task.FromResult(block.BlockData);
+      var str = new StreamReader(new MemoryStream(block.BlockData));
+      var rpc = new RpcBitcoinStreamReaderMock(str, token);
+      return Task.FromResult((RpcBitcoinStreamReader)rpc);
     }
-    
+
     public Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
     {
       var r = SimulateCall<byte[]>();

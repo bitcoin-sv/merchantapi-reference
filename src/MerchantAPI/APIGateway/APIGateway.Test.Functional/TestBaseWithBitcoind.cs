@@ -13,7 +13,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MerchantAPI.Common.BitcoinRest;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NBitcoin.Altcoins;
@@ -23,6 +22,7 @@ using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using System.Net.Mime;
 using System.Net;
+using MerchantAPI.Common.Json;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -46,7 +46,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     protected List<BitcoindProcess> bitcoindProcesses = new List<BitcoindProcess>();
 
     public IRpcClient rpcClient0;
-    public IRestClient restClient0;
     public BitcoindProcess node0;
 
     public Queue<Coin> availableCoins = new Queue<Coin>();
@@ -84,7 +83,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
         _ = zmqSubscribedEventSubscription.ReadAsync(CancellationToken.None).Result;
         rpcClient0 = node0.RpcClient;
         SetupChain(rpcClient0);
-        restClient0 = node0.RestClient;
       }
     }
 
@@ -255,8 +253,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
         parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
       }
 
-      var parentBlockBytes = await restClient0.GetBlockAsBytesAsync(parentBlockHash);
-      var parentBlock = NBitcoin.Block.Load(parentBlockBytes, Network.RegTest);
+      var parentBlockStream = await rpcClient0.GetBlockAsStreamAsync(parentBlockHash);
+      var parentBlock = HelperTools.ParseByteStreamToBlock(parentBlockStream);
       var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
       return await MineNextBlockAsync(transactions, throwOnError, parentBlock, parentBlockHeight);
     }

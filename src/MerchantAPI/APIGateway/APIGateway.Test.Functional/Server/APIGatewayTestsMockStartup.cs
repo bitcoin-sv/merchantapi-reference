@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Linq;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Test.Functional.Database;
-using MerchantAPI.Common.BitcoinRest;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Server
 {
@@ -29,12 +28,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
       // replace IRpcClientFactory and IRestClientFactory with same instance of mock version
       var serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IRpcClientFactory));
       services.Remove(serviceDescriptor);
-      serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IRestClientFactory));
-      services.Remove(serviceDescriptor);
 
       var rpcClientFactoryMock = new RpcClientFactoryMock();
       services.AddSingleton<IRpcClientFactory>(rpcClientFactoryMock);
-      services.AddSingleton<IRestClientFactory>(rpcClientFactoryMock);
 
 
       // We register  fee repository as singleton, so that we can modify the fee filename in individual tests

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 
 namespace MerchantAPI.APIGateway.Domain.Models
@@ -21,7 +22,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     Task<RpcGetBlockchainInfo> GetBestBlockchainInfoAsync();
     Task<(RpcGetRawTransaction firstOkResult, bool allOkTheSame, Exception firstError)> GetRawTransactionAsync(string id);
     Task<RpcGetMerkleProof> GetMerkleProofAsync(string txId, string blockHash);
-    Task<byte[]> GetBlockAsBytesAsync(string blockHash);
+    Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash);
     Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash);
     Task<RpcGetNetworkInfo> GetAnyNetworkInfoAsync();
     Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList);

@@ -188,9 +188,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
 
       logger.LogInformation($"Block parser got a new block {e.BlockHash} from database. Parsing it");
-      var blockBytes = await rpcMultiClient.GetBlockAsBytesAsync(e.BlockHash);
+      var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
 
-      var block = HelperTools.ParseBytesToBlock(blockBytes);
+      var block = HelperTools.ParseByteStreamToBlock(blockStream);
 
       await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
       await TransactionsDSCheckAsync(block, e.BlockDBInternalId);

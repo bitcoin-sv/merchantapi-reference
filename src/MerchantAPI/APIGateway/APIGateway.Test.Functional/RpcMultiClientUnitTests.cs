@@ -119,7 +119,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         }
       );
 
-      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
 
       Assert.AreEqual("oldest", (await c.GetWorstBlockchainInfoAsync()).BestBlockHash);
     }
@@ -134,7 +134,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ("umockNode1:sendrawtransactions", node1Response));
 
 
-      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
 
       var r = c.SendRawTransactionsAsync(
         txsHex.Select( x=>
@@ -150,7 +150,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ("umockNode1:getrawtransaction", node1Response));
 
 
-      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
 
       return await c.GetRawTransactionAsync(txId);
     }
