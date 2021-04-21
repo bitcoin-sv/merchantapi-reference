@@ -114,7 +114,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       {
         throw new Exception("'txId' parameter must be set in call to GetMerkleProof2.");
       }
-      return await RequestAsync<RpcGetMerkleProof2>(token, "getmerkleproof2", new object[] { blockHash, txId, false, "merkleroot" });
+      return await RequestAsync<RpcGetMerkleProof2>(token, "getmerkleproof2", new object[] { blockHash, txId, false, "header" });
     }
 
     public async Task<RpcGetBlockchainInfo> GetBlockchainInfoAsync(CancellationToken? token = null)
