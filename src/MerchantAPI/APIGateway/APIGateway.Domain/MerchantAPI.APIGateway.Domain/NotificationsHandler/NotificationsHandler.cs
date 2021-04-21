@@ -259,7 +259,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
           case CallbackReason.MerkleProof:
             if (notification.MerkleFormat == MerkleFormat.TSC)
             {
-              notification.MerkleProof2 = await rpcMultiClient.GetMerkleProof2Async(new uint256(notification.TxExternalId).ToString(), new uint256(notification.BlockHash).ToString());
+              notification.MerkleProof2 = await rpcMultiClient.GetMerkleProof2Async(new uint256(notification.BlockHash).ToString(), new uint256(notification.TxExternalId).ToString());
             }
             else
             {

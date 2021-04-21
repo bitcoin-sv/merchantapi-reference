@@ -22,9 +22,8 @@ namespace MerchantAPI.APIGateway.Domain.Models
     Task<RpcGetBlockchainInfo> GetBestBlockchainInfoAsync();
     Task<(RpcGetRawTransaction firstOkResult, bool allOkTheSame, Exception firstError)> GetRawTransactionAsync(string id);
     Task<RpcGetMerkleProof> GetMerkleProofAsync(string txId, string blockHash);
+    Task<RpcGetMerkleProof2> GetMerkleProof2Async(string blockHash, string txId);
     Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash);
-    Task<RpcGetMerkleProof2> GetMerkleProof2Async(string txId, string blockHash);
-    Task<byte[]> GetBlockAsBytesAsync(string blockHash);
     Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash);
     Task<RpcGetNetworkInfo> GetAnyNetworkInfoAsync();
     Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList);

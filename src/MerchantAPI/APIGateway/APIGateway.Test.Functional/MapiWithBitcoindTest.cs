@@ -107,7 +107,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
-    [Ignore("Test ignored untill CORE-1299 will be merged into develop")]
+    [Ignore("Test ignored untill SVN-1361 will be merged into develop")]
     [TestMethod]
     public async Task SubmitTransactionAndWaitForProof2()
     {
@@ -143,12 +143,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(Callback.Calls[0].request)
         .ExtractPayload<CallbackNotificationMerkeProof2ViewModel>();
       Assert.AreEqual(CallbackReason.MerkleProof, callback.CallbackReason);
+
+      // Validate callback
+      var blockHeader = BlockHeader.Parse(callback.CallbackPayload.Target, Network.RegTest);
+      Assert.AreEqual(generatedBlock, blockHeader.GetHash());
       Assert.AreEqual(new uint256(txId), new uint256(callback.CallbackTxId));
       Assert.AreEqual(new uint256(txId), new uint256(callback.CallbackPayload.TxOrId));
 
     }
 
-    [Ignore("Test ignored untill CORE-1299 will be merged into develop")]
+    [Ignore("Test ignored untill SVN-1361 will be merged into develop")]
     [TestMethod]
     public async Task SubmitTransactionWithInvalidMerkleFormat()
     {
