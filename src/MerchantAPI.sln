@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.APIGateway.Test
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "APIGateway", "APIGateway", "{E8686008-DBF1-4984-8D96-F1E222E46CC5}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.APIGateway.Domain", "MerchantAPI\APIGateway\APIGateway.Domain\MerchantAPI.APIGateway.Domain\MerchantAPI.APIGateway.Domain.csproj", "{18BC7475-9E84-4797-8C30-3424C2FA339B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.APIGateway.Domain", "MerchantAPI\APIGateway\APIGateway.Domain\MerchantAPI.APIGateway.Domain.csproj", "{18BC7475-9E84-4797-8C30-3424C2FA339B}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TokenManager", "MerchantAPI\TokenManager\TokenManager.csproj", "{E82BE804-20F2-4676-B75F-234410144C3E}"
 EndProject
