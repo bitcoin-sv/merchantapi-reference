@@ -257,7 +257,14 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
             break;
 
           case CallbackReason.MerkleProof:
-            notification.MerkleProof = await rpcMultiClient.GetMerkleProofAsync(new uint256(notification.TxExternalId).ToString(), new uint256(notification.BlockHash).ToString());
+            if (notification.MerkleFormat == MerkleFormat.TSC)
+            {
+              notification.MerkleProof2 = await rpcMultiClient.GetMerkleProof2Async(new uint256(notification.BlockHash).ToString(), new uint256(notification.TxExternalId).ToString());
+            }
+            else
+            {
+              notification.MerkleProof = await rpcMultiClient.GetMerkleProofAsync(new uint256(notification.TxExternalId).ToString(), new uint256(notification.BlockHash).ToString());
+            }
             break;
           default:
             throw new InvalidOperationException($"Invalid notification type {notification.NotificationType}");

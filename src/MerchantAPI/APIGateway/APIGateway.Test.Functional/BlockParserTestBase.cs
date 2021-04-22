@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       List<Tx> txList = new List<Tx>();
       for (int i = 0; i < limit; i++)
       {
-        txList.Add(CreateNewTx(hashes[i], hexes[i], merkleProof, dsCheck));
+        txList.Add(CreateNewTx(hashes[i], hexes[i], merkleProof, null, dsCheck));
       }
 
       await TxRepositoryPostgres.InsertTxsAsync(txList, false);

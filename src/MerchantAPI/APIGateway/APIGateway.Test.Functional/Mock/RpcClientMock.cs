@@ -392,6 +392,17 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return Task.FromResult(new RpcGetMerkleProof());
     }
 
+    public Task<RpcGetMerkleProof2> GetMerkleProof2Async(string txId, string blockHash, CancellationToken? token = null)
+    {
+      var r = SimulateCall<RpcGetMerkleProof2>();
+      if (r != null)
+      {
+        return Task.FromResult(r);
+      }
+
+      return Task.FromResult(new RpcGetMerkleProof2());
+    }
+
     public Task<RpcGetBlockchainInfo> GetBlockchainInfoAsync(CancellationToken? token = null)
     {
       var r = SimulateCall<RpcGetBlockchainInfo>();

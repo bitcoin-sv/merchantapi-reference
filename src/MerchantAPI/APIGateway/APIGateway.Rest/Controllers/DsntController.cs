@@ -68,7 +68,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     {
       if (!uint256.TryParse(txId, out uint256 uTxId))
       {
-        return AddBanScoreAndReturnResult("Invalid 'txid' format.", "");
+        return AddBanScoreAndReturnResult("Invalid 'txid' format.", txId);
       }
 
       var tx = (await txRepository.GetTxsForDSCheckAsync(new byte[][] { uTxId.ToBytes() }, true)).SingleOrDefault();

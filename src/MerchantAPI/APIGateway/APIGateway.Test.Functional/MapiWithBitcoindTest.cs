@@ -107,6 +107,63 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
+    [Ignore("Test ignored untill SVN-1361 will be merged into develop")]
+    [TestMethod]
+    public async Task SubmitTransactionAndWaitForProof2()
+    {
+      var (txHex, txId) = CreateNewTransaction();
+
+      var payload = await SubmitTransactionAsync(txHex, merkleProof: true, merkleFormat: MerkleFormat.TSC);
+
+      Assert.AreEqual(payload.ReturnResult, "success");
+
+      // Try to fetch tx from the node
+      var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(txId);
+      Assert.AreEqual(txHex, HelperTools.ByteToHexString(txFromNode));
+
+      Assert.AreEqual(0, Callback.Calls.Length);
+
+      var notificationEventSubscription = eventBus.Subscribe<NewNotificationEvent>();
+      // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
+      // with troubleshooting:
+      var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
+      loggerTest.LogInformation($"Generated block {generatedBlock} should contain our transaction");
+
+      await WaitForEventBusEventAsync(notificationEventSubscription,
+        $"Waiting for merkle notification event for tx {txId}",
+        (evt) => evt.NotificationType == CallbackReason.MerkleProof
+                 && new uint256(evt.TransactionId) == new uint256(txId)
+      );
+      WaitUntilEventBusIsIdle();
+
+      // Check if callback was received
+      Assert.AreEqual(1, Callback.Calls.Length);
+
+      // Verify that it parses merkleproof2
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(Callback.Calls[0].request)
+        .ExtractPayload<CallbackNotificationMerkeProof2ViewModel>();
+      Assert.AreEqual(CallbackReason.MerkleProof, callback.CallbackReason);
+
+      // Validate callback
+      var blockHeader = BlockHeader.Parse(callback.CallbackPayload.Target, Network.RegTest);
+      Assert.AreEqual(generatedBlock, blockHeader.GetHash());
+      Assert.AreEqual(new uint256(txId), new uint256(callback.CallbackTxId));
+      Assert.AreEqual(new uint256(txId), new uint256(callback.CallbackPayload.TxOrId));
+
+    }
+
+    [Ignore("Test ignored untill SVN-1361 will be merged into develop")]
+    [TestMethod]
+    public async Task SubmitTransactionWithInvalidMerkleFormat()
+    {
+      var (txHex, txId) = CreateNewTransaction();
+
+      var payload = await SubmitTransactionAsync(txHex, merkleProof: true, merkleFormat: "WRONG") ;
+
+      Assert.AreEqual("failure", payload.ReturnResult);
+
+    }
+
     [TestMethod]
     public async Task SubmitTransactionWithMissingInputs()
     {

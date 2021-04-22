@@ -547,6 +547,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
       foreach (var oneTx in request)
       {
+        if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x ==  oneTx.MerkleFormat))
+        {
+          AddFailureResponse(null, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
+
+          failureCount++;
+          continue;
+        }
+
         if ((oneTx.RawTx == null || oneTx.RawTx.Length == 0) && string.IsNullOrEmpty(oneTx.RawTxString))
         {
           AddFailureResponse(null, $"{nameof(SubmitTransaction.RawTx)} is required", ref responses);
@@ -777,6 +785,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           CallbackEncryption = x.transaction.CallbackEncryption,
           DSCheck = x.transaction.DsCheck,
           MerkleProof = x.transaction.MerkleProof,
+          MerkleFormat = x.transaction.MerkleFormat,
           TxExternalId = new uint256(x.transactionId),
           TxPayload = x.transaction.RawTx,
           ReceivedAt = clock.UtcNow(),

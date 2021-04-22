@@ -198,6 +198,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return GetFirstSucesfullAsync(x => x.GetMerkleProofAsync(txId, blockHash));
     }
 
+    public Task<RpcGetMerkleProof2> GetMerkleProof2Async(string blockHash, string txId)
+    {
+      return GetFirstSucesfullAsync(x => x.GetMerkleProof2Async(blockHash, txId));
+    }
+
     public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash)
     {
       return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash));

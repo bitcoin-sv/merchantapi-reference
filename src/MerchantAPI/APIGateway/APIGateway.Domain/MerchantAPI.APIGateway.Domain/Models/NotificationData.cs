@@ -13,7 +13,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public byte[] TxExternalId { get; set; }
     public byte[] DoubleSpendTxId { get; set; }
     public byte[] Payload { get; set; }
+    public string MerkleFormat { get; set; }
     public RpcGetMerkleProof MerkleProof { get; set; }
+    public RpcGetMerkleProof2 MerkleProof2 { get; set; }
     public byte[] BlockHash { get; set; }
     public long BlockHeight { get; set; }
 
