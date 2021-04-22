@@ -86,7 +86,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
     #endregion
 
-    (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
+    new (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx = BCash.Instance.Regtest.CreateTransaction();
