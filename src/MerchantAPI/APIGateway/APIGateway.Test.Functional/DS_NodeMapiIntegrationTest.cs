@@ -1,4 +1,7 @@
-﻿using MerchantAPI.APIGateway.Rest.ViewModels;
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
@@ -83,7 +86,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
     #endregion
 
-    (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
+    new (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx = BCash.Instance.Regtest.CreateTransaction();

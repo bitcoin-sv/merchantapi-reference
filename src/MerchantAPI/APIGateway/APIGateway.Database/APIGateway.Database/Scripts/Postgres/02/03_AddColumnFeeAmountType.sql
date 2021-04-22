@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Bitcoin Association.
+-- Distributed under the Open BSV software license, see the accompanying file LICENSE
+
 ALTER TABLE FeeAmount ADD COLUMN IF NOT EXISTS feeAmountType VARCHAR(50) NOT NULL DEFAULT '';
 ALTER TABLE FeeAmount ALTER COLUMN feeAmountType DROP DEFAULT;
 

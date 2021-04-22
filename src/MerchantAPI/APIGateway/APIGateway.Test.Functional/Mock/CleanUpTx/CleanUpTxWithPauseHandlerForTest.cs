@@ -1,4 +1,7 @@
-﻿using MerchantAPI.APIGateway.Domain;
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.Clock;

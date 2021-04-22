@@ -1,10 +1,10 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using Dapper;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.Common;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Tasks;
