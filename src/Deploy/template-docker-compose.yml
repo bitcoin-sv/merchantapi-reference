@@ -7,7 +7,6 @@ services:
     image: postgres:12
     environment:
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: merchant_gateway
     volumes:
       - mapi-volume:/var/lib/postgresql/data
     networks:
