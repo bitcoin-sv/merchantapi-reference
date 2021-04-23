@@ -126,7 +126,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     /// any ports, so we start another mAPI to listen on port 5555
     /// </summary>
     /// <returns></returns>
-    [Ignore("Test ignored untill CORE-955 and CORE-1223 will be merged into develop")]
     [TestMethod]
     public async Task SubmitTxsWithDSThatInitiatesCall2CallbackServerAsync()
     {

@@ -102,8 +102,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       return (curTxHex, curTxId, mapiTxCount);
     }
-
-    [Ignore("Test ignored untill CORE-955 and CORE-1223 will be merged into develop")]
+   
     [TestMethod]
     public async Task StoreUnconfirmedParentsOnSubmitTx()
     {
@@ -128,8 +127,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(txInternalId1.HasValue);
       Assert.AreNotEqual(0, txInternalId1.Value);
     }
-
-    [Ignore("Test ignored untill CORE-955 and CORE-1223 will be merged into develop")]
+   
     [TestMethod]
     public async Task CatchMempoolDSForUnconfirmedParent()
     {
@@ -179,7 +177,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callback.CallbackReason);
     }
 
-    [Ignore("Test ignored untill CORE-955 and CORE-1223 will be merged into develop")]
     [TestMethod]
     public async Task NotifyMempoolDSForAllTxWithDsCheckInChain()
     {
@@ -229,7 +226,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callback.CallbackReason);
     }
 
-    [Ignore("Test ignored untill CORE-955 and CORE-1223 will be merged into develop")]
     [TestMethod]
     public async Task CatchDSOfBlockAncestorTxByBlockTx()
     {
@@ -286,7 +282,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(txIdDS, dsNotification.CallbackPayload.DoubleSpendTxId);
     }
 
-    [Ignore("Test ignored untill CORE-955 and CORE-1223 will be merged into develop")]
     [TestMethod]
     public async Task CatchDSOfMempoolAncestorTxByBlockTx()
     {

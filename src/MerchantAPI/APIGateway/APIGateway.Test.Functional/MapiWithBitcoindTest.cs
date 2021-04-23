@@ -107,7 +107,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
-    [Ignore("Test ignored untill SVN-1361 will be merged into develop")]
     [TestMethod]
     public async Task SubmitTransactionAndWaitForProof2()
     {
@@ -152,7 +151,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
-    [Ignore("Test ignored untill SVN-1361 will be merged into develop")]
     [TestMethod]
     public async Task SubmitTransactionWithInvalidMerkleFormat()
     {
