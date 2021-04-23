@@ -89,5 +89,26 @@ namespace MerchantAPI.APIGateway.Test.Functional
       idleTask = pcCollection.TakeAsync(true, CancellationToken.None);
       Assert.AreEqual(TaskStatus.WaitingForActivation, idleTask.Status);
     }
+
+    [TestMethod]
+    public void CallbackUrlFromattingTest()
+    {
+      string url1 = "https://test.domain/noPlaceholder";
+      string url2 = "https://test.domain/{callbackreason}";
+      string url3 = "https://test.domain/{CALLBACKREASON}";
+      string url4 = "https://test.domain/{callbackReason}/addedPath";
+
+      var resultUrl = NotificationsHandler.FormatCallbackUrl(url1, "TEST");
+      Assert.AreEqual(url1, resultUrl);
+
+      resultUrl = NotificationsHandler.FormatCallbackUrl(url2, "TEST");
+      Assert.AreEqual("https://test.domain/TEST", resultUrl);
+
+      resultUrl = NotificationsHandler.FormatCallbackUrl(url3, "TEST");
+      Assert.AreEqual("https://test.domain/TEST", resultUrl);
+
+      resultUrl = NotificationsHandler.FormatCallbackUrl(url4, "TEST");
+      Assert.AreEqual("https://test.domain/TEST/addedPath", resultUrl);
+    }
   }
 }

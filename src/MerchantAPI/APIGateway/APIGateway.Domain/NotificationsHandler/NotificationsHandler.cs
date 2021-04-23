@@ -36,6 +36,8 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
 
     readonly NotificationScheduler notificationScheduler;
 
+    private const string CALLBACK_REASON_PLACEHOLDER = "{callbackreason}";
+
     public NotificationsHandler(ILogger<NotificationsHandler> logger, INotificationServiceHttpClientFactory httpClientFactory, IOptions<AppSettings> options, 
                                 ITxRepository txRepository, IRpcMultiClient rpcMultiClient, IMinerId minerId, IClock clock)
     {
@@ -138,15 +140,17 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     /// </summary>
     /// <returns>true if the call succeeded, false if the call failed</returns>
     private async Task<string> InitiateCallbackAsync(HttpClient client, string callbackUrl, string callbackToken, 
-                                                     string callbackEncryption, string payload, int requestTimeout, 
+                                                     string callbackEncryption, string callbackReason, 
+                                                     string payload, int requestTimeout, 
                                                      CancellationToken stoppingToken)
     {
-      var hostURI = new Uri(callbackUrl);
+      var url = FormatCallbackUrl(callbackUrl, callbackReason);
+      var hostURI = new Uri(url);
       var stopwatch = Stopwatch.StartNew();
       string errMessage = null;
       try
-      {
-        var restClient = new RestClient(callbackUrl, callbackToken, client);
+      {        
+        var restClient = new RestClient(url, callbackToken, client);
         var notificationTimeout = new TimeSpan(0, 0, 0, 0, requestTimeout);
         if (string.IsNullOrEmpty(callbackEncryption))
         {
@@ -157,7 +161,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
           _ = await restClient.PostOctetStream("", MapiEncryption.Encrypt(payload, callbackEncryption), requestTimeout: notificationTimeout, token: stoppingToken);
         }
 
-        logger.LogDebug($"Successfully sent notification to '{callbackUrl}', with execution time of '{stopwatch.ElapsedMilliseconds}'ms");
+        logger.LogDebug($"Successfully sent notification to '{url}', with execution time of '{stopwatch.ElapsedMilliseconds}'ms");
       }
       catch (Exception ex)
       {
@@ -234,7 +238,8 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       }
 
       return await InitiateCallbackAsync(client, notificationData.CallbackUrl, notificationData.CallbackToken, 
-                                         notificationData.CallbackEncryption, signedPayload, requestTimeout, stoppingToken);
+                                         notificationData.CallbackEncryption, notificationData.NotificationType,
+                                         signedPayload, requestTimeout, stoppingToken);
     }
 
 
@@ -334,6 +339,15 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
         // Error count is set to 0, because there was no attempt to send it out yet, we just mark it for non-instant notification
         await txRepository.SetNotificationErrorAsync(notificationEvent.TransactionId, notificationEvent.NotificationType, ex.GetBaseException().Message, 0);
       }
+    }
+
+    public static string FormatCallbackUrl(string url, string callbackReason)
+    {
+      int placeholderIndex = url.ToLower().IndexOf(CALLBACK_REASON_PLACEHOLDER);
+      if (placeholderIndex < 0)
+        return url;
+      string placeholder = url.Substring(placeholderIndex, CALLBACK_REASON_PLACEHOLDER.Length);
+      return url.Replace(placeholder, callbackReason);
     }
   }
 }
