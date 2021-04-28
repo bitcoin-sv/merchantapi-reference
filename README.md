@@ -51,11 +51,12 @@ To submit a transaction in JSON format use `Content-Type: application/json` with
   "callbackUrl":  "https://your.service.callback/endpoint",
   "callbackToken" : "Authorization: <your_authorization_header>",
   "merkleProof" : true,
+  "merkleFormat" : "TSC",
   "dsCheck" : true
 }
 ```
 
-To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transaction in the request body. You can specify `callbackUrl`, `callbackToken`, `merkleProof` and `dsCheck` in the query string.
+To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transaction in the request body. You can specify `callbackUrl`, `callbackToken`, `merkleProof`, `merkleFormat` and `dsCheck` in the query string.
 
 If a double spend notification or merkle proof is requested in Submit transaction, the response is sent to the specified callbackURL. Where recipients are using [SPV Channels](https://github.com/bitcoin-sv/brfc-spvchannels), this would require the recipient to have a channel setup and ready to receive messages.
 Check [Callback Notifications](#callback-notifications) for details.
@@ -83,13 +84,14 @@ To submit a list of transactions in JSON format use `Content-Type: application/j
     "callbackUrl":  "https://your.service.callback/endpoint",
     "callbackToken" : "Authorization: <your_authorization_header>",
     "merkleProof" : true,
+    "merkleFormat" : "TSC",
     "dsCheck" : true
   },
   ....
 ]
 ```
 
-You can also omit `callbackUrl`, `callbackToken`, `merkleProof` and `dsCheck` from the request body and provide the values in the query string.
+You can also omit `callbackUrl`, `callbackToken`, `merkleProof`, `merkleFormat` and `dsCheck` from the request body and provide the values in the query string.
 
 To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transactions in the request body. Use query string to specify the remaining parameters.
 
@@ -97,6 +99,17 @@ To submit transaction in binary format use `Content-Type: application/octet-stre
 ### Callback Notifications
 
 Merchants can request callbacks for *merkle proofs* and/or *double spend notifications* in Submit transaction.
+
+You can specify `{callbackReason}` placeholder in your `callbackUrl`. When notification is triggered, placeholder will be replaced by actual callback reason (`merkleProof`, `doubleSpend` or `oubleSpendAttempt`).
+
+For example, if you specify callback URL:
+```
+  "callbackUrl":  "https://your.service.callback/endpoint/{callbackReason}",
+```
+than merkle proof callback notification will be sent to:
+```
+https://your.service.callback/endpoint/merkleProof
+```
 
 Double Spend example:
 ```
@@ -130,9 +143,11 @@ Request Body:
 Merkle proof callback can be requested by specifying:
 ```json
 {
- "merkleProof": true
+ "merkleProof": true,
+ "merkleFormat" : "TSC",
 }
 ```
+Merlke format is optional and only supported format is TSC. If field is omitted from the request than the callback payload will be the same as with 1.2.0 version.
 
 If callback was requested on transaction submit, merchant should receive a notification of doublespend and/or merkle proof via callback URL. mAPI process all requested notifications and sends them out in batches.
 Callbacks have three possible callbackReason: "doubleSpend", "doubleSpendAttempt" and "merkleProof". DoubleSpendAttempt implies, that double spend was detected in mempool.
