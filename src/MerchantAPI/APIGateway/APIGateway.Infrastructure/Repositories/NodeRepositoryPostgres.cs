@@ -80,7 +80,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
         "  (host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus) " +
         "  VALUES (@host, @port, @username, @password, @remarks, @zmqnotificationsendpoint, @nodestatus)" +
         "  ON CONFLICT (host, port) DO NOTHING " +
-        "  RETURNING *"
+        "  RETURNING nodeid as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus as status, lastError, lastErrorAt"
       ;
 
       var now = clock.UtcNow();
@@ -136,7 +136,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       "UPDATE Node " +
       "  SET  username=@username, password=@password, remarks=@remarks, zmqnotificationsendpoint=@zmqnotificationsendpoint " +
       "  WHERE host=@host AND port=@port" +
-      "  RETURNING *";
+      "  RETURNING nodeid as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus as status, lastError, lastErrorAt";
 
       Node updatedNode = connection.Query<Node>(update,
         new
@@ -170,7 +170,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       "UPDATE Node " +
       "  SET  lastError=@lastError, lastErrorAt=@lastErrorAt " +
       "  WHERE nodeId=@nodeId" +
-      "  RETURNING *";
+      "  RETURNING nodeid as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus as status, lastError, lastErrorAt";
 
       Node updatedNode = connection.Query<Node>(update,
         new
@@ -257,7 +257,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       RetryUtils.Exec(() => connection.Open());
       using var transaction = connection.BeginTransaction();
       string cmdText =
-        @"SELECT nodeId, host, port, username, password, remarks, zmqnotificationsendpoint, nodeStatus, lastError, lastErrorAt FROM node ORDER by host, port";
+        @"SELECT nodeId as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodeStatus as status, lastError, lastErrorAt FROM node ORDER by host, port";
       return connection.Query<Node>(cmdText, null, transaction);
     }
 
