@@ -9,7 +9,7 @@ FROM mcr.microsoft.com/dotnet/core/sdk:3.1-buster AS build
 WORKDIR /src
 COPY ["MerchantAPI/APIGateway/APIGateway.Rest/MerchantAPI.APIGateway.Rest.csproj", "MerchantAPI/APIGateway/APIGateway.Rest/"]
 COPY ["MerchantAPI/APIGateway/APIGateway.Infrastructure/MerchantAPI.APIGateway.Infrastructure.csproj", "MerchantAPI/APIGateway/APIGateway.Infrastructure/"]
-COPY ["MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain/MerchantAPI.APIGateway.Domain.csproj", "MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain/"]
+COPY ["MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain.csproj", "MerchantAPI/APIGateway/APIGateway.Domain/"]
 COPY ["MerchantAPI/APIGateway/APIGateway.Database/APIGateway.Database.csproj", "MerchantAPI/APIGateway/APIGateway.Database/"]
 
 ### Temporary sloution until we deploy MerchantAPI.Common to nuget.org ########
@@ -24,7 +24,8 @@ WORKDIR "/src/MerchantAPI/APIGateway/APIGateway.Rest"
 RUN dotnet build "MerchantAPI.APIGateway.Rest.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "MerchantAPI.APIGateway.Rest.csproj" -c Release -o /app/publish
+ARG APPVERSION=0.0.0.0
+RUN dotnet publish "MerchantAPI.APIGateway.Rest.csproj" -c Release -o /app/publish -p:Version=$APPVERSION
 
 FROM base AS final
 WORKDIR /app
