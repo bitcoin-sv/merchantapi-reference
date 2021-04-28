@@ -2,12 +2,19 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.Common;
+using System.Reflection;
 
 namespace MerchantAPI.APIGateway.Domain
 {
   public class Const
   {
     public const string MERCHANT_API_VERSION = "1.3.0";
+
+    public readonly static string MERCHANT_API_BUILD_VERSION = GetBuildVersion();
+    private static string GetBuildVersion()
+    {
+      return Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
+    }
 
     public class FeeType
     {

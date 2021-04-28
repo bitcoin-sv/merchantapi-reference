@@ -54,6 +54,9 @@ namespace MerchantAPI.APIGateway.Rest
       logger.LogInformation("Health checks starting.");
       try
       {
+        logger.LogInformation($"API version: {Const.MERCHANT_API_VERSION}");
+        logger.LogInformation($"Build version: {Const.MERCHANT_API_BUILD_VERSION}");
+
         RetryUtils.ExecAsync(() => TestDBConnection(), retry: 10, errorMessage: "Unable to open connection to database").Wait();
         ExecuteCreateDb();
         if (!testingEnvironment)
