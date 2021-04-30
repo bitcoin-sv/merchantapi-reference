@@ -713,7 +713,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                                                                                     }).ToList();
           foreach(TxInput txInput in oneTx.TransactionInputs)
           {
-            var prevOut = await txRepository.GetPrevOut(txInput.PrevTxId, txInput.PrevN);
+            var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevTxId, txInput.PrevN);
             if (prevOut == null)
             {
               listUnconfirmedAncestors = oneTx.DsCheck;

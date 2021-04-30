@@ -3,7 +3,7 @@
 
 using Microsoft.Extensions.Caching.Memory;
 
-namespace MerchantAPI.APIGateway.Domain.DSAccessChecks
+namespace MerchantAPI.APIGateway.Domain.Cache
 {
   public class HostBanListMemoryCache
   {
@@ -43,6 +43,20 @@ namespace MerchantAPI.APIGateway.Domain.DSAccessChecks
       Cache = new MemoryCache(new MemoryCacheOptions
       {
         SizeLimit = 100000
+      });
+    }
+  }
+
+  public class PrevTxOutputCache
+  {
+    public MemoryCache Cache { get; set; }
+
+    public PrevTxOutputCache()
+    {
+      // We limit the number of tx outs
+      Cache = new MemoryCache(new MemoryCacheOptions
+      {
+        SizeLimit = 500000
       });
     }
   }
