@@ -5,8 +5,11 @@ using Dapper;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
+using MerchantAPI.APIGateway.Infrastructure.Cache;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using System;
@@ -21,11 +24,13 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
   {
     private readonly string connectionString;
     private readonly IClock clock;
+    private readonly PrevTxOutputCache prevTxOutputCache;
 
-    public TxRepositoryPostgres(IConfiguration configuration, IClock clock)
+    public TxRepositoryPostgres(IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache)
     {
       connectionString = configuration["ConnectionStrings:DBConnectionString"];
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+      this.prevTxOutputCache = prevTxOutputCache ?? throw new ArgumentNullException(nameof(prevTxOutputCache));
     }
 
     private NpgsqlConnection GetDbConnection()
@@ -56,14 +61,14 @@ VALUES (@blockTime, @blockHash, @prevBlockHash, @blockHeight, @onActiveChain)
 ON CONFLICT (blockHash) DO NOTHING
 RETURNING blockInternalId;
 ";
-      var blockInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new 
-        { 
-          blockTime = block.BlockTime, 
-          blockHash = block.BlockHash,
-          prevBlockHash = block.PrevBlockHash, 
-          blockHeight = block.BlockHeight, 
-          onActiveChain = block.OnActiveChain
-        });
+      var blockInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new
+      {
+        blockTime = block.BlockTime,
+        blockHash = block.BlockHash,
+        prevBlockHash = block.PrevBlockHash,
+        blockHeight = block.BlockHeight,
+        onActiveChain = block.OnActiveChain
+      });
       await transaction.CommitAsync();
 
       return blockInternalId;
@@ -185,7 +190,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
     }
 
     private void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
-                                 string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck, 
+                                 string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck,
                                  long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor)
     {
       txImporter.StartRow();
@@ -246,13 +251,14 @@ CREATE TEMPORARY TABLE TxTemp (
       {
         foreach (var tx in transactions)
         {
-          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption, 
+          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
                           tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
 
           int n = 0;
           foreach (var txIn in tx.TxIn)
           {
             AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
+            CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
             n++;
           }
           txInternalId++;
@@ -310,7 +316,7 @@ WHERE txPayload IS NULL;
 
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxBlock (txInternalId, blockInternalId) FROM STDIN (FORMAT BINARY)"))
       {
-        foreach(var txId in txInternalIds)
+        foreach (var txId in txInternalIds)
         {
           txImporter.StartRow();
 
@@ -350,7 +356,7 @@ INNER JOIN Tx ON t.txinternalid = tx.txinternalid
 WHERE t.DsTxPayload IS NULL
   AND Tx.UnconfirmedAncestor = @unconfirmedAncestors;
 ";
-      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText, new { unconfirmedAncestors } );
+      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText, new { unconfirmedAncestors });
     }
 
     public async Task InsertBlockDoubleSpendForAncestorAsync(byte[] ancestorTxId)
@@ -445,7 +451,7 @@ OFFSET @skip ROWS
 FETCH NEXT @fetch ROWS ONLY;
 ";
 
-      return await connection.QueryAsync<NotificationData>(cmdText, new { skip, fetch} );
+      return await connection.QueryAsync<NotificationData>(cmdText, new { skip, fetch });
     }
 
     public async Task<NotificationData> GetTxToSendMerkleProofNotificationAsync(byte[] txId)
@@ -511,7 +517,7 @@ WHERE NOT EXISTS
       var distinctItems = new HashSet<TxWithInput>(txWithInputs.Distinct().ToArray());
       HashSet<Tx> txSet = new HashSet<Tx>(distinctItems.Select(x =>
                                                                {
-                                                                  return new Tx(x);
+                                                                 return new Tx(x);
                                                                }), new TxComparer());
       txWithInputs.ExceptWith(distinctItems);
 
@@ -525,7 +531,7 @@ WHERE NOT EXISTS
       return txSet.ToList();
 
     }
-       
+
     public async Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds, bool checkDSAttempt)
     {
       using var connection = GetDbConnection();
@@ -612,7 +618,7 @@ FROM tx
 WHERE tx.txexternalid = @txId;
 ";
 
-      var foundTx = await connection.ExecuteScalarAsync<int>(cmdText, new { txId } );
+      var foundTx = await connection.ExecuteScalarAsync<int>(cmdText, new { txId });
       return foundTx > 0;
     }
 
@@ -656,7 +662,7 @@ LIMIT @fetch OFFSET @skip
       using var connection = GetDbConnection();
 
       string cmdText = "SELECT dsTxPayload";
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           cmdText += " FROM TxBlockDoublespend ";
@@ -677,7 +683,7 @@ LIMIT @fetch OFFSET @skip
 
     public async Task SetNotificationSendDateAsync(string notificationType, long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
     {
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           await SetBlockDoubleSpendSendDateAsync(txInternalId, blockInternalId, dsTxId, sendDate);
@@ -782,7 +788,7 @@ WHERE blockInternalId=@blockInternalId;
 
       string cmdText = "UPDATE ";
 
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           cmdText += "TxBlockDoublespend ";
@@ -826,7 +832,7 @@ SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=0
 WHERE sentMerkleproofAt IS NULL;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { errorMessage="Unprocessed notification from last run", lastErrorAt = clock.UtcNow() });
+      await connection.ExecuteAsync(cmdText, new { errorMessage = "Unprocessed notification from last run", lastErrorAt = clock.UtcNow() });
       await transaction.CommitAsync();
     }
 
@@ -845,6 +851,45 @@ WHERE sentMerkleproofAt IS NULL;
       return foundBlock;
     }
 
+    public async Task<PrevTxOutput> GetPrevOut(byte[] prevOutTxId, long prevOutN)
+    {
+      PrevTxOutput foundPrevOut;
+      lock (prevTxOutputCache)
+      {        
+        prevTxOutputCache.Cache.TryGetValue($"{HelperTools.ByteToHexString(prevOutTxId)}_{prevOutN}", out foundPrevOut);
+      }
+      if (foundPrevOut == null)
+      {
+        using var connection = GetDbConnection();
+
+        string cmdText = @"
+SELECT tx.txInternalId, tx.txExternalId, txinput.n
+FROM tx 
+INNER JOIN txinput ON txinput.txInternalId = tx.txInternalId
+WHERE tx.txExternalId = @prevOutTxId
+AND txinput.n = @prevOutN;
+";
+        foundPrevOut = await connection.QueryFirstOrDefaultAsync<PrevTxOutput>(cmdText, new { prevOutTxId, prevOutN });
+        if (foundPrevOut != null)
+        {
+          CachePrevOut(foundPrevOut);
+        }
+      }
+      return foundPrevOut;
+    }
+
+    private void CachePrevOut(PrevTxOutput prevTxOutput)
+    {
+      var cacheEntryOptions = new MemoryCacheEntryOptions()
+        .SetSize(1)
+        .SetSlidingExpiration(TimeSpan.FromMinutes(30));
+      prevTxOutputCache.Cache.Set<PrevTxOutput>($"{HelperTools.ByteToHexString(prevTxOutput.TxExternalId)}_{prevTxOutput.N}", prevTxOutput, cacheEntryOptions);
+    }
+    private void CachePrevOut(long prevOutInternalTxId, byte[] prevOutTxId, long prevOutN)
+    {
+      CachePrevOut(new PrevTxOutput() { TxInternalId = prevOutInternalTxId, TxExternalId = prevOutTxId, N = prevOutN });
+    }
+
     public async Task CleanUpTxAsync(DateTime lastUpdateBefore)
     {
       using var connection = GetDbConnection();
@@ -858,5 +903,7 @@ WHERE sentMerkleproofAt IS NULL;
 
       await transaction.CommitAsync();
     }
+
+
   }
 }
