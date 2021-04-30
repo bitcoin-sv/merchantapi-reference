@@ -17,6 +17,7 @@ services:
     image: bitcoinsv/mapi:{{VERSION}}
     ports:
       - "${HTTPSPORT}:443"
+      - "${HTTPPORT:-80}:80"
     depends_on:
       - merchant-gateway-database
     volumes:
@@ -54,7 +55,7 @@ services:
       - AppSettings:MinerIdServer:Alias=${MINERID_SERVER_ALIAS}
       - AppSettings:MinerIdServer:Authentication=${MINERID_SERVER_AUTHENTICATION}
       - ASPNETCORE_ENVIRONMENT=PRODUCTION
-      - ASPNETCORE_URLS=https://+:443
+      - ASPNETCORE_URLS=https://+:443;http://+:80
       - ASPNETCORE_HTTPS_PORT=${HTTPSPORT}
       - ASPNETCORE_Kestrel__Certificates__Default__Password=${CERTIFICATEPASSWORD}
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/config/${CERTIFICATEFILENAME}

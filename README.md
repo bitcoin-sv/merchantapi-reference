@@ -411,11 +411,11 @@ On Windows: build.bat
 
     | Parameter | Description |
     | ----------- | ----------- |
-    | HTTPSPORT | port where the application will listen/run |
+    | HTTPSPORT | Https port where the application will listen/run |
     | CERTIFICATEPASSWORD | the password of the *.pfx file in the config folder |
     | CERTIFICATEFILENAME | *<certificate_file_name.pfx>* |
     | QUOTE_EXPIRY_MINUTES | Specify fee quote expiry time |
-    | ZMQ_CONNECTION_TEST_INTERVAL_SEC | how often does ZMQ subscription service test that the connection with node is still alive. Default: 60 seconds |
+    | ZMQ_CONNECTION_TEST_INTERVAL_SEC | How often does ZMQ subscription service test that the connection with node is still alive. Default: 60 seconds |
     | RESTADMIN_APIKEY | Authorization key for accessing administration interface |
     | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK | Number of old blocks that are checked for double spends |
     | CLEAN_UP_TX_AFTER_DAYS | Number of days transactions and blocks are kept in database. Default: 3 days |
@@ -429,6 +429,7 @@ On Windows: build.bat
     | DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC | Duration how long will the count for queries of unknown transactions be stored before it's reset to 0 |
     | DS_SCRIPT_VALIDATION_TIMEOUT_SEC | Total time for script validation when nodes RPC method verifyScript will be called |
     | ENABLEHTTP | Enables requests through HTTP when set to True. This should only be used for testing and must be set to False in production environment. |
+    | HTTPPORT | Http port where the application will listen/run (if not set, then port 80 is used by defaulte) |
     | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when background service will retry to send notifications with error |
     | NOTIFICATION_INSTANT_NOTIFICATION_TASKS | Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100) |
     | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE | Maximum number of notifications waiting in instant queue before new notifications will be scheduled for slow background delivery |
