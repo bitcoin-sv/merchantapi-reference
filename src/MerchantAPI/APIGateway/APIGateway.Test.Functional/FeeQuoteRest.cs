@@ -8,7 +8,7 @@ using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Authentication;
-using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Test.Clock;
 using MerchantAPI.Common.Test;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;

@@ -131,15 +131,15 @@ namespace MerchantAPI.APIGateway.Rest
       if (HostEnvironment.EnvironmentName != "Testing")
       {
         services.AddTransient<IDbManager, MerchantAPIDbManager>();
-        services.AddTransient<IClock, Clock>();
         services.AddHostedService<CleanUpTxHandler>();
       }
       else
       {
         // We register clock as singleton, so that we can set time in individual tests
-        services.AddSingleton<IClock, MockedClock>();
+        
       }
 
+      services.AddTransient<IClock, Clock>();
       services.AddHostedService<NotificationService>();
       services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
       services.AddHostedService<InvalidTxHandler>();

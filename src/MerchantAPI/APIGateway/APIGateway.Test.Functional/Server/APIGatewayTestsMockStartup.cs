@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Linq;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Test.Functional.Database;
+using MerchantAPI.Common.Test.Clock;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Server
 {
@@ -33,6 +34,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
       var rpcClientFactoryMock = new RpcClientFactoryMock();
       services.AddSingleton<IRpcClientFactory>(rpcClientFactoryMock);
 
+      serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IClock));
+      services.Remove(serviceDescriptor);
+      services.AddSingleton<IClock, MockedClock>();
 
       // We register  fee repository as singleton, so that we can modify the fee filename in individual tests
       serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IFeeQuoteRepository));

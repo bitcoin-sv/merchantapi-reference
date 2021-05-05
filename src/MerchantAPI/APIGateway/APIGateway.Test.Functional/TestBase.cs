@@ -10,7 +10,7 @@ using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Test.Clock;
 using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test;

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Test.Clock;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;

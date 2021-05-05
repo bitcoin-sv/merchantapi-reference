@@ -4,8 +4,8 @@
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Test.Functional.CleanUpTx;
-using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
+using MerchantAPI.Common.Test.Clock;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
