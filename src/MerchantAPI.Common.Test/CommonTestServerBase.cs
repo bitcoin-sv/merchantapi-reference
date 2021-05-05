@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using MerchantAPI.Common.NotificationsHandler;
 using MerchantAPI.Common.Startup;
 using System.Collections.Generic;
+using MerchantAPI.Common.Test.NotificationsHandler;
 
 namespace MerchantAPI.Common.Test
 {

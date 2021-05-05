@@ -2,8 +2,9 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
+using MerchantAPI.Common.Clock;
 
-namespace MerchantAPI.Common.Clock
+namespace MerchantAPI.Common.Test.Clock
 {
 
   public class MockedClock : IMockedClock
