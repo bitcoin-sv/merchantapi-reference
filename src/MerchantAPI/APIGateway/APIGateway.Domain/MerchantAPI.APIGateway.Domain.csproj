@@ -13,7 +13,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.7" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.7" />
-    <PackageReference Include="nChain.CreateDB" Version="0.1.4" />
+    <PackageReference Include="nChain.CreateDB" Version="1.0.0-beta" />
     <PackageReference Include="Sodium.Core" Version="1.2.3" />
   </ItemGroup>
 
