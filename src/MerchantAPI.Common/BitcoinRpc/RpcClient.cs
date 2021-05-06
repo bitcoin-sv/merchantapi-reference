@@ -216,7 +216,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       return RequestAsync<RpcVerifyScriptResponse[]>(
           token,
           "verifyscript",
-          reqParams, stopOnFirstInvalid, totalTimeoutSec);
+          reqParams, stopOnFirstInvalid, (totalTimeoutSec * 1000));
     }
 
     private async Task<T> RequestAsync<T>(CancellationToken? token, string method, params object[] parameters)
