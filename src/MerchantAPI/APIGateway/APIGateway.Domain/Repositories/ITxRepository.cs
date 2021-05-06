@@ -66,5 +66,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task CleanUpTxAsync(DateTime fromDate);
 
+    Task<PrevTxOutput> GetPrevOutAsync(byte[] prevOutTxId, long prevOutN);
+
   }
 }

@@ -13,6 +13,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
@@ -33,12 +34,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
   {
     private int cancellationTimeout = 30000; // 30 seconds
     public ZMQSubscriptionService zmqService;
+    private ITxRepository txRepository;
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
       zmqService = server.Services.GetRequiredService<ZMQSubscriptionService>();
+      txRepository = server.Services.GetRequiredService<ITxRepository>();
+
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
       InsertFeeQuote();
 
@@ -104,7 +108,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
    
     [TestMethod]
-    public async Task StoreUnconfirmedParentsOnSubmitTx()
+    public async Task StoreUnconfirmedParentsOnSubmitTxAsync()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
@@ -127,9 +131,81 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(txInternalId1.HasValue);
       Assert.AreNotEqual(0, txInternalId1.Value);
     }
-   
+
     [TestMethod]
-    public async Task CatchMempoolDSForUnconfirmedParent()
+    public async Task AncestorsAreAlreadyInDBForSecondMAPITxAsync()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
+      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
+
+      // Subscribe invalidtx events
+      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+
+      // Create and submit first transaction
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
+
+      // Create chain based on first transaction with last transaction being submited to mAPI
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 50, 0, true, cts.Token);
+
+      // Create another transaction but don't submit it
+      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
+      var curTxCoin = new Coin(lastTx, 0);
+      var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
+
+      // Validate that all of the inputs are already in the database
+      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
+      foreach(var txInput in curTx.Inputs)
+      {        
+        var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
+        Assert.IsNotNull(prevOut);
+        Assert.AreEqual(new uint256(prevOut.TxExternalId).ToString(), lastTxId);
+      }
+
+    }
+
+    [TestMethod]
+    public async Task AllAncestorsAreNotInDBForSecondMAPITxIfChainContainsOtherTxsAsync()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
+      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
+
+      // Subscribe invalidtx events
+      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+
+      // Create and submit first transaction
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
+
+      // Create chain based on first transaction with last transaction being submited to mAPI
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 50, 0, true, cts.Token);
+
+      // Create another transaction through RPC 
+      (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(lastTxHex, lastTxId, 1, 0, false, cts.Token);
+
+      // Create another transaction but don't submit it
+      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
+      var curTxCoin = new Coin(lastTx, 0);
+      var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
+
+      // Validate that inputs are not already in the database
+      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
+      foreach (var txInput in curTx.Inputs)
+      {
+        var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
+        Assert.IsNull(prevOut);
+      }
+
+    }
+
+    [TestMethod]
+    public async Task CatchMempoolDSForUnconfirmedParentAsync()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
@@ -178,7 +254,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task NotifyMempoolDSForAllTxWithDsCheckInChain()
+    public async Task NotifyMempoolDSForAllTxWithDsCheckInChainAsync()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
@@ -227,7 +303,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task CatchDSOfBlockAncestorTxByBlockTx()
+    public async Task CatchDSOfBlockAncestorTxByBlockTxAsync()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
@@ -283,7 +359,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task CatchDSOfMempoolAncestorTxByBlockTx()
+    public async Task CatchDSOfMempoolAncestorTxByBlockTxAsync()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 

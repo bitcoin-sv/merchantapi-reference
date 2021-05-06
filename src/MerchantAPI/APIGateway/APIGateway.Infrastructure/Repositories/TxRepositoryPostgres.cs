@@ -3,10 +3,13 @@
 
 using Dapper;
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Cache;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using System;
@@ -21,11 +24,13 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
   {
     private readonly string connectionString;
     private readonly IClock clock;
+    private readonly PrevTxOutputCache prevTxOutputCache;
 
-    public TxRepositoryPostgres(IConfiguration configuration, IClock clock)
+    public TxRepositoryPostgres(IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache)
     {
       connectionString = configuration["ConnectionStrings:DBConnectionString"];
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+      this.prevTxOutputCache = prevTxOutputCache ?? throw new ArgumentNullException(nameof(prevTxOutputCache));
     }
 
     private NpgsqlConnection GetDbConnection()
@@ -253,6 +258,7 @@ CREATE TEMPORARY TABLE TxTemp (
           foreach (var txIn in tx.TxIn)
           {
             AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
+            CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
             n++;
           }
           txInternalId++;
@@ -843,6 +849,45 @@ WHERE sentMerkleproofAt IS NULL;
 
       var foundBlock = (await connection.QueryAsync<Block>(cmdText, new { txInternalId })).ToArray();
       return foundBlock;
+    }
+
+    public async Task<PrevTxOutput> GetPrevOutAsync(byte[] prevOutTxId, long prevOutN)
+    {
+      PrevTxOutput foundPrevOut;
+      lock (prevTxOutputCache)
+      {        
+        prevTxOutputCache.Cache.TryGetValue($"{HelperTools.ByteToHexString(prevOutTxId)}_{prevOutN}", out foundPrevOut);
+      }
+      if (foundPrevOut == null)
+      {
+        using var connection = GetDbConnection();
+
+        string cmdText = @"
+SELECT tx.txInternalId, tx.txExternalId, txinput.n
+FROM tx 
+INNER JOIN txinput ON txinput.txInternalId = tx.txInternalId
+WHERE tx.txExternalId = @prevOutTxId
+AND txinput.n = @prevOutN;
+";
+        foundPrevOut = await connection.QueryFirstOrDefaultAsync<PrevTxOutput>(cmdText, new { prevOutTxId, prevOutN });
+        if (foundPrevOut != null)
+        {
+          CachePrevOut(foundPrevOut);
+        }
+      }
+      return foundPrevOut;
+    }
+
+    private void CachePrevOut(PrevTxOutput prevTxOutput)
+    {
+      var cacheEntryOptions = new MemoryCacheEntryOptions()
+        .SetSize(1)
+        .SetSlidingExpiration(TimeSpan.FromMinutes(30));
+      prevTxOutputCache.Cache.Set<PrevTxOutput>($"{HelperTools.ByteToHexString(prevTxOutput.TxExternalId)}_{prevTxOutput.N}", prevTxOutput, cacheEntryOptions);
+    }
+    private void CachePrevOut(long prevOutInternalTxId, byte[] prevOutTxId, long prevOutN)
+    {
+      CachePrevOut(new PrevTxOutput() { TxInternalId = prevOutInternalTxId, TxExternalId = prevOutTxId, N = prevOutN });
     }
 
     public async Task CleanUpTxAsync(DateTime lastUpdateBefore)

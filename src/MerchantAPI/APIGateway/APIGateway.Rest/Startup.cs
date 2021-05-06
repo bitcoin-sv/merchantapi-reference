@@ -30,6 +30,7 @@ using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Startup;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Domain.DSAccessChecks;
+using MerchantAPI.APIGateway.Domain.Cache;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -102,6 +103,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddHostedService(p => (BlockChainInfo)p.GetRequiredService<IBlockChainInfo>());
       services.AddHostedService(p => (NotificationsHandler)p.GetRequiredService<INotificationsHandler>());
 
+      services.AddSingleton<PrevTxOutputCache>();
       services.AddSingleton<HostBanListMemoryCache>();
       services.AddSingleton<TxRequestsMemoryCache>();
       services.AddSingleton<HostUnknownTxCache>();

@@ -703,7 +703,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           bool allowHighFees = false;
           bool dontcheckfee = okToMine;
-          bool listUnconfirmedAncestors = oneTx.DsCheck;
+          bool listUnconfirmedAncestors = false; 
           
           oneTx.TransactionInputs = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput 
                                                                                     { 
@@ -711,6 +711,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                                                                                       PrevN = x.PrevOut.N, 
                                                                                       PrevTxId = x.PrevOut.Hash.ToBytes() 
                                                                                     }).ToList();
+          foreach(TxInput txInput in oneTx.TransactionInputs)
+          {
+            var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevTxId, txInput.PrevN);
+            if (prevOut == null)
+            {
+              listUnconfirmedAncestors = oneTx.DsCheck;
+              break;
+            }
+          }
           transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors));
         }
       }
