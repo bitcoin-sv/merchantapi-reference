@@ -16,9 +16,9 @@ For support and general discussion of both standards and reference implementatio
 
 mAPI requires access to Bitcoin SV node version 1.0.6 or newer. See [Managing nodes](#Managing-nodes) for details how to connect to a bitcoin node.
 
-For running in production, you should should use Docker. Docker images are created as part of the [build](#build-and-deploy). See [Deploying docker images](#Deploying-docker-images) for details how to run them.
+For running in production, you should use Docker. Docker images are created as part of the [build](#build-and-deploy). See [Deploying docker images](#Deploying-docker-images) for details how to run them.
 
-A SSL server certificate is required for installation. You can obtain the certificate from your IT support team. There are are also services that issue free SSL certificates such as letsencrypt.org.  The certificate must be issued for the host with fully qualified domain name. To use the server side certificate, you need to export it (including corresponding private key) it in PFX file format (*.pfx).
+An SSL server certificate is required for installation. You can obtain the certificate from your IT support team. There are also services that issue free SSL certificates such as letsencrypt.org.  The certificate must be issued for the host with fully qualified domain name. To use the server side certificate, you need to export it (including corresponding private key) it in PFX file format (*.pfx).
 
 For setting up development environment see [bellow](#setting-up-a-development-environment)
 
@@ -138,8 +138,8 @@ Merkle proof callback can be requested by specifying:
 }
 ```
 
-If callback was requested on transaction submit, merchant should receive a notification of doublespend and/or merkle proof via callback URL. mAPI process all requested notifications and sends them out in batches.
-Callbacks have three possible callbackReason: "doubleSpend", "doubleSpendAttempt" and "merkleProof". DoubleSpendAttempt implies, that double spend was detected in mempool.
+If callback was requested on transaction submit, merchant should receive a notification of a double spend and/or merkle proof via callback URL. mAPI process all requested notifications and sends them out in batches.
+Callbacks have three possible callbackReason: "doubleSpend", "doubleSpendAttempt" and "merkleProof". DoubleSpendAttempt implies, that a double spend was detected in mempool.
 
 Double spend callback example:
 ```json
@@ -188,7 +188,7 @@ Merkle proof callback example:
 
 Merchant API providers would likely want to offer special or discounted rates to specific customers. To do this they would need to add an extra layer to enable authorization/authentication on public interface. Current implementation supports JSON Web Tokens (JWT) issued to specific users. The users can include that token in their HTTP header and as a result receive lower fee rates.
 
-If no token is used and the call is done anonymously, then the default rate is supplied. If a JWT token (issued by merchant API or other identity provider) is used, then the caller will receive the corresponding fee rate. At the moment, for this version of the merchant API implementation, the token must be issued and sent to the customer manually.
+If no token is used, and the call is done anonymously, then the default rate is supplied. If a JWT token (issued by merchant API or other identity provider) is used, then the caller will receive the corresponding fee rate. At the moment, for this version of the merchant API implementation, the token must be issued and sent to the customer manually.
 
 ### Authorization/Authentication Example
 
@@ -256,7 +256,7 @@ Example with curl - add feeQuote valid from 01/10/2020 for anonymous user:
 $ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/FeeQuote -d "{ \"validFrom\": \"2020-10-01T12:00:00\", \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }] }"
 ```
 
-To get list of all fee quotes, matching one or more criterias use the following
+To get list of all fee quotes, matching one or more criteria, use the following
 
 ```
 GET api/v1/FeeQuote
@@ -286,7 +286,7 @@ Note: it is not possible to delete or update a fee quote once it is published, b
 
 The reference implementation can talk to one or more instances of bitcoind nodes.
 
-Each node that is being added to the Merchant API has to have zmq notifications enabled (***pubhashblock, pubinvalidtx, pubdiscardedfrommempool***). When enabling zmq notificationas on node, care should be taken that the URI that will be used for zmq notification is accessible from the host where the MerchantAPI will be running (*WARNING: localhost (127.0.0.1) should only be used if bitcoin node and MerchantAPI are running on same host*)
+Each node that is being added to the Merchant API has to have zmq notifications enabled (***pubhashblock, pubinvalidtx, pubdiscardedfrommempool***) as well as `invalidtxsink` set to `ZMQ`. When enabling zmq notifications on node, care should be taken that the URI that will be used for zmq notification is accessible from the host where the MerchantAPI will be running (*WARNING: localhost (127.0.0.1) should only be used if bitcoin node and MerchantAPI are running on same host*)
 
 
 To create new connection to a new  bitcoind instance use:
@@ -348,7 +348,7 @@ GET api/v1/status/zmq
 
 ## How callbacks are being processed
 
-For each transaction that is submitted to mAPI it can be set if the submiter should receive a notification of doublespend or merkle proof via callback URL. mAPI processes all requested notifications and sends them out as described below:
+For each transaction that is submitted to mAPI it can be set if the submitter should receive a notification of a double spend or merkle proof via callback URL. mAPI processes all requested notifications and sends them out as described below:
 
 * all notifications are sent out in batches
 * each batch contains a limited number of notifications for single host (configurable with `NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH`)
@@ -371,7 +371,7 @@ On Windows: build.bat
 ### Deploying docker images
   
 1. Create `config` folder and save SSL server certificate file (*<certificate_file_name>.pfx*) into to the `config` folder. This server certificate is required to setup TLS (SSL).
-2. Copy .crt files with with root and intermediate CA certificates that issued SSL server certificates which are used by callback endpoint. Each certificate must be exported as a **Base-64 encoded X.509** file with a crt extension type. This step is required if callback endpoint uses SSL server certificate issued by untrusted CA (such as self signed certificate).
+2. Copy .crt files with the root and intermediate CA certificates that issued SSL server certificates which are used by callback endpoint. Each certificate must be exported as a **Base-64 encoded X.509** file with a crt extension type. This step is required if callback endpoint uses SSL server certificate issued by untrusted CA (such as self signed certificate).
 3. Create and copy **providers.json** file into config folder. Sample provider.json :
 
     ```JSON
@@ -409,7 +409,7 @@ On Windows: build.bat
     | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK | Number of old blocks that are checked for double spends |
     | CLEAN_UP_TX_AFTER_DAYS | Number of days transactions and blocks are kept in database. Default: 3 days |
     | CLEAN_UP_TX_PERIOD_SEC | Time period of transactions cleanup check. Default: 1 hour |
-    | WIF_PRIVATEKEY | Private key that is used to sign responses with (must be omited if minerid settings are specified, and vice versa) |
+    | WIF_PRIVATEKEY | Private key that is used to sign responses with (must be omitted if minerid settings are specified, and vice versa) |
     | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when background service will retry to send notifications with error |
     | NOTIFICATION_INSTANT_NOTIFICATION_TASKS | Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100) |
     | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE | Maximum number of notifications waiting in instant queue before new notifications will be scheduled for slow background delivery |
@@ -422,7 +422,7 @@ On Windows: build.bat
     | NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS | Callback response timeout for fast host |
     | MINERID_SERVER_URL | URL pointing to MinerID REST endpoint |
     | MINERID_SERVER_ALIAS | Alias be used when communicating with the endpoint |
-    | MINERID_SERVER_AUTHENTICATION | HTTP authentication header that be used to when communicating with the endpoint |
+    | MINERID_SERVER_AUTHENTICATION | HTTP authentication header that will be used for communicating with the endpoint, this should include the `Bearer` keyword, example `Bearer 2b4a73f333b0aa1a1dfb5ea023d206c8454b3a1d416285d421d78e2efe183df9` |
 
 5. Run this command in target folder to start mAPI application:
 
@@ -436,7 +436,7 @@ The docker images are automatically pulled from Docker Hub. Database updates are
 
 For development, you will need the following
 
-1. [.NET core SDK 3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) installed in your environnement.
+1. [.NET core SDK 3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) installed in your environment.
 2. and instance of PostgreSQL database. You can download it from [here](https://www.postgresql.org/download/) or use a [Docker image](https://hub.docker.com/_/postgres).
 3. access to instance of running [BSV node](https://github.com/bitcoin-sv/bitcoin-sv/releases) with RPC interface and ZMQ notifications enabled
 
@@ -465,7 +465,20 @@ dotnet test
 
 ## Configuration
 
-Following table lists all configuration settings with mappings to environment variables. For description of each setting see `Populate all environment variables` under **Deploying docker images**
+Following table lists all configuration settings with mappings to environment variables. For description of each setting see `Populate all environment variables` under **Deploying docker images**.
+
+Some environment variables are separated by a colon, this can cause issues on some systems and in kubernetes. 
+.NET supports the substitution of the colon with a double underscore. For example :-
+
+`AppSettings:QuoteExpiryMinutes` 
+
+would become 
+
+`AppSettings__QuoteExpiryMinutes`
+
+A full explanation is available here https://docs.microsoft.com/en-us/aspnet/core/fundamentals/configuration/?tabs=basicconfiguration&view=aspnetcore-3.1#environment-variables
+
+
 
   | Application Setting | Environment variable |
   | ------------------- | -------------------- |
