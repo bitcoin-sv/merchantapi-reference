@@ -177,12 +177,27 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       loggerTest.LogInformation($"Submiting {txId2} with doublespend");
       await Assert.ThrowsExceptionAsync<RpcException>(async () => await node1.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false));
+      await Task.Delay(3000);
 
-      await StopMAPI();
+      loggerTest.LogInformation("Retrieving notification data");
       var notifications = await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync();
       Assert.AreEqual(1, notifications.Count());
       Assert.AreEqual(txId2, new uint256(notifications.Single().DoubleSpendTxId).ToString());
-     
+
+      var (txHex3, txId3) = CreateNewTransaction(coin, new Money(5000L));
+
+      loggerTest.LogInformation($"Submiting {txId3} with doublespend");
+      await Assert.ThrowsExceptionAsync<RpcException>(async () => await node1.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex3), true, false));
+
+      // This should be uncommented when support for dual DS notifications will be added
+      //await Task.Delay(3000);
+
+      //notifications = await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync();
+      //Assert.AreEqual(2, notifications.Count());
+      //Assert.AreEqual(txId3, new uint256(notifications.Last().DoubleSpendTxId).ToString());
+
+      await StopMAPI();
+
     }
   }
 }

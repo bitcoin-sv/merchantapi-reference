@@ -117,6 +117,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     [Consumes(MediaTypeNames.Application.Octet)]
     public async Task<ActionResult> SubmitDSAsync([FromQuery]string txId, [FromQuery] int? n, [FromQuery] string cTxId, [FromQuery] int? cn)
     {
+      // Set response header here that we are interested in DS submit again in case of any error
+      this.Response.Headers.Add(DSHeader, "1");
       if (string.IsNullOrEmpty(txId))
       {
         return AddBanScoreAndReturnResult("'txid' must not be null or empty.", "");
@@ -245,6 +247,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         });
         logger.LogInformation($"Inserted notification push data into database for '{txId}'."); 
       }
+      // Submit was successfull we set the x-bsv-dsnt to 0, to signal the node we are not interested in this DS anymore
+      this.Response.Headers[DSHeader] = "0";
+      
       return Ok();
     }
   }
