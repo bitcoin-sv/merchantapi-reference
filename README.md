@@ -368,6 +368,20 @@ On Linux: ./build.sh
 On Windows: build.bat
 ```
 
+### Creating a self-signed certificate
+
+A certificate is required; you can create a self-signed certificate by doing the following.
+Please ensure you change the password from `changemenow` to something more secure, especially if you are going to use the certificate in production.
+
+```
+openssl genrsa -aes256 -passout pass:changemenow -out server.pass.key 4096
+openssl rsa -passin pass:changemenow -in server.pass.key -out server.key
+rm server.pass.key
+openssl req -new -key server.key -out server.csr
+
+openssl pkcs12 -export -out certificate.pfx -inkey server.key -in server.crt
+```
+
 ### Deploying docker images
   
 1. Create `config` folder and save SSL server certificate file (*<certificate_file_name>.pfx*) into to the `config` folder. This server certificate is required to setup TLS (SSL).
