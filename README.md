@@ -370,8 +370,8 @@ On Windows: build.bat
 
 ### Creating a self-signed certificate
 
-A certificate is required; you can create a self-signed certificate by doing the following.
-Please ensure you change the password from `changemenow` to something more secure, especially if you are going to use the certificate in production.
+A certificate is required; you can create a self-signed certificate, for testing, by doing the following.
+Please ensure you change the password from `changemenow` to something more secure.
 
 ```
 openssl genrsa -aes256 -passout pass:changemenow -out server.pass.key 4096
