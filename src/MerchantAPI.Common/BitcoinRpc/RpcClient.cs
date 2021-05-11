@@ -219,6 +219,21 @@ namespace MerchantAPI.Common.BitcoinRpc
           reqParams, stopOnFirstInvalid, (totalTimeoutSec * 1000));
     }
 
+    public async Task AddNodeAsync(string host, int P2PPort, CancellationToken? token = null)
+    {
+      _ = await RequestAsync<string>(token, "addnode", $"{host}:{P2PPort}", "onetry");
+    }
+
+    public async Task DisconnectNodeAsync(string host, int P2PPort, CancellationToken? token = null)
+    {
+      _ = await RequestAsync<string>(token, "disconnectnode", $"{host}:{P2PPort}");
+    }
+
+    public Task<int> GetConnectionCountAsync(CancellationToken? token = null)
+    {
+      return RequestAsync<int>(null, "getconnectioncount");
+    }
+
     private async Task<T> RequestAsync<T>(CancellationToken? token, string method, params object[] parameters)
     {
       var rpcResponse = await MakeRequestAsync<T>(token, new RpcRequest(1, method, parameters));

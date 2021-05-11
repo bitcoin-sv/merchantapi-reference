@@ -66,5 +66,10 @@ namespace MerchantAPI.Common.BitcoinRpc
     Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
                                                       int totalTimeoutSec,
                                                       IEnumerable<(string Tx, int N)> dsTx, CancellationToken? token = null);
+    Task AddNodeAsync(string host, int P2PPort, CancellationToken? token = null);
+
+    Task DisconnectNodeAsync(string host, int P2PPort, CancellationToken? token = null);
+
+    Task<int> GetConnectionCountAsync(CancellationToken? token = null);
   }
 }
