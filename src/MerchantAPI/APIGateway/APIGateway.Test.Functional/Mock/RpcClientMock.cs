@@ -468,6 +468,20 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return Task.FromResult(results.ToArray());
     }
 
+    public Task AddNodeAsync(string host, int P2PPort, CancellationToken? token = null)
+    {
+      throw new NotImplementedException();
+    }
+
+    public Task DisconnectNodeAsync(string host, int P2PPort, CancellationToken? token = null)
+    {
+      throw new NotImplementedException();
+    }
+
+    public Task<int> GetConnectionCountAsync()
+    {
+      throw new NotImplementedException();
+    }
   }
 
 }

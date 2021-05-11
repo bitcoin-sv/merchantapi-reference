@@ -903,5 +903,24 @@ AND txinput.n = @prevOutN;
 
       await transaction.CommitAsync();
     }
+
+    public async Task<NotificationData[]> GetNotificationsForTestsAsync()
+    {
+      using var connection = GetDbConnection();
+
+      string cmdText = @"
+SELECT t.txinternalid, dstxid DoubleSpendTxId, 'doubleSpendAttempt' notificationtype
+FROM txmempooldoublespendattempt t 
+UNION ALL
+SELECT t2.txinternalid, null DoubleSpendTxId, 'merkleProof' notificationtype
+FROM txblock t2 
+UNION ALL
+SELECT t3.txinternalid, dstxid DoubleSpendTxId, 'doubleSpend' notificationtype
+FROM txblockdoublespend t3 
+";
+
+      var notifications = (await connection.QueryAsync<NotificationData>(cmdText)).ToArray();
+      return notifications;
+    }
   }
 }
