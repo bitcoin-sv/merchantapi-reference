@@ -3,6 +3,7 @@
 /src/MerchantAPI/**/*.user
 /**/build/**
 /src/.vs/**
+/src/nuget.config
 /src/TestResults
 /src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.test.functional.development.json
 /src/Deploy/Build
