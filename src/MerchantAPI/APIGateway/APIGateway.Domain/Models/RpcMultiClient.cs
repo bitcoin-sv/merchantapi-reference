@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
+using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Logging;
 using NBitcoin.Crypto;
 
@@ -53,14 +54,14 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       if (!result.Any())
       {
-        throw new Exception("No nodes available"); 
+        throw new BadRequestException("No nodes available"); 
       }
 
       return result;
 
     }
 
-    Task<T> GetFirstSucesfullAsync<T>(Func<IRpcClient, Task<T>> call)
+    async Task<T> GetFirstSucesfullAsync<T>(Func<IRpcClient, Task<T>> call)
     {
       Exception lastError = null;
       var rpcClients = GetRpcClients();
@@ -69,12 +70,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
       {
         try
         {
-          return call(rpcClient);
+          return await call(rpcClient);
         }
         catch (Exception e)
         {
           lastError = e;
-          logger.LogError($"Error while calling node {rpcClient}. {e} ");
+          logger.LogError($"Error while calling node {rpcClient}. {e.Message} ");
           // try with the next node
         }
       }
@@ -104,10 +105,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
       {
         await Task.WhenAll(tasks);
       }
-      catch (Exception e)
+      catch (Exception)
       {
-        logger.LogError(
-          $"Error while calling RPC.  Error: {e}");
+        // We aren't logging exceptions here because caller methods must handle logging
       }
 
       return tasks;
@@ -122,7 +122,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       if (throwIfEmpty && !tasks.Any())
       {
-        throw new Exception($"None of the nodes returned successful response. First error: {tasks[0].Exception} ");
+        throw new BadRequestException($"None of the nodes returned successful response. First error: {tasks[0].Exception} ");
       }
 
       return sucesfull;
@@ -189,7 +189,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       if (!r.Any())
       {
-        throw new Exception("No working nodes are available");
+        throw new BadRequestException("No working nodes are available");
       }
       return r;
     }
@@ -206,12 +206,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash));
+      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash, 0));
     }
 
     public Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockHeaderAsync(blockHash));
+      return GetFirstSucesfullAsync(x => x.GetBlockHeaderAsync(blockHash, 0));
     }
 
 

@@ -143,9 +143,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       // If block is already present in DB, there is no need to parse it again
       var blockInDb = await txRepository.GetBlockAsync(blockHash.ToBytes());
-      if (blockInDb != null) return;
+      if (blockInDb != null)
+      {
+        logger.LogDebug($"Block '{e.BlockHash}' already received and stored to DB.");
+        return;
+      }
 
-      logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database");
+      logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database.");
       var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(e.BlockHash);
       var blockCount = (await rpcMultiClient.GetBestBlockchainInfoAsync()).Blocks;
 
@@ -175,6 +179,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       else
       {
+        logger.LogDebug($"Block '{e.BlockHash}' not inserted into DB, because it's already present in DB.");
         return;
       }
 

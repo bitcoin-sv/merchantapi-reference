@@ -262,9 +262,9 @@ namespace MerchantAPI.APIGateway.Rest.Services
         }
         catch (Exception ex)
         {
-          logger.LogError(ex, $"Failed to subscribe to ZMQ events. " +
+          logger.LogError($"Failed to subscribe to ZMQ events. " +
             $"Unable to connect to node {failedSubscription.Node.Host}:{failedSubscription.Node.Port}. " +
-            $"Will retry in {appSettings.ZmqConnectionTestIntervalSec} seconds.");
+            $"Will retry in {appSettings.ZmqConnectionTestIntervalSec} seconds. {ex.Message}");
           failedSubscription.LastError = ex.Message;
           failedSubscription.LastTryAt = clock.UtcNow();
         }
@@ -309,7 +309,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         {
           // Subscription failed so put node on failed list and log
           MarkAsFailed(node, ex.Message);
-          logger.LogError(ex, $"Failed to subscribe to ZMQ events. Unable to connect to node {node.Host}:{node.Port}. Will retry later.");
+          logger.LogError($"Failed to subscribe to ZMQ events. Unable to connect to node {node.Host}:{node.Port}. Will retry later. {ex.Message}");
         }
       }
 

@@ -44,7 +44,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           var networkInfoTask = rpcMultiClient.GetAnyNetworkInfoAsync();
 
           // Note that the following call will block.
-          Task.WaitAll(blockChainInfoTask, networkInfoTask);
+          Task.WhenAll(blockChainInfoTask, networkInfoTask).GetAwaiter().GetResult();
 
           cachedBlockChainInfo = new BlockChainInfoData(
             blockChainInfoTask.Result.BestBlockHash,
