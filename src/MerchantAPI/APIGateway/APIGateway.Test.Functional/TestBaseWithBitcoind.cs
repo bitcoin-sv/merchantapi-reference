@@ -344,7 +344,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long maxBlockCount = 0;
       foreach(var node in nodes)
       {
-        var blockCount = await node.RpcClient.GetBlockCountAsync(cancellationToken);
+        var blockCount = await node.RpcClient.GetBlockCountAsync(token: cancellationToken);
         if (blockCount > maxBlockCount)
         {
           maxBlockCount = blockCount;
@@ -366,7 +366,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         await Task.Delay(100, cancellationToken);
       }
-      while ((await node.RpcClient.GetBlockCountAsync(cancellationToken)) < maxBlockCount);
+      while ((await node.RpcClient.GetBlockCountAsync(token: cancellationToken)) < maxBlockCount);
     }
   }
 }

@@ -145,6 +145,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddHostedService<NotificationService>();
       services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
       services.AddHostedService<InvalidTxHandler>();
+      services.AddHostedService<BlockChecker>();
 
 
       services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, ConfigureJwtBearerOptions>();

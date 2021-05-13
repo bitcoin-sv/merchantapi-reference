@@ -16,6 +16,8 @@ using Block = MerchantAPI.APIGateway.Domain.Models.Block;
 using Microsoft.Extensions.Options;
 using System.Collections.Generic;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.Exceptions;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -139,86 +141,108 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public async Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent e)
     {
-      var blockHash = new uint256(e.BlockHash);
-
-      // If block is already present in DB, there is no need to parse it again
-      var blockInDb = await txRepository.GetBlockAsync(blockHash.ToBytes());
-      if (blockInDb != null)
+      try
       {
-        logger.LogDebug($"Block '{e.BlockHash}' already received and stored to DB.");
-        return;
+        var blockHash = new uint256(e.BlockHash);
+
+        // If block is already present in DB, there is no need to parse it again
+        var blockInDb = await txRepository.GetBlockAsync(blockHash.ToBytes());
+        if (blockInDb != null)
+        {
+          logger.LogDebug($"Block '{e.BlockHash}' already received and stored to DB.");
+          return;
+        }
+
+        logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database.");
+        var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(e.BlockHash);
+        var blockCount = (await rpcMultiClient.GetBestBlockchainInfoAsync()).Blocks;
+
+        // If received block that is too far from the best tip, we don't save the block anymore and 
+        // stop verifying block chain
+        if (blockHeader.Height < blockCount - appSettings.MaxBlockChainLengthForFork)
+        {
+          PushBlocksToEventQueue();
+          return;
+        }
+
+        var dbBlock = new Block
+        {
+          BlockHash = blockHash.ToBytes(),
+          BlockHeight = blockHeader.Height,
+          BlockTime = HelperTools.GetEpochTime(blockHeader.Time),
+          OnActiveChain = true,
+          PrevBlockHash = blockHeader.Previousblockhash == null ? uint256.Zero.ToBytes() : new uint256(blockHeader.Previousblockhash).ToBytes()
+        };
+
+        // Insert block in DB and add the event to block stack for later processing
+        var blockId = await txRepository.InsertBlockAsync(dbBlock);
+
+        if (blockId.HasValue)
+        {
+          dbBlock.BlockInternalId = blockId.Value;
+        }
+        else
+        {
+          logger.LogDebug($"Block '{e.BlockHash}' not inserted into DB, because it's already present in DB.");
+          return;
+        }
+
+        newBlockStack.Push(new NewBlockAvailableInDB()
+        {
+          CreationDate = clock.UtcNow(),
+          BlockHash = new uint256(dbBlock.BlockHash).ToString(),
+          BlockDBInternalId = dbBlock.BlockInternalId,
+        });
+        await VerifyBlockChain(blockHeader.Previousblockhash);
       }
-
-      logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database.");
-      var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(e.BlockHash);
-      var blockCount = (await rpcMultiClient.GetBestBlockchainInfoAsync()).Blocks;
-
-      // If received block that is too far from the best tip, we don't save the block anymore and 
-      // stop verifying block chain
-      if (blockHeader.Height < blockCount - appSettings.MaxBlockChainLengthForFork)
+      catch(BadRequestException ex)
       {
-        PushBlocksToEventQueue();
-        return;
+        logger.LogError(ex.Message);
       }
-
-      var dbBlock = new Block
+      catch(RpcException ex)
       {
-        BlockHash = blockHash.ToBytes(),
-        BlockHeight = blockHeader.Height,
-        BlockTime = HelperTools.GetEpochTime(blockHeader.Time),
-        OnActiveChain = true,
-        PrevBlockHash = blockHeader.Previousblockhash == null ? uint256.Zero.ToBytes() : new uint256(blockHeader.Previousblockhash).ToBytes()
-      };
-
-      // Insert block in DB and add the event to block stack for later processing
-      var blockId = await txRepository.InsertBlockAsync(dbBlock);
-
-      if (blockId.HasValue)
-      {
-        dbBlock.BlockInternalId = blockId.Value;
+        logger.LogError(ex.Message);
       }
-      else
-      {
-        logger.LogDebug($"Block '{e.BlockHash}' not inserted into DB, because it's already present in DB.");
-        return;
-      }
-
-      newBlockStack.Push(new NewBlockAvailableInDB()
-      {
-        CreationDate = clock.UtcNow(),
-        BlockHash = new uint256(dbBlock.BlockHash).ToString(),
-        BlockDBInternalId = dbBlock.BlockInternalId,
-      });
-      await VerifyBlockChain(blockHeader.Previousblockhash);
     }
 
     private async Task ParseBlockForTransactionsAsync(NewBlockAvailableInDB e)
     {
-      lock(lockingObject)
+      try
       {
-        if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
+        lock (lockingObject)
         {
-          logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skiped processing.");
-          return;
+          if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
+          {
+            logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skiped processing.");
+            return;
+          }
+          else
+          {
+            blockHashesBeingParsed.Add(e.BlockHash);
+          }
         }
-        else
+
+        logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
+        var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
+
+        var block = HelperTools.ParseByteStreamToBlock(blockStream);
+
+        await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
+        await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
+
+        logger.LogInformation($"Block {e.BlockHash} successfully parsed.");
+        lock (lockingObject)
         {
-          blockHashesBeingParsed.Add(e.BlockHash);
+          blockHashesBeingParsed.Remove(e.BlockHash);
         }
       }
-
-      logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
-      var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
-
-      var block = HelperTools.ParseByteStreamToBlock(blockStream);
-
-      await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
-      await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
-
-      logger.LogInformation($"Block {e.BlockHash} successfully parsed.");
-      lock (lockingObject)
+      catch (BadRequestException ex)
       {
-        blockHashesBeingParsed.Remove(e.BlockHash);
+        logger.LogError(ex.Message);
+      }
+      catch (RpcException ex)
+      {
+        logger.LogError(ex.Message);
       }
     }
 

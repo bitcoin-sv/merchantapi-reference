@@ -909,18 +909,33 @@ AND txinput.n = @prevOutN;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT t.txinternalid, dstxid DoubleSpendTxId, 'doubleSpendAttempt' notificationtype
-FROM txmempooldoublespendattempt t 
+SELECT txinternalid, dstxid DoubleSpendTxId, 'doubleSpendAttempt' notificationtype
+FROM txmempooldoublespendattempt
 UNION ALL
-SELECT t2.txinternalid, null DoubleSpendTxId, 'merkleProof' notificationtype
-FROM txblock t2 
+SELECT txinternalid, null DoubleSpendTxId, 'merkleProof' notificationtype
+FROM txblock
 UNION ALL
-SELECT t3.txinternalid, dstxid DoubleSpendTxId, 'doubleSpend' notificationtype
-FROM txblockdoublespend t3 
+SELECT txinternalid, dstxid DoubleSpendTxId, 'doubleSpend' notificationtype
+FROM txblockdoublespend
 ";
 
       var notifications = (await connection.QueryAsync<NotificationData>(cmdText)).ToArray();
       return notifications;
+    }
+
+    public async Task<Block[]> GetUnparsedBlocksAsync()
+    {
+      using var connection = GetDbConnection();
+
+      string cmdText = @"
+SELECT *
+FROM block
+WHERE parsedformerkleat IS NULL OR parsedfordsat IS NULL;
+";
+
+      var blocks = (await connection.QueryAsync<Block>(cmdText)).ToArray();
+
+      return blocks;
     }
   }
 }
