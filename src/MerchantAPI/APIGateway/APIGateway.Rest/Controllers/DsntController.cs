@@ -20,6 +20,7 @@ using Microsoft.Extensions.Options;
 using System.Net.Mime;
 using Microsoft.Extensions.Logging;
 using MerchantAPI.APIGateway.Rest.Swagger;
+using MerchantAPI.Common.EventBus;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -38,9 +39,10 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     readonly IHostBanList banList;
     readonly ILogger<DsntController> logger;
     readonly AppSettings appSettings;
+    readonly IEventBus eventBus;
 
     public DsntController(ITxRepository txRepository, IRpcMultiClient rpcMultiClient, ITransactionRequestsCheck transactionRequestsCheck, IHostBanList banList,
-                          INotificationsHandler notificationsHandler, IClock clock, IOptions<AppSettings> options, ILogger<DsntController> logger)
+                          INotificationsHandler notificationsHandler, IClock clock, IOptions<AppSettings> options, IEventBus eventBus,  ILogger<DsntController> logger)
     {
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
@@ -48,6 +50,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       this.transactionRequestsCheck = transactionRequestsCheck ?? throw new ArgumentNullException(nameof(transactionRequestsCheck));
       this.banList = banList ?? throw new ArgumentNullException(nameof(banList));
+      this.eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       appSettings = options.Value;
     }
@@ -238,7 +241,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
           TxInternalId = tx.TxInternalId
         };
 
-        await notificationsHandler.EnqueueNotificationAsync(new Domain.Models.Events.NewNotificationEvent
+        eventBus.Publish(new Domain.Models.Events.NewNotificationEvent
         {
           CreationDate = clock.UtcNow(),
           NotificationData = notificationData,

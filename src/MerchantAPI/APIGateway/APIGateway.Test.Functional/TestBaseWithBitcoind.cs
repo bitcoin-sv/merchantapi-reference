@@ -368,5 +368,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
       while ((await node.RpcClient.GetBlockCountAsync(token: cancellationToken)) < maxBlockCount);
     }
+
+    public async Task WaitForTxToBeAcceptedToMempool(BitcoindProcess node, string txId, CancellationToken token)
+    {
+      string[] mempoolTxs;
+      do
+      {
+        await Task.Delay(100);
+        mempoolTxs = await node.RpcClient.GetRawMempool(token);
+      } while (!mempoolTxs.Contains(txId));
+    }
   }
 }
