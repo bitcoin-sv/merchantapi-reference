@@ -226,7 +226,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       var inserted = await txRepository.InsertMempoolDoubleSpendAsync(
                     tx.TxInternalId,
-                    dsTx.GetHash().ToBytes(),
+                    dsTx.GetHash(Const.NBitcoinMaxArraySize).ToBytes(),
                     dsTxBytes);
 
       if (inserted > 0)

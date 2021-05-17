@@ -1,8 +1,12 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
+using NBitcoin.DataEncoders;
+using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -170,6 +174,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(merkleProofs.Count(x => new uint256(x.TxExternalId).ToString() == Tx2Hash) == 2);
       Assert.IsTrue(merkleProofs.Any(x => new uint256(x.TxExternalId).ToString() == Tx2Hash && x.BlockHeight == 15));
       Assert.IsTrue(merkleProofs.Any(x => new uint256(x.TxExternalId).ToString() == Tx2Hash && x.BlockHeight == 20));
+    }
+
+    [TestMethod]
+    public void GetHashFromBigTransaction()
+    {
+      var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/big_tx.txt")));
+      Assert.IsTrue(stream.Length > (1024 * 1024));
+      var bStream = new BitcoinStream(stream, false)
+      {
+        MaxArraySize = unchecked((int)uint.MaxValue)
+      };
+
+      var tx = Transaction.Create(Network.Main);
+      tx.ReadWrite(bStream);
+      Assert.ThrowsException<ArgumentOutOfRangeException>(() => tx.GetHash());
+      Assert.IsTrue(tx.GetHash(int.MaxValue) != uint256.Zero);
     }
 
   }

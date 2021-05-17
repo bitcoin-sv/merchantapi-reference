@@ -102,7 +102,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return Task.FromResult(default(T));
     }
 
-    public async Task<long> GetBlockCountAsync(int? retryCount, CancellationToken? token = null)
+    public async Task<long> GetBlockCountAsync(CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<long?>();
       if (r.HasValue)
@@ -113,17 +113,17 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return blocks.Values.OrderByDescending(x => x.Height).First().Height;
     }
 
-    public Task<RpcGetBlockWithTxIds> GetBlockWithTxIdsAsync(string blockHash, int? retryCount, CancellationToken? token = null)
+    public Task<RpcGetBlockWithTxIds> GetBlockWithTxIdsAsync(string blockHash, CancellationToken? token = null)
     {
       throw new NotImplementedException();
     }
 
-    public Task<RpcGetBlock> GetBlockAsync(string blockHash, int verbosity, int? retryCount, CancellationToken? token = null)
+    public Task<RpcGetBlock> GetBlockAsync(string blockHash, int verbosity, CancellationToken? token = null)
     {
       throw new NotImplementedException();
     }
 
-    public async Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, int? retryCount, CancellationToken? token = null)
+    public async Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<RpcBitcoinStreamReader>();
       if (r != null)
@@ -141,7 +141,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return rpc;
     }
 
-    public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, int? retryCount, CancellationToken? token = null)
+    public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<byte[]>();
       if (r != null)
@@ -158,7 +158,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return block.BlockData;
     }
 
-    public async Task<string> GetBlockHashAsync(long height, int? retryCount, CancellationToken? token = null)
+    public async Task<string> GetBlockHashAsync(long height, CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<string>();
       if (r != null)
@@ -169,7 +169,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return blocks.Values.Single(x => x.Height == height).BlockHash.ToString();
     }
 
-    public async Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash, int? retryCount, CancellationToken? token = null)
+    public async Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash, CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<RpcGetBlockHeader>();
       if (r != null)
@@ -203,7 +203,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return result;
     }
 
-    public Task<string> GetBlockHeaderAsHexAsync(string blockHash, int? retryCount, CancellationToken? token = null)
+    public Task<string> GetBlockHeaderAsHexAsync(string blockHash, CancellationToken? token = null)
     {
       throw new NotImplementedException();
     }
@@ -229,7 +229,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new Exception($"TxId {txId} not found");
     }
 
-    public async Task<byte[]> GetRawTransactionAsBytesAsync(string txId, int? retryCount, CancellationToken? token = null)
+    public async Task<byte[]> GetRawTransactionAsBytesAsync(string txId, CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<byte[]>();
       if (r != null)
@@ -475,7 +475,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new NotImplementedException();
     }
 
-    public Task<int> GetConnectionCountAsync()
+    public Task<int> GetConnectionCountAsync(CancellationToken? token = null)
     {
       throw new NotImplementedException();
     }

@@ -206,12 +206,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash, 0));
+      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash));
     }
 
     public Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockHeaderAsync(blockHash, 0));
+      return GetFirstSucesfullAsync(x => x.GetBlockHeaderAsync(blockHash));
     }
 
 
