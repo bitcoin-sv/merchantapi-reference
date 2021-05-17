@@ -1,1 +1,1 @@
-1.3.0-beta-dev4
+1.3.0-beta-dev10
