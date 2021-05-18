@@ -394,9 +394,14 @@ namespace MerchantAPI.APIGateway.Rest.Services
           LastError = failedSubscription.LastError
         };
       }
-      // No current status - could happen if the node was just added and node repository
+      // Unknown status - could happen if the node was just added and node repository
       // events have not been processed by ZMQ service yet.
-      return null;
+      return new ZmqStatus()
+      {
+        IsResponding = false,
+        LastConnectionAttemptAt = null,
+        LastError = "Unknown"
+      };
     }
 
     private void ValidateNotifications(RpcActiveZmqNotification[] notifications)
