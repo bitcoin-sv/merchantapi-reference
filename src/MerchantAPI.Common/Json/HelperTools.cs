@@ -4,6 +4,7 @@
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Exceptions;
 using NBitcoin;
+using NBitcoin.Crypto;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
@@ -15,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.Common.Json
 {
-  public class HelperTools
+  public static class HelperTools
   {
     const int BufferChunkSize = 1024 * 1024;
     public static async Task<byte[]> HexStringToByteArrayAsync(Stream stream)
@@ -229,6 +230,36 @@ namespace MerchantAPI.Common.Json
 
       return transactions.ToArray();
 
+    }
+
+    /// <summary>
+    /// This method should be removed once PR https://github.com/MetacoSA/NBitcoin/pull/1005
+    /// will be merged to master and new package will be released.
+    /// Original code stores the calculated hash and returns it once it has been calculated so it's more optimal
+    /// </summary>
+    public static uint256 GetHash(this Transaction tx, int maxArraySize)
+    {
+      // try to use original implementation because it's more efficient
+      try
+      {
+        return tx.GetHash();
+      }
+      catch (ArgumentOutOfRangeException) 
+      {
+        // catch ArgumentOutOfRangeException in case Tx is bigger than 1MB
+        // and parse it again by increasing the maxArraySize
+      }
+
+      using var hs = new HashStream();
+      var stream = new BitcoinStream(hs, true)
+      {
+        TransactionOptions = TransactionOptions.None,
+        ConsensusFactory = tx.GetConsensusFactory(),
+        MaxArraySize = maxArraySize
+      };
+      stream.SerializationTypeScope(SerializationType.Hash);
+      tx.ReadWrite(stream);
+      return hs.GetHash();
     }
   }
 }
