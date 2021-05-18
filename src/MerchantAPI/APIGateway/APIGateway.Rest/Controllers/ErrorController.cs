@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
   [Route("api/v1/[controller]")]
@@ -17,6 +19,12 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [ApiExplorerSettings(IgnoreApi = true)]
   public class ErrorController : ControllerBase
   {
+    readonly ILogger<ErrorController> logger;
+    public ErrorController(ILogger<ErrorController> logger)
+    {
+      this.logger = logger;
+    }
+
     private ObjectResult Problem(bool dumpStack)
     {
       var ex = HttpContext.Features.Get<IExceptionHandlerPathFeature>().Error;
@@ -33,6 +41,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         title = "Bad client request";
         statusCode = (int)HttpStatusCode.BadRequest;
       }
+
+      logger.LogError(ex, "Error while performing operation");
 
       var pd = ProblemDetailsFactory.CreateProblemDetails(
         HttpContext,

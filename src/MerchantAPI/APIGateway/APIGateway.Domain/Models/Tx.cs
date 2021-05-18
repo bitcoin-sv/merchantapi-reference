@@ -3,6 +3,7 @@
 
 using NBitcoin;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -17,7 +18,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public Tx(TxWithInput txWithInput)
     {
       TxInternalId = txWithInput.TxInternalId;
-      TxExternalIdBytes = txWithInput.TxExternalId;
+      TxExternalIdBytes = txWithInput.TxExternalIdBytes;
       CallbackToken = txWithInput.CallbackToken;
       CallbackUrl = txWithInput.CallbackUrl;
       CallbackEncryption = txWithInput.CallbackEncryption;
@@ -60,6 +61,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public override int GetHashCode()
     {
       return TxExternalId.GetHashCode();
+    }
+
+    public TxInput[] OrderderInputs
+    {
+      get => TxIn.OrderBy(x => x.N).ToArray();
     }
   }
 
