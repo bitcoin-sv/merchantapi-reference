@@ -10,6 +10,8 @@ namespace MerchantAPI.APIGateway.Domain
   {
     public const string MERCHANT_API_VERSION = "1.3.0";
 
+    public const int NBitcoinMaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
+
     public readonly static string MERCHANT_API_BUILD_VERSION = GetBuildVersion();
     private static string GetBuildVersion()
     {

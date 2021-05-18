@@ -77,7 +77,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     private async Task InsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
     {
       var txsToCheck = await txRepository.GetTxsNotInCurrentBlockChainAsync(blockInternalId);
-      var txIdsFromBlock = new HashSet<uint256>(block.Transactions.Select(x => x.GetHash()));
+      var txIdsFromBlock = new HashSet<uint256>(block.Transactions.Select(x => x.GetHash(Const.NBitcoinMaxArraySize)));
 
       // Generate a list of transactions that are present in the last block and are also present in our database without a link to existing block
       var txsToLinkToBlock = txsToCheck.Where(x => txIdsFromBlock.Contains(x.TxExternalId)).ToArray();
@@ -101,7 +101,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       // Inputs are flattened along with transactionId so they can be checked for double spends.
       var allTransactionInputs = block.Transactions.SelectMany(x => x.Inputs.AsIndexedInputs(), (tx, txIn) => new 
                                                                     { 
-                                                                      TxId = tx.GetHash().ToBytes(),
+                                                                      TxId = tx.GetHash(Const.NBitcoinMaxArraySize).ToBytes(),
                                                                       TxInput = txIn
                                                                     }).Select(x => new TxWithInput
                                                                     {
@@ -125,7 +125,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var dsTxIds = await txRepository.GetDSTxWithoutPayloadAsync(false);
       foreach(var (dsTxId, TxId) in dsTxIds)
       {
-        var payload = block.Transactions.Single(x => x.GetHash() == new uint256(dsTxId)).ToBytes();
+        var payload = block.Transactions.Single(x => x.GetHash(Const.NBitcoinMaxArraySize) == new uint256(dsTxId)).ToBytes();
         await txRepository.UpdateDsTxPayloadAsync(dsTxId, payload);
         var notificationEvent = new NewNotificationEvent()
         {
