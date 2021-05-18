@@ -679,7 +679,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           {
             oneResponse.ResultDescription = "Error fetching inputs";
           }
-          else // colidedWith !=null and there is no exception or prevOutsErrors is not empty
+          else if (oneResponse.ConflictedWith != null && oneResponse.ConflictedWith.Any(c => c.Txid == oneResponse.Txid))
+          {
+            oneResponse.ResultDescription = "Transaction already in the mempool";
+            oneResponse.ConflictedWith = null;
+          }
+          else 
           {
             // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
             oneResponse.ResultDescription = "Missing inputs"; 
