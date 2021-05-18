@@ -71,7 +71,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     /// <param name="txids"></param>
     /// <param name="memberName"></param>
     /// <returns></returns>
-    T SimulateCall<T>(string txids = null, [CallerMemberName] string memberName = "")
+    Task<T> SimulateCallAsync<T>(string txids = null, [CallerMemberName] string memberName = "")
     {
       ThrowIfDisconnected();
 
@@ -85,46 +85,50 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       if (predefinedResponse.TryGetValue(nodeId + ":" + memberName, out var responseObj))
       {
-        return (T) responseObj;
+        if (responseObj is Exception exception)
+        {
+          throw exception;
+        }
+        return Task.FromResult((T) responseObj);
       }
 
       if (doNotTraceMethods!=null && doNotTraceMethods.ContainsKey(memberName))
       {
-        return default(T);
+        return Task.FromResult(default(T));
       }
 
       callList?.AddCall(memberName, nodeId, txids);
 
-      return default(T);
+      return Task.FromResult(default(T));
     }
 
-    public Task<long> GetBlockCountAsync(CancellationToken? token = null)
+    public async Task<long> GetBlockCountAsync(int? retryCount, CancellationToken? token = null)
     {
-      var r = SimulateCall<long?>();
+      var r = await SimulateCallAsync<long?>();
       if (r.HasValue)
       {
-        return Task.FromResult(r.Value);
+        return r.Value;
       }
 
-      return Task.FromResult(blocks.Values.OrderByDescending(x => x.Height).First().Height);
+      return blocks.Values.OrderByDescending(x => x.Height).First().Height;
     }
 
-    public Task<RpcGetBlockWithTxIds> GetBlockWithTxIdsAsync(string blockHash, CancellationToken? token = null)
+    public Task<RpcGetBlockWithTxIds> GetBlockWithTxIdsAsync(string blockHash, int? retryCount, CancellationToken? token = null)
     {
       throw new NotImplementedException();
     }
 
-    public Task<RpcGetBlock> GetBlockAsync(string blockHash, int verbosity, CancellationToken? token = null)
+    public Task<RpcGetBlock> GetBlockAsync(string blockHash, int verbosity, int? retryCount, CancellationToken? token = null)
     {
       throw new NotImplementedException();
     }
 
-    public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
+    public async Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, int? retryCount, CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcBitcoinStreamReader>();
+      var r = await SimulateCallAsync<RpcBitcoinStreamReader>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
       
       if (!blocks.TryGetValue(new uint256(blockHash), out var block))
@@ -134,15 +138,15 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       var str = new StreamReader(new MemoryStream(block.BlockData));
       var rpc = new RpcBitcoinStreamReaderMock(str, token);
-      return Task.FromResult((RpcBitcoinStreamReader)rpc);
+      return rpc;
     }
 
-    public Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
+    public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, int? retryCount, CancellationToken? token = null)
     {
-      var r = SimulateCall<byte[]>();
+      var r = await SimulateCallAsync<byte[]>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
       if ((blocks.Count - 1) < blockHeight)
@@ -151,26 +155,26 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       }
       var block = blocks.ElementAt((int)blockHeight).Value;
 
-      return Task.FromResult(block.BlockData);
+      return block.BlockData;
     }
 
-    public Task<string> GetBlockHashAsync(long height, CancellationToken? token = null)
+    public async Task<string> GetBlockHashAsync(long height, int? retryCount, CancellationToken? token = null)
     {
-      var r = SimulateCall<string>();
+      var r = await SimulateCallAsync<string>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult(blocks.Values.Single(x => x.Height == height).BlockHash.ToString());
+      return blocks.Values.Single(x => x.Height == height).BlockHash.ToString();
     }
 
-    public Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash, CancellationToken? token = null)
+    public async Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash, int? retryCount, CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcGetBlockHeader>();
+      var r = await SimulateCallAsync<RpcGetBlockHeader>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
       if (!blocks.TryGetValue(new uint256(blockHash), out var block))
@@ -196,123 +200,119 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         Chainwork = "0", // MOCK value
         Previousblockhash = header.HashPrevBlock.ToString()
       };
-      return Task.FromResult(result);
+      return result;
     }
 
-    public Task<string> GetBlockHeaderAsHexAsync(string blockHash, CancellationToken? token = null)
+    public Task<string> GetBlockHeaderAsHexAsync(string blockHash, int? retryCount, CancellationToken? token = null)
     {
       throw new NotImplementedException();
     }
 
-    public Task<RpcGetRawTransaction> GetRawTransactionAsync(string txId, int retryCount, CancellationToken? token = null)
+    public async Task<RpcGetRawTransaction> GetRawTransactionAsync(string txId, int retryCount, CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcGetRawTransaction>();
+      var r = await SimulateCallAsync<RpcGetRawTransaction>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
       if (transactions.TryGetValue(new uint256(txId), out _))
       {
-        return Task.FromResult(
+        return 
           new RpcGetRawTransaction
           {
             Txid = txId,
             // other fields are not mapped
-          }
-          );
+          };
       }
 
       throw new Exception($"TxId {txId} not found");
     }
 
-    public Task<byte[]> GetRawTransactionAsBytesAsync(string txId, CancellationToken? token = null)
+    public async Task<byte[]> GetRawTransactionAsBytesAsync(string txId, int? retryCount, CancellationToken? token = null)
     {
-      var r = SimulateCall<byte[]>();
+      var r = await SimulateCallAsync<byte[]>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
       if (transactions.TryGetValue(new uint256(txId), out var result))
       {
-        return Task.FromResult(result);
+        return result;
       }
     
       throw new Exception($"TxId {txId} not found");
     }
 
-    public Task<string> GetBestBlockHashAsync(CancellationToken? token = null)
+    public async Task<string> GetBestBlockHashAsync(CancellationToken? token = null)
     {
-      var r = SimulateCall<string>();
+      var r = await SimulateCallAsync<string>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
       if (blocks.IsEmpty)
       {
         throw new Exception($"No bock has been added to RpcClientMock");
       }
-      return Task.FromResult(blocks.Values.OrderByDescending(x => x.Height).First().BlockHash.ToString());
+      return blocks.Values.OrderByDescending(x => x.Height).First().BlockHash.ToString();
     }
 
-    public Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token = null)
+    public async Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token = null)
     {
       var txId = NBitcoin.Transaction.Parse(HelperTools.ByteToHexString(transaction), Network.Main).GetHash()
         .ToString();
 
-      var r = SimulateCall<string>(txId);
+      var r = await SimulateCallAsync<string>(txId);
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult(txId);
+      return txId;
     }
 
-    public Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] txs,
+    public async Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] txs,
       CancellationToken? token = null)
     {
       var txIds = 
         string.Join('/',txs.Select(x =>
         NBitcoin.Transaction.Parse(HelperTools.ByteToHexString(x.transaction), Network.Main).GetHash().ToString()).ToArray());
 
-      var r = SimulateCall<RpcSendTransactions>(txIds);
+      var r = await SimulateCallAsync<RpcSendTransactions>(txIds);
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult
-        (
-          new RpcSendTransactions() // empty response means that everything was accepted
-        );
+      return new RpcSendTransactions(); // empty response means that everything was accepted
     }
-    public Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token=null)
+
+    public async Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token=null)
     {
-      var r = SimulateCall<RpcGetNetworkInfo>();
+      var r = await SimulateCallAsync<RpcGetNetworkInfo>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult(
-        new RpcGetNetworkInfo
+      return new RpcGetNetworkInfo
         {
           MinConsolidationFactor = 20,
           MaxConsolidationInputScriptSize = 150,
           MinConsolidationInputMaturity = 6,
           AcceptNonStdConsolidationInput = false
-        });
+        };
     }
 
-    public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
+    public async Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcGetTxOuts>();
+      var r = await SimulateCallAsync<RpcGetTxOuts>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
       var results = new List<PrevOut>();
@@ -348,23 +348,21 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       }
 
       return
-        Task.FromResult(
         new RpcGetTxOuts
         {
           TxOuts = results.ToArray()
-        }
-        );
+        };
     }
 
-    public Task<string> SubmitBlock(byte[] block, CancellationToken? token = null)
+    public async Task<string> SubmitBlock(byte[] block, CancellationToken? token = null)
     {
-      var r = SimulateCall<string>();
+      var r = await SimulateCallAsync<string>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult<string>(null);
+      return null;
     }
 
     public Task StopAsync(CancellationToken? token = null)
@@ -382,34 +380,34 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new NotImplementedException();
     }
 
-    public Task<RpcGetMerkleProof> GetMerkleProofAsync(string txId, string blockHash, CancellationToken? token = null)
+    public async Task<RpcGetMerkleProof> GetMerkleProofAsync(string txId, string blockHash, CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcGetMerkleProof>();
+      var r = await SimulateCallAsync<RpcGetMerkleProof>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult(new RpcGetMerkleProof());
+      return new RpcGetMerkleProof();
     }
 
-    public Task<RpcGetMerkleProof2> GetMerkleProof2Async(string txId, string blockHash, CancellationToken? token = null)
+    public async Task<RpcGetMerkleProof2> GetMerkleProof2Async(string txId, string blockHash, CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcGetMerkleProof2>();
+      var r = await SimulateCallAsync<RpcGetMerkleProof2>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult(new RpcGetMerkleProof2());
+      return new RpcGetMerkleProof2();
     }
 
-    public Task<RpcGetBlockchainInfo> GetBlockchainInfoAsync(CancellationToken? token = null)
+    public async Task<RpcGetBlockchainInfo> GetBlockchainInfoAsync(CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcGetBlockchainInfo>();
+      var r = await SimulateCallAsync<RpcGetBlockchainInfo>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
       if (blocks.IsEmpty)
@@ -418,34 +416,33 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       }
 
       var bestBlock = blocks.Values.OrderByDescending(x => x.Height).First();
-      return Task.FromResult(
-        new RpcGetBlockchainInfo
+      return new RpcGetBlockchainInfo
         {
           Chain = null,
           Blocks = bestBlock.Height,
           Headers = bestBlock.Height,
           BestBlockHash = bestBlock.BlockHash.ToString()
-        });
+        };
     }
 
-    public Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null)
+    public async Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null)
     {
-      var r = SimulateCall<RpcActiveZmqNotification[]>();
+      var r = await SimulateCallAsync<RpcActiveZmqNotification[]>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
 
-      return Task.FromResult(ZMQTopic.RequiredZmqTopics.Select(x => new RpcActiveZmqNotification { Address = "tcp://127.0.0.1:28332", Notification = x}).ToArray());
+      return ZMQTopic.RequiredZmqTopics.Select(x => new RpcActiveZmqNotification { Address = "tcp://127.0.0.1:28332", Notification = x}).ToArray();
     }
-    public Task<string[]> GetRawMempool(CancellationToken? token = null)
+    public async Task<string[]> GetRawMempool(CancellationToken? token = null)
     {
-      var r = SimulateCall<string[]>();
+      var r = await SimulateCallAsync<string[]>();
       if (r != null)
       {
-        return Task.FromResult(r);
+        return r;
       }
-      return Task.FromResult(new string[0]);
+      return new string[0];
     }
 
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid, 

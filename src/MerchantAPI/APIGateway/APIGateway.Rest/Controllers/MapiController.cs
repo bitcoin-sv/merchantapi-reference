@@ -23,6 +23,7 @@ using NBitcoin;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Authentication;
+using MerchantAPI.Common.Exceptions;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -275,10 +276,21 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       var domainModel = data.Select(x =>
         x.ToDomainModel(defaultCallbackUrl, defaultCallbackToken, defaultCallbackEncryption, defaultMerkleProof, defaultMerkleFormat, defaultDsCheck)).ToArray();
 
-      var result =
-        new SubmitTransactionsResponseViewModel(
-          await mapi.SubmitTransactionsAsync(domainModel,
-            identity));
+      SubmitTransactionsResponseViewModel result;
+      try
+      {
+        result =
+          new SubmitTransactionsResponseViewModel(
+            await mapi.SubmitTransactionsAsync(domainModel,
+              identity));
+      }
+      catch(BadRequestException ex)
+      {
+        logger.LogError($"Error while submiting transactions. {ex.Message}.");
+        var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
+        problemDetail.Title = ex.Message;
+        return BadRequest(problemDetail);
+      }
 
       return await SignIfRequiredAsync(result, result.MinerId);
 
@@ -319,7 +331,6 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       byte[][] transactionAsBytes;
       try
       {
-        // This is not very efficient, since we will reparse bytes into NBitcoin.Transaction later again
         transactionAsBytes = HelperTools.ParseTransactionsIntoBytes(data);
       }
       catch (Exception)
@@ -343,9 +354,20 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
             DsCheck = dsCheck
           }).ToArray();
 
-      var result =
-        new SubmitTransactionsResponseViewModel(
-          await mapi.SubmitTransactionsAsync(request, identity));
+      SubmitTransactionsResponseViewModel result;
+      try
+      {
+        result =
+          new SubmitTransactionsResponseViewModel(
+            await mapi.SubmitTransactionsAsync(request, identity));
+      }
+      catch (BadRequestException ex)
+      {
+        logger.LogError($"Error while submitting transactions. {ex.Message}.");
+        var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
+        problemDetail.Title = ex.Message;
+        return BadRequest(problemDetail);
+      }
       return await SignIfRequiredAsync(result, result.MinerId);
     }
   }

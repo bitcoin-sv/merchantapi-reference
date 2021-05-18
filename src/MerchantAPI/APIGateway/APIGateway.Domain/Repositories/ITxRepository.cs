@@ -69,5 +69,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<PrevTxOutput> GetPrevOutAsync(byte[] prevOutTxId, long prevOutN);
 
     Task<NotificationData[]> GetNotificationsForTestsAsync();
+    
+    Task<Block[]> GetUnparsedBlocksAsync();
   }
 }

@@ -125,6 +125,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("oldest", (await c.GetWorstBlockchainInfoAsync()).BestBlockHash);
     }
 
+    [TestMethod]
+    public async Task GetFirstSuccessfullNetworkInfo()
+    {
+      var responses = rpcClientFactoryMock.PredefinedResponse;
+      responses.TryAdd("umockNode4:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode3:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode2:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode1:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode0:getnetworkinfo", new RpcGetNetworkInfo
+      {
+        AcceptNonStdConsolidationInput = true,
+        MaxConsolidationInputScriptSize = 10000
+      });
+
+      var c = new RpcMultiClient(new MockNodes(5), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+
+      for (int i = 0; i < 10; i++)
+      {
+        var resp = await c.GetAnyNetworkInfoAsync();
+        Assert.AreEqual(10000, resp.MaxConsolidationInputScriptSize);
+      }
+    }
 
 
     void ExecuteAndCheckSendTransactions(string[] txsHex, RpcSendTransactions expected, RpcSendTransactions node0Response,
