@@ -29,6 +29,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly ITxRepository txRepository;
     readonly IRpcMultiClient rpcMultiClient;
     readonly IClock clock;
+    List<string> blockHashesBeingParsed = new List<string>();
+    object lockingObject = new object();
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
@@ -187,14 +189,32 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     private async Task ParseBlockForTransactionsAsync(NewBlockAvailableInDB e)
     {
+      lock(lockingObject)
+      {
+        if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
+        {
+          logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skiped processing.");
+          return;
+        }
+        else
+        {
+          blockHashesBeingParsed.Add(e.BlockHash);
+        }
+      }
 
-      logger.LogInformation($"Block parser got a new block {e.BlockHash} from database. Parsing it");
+      logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
       var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
 
       var block = HelperTools.ParseByteStreamToBlock(blockStream);
 
       await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
       await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
+
+      logger.LogInformation($"Block {e.BlockHash} successfully parsed.");
+      lock (lockingObject)
+      {
+        blockHashesBeingParsed.Remove(e.BlockHash);
+      }
     }
 
     public async Task InitializeDB()

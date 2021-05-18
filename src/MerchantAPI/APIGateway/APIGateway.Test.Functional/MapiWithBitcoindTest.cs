@@ -356,6 +356,58 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(txId1, tx2.ConflictedWith.First().Txid);
     }
 
-    
+    [TestMethod]
+    public async Task With2NodesOnlyOneDoubleSpendShouldBeSent()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+
+      // Create two transactions from same input
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var (txHex2, txId2) = CreateNewTransaction(coin, new Money(500L));
+
+      // Transactions should not be the same
+      Assert.AreNotEqual(txHex1, txHex2);
+
+      // Send first transaction using MAPI
+      var payload = await SubmitTransactionAsync(txHex1, false, true);
+
+      // start another node and connect the nodes
+      // then wait for the new node to sync up before sending a DS tx
+      var node1 = StartBitcoind(1, new BitcoindProcess[] { node0 });
+
+      await SyncNodesBlocksAsync(cts.Token, node0, node1);
+
+      Assert.AreEqual(1, await node1.RpcClient.GetConnectionCountAsync());
+
+      await node1.RpcClient.DisconnectNodeAsync(node0.Host, node0.P2Port);
+
+      do
+      {
+        await Task.Delay(100);
+      } while ((await node1.RpcClient.GetConnectionCountAsync()) > 0);
+
+      // Send second transaction 
+      _ = await node1.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false, cts.Token);
+      await node1.RpcClient.GenerateAsync(1);
+
+      await node1.RpcClient.AddNodeAsync(node0.Host, node0.P2Port);
+
+      do
+      {
+        await Task.Delay(100);
+      } while ((await node1.RpcClient.GetConnectionCountAsync()) == 0);
+      
+      // We are sleeping here for a second to make sure that after the nodes were reconnected
+      // there wasn't any additional notification sent because of node1
+      await Task.Delay(1000);
+
+      var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
+      foreach(var notification in notifications)
+      {
+        loggerTest.LogInformation($"NotificationType: {notification.NotificationType}; TxId: {notification.TxInternalId}");
+      }
+      Assert.AreEqual(1, notifications.Count());
+    }
   }
 }

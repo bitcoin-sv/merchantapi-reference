@@ -338,5 +338,35 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
+
+    public async Task SyncNodesBlocksAsync(CancellationToken cancellationToken, params BitcoindProcess[] nodes)
+    {
+      long maxBlockCount = 0;
+      foreach(var node in nodes)
+      {
+        var blockCount = await node.RpcClient.GetBlockCountAsync(cancellationToken);
+        if (blockCount > maxBlockCount)
+        {
+          maxBlockCount = blockCount;
+        }
+      }
+
+      List<Task> syncTasks = new List<Task>();
+      foreach(var node in nodes)
+      {
+        syncTasks.Add(SyncNodeBlocksAsync(node, maxBlockCount, cancellationToken));
+      }
+
+      await Task.WhenAll(syncTasks);
+    }
+
+    private async Task SyncNodeBlocksAsync(BitcoindProcess node, long maxBlockCount, CancellationToken cancellationToken)
+    {
+      do
+      {
+        await Task.Delay(100, cancellationToken);
+      }
+      while ((await node.RpcClient.GetBlockCountAsync(cancellationToken)) < maxBlockCount);
+    }
   }
 }
