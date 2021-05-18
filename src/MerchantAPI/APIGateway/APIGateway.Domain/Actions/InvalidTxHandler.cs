@@ -130,7 +130,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 CallbackUrl = tx.CallbackUrl,
                 CallbackEncryption = tx.CallbackEncryption,
                 CallbackToken = tx.CallbackToken,
-                TxInternalId = tx.TxInternalId
+                TxInternalId = tx.TxInternalId,
+                BlockHeight = -1,
+                BlockInternalId = -1,
+                BlockHash = null
               };
 
               var notificationEvent = new NewNotificationEvent()
