@@ -141,7 +141,7 @@ CREATE TEMPORARY TABLE BlockTxsWithInputs (
             index++;
             txImporter.StartRow();
 
-            txImporter.Write(txInput.TxExternalId, NpgsqlTypes.NpgsqlDbType.Bytea);
+            txImporter.Write(txInput.TxExternalIdBytes, NpgsqlTypes.NpgsqlDbType.Bytea);
             txImporter.Write(txInput.PrevTxId, NpgsqlTypes.NpgsqlDbType.Bytea);
             txImporter.Write(txInput.Prev_N, NpgsqlTypes.NpgsqlDbType.Bigint);
             txImporter.Write(blockInternalId, NpgsqlTypes.NpgsqlDbType.Bigint);
@@ -519,8 +519,7 @@ WHERE NOT EXISTS
                                                                {
                                                                   return new Tx(x);
                                                                }), new TxComparer());
-      txWithInputs.ExceptWith(distinctItems);
-
+      txWithInputs.ExceptWith(txSet.Select(x => new TxWithInput { TxExternalId = x.TxExternalId, N = x.TxIn.Single().N}));
       foreach (var tx in txWithInputs)
       {
         if (txSet.TryGetValue(new Tx(tx), out var txFromSet))
@@ -537,7 +536,7 @@ WHERE NOT EXISTS
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, txInternalId childId, n, prevTxId, prev_n, dsCheck
+SELECT txInternalId, txExternalId TxExternalIdBytes, callbackUrl, callbackToken, callbackEncryption, txInternalId childId, n, prevTxId, prev_n, dsCheck
 FROM (
   WITH RECURSIVE r AS (
     SELECT t.dscheck, t.txInternalId, t.txExternalId, t.callbackUrl, t.callbackToken, t.callbackEncryption, t.txInternalId childId, i.n, i.prevTxId, i.prev_n
@@ -547,7 +546,7 @@ FROM (
     
     UNION ALL 
    
-    SELECT tr.dscheck, tr.txInternalId, tr.txExternalId, tr.callbackUrl, tr.callbackToken, tr.callbackEncryption, tr.txInternalId childId, ir.n, ir.prevTxId, ir.prev_n
+    SELECT tr.dscheck, tr.txInternalId, tr.txExternalId TxExternalIdBytes, tr.callbackUrl, tr.callbackToken, tr.callbackEncryption, tr.txInternalId childId, ir.n, ir.prevTxId, ir.prev_n
     FROM TxInput ir
     INNER JOIN Tx tr ON tr.txInternalId = ir.txInternalId
     JOIN r ON r.txExternalId = ir.prevTxId
@@ -558,7 +557,7 @@ FROM (
 
   UNION 
 
-  SELECT Tx.txInternalId, txExternalId, callbackUrl, callbackToken, callbackEncryption, Tx.txInternalId childId, n, prevTxId, prev_n, dsCheck
+  SELECT Tx.txInternalId, txExternalId TxExternalIdBytes, callbackUrl, callbackToken, callbackEncryption, Tx.txInternalId childId, n, prevTxId, prev_n, dsCheck
   FROM Tx 
   INNER JOIN TxInput on TxInput.txInternalId = Tx.txInternalId
   WHERE dsCheck = true

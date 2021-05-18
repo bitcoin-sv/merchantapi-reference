@@ -105,7 +105,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                                                                       TxInput = txIn
                                                                     }).Select(x => new TxWithInput
                                                                     {
-                                                                      TxExternalId = x.TxId,
+                                                                      TxExternalIdBytes = x.TxId,
                                                                       PrevTxId = x.TxInput.PrevOut.Hash.ToBytes(),
                                                                       Prev_N = x.TxInput.PrevOut.N
                                                                     });

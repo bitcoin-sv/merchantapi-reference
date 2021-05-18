@@ -222,6 +222,52 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    public async Task RejectSubmitWithWithParamNTooBig()
+    {
+      await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null, null));
+
+      await QueryReturnPositiveAsync();
+
+      IList<(string, string)> queryParams = new List<(string, string)>
+      {
+        ("txid", txC0Hash),
+        ("ctxid", txC1Hash),
+        ("n", "10"),
+        ("cn", "0")
+      };
+
+      var bytes = HelperTools.HexStringToByteArray(txC1Hex);
+      var reqContent = new ByteArrayContent(bytes);
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
+      _ = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      Assert.IsFalse(banList.IsHostBanned("localhost"));
+    }
+
+    [TestMethod]
+    public async Task RejectSubmitWithWithParamCNTooBig()
+    {
+      await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null, null));
+
+      await QueryReturnPositiveAsync();
+
+      IList<(string, string)> queryParams = new List<(string, string)>
+      {
+        ("txid", txC0Hash),
+        ("ctxid", txC1Hash),
+        ("n", "0"),
+        ("cn", "10")
+      };
+
+      var bytes = HelperTools.HexStringToByteArray(txC1Hex);
+      var reqContent = new ByteArrayContent(bytes);
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
+      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      var responseString = await response.httpResponse.Content.ReadAsStringAsync();
+      Assert.IsTrue(responseString.Contains("banned"));
+      Assert.IsTrue(banList.IsHostBanned("localhost"));
+    }
+
+    [TestMethod]
     public async Task BanHostOnMultipleBadRequestsAsync()
     {
       Assert.AreEqual(HostBanList.BanScoreLimit, 100);

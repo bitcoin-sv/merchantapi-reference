@@ -120,6 +120,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     [Consumes(MediaTypeNames.Application.Octet)]
     public async Task<ActionResult> SubmitDSAsync([FromQuery]string txId, [FromQuery] int? n, [FromQuery] string cTxId, [FromQuery] int? cn)
     {
+      logger.LogInformation($"SubmitDSAsync call received for txid:'{txId}', n:'{n}', cTxId:'{cTxId}', cn:'{cn}'");
       // Set response header here that we are interested in DS submit again in case of any error
       this.Response.Headers.Add(DSHeader, "1");
       if (string.IsNullOrEmpty(txId))
@@ -166,7 +167,12 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       if (tx == null)
       {
-        return BadRequest($"There is no transaction waiting for double-spend notification with given transaction id '{txId}'.");
+        return AddBanScoreAndReturnResult($"There is no transaction waiting for double-spend notification with given transaction id '{txId}'.", txId, HostBanList.WarningScore);
+      }
+
+      if (n > tx.OrderderInputs.Length)
+      {
+        return AddBanScoreAndReturnResult($"'n' parameter must not be greater than total number of inputs.", txId, HostBanList.WarningScore);
       }
 
       transactionRequestsCheck.LogKnownTransactionId(Request.Host.Host, uTxId);
@@ -198,10 +204,16 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         return AddBanScoreAndReturnResult("'dsProof' is invalid.", txId);
       }
 
-      var dsTxIn = dsTx.Inputs[cn.Value];
+      if (cn > dsTx.Inputs.Count)
+      {
+        return AddBanScoreAndReturnResult($"'cn' parameter must not be greater than total number of inputs.", txId);
+      }
 
-      if (!(new uint256(tx.TxIn[n.Value].PrevTxId) == dsTxIn.PrevOut.Hash &&
-            tx.TxIn[n.Value].PrevN == dsTxIn.PrevOut.N))
+      var dsTxIn = dsTx.Inputs[cn.Value];
+      var txIn = tx.OrderderInputs[n.Value];
+
+      if (!(new uint256(txIn.PrevTxId) == dsTxIn.PrevOut.Hash &&
+            txIn.PrevN == dsTxIn.PrevOut.N))
       {
         return AddBanScoreAndReturnResult("Transaction marked as double-spend does not spend same inputs as original transaction.", txId);
       }
