@@ -141,6 +141,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
       Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callback.CallbackReason);
+      Assert.AreEqual(-1, callback.BlockHeight);
       Assert.AreEqual(new uint256(txId1), new uint256(callback.CallbackTxId));
       Assert.AreEqual(new uint256(txId2), new uint256(callback.CallbackPayload.DoubleSpendTxId));
 
