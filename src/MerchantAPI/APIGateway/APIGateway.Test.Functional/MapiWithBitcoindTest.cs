@@ -6,6 +6,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -64,8 +65,49 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual(txHex, HelperTools.ByteToHexString(txFromNode));
     }
+    [TestMethod]
+    public async Task SubmitSameTransactioMultipleTimesAsync()
+    {
+      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
 
+      var (txHex1, txId1) = CreateNewTransaction(); // mAPI, mAPI
+      var (txHex2, txId2) = CreateNewTransaction(); // mAPI, RPC
+      var (txHex3, txId3) = CreateNewTransaction(); // RPC, mAPI      
 
+      var tx1_payload1 = await SubmitTransactionAsync(txHex1);
+      var tx1_payload2 = await SubmitTransactionAsync(txHex1);
+
+      Assert.AreEqual(tx1_payload1.ReturnResult, "success");
+      Assert.AreEqual(tx1_payload2.ReturnResult, "failure");
+      Assert.AreEqual(tx1_payload2.ResultDescription, "Transaction already known");
+
+      var tx2_payload1 = await SubmitTransactionAsync(txHex2);
+      Assert.AreEqual(tx2_payload1.ReturnResult, "success");
+      var tx2_result2 = await Assert.ThrowsExceptionAsync<RpcException>(
+        () => node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false, cts.Token), 
+        "Transaction already in the mempool");
+
+      var tx3_result1 = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex3), true, false, cts.Token);
+      var tx3_payload2 = await SubmitTransactionAsync(txHex3);
+
+      Assert.AreEqual(tx3_result1, txId3);
+      Assert.AreEqual(tx3_payload2.ReturnResult, "failure");
+      Assert.AreEqual(tx3_payload2.ResultDescription, "Transaction already in the mempool");
+
+      // Mine block and than resend all 3 transactions using mAPI
+      var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
+      var tx1_payload3 = await SubmitTransactionAsync(txHex1);
+      var tx2_payload3 = await SubmitTransactionAsync(txHex2);
+      var tx3_payload3 = await SubmitTransactionAsync(txHex3);
+
+      Assert.AreEqual(tx1_payload3.ReturnResult, "failure");
+      Assert.AreEqual(tx1_payload3.ResultDescription, "Transaction already known");
+      Assert.AreEqual(tx2_payload3.ReturnResult, "failure");
+      Assert.AreEqual(tx2_payload3.ResultDescription, "Transaction already known");
+      Assert.AreEqual(tx3_payload3.ReturnResult, "failure");
+      Assert.AreEqual(tx3_payload3.ResultDescription, "Missing inputs");
+      Assert.IsNull(tx3_payload3.ConflictedWith);
+    }
 
     [TestMethod]
     public async Task SubmitTransactionAndWaitForProof()
