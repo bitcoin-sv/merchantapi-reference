@@ -250,7 +250,10 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
           CallbackEncryption = tx.CallbackEncryption,
           CallbackToken = tx.CallbackToken,
           CallbackUrl = tx.CallbackUrl,
-          TxInternalId = tx.TxInternalId
+          TxInternalId = tx.TxInternalId,
+          BlockHeight = -1,
+          BlockInternalId = -1,
+          BlockHash = null
         };
 
         eventBus.Publish(new Domain.Models.Events.NewNotificationEvent
