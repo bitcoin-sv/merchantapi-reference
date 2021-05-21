@@ -6,6 +6,7 @@
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <Copyright>Copyright(c) 2020 Bitcoin Association.</Copyright>
     <Description>mAPI Common Library is collection of classes used by Merchant API and related products.</Description>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
