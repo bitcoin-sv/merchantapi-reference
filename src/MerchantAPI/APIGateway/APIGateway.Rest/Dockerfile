@@ -12,12 +12,6 @@ COPY ["MerchantAPI/APIGateway/APIGateway.Infrastructure/MerchantAPI.APIGateway.I
 COPY ["MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain.csproj", "MerchantAPI/APIGateway/APIGateway.Domain/"]
 COPY ["MerchantAPI/APIGateway/APIGateway.Database/APIGateway.Database.csproj", "MerchantAPI/APIGateway/APIGateway.Database/"]
 
-### Temporary sloution until we deploy MerchantAPI.Common to nuget.org ########
-COPY ["Packages", "Packages"]
-COPY ["nuget.config", "nuget.config"]
-###############################################################################
-
-
 RUN dotnet restore "MerchantAPI/APIGateway/APIGateway.Rest/MerchantAPI.APIGateway.Rest.csproj"
 COPY . .
 WORKDIR "/src/MerchantAPI/APIGateway/APIGateway.Rest"
