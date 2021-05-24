@@ -1,14 +1,7 @@
 openapi: 3.0.1
-
 info:
-  description: >-
-    The mAPI (Merchant API) admin is used as an interface for managing connections to bitcoin nodes and fee quotes.
-
-  version: 1.2.0
-  title: mAPI Admin
-  license:
-    name: Open BSV License
-    url: https://bitcoinassociation.net/open-bsv-license/
+  title: Merchant API Admin
+  version: 1.3.0
 paths:
   '/api/v1/FeeQuote/{id}':
     get:
@@ -195,13 +188,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NodeViewModelCreate'
+              $ref: '#/components/schemas/NodeViewModelPut'
           text/json:
             schema:
-              $ref: '#/components/schemas/NodeViewModelCreate'
+              $ref: '#/components/schemas/NodeViewModelPut'
           application/*+json:
             schema:
-              $ref: '#/components/schemas/NodeViewModelCreate'
+              $ref: '#/components/schemas/NodeViewModelPut'
       responses:
         '200':
           description: Success
@@ -278,10 +271,10 @@ components:
       properties:
         satoshis:
           type: integer
-          format: int64
+          format: int32
         bytes:
           type: integer
-          format: int64
+          format: int32
       additionalProperties: false
     FeeViewModelGet:
       type: object
@@ -324,10 +317,10 @@ components:
       properties:
         satoshis:
           type: integer
-          format: int64
+          format: int32
         bytes:
           type: integer
-          format: int64
+          format: int32
       additionalProperties: false
     FeeViewModelCreate:
       type: object
@@ -375,6 +368,9 @@ components:
         remarks:
           type: string
           nullable: true
+        ZMQNotificationsEndpoint:
+          type: string
+          nullable: true
       additionalProperties: false
     NodeStatus:
       enum:
@@ -402,6 +398,26 @@ components:
         lastErrorAt:
           type: string
           format: date-time
+          nullable: true
+        ZMQNotificationsEndpoint:
+          type: string
+          nullable: true
+      additionalProperties: false
+    NodeViewModelPut:
+      required:
+        - password
+        - username
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        remarks:
+          type: string
+          nullable: true
+        ZMQNotificationsEndpoint:
+          type: string
           nullable: true
       additionalProperties: false
     ZmqEndpointViewModelGet:
@@ -447,18 +463,15 @@ components:
   securitySchemes:
     Bearer:
       type: apiKey
-      description: >-
-        Please enter JWT with Bearer needed to access MAPI into field.
-        Authorization: Bearer JWT
+      description: 'Please enter JWT with Bearer needed to access MAPI into field. Authorization: Bearer JWT'
       name: Authorization
       in: header
     Api-Key:
       type: apiKey
-      description: >-
-        Please enter API key needed to access admin endpoints into field.
-        Api-Key: My_API_Key
+      description: 'Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key'
       name: Api-Key
       in: header
 security:
   - Bearer: []
   - Api-Key: []
+
