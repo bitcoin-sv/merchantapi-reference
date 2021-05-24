@@ -19,8 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Common\Common\MerchantAPI.Common.csproj" />
-    <ProjectReference Include="..\APIGateway.Domain\MerchantAPI.APIGateway.Domain\MerchantAPI.APIGateway.Domain.csproj" />
+    <ProjectReference Include="..\APIGateway.Domain\MerchantAPI.APIGateway.Domain.csproj" />
   </ItemGroup>
 
 </Project>

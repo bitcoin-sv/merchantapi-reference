@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Models;
 using System;
@@ -30,6 +31,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("lastErrorAt")]
     public DateTime? LastErrorAt { get; set; }
 
+    [JsonPropertyName("ZMQNotificationsEndpoint")]
+    public string ZMQNotificationsEndpoint { get; set; }
+
     public NodeViewModelGet()
     { }
 
@@ -39,6 +43,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       Username = domain.Username;
       //Password = domain.Password;
       Remarks = domain.Remarks;
+      ZMQNotificationsEndpoint = domain.ZMQNotificationsEndpoint;
       Status = domain.Status;
       LastError = domain.LastError;
       LastErrorAt = domain.LastErrorAt;

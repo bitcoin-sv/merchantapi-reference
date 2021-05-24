@@ -1,18 +1,29 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.Common.EventBus;
+using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NBitcoin;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Domain.Models;
-using MerchantAPI.APIGateway.Domain.Models.Events;
-using MerchantAPI.Common.BitcoinRpc;
-using MerchantAPI.Common.EventBus;
-using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NBitcoin;
+using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
+using NBitcoin.Altcoins;
+using MerchantAPI.APIGateway.Rest.ViewModels;
+using System.Net.Http.Headers;
+using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.APIGateway.Domain.ViewModels;
+using System.Net.Mime;
+using System.Net;
+using MerchantAPI.Common.Json;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -35,7 +46,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected List<BitcoindProcess> bitcoindProcesses = new List<BitcoindProcess>();
 
-    public IRpcClient rpcClient0; 
+    public IRpcClient rpcClient0;
     public BitcoindProcess node0;
 
     public Queue<Coin> availableCoins = new Queue<Coin>();
@@ -57,7 +68,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         throw new Exception($"Required parameter {bitcoindConfigKey} is missing from configuration");
       }
-      
+
       var alternativeIp = Configuration["HostIp"];
       if (!string.IsNullOrEmpty(alternativeIp))
       {
@@ -81,7 +92,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var bitcoind = StartBitcoind(index);
 
       var node = new Node(index, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a mock node #{index}",
-        (int)NodeStatus.Connected, null, null);
+        null, (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.CreateNodeAsync(node).Result;
       return bitcoind;
@@ -123,25 +134,27 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     static readonly string commonTestPrefix = typeof(TestBaseWithBitcoind).Namespace + ".";
     static readonly int bitcoindInternalPathLength = "regtest/blocks/index/MANIFEST-00000".Length + 10;
-    public BitcoindProcess StartBitcoind(int nodeIndex)
+    public BitcoindProcess StartBitcoind(int nodeIndex, BitcoindProcess[] nodesToConnect = null)
     {
-     
+
       string testPerfix = TestContext.FullyQualifiedTestClassName;
       if (testPerfix.StartsWith(commonTestPrefix))
       {
         testPerfix = testPerfix.Substring(commonTestPrefix.Length);
       }
 
-      var dataDirRoot = Path.Combine(TestContext.TestRunDirectory, "node" + nodeIndex,  testPerfix, TestContext.TestName);
+      var dataDirRoot = Path.Combine(TestContext.TestRunDirectory, "node" + nodeIndex, testPerfix, TestContext.TestName);
       if (Environment.OSVersion.Platform == PlatformID.Win32NT && dataDirRoot.Length + bitcoindInternalPathLength >= 260)
       {
         // LevelDB refuses to open file with path length  longer than 260 
         throw new Exception($"Length of data directory path is too long. This might cause problems when running bitcoind on Windows. Please run tests from directory with a short path. Data directory path: {dataDirRoot}");
-      } 
+      }
+      
       var bitcoind = new BitcoindProcess(
         bitcoindFullPath,
         dataDirRoot,
-        nodeIndex, hostIp, zmqIp, loggerFactory);
+        nodeIndex, hostIp, zmqIp, loggerFactory,
+        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect);
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }
@@ -152,7 +165,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         throw new Exception($"Can not stop a bitcoind that was not started by {nameof(StartBitcoind)} ");
       }
-      
+
       bitcoind.Dispose();
 
     }
@@ -241,13 +254,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
         parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
       }
 
-      var parentBlockBytes = await rpcClient0.GetBlockAsBytesAsync(parentBlockHash);
-      var parentBlock = NBitcoin.Block.Load(parentBlockBytes, Network.RegTest);
+      var parentBlockStream = await rpcClient0.GetBlockAsStreamAsync(parentBlockHash);
+      var parentBlock = HelperTools.ParseByteStreamToBlock(parentBlockStream);
       var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
       return await MineNextBlockAsync(transactions, throwOnError, parentBlock, parentBlockHeight);
     }
 
-    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions, bool throwOnError,  NBitcoin.Block parentBlock, long parentBlockHeight)
+    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions, bool throwOnError, NBitcoin.Block parentBlock, long parentBlockHeight)
     {
       var newBlock = parentBlock.CreateNextBlockWithCoinbase(new Key().PubKey, parentBlockHeight, NBitcoin.Altcoins.BCash.Instance.Regtest.Consensus.ConsensusFactory);
       newBlock.Transactions.AddRange(transactions);
@@ -275,6 +288,95 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       return (newBlock, submitResult);
+    }
+
+    public (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
+    {
+      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
+      var tx = BCash.Instance.Regtest.CreateTransaction();
+
+      tx.Inputs.Add(new TxIn(coin.Outpoint));
+      tx.Outputs.Add(coin.Amount - amount, address);
+
+      var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
+
+      tx.Sign(key.GetBitcoinSecret(Network.RegTest), coin);
+
+      return (tx.ToHex(), tx.GetHash().ToString());
+    }
+
+    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "")
+    {
+
+      // Send transaction
+      var reqContent = new StringContent(
+
+        merkleProof || dsCheck ?
+          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": {merkleProof.ToString().ToLower()}, \"merkleFormat\": \"{merkleFormat}\", \"dsCheck\": {dsCheck.ToString().ToLower()}, \"callbackUrl\" : \"{Callback.Url}\"}}"
+          :
+          $"{{ \"rawtx\": \"{txHex}\" }}"
+        );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      var response =
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+
+      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+    }
+
+    public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList)
+    {
+
+      // Send transaction
+
+      var reqJSON = "[{\"rawtx\": \"" + string.Join("\"}, {\"rawtx\": \"", txHexList) + "\"}]";
+      var reqContent = new StringContent(reqJSON);
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      var response =
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, HttpStatusCode.OK);
+
+      return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
+    }
+
+    public async Task SyncNodesBlocksAsync(CancellationToken cancellationToken, params BitcoindProcess[] nodes)
+    {
+      long maxBlockCount = 0;
+      foreach(var node in nodes)
+      {
+        var blockCount = await node.RpcClient.GetBlockCountAsync(token: cancellationToken);
+        if (blockCount > maxBlockCount)
+        {
+          maxBlockCount = blockCount;
+        }
+      }
+
+      List<Task> syncTasks = new List<Task>();
+      foreach(var node in nodes)
+      {
+        syncTasks.Add(SyncNodeBlocksAsync(node, maxBlockCount, cancellationToken));
+      }
+
+      await Task.WhenAll(syncTasks);
+    }
+
+    private async Task SyncNodeBlocksAsync(BitcoindProcess node, long maxBlockCount, CancellationToken cancellationToken)
+    {
+      do
+      {
+        await Task.Delay(100, cancellationToken);
+      }
+      while ((await node.RpcClient.GetBlockCountAsync(token: cancellationToken)) < maxBlockCount);
+    }
+
+    public async Task WaitForTxToBeAcceptedToMempool(BitcoindProcess node, string txId, CancellationToken token)
+    {
+      string[] mempoolTxs;
+      do
+      {
+        await Task.Delay(100);
+        mempoolTxs = await node.RpcClient.GetRawMempool(token);
+      } while (!mempoolTxs.Contains(txId));
     }
   }
 }

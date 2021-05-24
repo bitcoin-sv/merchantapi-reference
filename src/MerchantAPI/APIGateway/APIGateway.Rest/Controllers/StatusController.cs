@@ -1,19 +1,15 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
-using System.Net;
 using System.Collections.Generic;
 using System.Linq;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.Common;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Rest.Swagger;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -21,6 +17,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [ApiController]
   [Authorize]
   [ApiExplorerSettings(GroupName = SwaggerGroup.Admin)]
+  [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class StatusController : ControllerBase
   {
     INodes nodes;

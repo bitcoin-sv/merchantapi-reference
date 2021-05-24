@@ -1,13 +1,15 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using MerchantAPI.APIGateway.Domain.Models;
-using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
-using System.Collections.Generic;
+using NBitcoin.DataEncoders;
+using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Domain.Models.Events;
+
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -64,14 +66,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+      var restClient = (Mock.RpcClientMock)rpcClient;
 
       long blockCount;
+      string blockHash;
       do
       {
         var tx = Transaction.Parse(Tx1Hex, Network.Main);
-        blockCount = await CreateAndPublishNewBlock(rpcClient, null, tx);
+        (blockCount, blockHash) = await CreateAndPublishNewBlock(rpcClient, null, tx, true);
       }
       while (blockCount < 20);
+      PublishBlockHashToEventBus(blockHash);
 
       uint256 forkBlockHeight8Hash = uint256.Zero;
       uint256 forkBlockHeight9Hash = uint256.Zero;
@@ -109,15 +114,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RpcClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
-      PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
-      var firstBlockHash = firstBlock.GetHash();
-
-      blockCount = await CreateAndPublishNewBlock(rpcClient, null);
+      var (blockCount, _) = await CreateAndPublishNewBlock(rpcClient, null, null);
 
       NBitcoin.Block forkBlock = null;
       var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);
@@ -177,6 +174,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(merkleProofs.Count(x => new uint256(x.TxExternalId).ToString() == Tx2Hash) == 2);
       Assert.IsTrue(merkleProofs.Any(x => new uint256(x.TxExternalId).ToString() == Tx2Hash && x.BlockHeight == 15));
       Assert.IsTrue(merkleProofs.Any(x => new uint256(x.TxExternalId).ToString() == Tx2Hash && x.BlockHeight == 20));
+    }
+
+    [TestMethod]
+    public void GetHashFromBigTransaction()
+    {
+      var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/big_tx.txt")));
+      Assert.IsTrue(stream.Length > (1024 * 1024));
+      var bStream = new BitcoinStream(stream, false)
+      {
+        MaxArraySize = unchecked((int)uint.MaxValue)
+      };
+
+      var tx = Transaction.Create(Network.Main);
+      tx.ReadWrite(bStream);
+      Assert.ThrowsException<ArgumentOutOfRangeException>(() => tx.GetHash());
+      Assert.IsTrue(tx.GetHash(int.MaxValue) != uint256.Zero);
     }
 
   }

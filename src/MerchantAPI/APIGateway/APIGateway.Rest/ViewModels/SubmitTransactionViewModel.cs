@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System.Text.Json.Serialization;
 using MerchantAPI.APIGateway.Domain.Models;
@@ -22,11 +23,14 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     [JsonPropertyName("merkleProof")]
     public bool? MerkleProof { get; set; }
-    
+
+    [JsonPropertyName("merkleFormat")]
+    public string MerkleFormat { get; set; }
+
     [JsonPropertyName("dsCheck")]
     public bool? DsCheck { get; set; }
 
-    public SubmitTransaction ToDomainModel(string defaultCallbackUrl, string defaultCallbackToken, string defaultCallbackEncryption, bool defaultMerkleProof, bool defaultDsCheck)
+    public SubmitTransaction ToDomainModel(string defaultCallbackUrl, string defaultCallbackToken, string defaultCallbackEncryption, bool defaultMerkleProof, string defaultMerkleFormat,  bool defaultDsCheck)
     {
       return new SubmitTransaction
       {
@@ -35,6 +39,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
         CallbackToken = CallbackToken ?? defaultCallbackToken,
         CallbackEncryption =  CallbackEncryption ?? defaultCallbackEncryption,
         MerkleProof = MerkleProof ?? defaultMerkleProof,
+        MerkleFormat = MerkleFormat ?? defaultMerkleFormat,
         DsCheck = DsCheck ?? defaultDsCheck
       };
 

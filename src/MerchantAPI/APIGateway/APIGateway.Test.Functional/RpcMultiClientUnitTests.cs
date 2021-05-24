@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
 using System.Collections.Generic;
@@ -47,7 +48,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public Node AppendNode(int index)
     {
-      var node = new Node(index, "umockNode" + index, 1000 + index, "", "", "", (int)NodeStatus.Connected, null, null);
+      var node = new Node(index, "umockNode" + index, 1000 + index, "", "", "", null, (int)NodeStatus.Connected, null, null);
       nodes.Add(node);
       return node;
     }
@@ -86,7 +87,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Known = new string[0],
         Evicted = new string[0],
 
-        Invalid = new RpcSendTransactions.RpcInvalidTx[0]
+        Invalid = new RpcSendTransactions.RpcInvalidTx[0],
+        Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
       };
 
     [TestInitialize]
@@ -123,6 +125,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("oldest", (await c.GetWorstBlockchainInfoAsync()).BestBlockHash);
     }
 
+    [TestMethod]
+    public async Task GetFirstSuccessfullNetworkInfo()
+    {
+      var responses = rpcClientFactoryMock.PredefinedResponse;
+      responses.TryAdd("umockNode4:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode3:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode2:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode1:getnetworkinfo", new Exception());
+
+      responses.TryAdd("umockNode0:getnetworkinfo", new RpcGetNetworkInfo
+      {
+        AcceptNonStdConsolidationInput = true,
+        MaxConsolidationInputScriptSize = 10000
+      });
+
+      var c = new RpcMultiClient(new MockNodes(5), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+
+      for (int i = 0; i < 10; i++)
+      {
+        var resp = await c.GetAnyNetworkInfoAsync();
+        Assert.AreEqual(10000, resp.MaxConsolidationInputScriptSize);
+      }
+    }
 
 
     void ExecuteAndCheckSendTransactions(string[] txsHex, RpcSendTransactions expected, RpcSendTransactions node0Response,
@@ -137,7 +165,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var r = c.SendRawTransactionsAsync(
         txsHex.Select( x=>
-        (HelperTools.HexStringToByteArray(x), true, true)).ToArray()).Result;
+        (HelperTools.HexStringToByteArray(x), true, true, true)).ToArray()).Result;
       Assert.AreEqual(JsonSerializer.Serialize(expected), JsonSerializer.Serialize(r));
     }
 
@@ -170,7 +198,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
               Txid = txC1Hash,
               RejectReason = "Mixed results"
             }
-          }
+          },
+          Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
         },
         node0Response,
         node1Response);
@@ -188,7 +217,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           Known = new[]
           {
             txC1Hash
-          },
+          }
         },
 
         new RpcSendTransactions
@@ -196,7 +225,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           Evicted = new[]
           {
             txC1Hash
-          },
+          }
         }
       );
 
@@ -209,7 +238,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           Evicted = new[]
           {
             txC1Hash
-          },
+          }
         }
       );
 
@@ -231,7 +260,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           Evicted = new[]
           {
             txC1Hash
-          },
+          }
         }
       );
     }
@@ -275,7 +304,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
             {
               Txid = txC1Hash
             }
-          }
+          },
+          Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
         };
 
       ExecuteAndCheckSendTransactions(
@@ -318,8 +348,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
               RejectCode =  null
             }
 
-          }
-          
+          },
+          Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
+
         },
 
 
@@ -336,8 +367,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
             RejectReason = "txc2RejectReason",
             RejectCode =  1
           }
-        }
+        },
         // tx3 is accepted here (so we do not have it in results)
+        Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
+        
       },
 
 
@@ -358,7 +391,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
             RejectReason = "txc3RejectReason", // Reason and code get overwritten with Mixed result message
             RejectCode =  1
           }
-        }
+        },
+        Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
       });
 
    }

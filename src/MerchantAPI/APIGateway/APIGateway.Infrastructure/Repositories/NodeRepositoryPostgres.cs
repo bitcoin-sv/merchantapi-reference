@@ -1,16 +1,18 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using Dapper;
-using MerchantAPI.Common;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
+using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Tasks;
+using Microsoft.Extensions.Configuration;
+using NBitcoin;
 using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Extensions.Configuration;
-using NBitcoin;
-using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Json;
 
 namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
@@ -75,10 +77,10 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
       string insertOrUpdate =
         "INSERT INTO Node " +
-        "  (host, port, username, password, nodestatus, remarks) " +
-        "  VALUES (@host, @port, @username, @password, @nodestatus, @remarks)" +
+        "  (host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus) " +
+        "  VALUES (@host, @port, @username, @password, @remarks, @zmqnotificationsendpoint, @nodestatus)" +
         "  ON CONFLICT (host, port) DO NOTHING " +
-        "  RETURNING *"
+        "  RETURNING nodeid as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus as status, lastError, lastErrorAt"
       ;
 
       var now = clock.UtcNow();
@@ -90,8 +92,9 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
           port = node.Port,
           username = node.Username,
           password = node.Password,
-          nodestatus = node.Status,
-          remarks = node.Remarks
+          remarks = node.Remarks,
+          zmqnotificationsendpoint = node.ZMQNotificationsEndpoint,
+          nodestatus = node.Status
         },
         transaction
       ).SingleOrDefault();
@@ -131,9 +134,9 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       using var transaction = connection.BeginTransaction();
       string update =
       "UPDATE Node " +
-      "  SET  username=@username, password=@password, remarks=@remarks " +
+      "  SET  username=@username, password=@password, remarks=@remarks, zmqnotificationsendpoint=@zmqnotificationsendpoint " +
       "  WHERE host=@host AND port=@port" +
-      "  RETURNING *";
+      "  RETURNING nodeid as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus as status, lastError, lastErrorAt";
 
       Node updatedNode = connection.Query<Node>(update,
         new
@@ -143,8 +146,8 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
           username = node.Username,
           password = node.Password,
           //nodestatus = node.Status, // NodeStatus is not present in ViewModel
-          remarks = node.Remarks
-
+          remarks = node.Remarks,
+          zmqnotificationsendpoint = node.ZMQNotificationsEndpoint
         },
         transaction
       ).SingleOrDefault();
@@ -167,7 +170,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       "UPDATE Node " +
       "  SET  lastError=@lastError, lastErrorAt=@lastErrorAt " +
       "  WHERE nodeId=@nodeId" +
-      "  RETURNING *";
+      "  RETURNING nodeid as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodestatus as status, lastError, lastErrorAt";
 
       Node updatedNode = connection.Query<Node>(update,
         new
@@ -254,7 +257,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       RetryUtils.Exec(() => connection.Open());
       using var transaction = connection.BeginTransaction();
       string cmdText =
-        @"SELECT nodeId, host, port, username, password, remarks, nodeStatus, lastError, lastErrorAt FROM node ORDER by host, port";
+        @"SELECT nodeId as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodeStatus as status, lastError, lastErrorAt FROM node ORDER by host, port";
       return connection.Query<Node>(cmdText, null, transaction);
     }
 

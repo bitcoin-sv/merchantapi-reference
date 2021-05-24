@@ -1,4 +1,5 @@
-// Copyright (c) 2020 Bitcoin Association
+// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
@@ -6,7 +7,6 @@ using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.APIGateway.Rest.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -22,10 +22,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi.Models;
 using System.Linq;
 using System.Net.Http;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Clock;
-using MerchantAPI.Common.Database;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
+using MerchantAPI.Common.Authentication;
+using MerchantAPI.Common.NotificationsHandler;
+using MerchantAPI.APIGateway.Rest.Swagger;
+using MerchantAPI.Common.Startup;
+using MerchantAPI.APIGateway.Rest.Database;
+using MerchantAPI.APIGateway.Domain.DSAccessChecks;
+using MerchantAPI.APIGateway.Domain.Cache;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -33,12 +38,12 @@ namespace MerchantAPI.APIGateway.Rest
   public class Startup
   {
 
-    IWebHostEnvironment HostEnvironment { get; set; }
+    public static IWebHostEnvironment HostEnvironment { get; set; }
 
     public Startup(IConfiguration configuration, IWebHostEnvironment hostEnvironment)
     {
       Configuration = configuration;
-      this.HostEnvironment = hostEnvironment;
+      HostEnvironment = hostEnvironment;
     }
 
     public IConfiguration Configuration { get; }
@@ -47,7 +52,7 @@ namespace MerchantAPI.APIGateway.Rest
     public virtual void ConfigureServices(IServiceCollection services)
     {
       // time in database is UTC so it is automatically mapped to Kind=UTC
-      Dapper.SqlMapper.AddTypeHandler(new Common.DateTimeHandler());
+      Dapper.SqlMapper.AddTypeHandler(new MerchantAPI.Common.TypeHandlers.DateTimeHandler());
 
       services.AddOptions<IdentityProviders>()
         .Bind(Configuration.GetSection("IdentityProviders"))
@@ -65,7 +70,7 @@ namespace MerchantAPI.APIGateway.Rest
       {
         options.DefaultAuthenticateScheme = ApiKeyAuthenticationOptions.DefaultScheme;
         options.DefaultChallengeScheme = ApiKeyAuthenticationOptions.DefaultScheme;
-        options.AddScheme(ApiKeyAuthenticationOptions.DefaultScheme, a => a.HandlerType = typeof(ApiKeyAuthenticationHandler));
+        options.AddScheme(ApiKeyAuthenticationOptions.DefaultScheme, a => a.HandlerType = typeof(ApiKeyAuthenticationHandler<AppSettings>));
       });
 
 
@@ -91,15 +96,21 @@ namespace MerchantAPI.APIGateway.Rest
 
       services.AddHttpClient("minerIdClient"); // will only be used if WifPrivateKey is not provided
       services.AddSingleton<IBlockChainInfo, BlockChainInfo>(); // singleton, thread safe
-      services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe
-      services.AddTransient<ICreateDB, CreateDB>();
+      services.AddSingleton<IBlockParser, BlockParser>(); // singleton, thread safe      
       services.AddTransient<IStartupChecker, StartupChecker>();
       services.AddSingleton<INotificationsHandler, NotificationsHandler>();// singleton, thread safe
 
       services.AddHostedService(p => (BlockChainInfo)p.GetRequiredService<IBlockChainInfo>());
       services.AddHostedService(p => (NotificationsHandler)p.GetRequiredService<INotificationsHandler>());
 
-
+      services.AddSingleton<PrevTxOutputCache>();
+      services.AddSingleton<HostBanListMemoryCache>();
+      services.AddSingleton<TxRequestsMemoryCache>();
+      services.AddSingleton<HostUnknownTxCache>();
+      services.AddSingleton<ITransactionRequestsCheck, TransactionRequestsCheck>();
+      services.AddSingleton<IHostBanList, HostBanList>();
+      services.AddScoped<CheckHostActionFilter>();
+      services.AddScoped<HttpsRequiredAttribute>();
 
       services.AddSingleton<IMinerId>(s =>
         {
@@ -121,18 +132,20 @@ namespace MerchantAPI.APIGateway.Rest
 
       if (HostEnvironment.EnvironmentName != "Testing")
       {
-        services.AddTransient<IClock, Clock>();
+        services.AddTransient<IDbManager, MerchantAPIDbManager>();
         services.AddHostedService<CleanUpTxHandler>();
       }
       else
       {
         // We register clock as singleton, so that we can set time in individual tests
-        services.AddSingleton<IClock, MockedClock>();
+        
       }
 
+      services.AddTransient<IClock, Clock>();
       services.AddHostedService<NotificationService>();
       services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
       services.AddHostedService<InvalidTxHandler>();
+      services.AddHostedService<BlockChecker>();
 
 
       services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, ConfigureJwtBearerOptions>();
@@ -191,11 +204,11 @@ namespace MerchantAPI.APIGateway.Rest
         });
 
         // Add Admin authorization options.
-        c.AddSecurityDefinition(ApiKeyAuthenticationHandler.ApiKeyHeaderName, new OpenApiSecurityScheme
+        c.AddSecurityDefinition(ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName, new OpenApiSecurityScheme
         {
           Description = @"Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key",
           In = ParameterLocation.Header,
-          Name = ApiKeyAuthenticationHandler.ApiKeyHeaderName,
+          Name = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName,
           Type = SecuritySchemeType.ApiKey,
         });
 
@@ -203,13 +216,13 @@ namespace MerchantAPI.APIGateway.Rest
           {
             new OpenApiSecurityScheme
             {
-              Name = ApiKeyAuthenticationHandler.ApiKeyHeaderName,
+              Name = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName,
               Type = SecuritySchemeType.ApiKey,
               In = ParameterLocation.Header,
               Reference = new OpenApiReference
               {
                 Type = ReferenceType.SecurityScheme,
-                Id = ApiKeyAuthenticationHandler.ApiKeyHeaderName
+                Id = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName
               },
             },
             new string[] {}
@@ -247,10 +260,9 @@ namespace MerchantAPI.APIGateway.Rest
         context.Response.Headers.Add("X-Frame-Options", "DENY");
         // To require connections over HTTPS and to protect against spoofed certificates.
         context.Response.Headers.Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+
         await next();
       });
-
-      app.UseHttpsRedirection();
 
       app.UseSwagger();
       app.UseSwaggerUI(c =>

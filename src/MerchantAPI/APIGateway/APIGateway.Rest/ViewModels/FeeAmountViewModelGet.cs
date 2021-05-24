@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Models;
 using System.Text.Json.Serialization;
@@ -8,10 +9,10 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
   public class FeeAmountViewModelGet
   {
     [JsonPropertyName("satoshis")]
-    public long Satoshis { get; set; }
+    public int Satoshis { get; set; }
 
     [JsonPropertyName("bytes")]
-    public long Bytes { get; set; }
+    public int Bytes { get; set; }
 
     public FeeAmountViewModelGet() { }
 

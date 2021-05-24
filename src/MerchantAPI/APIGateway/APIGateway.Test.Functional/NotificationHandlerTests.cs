@@ -1,4 +1,7 @@
-﻿using MerchantAPI.APIGateway.Domain.Models;
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -85,6 +88,27 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       idleTask = pcCollection.TakeAsync(true, CancellationToken.None);
       Assert.AreEqual(TaskStatus.WaitingForActivation, idleTask.Status);
+    }
+
+    [TestMethod]
+    public void CallbackUrlFromattingTest()
+    {
+      string url1 = "https://test.domain/noPlaceholder";
+      string url2 = "https://test.domain/{callbackreason}";
+      string url3 = "https://test.domain/{CALLBACKREASON}";
+      string url4 = "https://test.domain/{callbackReason}/addedPath";
+
+      var resultUrl = NotificationsHandler.FormatCallbackUrl(url1, "TEST");
+      Assert.AreEqual(url1, resultUrl);
+
+      resultUrl = NotificationsHandler.FormatCallbackUrl(url2, "TEST");
+      Assert.AreEqual("https://test.domain/TEST", resultUrl);
+
+      resultUrl = NotificationsHandler.FormatCallbackUrl(url3, "TEST");
+      Assert.AreEqual("https://test.domain/TEST", resultUrl);
+
+      resultUrl = NotificationsHandler.FormatCallbackUrl(url4, "TEST");
+      Assert.AreEqual("https://test.domain/TEST/addedPath", resultUrl);
     }
   }
 }

@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -9,8 +10,8 @@ using System.Net;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Domain.Actions;
+using MerchantAPI.APIGateway.Rest.Swagger;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -18,6 +19,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [ApiController]
   [Authorize]
   [ApiExplorerSettings(GroupName = SwaggerGroup.Admin)]
+  [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class NodeController : ControllerBase
   {
     INodes nodes;
@@ -64,14 +66,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <param name="data"></param>
     /// <returns></returns>
     [HttpPut("{id}")]
-    public async Task<ActionResult> Put(string id, NodeViewModelCreate data)
+    public async Task<ActionResult> Put(string id, NodeViewModelPut data)
     {
-      if (!string.IsNullOrEmpty(data.Id) && data.Id.ToLower() != id.ToLower())
-      {
-        var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
-        problemDetail.Title = "The public id does not match the one from message body";
-        return BadRequest(problemDetail);
-      }
+      data.Id = id;
 
       if (!await nodes.UpdateNodeAsync(data.ToDomainObject()))
       {

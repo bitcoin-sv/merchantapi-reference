@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
 using System.Collections.Generic;
@@ -13,14 +14,15 @@ using System.Net.Mime;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional;
-using MerchantAPI.APIGateway.Test.Functional.CallbackWebServer;
+using MerchantAPI.Common.Test.CallbackWebServer;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NBitcoin;
-
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
@@ -121,7 +123,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     }
 
-    static async Task<BitcoindProcess> StartBitcoindWithTemplateDataAsync(string templateData, string bitcoindPath)
+    static async Task<BitcoindProcess> StartBitcoindWithTemplateDataAsync(string templateData, string bitcoindPath, IHttpClientFactory httpClientFactory)
     {
       var testDataDir = CopyTemplateData(templateData);
 
@@ -143,7 +145,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
 
       var bitcoind = new BitcoindProcess("localhost", bitcoindPath, testDataDir, 18444, 18332, "127.0.0.1", 28333,
-        new NullLoggerFactory(), emptyDataDir: false);
+        new NullLoggerFactory(), httpClientFactory, emptyDataDir: false);
 
       long blocks = (await bitcoind.RpcClient.GetBlockchainInfoAsync()).Blocks;
 
@@ -195,7 +197,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     }
 
     static Random rnd = new Random();
-    static async Task<int> SendTransactions(string configFileName)
+    static async Task<int> SendTransactions(string configFileName, IHttpClientFactory httpClientFactory)
     {
       // Use Newtonsoft deserializer with default camel case policy:
       var config = HelperTools.JSONDeserializeNewtonsoft<SendConfig>(await File.ReadAllTextAsync(configFileName));
@@ -240,7 +242,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         if (!string.IsNullOrEmpty(config.BitcoindConfig?.TemplateData))
         {
 
-          bitcoind = await StartBitcoindWithTemplateDataAsync(config.BitcoindConfig.TemplateData, config.BitcoindConfig.BitcoindPath);
+          bitcoind = await StartBitcoindWithTemplateDataAsync(config.BitcoindConfig.TemplateData, config.BitcoindConfig.BitcoindPath, httpClientFactory);
           await EnsureMapiIsConnectedToNodeAsync(config.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization, bitcoind);
         }
 
@@ -462,6 +464,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     static async Task<int> Main(string[] args)
     {
+      var builder = new HostBuilder()
+               .ConfigureServices((hostContext, services) =>
+               {
+                 services.AddHttpClient();
+               }).UseConsoleLifetime();
+      var host = builder.Build();
 
       var sendCommand = new Command("send")
       {
@@ -485,7 +493,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       rootCommand.Description = "mAPI stress test";
 
       sendCommand.Handler = CommandHandler.Create( async (string configFileName) =>
-        await SendTransactions(configFileName));
+        await SendTransactions(configFileName, (IHttpClientFactory)host.Services.GetService(typeof(IHttpClientFactory))));
 
       return await rootCommand.InvokeAsync(args);
     }

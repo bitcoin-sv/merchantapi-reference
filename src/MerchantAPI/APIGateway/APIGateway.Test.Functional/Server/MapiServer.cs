@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 namespace MerchantAPI.APIGateway.Test.Functional.Server
 {
@@ -11,5 +12,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
     public const string ApiMapiQueryTransactionStatus = "mapi/tx/";
     public const string ApiMapiSubmitTransactions = "mapi/txs";
     public const string ApiZmqStatusUrl = "/api/v1/status/zmq";
+    public const string ApiDSQuery = "dsnt/1/query";
+    public const string ApiDSSubmit = "dsnt/1/submit";
   }
 }

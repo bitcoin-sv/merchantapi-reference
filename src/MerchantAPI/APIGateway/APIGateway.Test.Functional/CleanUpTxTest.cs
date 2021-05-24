@@ -1,8 +1,11 @@
-﻿using MerchantAPI.APIGateway.Domain;
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Test.Functional.CleanUpTx;
-using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
+using MerchantAPI.Common.Test.Clock;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -54,11 +57,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private async Task<uint256> AddBlocks(bool dsCheckMempool)
     {
       long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockHex = await RpcClient.GetBlockAsBytesAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = NBitcoin.Block.Load(blockHex, Network.Main);
+      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
+      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
       rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
       var firstBlockHash = firstBlock.GetHash();
 
       var pubKey = firstBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First();
@@ -70,7 +72,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long forkHeight = blockCount++;
       rpcClientFactoryMock.AddKnownBlock(forkHeight, block1.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
 
       var block2 = block1.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
       var tx2 = Transaction.Parse(Tx2Hex, Network.Main);
@@ -78,7 +79,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       block2.Check();
       rpcClientFactoryMock.AddKnownBlock(blockCount++, block2.ToBytes());
       PublishBlockHashToEventBus(await RpcClient.GetBestBlockHashAsync());
-      WaitUntilEventBusIsIdle();
 
       if (dsCheckMempool)
       {
@@ -142,7 +142,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNull(firstBlockTest);
     }
 
-    private async Task ResumeAndWaitForCleanup(Common.EventBus.EventBusSubscription<CleanUpTxTriggeredEvent> cleanUpTxTriggeredSubscription)
+    private async Task ResumeAndWaitForCleanup(MerchantAPI.Common.EventBus.EventBusSubscription<CleanUpTxTriggeredEvent> cleanUpTxTriggeredSubscription)
     {
       using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
       await cleanUpTxService.ResumeAsync(cts.Token);
@@ -236,7 +236,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       List<Tx> txList = await CreateAndInsertTxAsync(false, true);
 
       (_, _, var firstBlockHash) = await InsertDoubleSpend();
-      WaitUntilEventBusIsIdle();
 
       await CheckTxListPresentInDbAsync(txList, true);
       await CheckBlockPresentInDbAsync(firstBlockHash);
@@ -275,7 +274,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var cleanUpTxTriggeredSubscription = eventBus.Subscribe<CleanUpTxTriggeredEvent>();
 
       (List<Tx> txList, uint256 firstBlockHash) = await CreateAndInsertTxWithMempoolAsync(dsCheckMempool: true);
-      WaitUntilEventBusIsIdle();
 
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
       List<byte[]> dsTxId = new List<byte[]>
@@ -292,7 +290,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
           dsTx.TxExternalIdBytes,
           txPayload);
       }
-      WaitUntilEventBusIsIdle();
       var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToList();
       Assert.AreEqual(1, doubleSpends.Count());
 

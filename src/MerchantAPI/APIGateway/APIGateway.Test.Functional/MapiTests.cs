@@ -1,15 +1,21 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.Clock;
+using MerchantAPI.APIGateway.Test.Functional.Attributes;
+using MerchantAPI.Common.Test.Clock;
 using MerchantAPI.Common.Json;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -19,13 +25,16 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+
   [TestClass]
   public class MapiTests : TestBase
   {
+    public TestContext TestContext { get; set; }
+
     void AddMockNode(int nodeNumber)
     {
-      var mockNode = new Node(0, "mockNode"+nodeNumber, 0, "mockuserName", "mockPassword", "This is a mock node #"+nodeNumber,
-        (int)NodeStatus.Connected, null, null);
+      var mockNode = new Node(0, "mockNode" + nodeNumber, 0, "mockuserName", "mockPassword", "This is a mock node #" + nodeNumber,
+        null, (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.CreateNodeAsync(mockNode).Result;
     }
@@ -33,9 +42,24 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestInitialize]
     public void TestInitialize()
     {
-      Initialize(mockedServices: true);
+      //Retrive OverrideSettingAttribute data (setting name and value)
+      List<KeyValuePair<string, string>> overridenSettings = new List<KeyValuePair<string, string>>();     
+      var overrideSettingsAttributes = GetType().GetMethod(TestContext.TestName).GetCustomAttributes(true).Where(a => a.GetType() == typeof(OverrideSettingAttribute));
+      foreach (var attribute in overrideSettingsAttributes)
+      {
+        OverrideSettingAttribute overrideSettingsAttribute = (OverrideSettingAttribute)attribute;
+        overridenSettings.Add(new KeyValuePair<string, string>(overrideSettingsAttribute.SettingName, overrideSettingsAttribute.SettingValue.ToString()));
+      }
+
+      Initialize(mockedServices: true, overridenSettings);
       AddMockNode(0);
     }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
+    }
+
 
     [TestCleanup]
     public void TestCleanup()
@@ -51,7 +75,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     void AssertIsOK(SubmitTransactionResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
     {
 
-      Assert.AreEqual("1.2.0", response.ApiVersion);
+      Assert.AreEqual("1.3.0", response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedResult, response.ReturnResult);
       Assert.AreEqual(expectedDescription, response.ResultDescription);
@@ -64,7 +88,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     void AssertIsOK(FeeQuoteViewModelGet response)
     {
 
-      Assert.AreEqual("1.2.0", response.ApiVersion);
+      Assert.AreEqual("1.3.0", response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
 
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
@@ -76,18 +100,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task GetFeeQuote()
     {
       var response = await Get<SignedPayloadViewModel>(
-        MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+        client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
 
-      var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+      var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes + 1)))
       {
         // should return same
         response = await Get<SignedPayloadViewModel>(
-          MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+          client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
 
-        payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+        payload = response.ExtractPayload<FeeQuoteViewModelGet>();
         AssertIsOK(payload);
       }
 
@@ -98,13 +122,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task GetFeeQuoteAuthenticated()
     {
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
-      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
-                     MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.NotFound);
+      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
+                     client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.NotFound);
       Assert.AreEqual("Not Found", response.httpResponse.ReasonPhrase);
 
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
+      response = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
     }
@@ -117,9 +141,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var ValidRestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
      
       RestAuthentication = ValidRestAuthentication+"invalid";
-      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
-      Assert.IsNull(response.response);
+      var response = await Get<SignedPayloadViewModel>(
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response);
     }
 
     [TestMethod]
@@ -129,32 +153,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // test authentication: same provider and identity as defined in json - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
-      (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
-      var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+      var response = await Get<SignedPayloadViewModel>(
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
+      var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
 
       // different user, same provider, same authority - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjAyOCwiZXhwIjoxOTE5MjI2MDI4LCJpYXQiOjE2MDM4NjYwMjgsImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoiaHR0cDovL215YXVkaWVuY2UuY29tIn0.01Rm6t4GBScDwgoOnFwBjjvgu6U5YBK7qlCTg-_BF6c";
       response = await Get<SignedPayloadViewModel>(
-                 MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.OK);
-      payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
+                 client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
+      payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
 
       // same user, different (invalid) provider, same authority - should fail
       //TokenManager.exe generate -n testName - i http://test.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjQ4OCwiZXhwIjoxOTE5MjI2NDg4LCJpYXQiOjE2MDM4NjY0ODgsImlzcyI6Imh0dHA6Ly90ZXN0LmNvbSIsImF1ZCI6Imh0dHA6Ly9teWF1ZGllbmNlLmNvbSJ9.oGxXXbTj0yUf0UrwOF44bbRMt-Xe6YjAyuy4A3jrbbU";
       response = await Get<SignedPayloadViewModel>(
-           MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
-      Assert.IsNull(response.response);
+           client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response);
 
       // same user and provider, different authority
       // TokenManager.exe generate -n 5 -i http://mysite.com -a http://testaudience.com -k thisisadevelopmentkey -d 3650
       RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNjAzODY2NzAxLCJleHAiOjE5MTkyMjY3MDEsImlhdCI6MTYwMzg2NjcwMSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vdGVzdGF1ZGllbmNlLmNvbSJ9.d0TU7em4_8ZzO8A3YGxVwyl0ElpDQIu35auPSa24i48";
       response = await Get<SignedPayloadViewModel>(
-     MapiServer.ApiMapiQueryFeeQuote, client, HttpStatusCode.Unauthorized);
-      Assert.IsNull(response.response);
+     client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
+      Assert.IsNull(response);
     }
 
     [TestMethod]
@@ -197,7 +221,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       AssertIsOK(payload, txC3Hash);
     }
 
-        [TestMethod]
+    [TestMethod]
     public async Task SubmitTransactionDuplicateError()
     {
       var txBytes = HelperTools.HexStringToByteArray(txC3Hex);
@@ -337,7 +361,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx0 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txC0Hex));
 
       int txLength = 160;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       var minRequiredFees = Math.Min((txLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 40
                           (txLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 80
 
@@ -366,7 +390,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx0 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txC0Hex));
  
       int txLength = 160;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       var minRequiredFees = Math.Min((txLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 40
                           (txLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 80
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees - 1); // submit tx1 should fail
@@ -410,11 +434,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long txLength = 160;
       long dataLength = 100;
       long standard = txLength-dataLength;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "data");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Data);
       var minRequiredFees = Math.Min((dataLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 20
                     (dataLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 40
-      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
-      minRequiredFees +=  Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 15
+      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
+      minRequiredFees += Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 15
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 30
 
 
@@ -444,10 +468,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long txLength = 160;
       long dataLength = 100;
       long standard = txLength - dataLength;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "data");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Data);
       var minRequiredFees = Math.Min((dataLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 20
                     (dataLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 40
-      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       minRequiredFees += Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, // 15
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 30
 
@@ -493,10 +517,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long txLength = 400000;
       long dataLength = 350000;
       long standard = txLength - dataLength;
-      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "data");
+      var fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Data);
       var minRequiredFees = Math.Min((dataLength * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, 
                     (dataLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); 
-      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == "standard");
+      fee = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null).Single().Fees.Single(x => x.FeeType == Const.FeeType.Standard);
       minRequiredFees += Math.Min((standard * fee.RelayFee.Satoshis) / fee.RelayFee.Bytes, 
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); 
 
@@ -520,8 +544,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     [TestMethod]
-    [DataRow("something", HttpStatusCode.OK, "CallbackUrl should be a valid URL")]
-    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallbackUrl uses invalid scheme. Only 'http' and 'https' are supported")]
+    [DataRow("something", HttpStatusCode.OK, "CallbackUrl: something should be a valid URL")]
+    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallbackUrl: invalidScheme://www.something.com uses invalid scheme. Only 'http' and 'https' are supported")]
     [DataRow("http://www.something.com", HttpStatusCode.OK, "")]
     [DataRow("https://www.something.com", HttpStatusCode.OK, "")]
     public async Task SubmitTransactionJsonInvalidCallbackUrl(string url, HttpStatusCode expectedCode, string returnResult)
@@ -546,7 +570,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Test submitting single tx through JSON
       var reqContent = new StringContent($"{{ \"rawtx\": \"{tx1Hex}\", \"callbackUrl\" : \"{url}\" }}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-      var resp  = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, expectedCode);
+      var resp = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, expectedCode);
       var txRespViewModel = HelperTools.JSONDeserialize<SubmitTransactionResponseViewModel>(resp.response.Payload);
       Assert.AreEqual(returnResult, txRespViewModel.ResultDescription);
 
@@ -774,10 +798,26 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txZeroFeeHash,"failure", "Not enough fees");
+      AssertIsOK(payload, txZeroFeeHash, "failure", "Not enough fees");
     }
 
+    [TestMethod]
+    [OverrideSetting("AppSettings:CheckFeeDisabled", true)]
+    public async Task SubmitTransactionJsonCheckFeeDisabled()
+    {
+      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      Assert.AreEqual(1, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      // Check if all fields are set
+      AssertIsOK(payload, txZeroFeeHash);      
+    }
 
     void Assert2ValidAnd1Invalid(SubmitTransactionsResponseViewModel response)
     {
@@ -786,7 +826,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txC3Hash + "/" + tx2Hash);
 
       // validate header
-      Assert.AreEqual("1.2.0", response.ApiVersion);
+      Assert.AreEqual("1.3.0", response.ApiVersion);
       Assert.IsTrue((DateTime.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
       Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHeight, response.CurrentHighestBlockHeight);

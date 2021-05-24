@@ -1,4 +1,7 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿
+/*
+// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels
 {
@@ -17,3 +20,4 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     }
   }
 }
+*/

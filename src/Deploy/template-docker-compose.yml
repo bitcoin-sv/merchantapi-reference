@@ -7,7 +7,6 @@ services:
     image: postgres:12
     environment:
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: merchant_gateway
     volumes:
       - mapi-volume:/var/lib/postgresql/data
     networks:
@@ -18,35 +17,45 @@ services:
     image: bitcoinsv/mapi:{{VERSION}}
     ports:
       - "${HTTPSPORT}:443"
+      - "${HTTPPORT:-80}:80"
     depends_on:
       - merchant-gateway-database
     volumes:
       - ./config/:/config/:ro
     environment:
-      - ConnectionStrings:DBConnectionString=Server=merchant-gateway-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_gateway;
-      - ConnectionStrings:DBConnectionStringMaster=Server=merchant-gateway-database;Port=5432;User Id=postgres;Password=postgres;Database=merchant_gateway;
-      - AppSettings:QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
-      - AppSettings:ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
-      - AppSettings:RestAdminAPIKey=${RESTADMIN_APIKEY}
-      - AppSettings:DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
-      - AppSettings:CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
-      - AppSettings:CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
-      - AppSettings:WifPrivateKey=${WIF_PRIVATEKEY}
-      - AppSettings:Notification:NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
-      - AppSettings:Notification:InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
-      - AppSettings:Notification:InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}
-      - AppSettings:Notification:MaxNotificationsInBatch=${NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH}
-      - AppSettings:Notification:SlowHostThresholdInMs=${NOTIFICATION_SLOW_HOST_THRESHOLD_MS}
-      - AppSettings:Notification:InstantNotificationsSlowTaskPercentage=${NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE}
-      - AppSettings:Notification:NoOfSavedExecutionTimes=${NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES}
-      - AppSettings:Notification:NotificationsRetryCount=${NOTIFICATION_NOTIFICATIONS_RETRY_COUNT}
-      - AppSettings:Notification:SlowHostResponseTimeoutMS=${NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS}
-      - AppSettings:Notification:FastHostResponseTimeoutMS=${NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS}
-      - AppSettings:MinerIdServer:Url=${MINERID_SERVER_URL}
-      - AppSettings:MinerIdServer:Alias=${MINERID_SERVER_ALIAS}
-      - AppSettings:MinerIdServer:Authentication=${MINERID_SERVER_AUTHENTICATION}
+      - ConnectionStrings__DBConnectionString=Server=merchant-gateway-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_gateway;
+      - ConnectionStrings__DBConnectionStringDDL=Server=merchant-gateway-database;Port=5432;User Id=merchantddl;Password=merchant;Database=merchant_gateway;
+      - ConnectionStrings__DBConnectionStringMaster=Server=merchant-gateway-database;Port=5432;User Id=postgres;Password=postgres;Database=merchant_gateway;
+      - AppSettings__QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
+      - AppSettings__ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
+      - AppSettings__RestAdminAPIKey=${RESTADMIN_APIKEY}
+      - AppSettings__DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
+      - AppSettings__CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
+      - AppSettings__CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
+      - AppSettings__CheckFeeDisabled=${CHECK_FEE_DISABLED}
+      - AppSettings__WifPrivateKey=${WIF_PRIVATEKEY}
+      - AppSettings__DSHostBanTimeSec=${DS_HOST_BAN_TIME_SEC}
+      - AppSettings__DSMaxNumOfTxQueries=${DS_MAX_NUM_OF_TX_QUERIES}
+      - AppSettings__DSCachedTxRequestsCooldownPeriodSec=${DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC}
+      - AppSettings__DSMaxNumOfUnknownTxQueries=${DS_MAX_NUM_OF_UNKNOWN_QUERIES}
+      - AppSettings__DSUnknownTxQueryCooldownPeriodSec=${DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC}
+      - AppSettings__DSScriptValidationTimeoutSec=${DS_SCRIPT_VALIDATION_TIMEOUT_SEC}
+      - AppSettings__EnableHTTP=${ENABLEHTTP}
+      - AppSettings__Notification__NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
+      - AppSettings__Notification__InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
+      - AppSettings__Notification__InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}
+      - AppSettings__Notification__MaxNotificationsInBatch=${NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH}
+      - AppSettings__Notification__SlowHostThresholdInMs=${NOTIFICATION_SLOW_HOST_THRESHOLD_MS}
+      - AppSettings__Notification__InstantNotificationsSlowTaskPercentage=${NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE}
+      - AppSettings__Notification__NoOfSavedExecutionTimes=${NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES}
+      - AppSettings__Notification__NotificationsRetryCount=${NOTIFICATION_NOTIFICATIONS_RETRY_COUNT}
+      - AppSettings__Notification__SlowHostResponseTimeoutMS=${NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS}
+      - AppSettings__Notification__FastHostResponseTimeoutMS=${NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS}
+      - AppSettings__MinerIdServer__Url=${MINERID_SERVER_URL}
+      - AppSettings__MinerIdServer__Alias=${MINERID_SERVER_ALIAS}
+      - AppSettings__MinerIdServer__Authentication=${MINERID_SERVER_AUTHENTICATION}
       - ASPNETCORE_ENVIRONMENT=PRODUCTION
-      - ASPNETCORE_URLS=https://+:443
+      - ASPNETCORE_URLS=https://+:443;http://+:80
       - ASPNETCORE_HTTPS_PORT=${HTTPSPORT}
       - ASPNETCORE_Kestrel__Certificates__Default__Password=${CERTIFICATEPASSWORD}
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/config/${CERTIFICATEFILENAME}

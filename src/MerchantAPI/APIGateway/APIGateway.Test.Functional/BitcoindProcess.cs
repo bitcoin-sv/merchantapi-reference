@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
 using System.Collections.Generic;
@@ -7,16 +8,18 @@ using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading;
-using MerchantAPI.Common;
 using MerchantAPI.Common.BitcoinRpc;
 using Microsoft.Extensions.Logging;
+using MerchantAPI.Common.Tasks;
+using System.Net.Http;
+
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   public class BitcoindProcess : IDisposable
   {
     const string defaultParams =
-      "-regtest -logtimemicros -excessiveblocksize=100000000000 -maxstackmemoryusageconsensus=1000000000 -genesisactivationheight=1 -debug -debugexclude=libevent -debugexclude=tor";
+      "-regtest -logtimemicros -excessiveblocksize=100000000000 -maxstackmemoryusageconsensus=1000000000 -genesisactivationheight=1 -debug -debugexclude=libevent -debugexclude=tor -dsendpointport=5555";
 
     Process process;
     
@@ -26,6 +29,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public IRpcClient RpcClient { get; private set; }
 
     ILogger<BitcoindProcess> logger;
+
+    IHttpClientFactory httpClientFactory;
+
     public int P2Port { get; private set; }
     public int RpcPort { get; private set; }
     public string RpcUser { get; private set; }
@@ -37,12 +43,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public string Host { get; private set; }
 
 
-    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, string zmqIp, ILoggerFactory loggerFactory) :
+    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null) :
       this(hostIp, bitcoindFullPath, Path.Combine(dataDirRoot, "node" + nodeIndex),
         18444 + nodeIndex,
         18332 + nodeIndex,
         zmqIp, 
-        28333 + nodeIndex, loggerFactory)
+        28333 + nodeIndex, 
+        loggerFactory,
+        httpClientFactory,
+        nodesToConnect: nodesToConnect)
     {
 
     }
@@ -50,7 +59,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     /// <summary>
     /// Deletes node data directory (if exists) and start new instance of bitcoind
     /// </summary>
-    public BitcoindProcess(string hostIp, string bitcoindFullPath, string dataDir, int p2pPort, int rpcPort, string zmqIp, int zmqPort, ILoggerFactory loggerFactory, bool emptyDataDir = true)
+    public BitcoindProcess(string hostIp, string bitcoindFullPath, string dataDir, int p2pPort, int rpcPort, string zmqIp, int zmqPort, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, bool emptyDataDir = true, BitcoindProcess[] nodesToConnect = null)
     {
       this.Host = hostIp;
       this.P2Port = p2pPort;
@@ -60,7 +69,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       this.ZmqIp = zmqIp;
       this.ZmqPort = zmqPort;
       this.logger = loggerFactory.CreateLogger<BitcoindProcess>();
-      
+      this.httpClientFactory = httpClientFactory;
 
       if (!ArePortsAvailable(p2pPort, rpcPort))
       {
@@ -100,10 +109,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
       argumentList.Add($"-datadir={dataDir}");
       argumentList.Add($"-rpcuser={RpcUser}");
       argumentList.Add($"-rpcpassword={RpcPassword}");
+      argumentList.Add($"-rest=1");
       argumentList.Add($"-zmqpubhashblock=tcp://{ZmqIp}:{zmqPort}");
       argumentList.Add($"-zmqpubinvalidtx=tcp://{ZmqIp}:{zmqPort}");
       argumentList.Add($"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}");
       argumentList.Add($"-invalidtxsink=ZMQ");
+
+      if (nodesToConnect != null)
+      {
+        foreach(var node in nodesToConnect)
+        {
+          argumentList.Add($"-addnode={node.Host}:{node.P2Port}");
+        }
+      }
 
       logger.LogInformation($"Starting {bitcoindFullPath} {string.Join(" ",argumentList.ToArray())}");
 
@@ -133,7 +151,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       
       var rpcClient = new RpcClient(RpcClientFactory.CreateAddress(Host, rpcPort),
-        new System.Net.NetworkCredential(RpcUser, RpcPassword), loggerFactory.CreateLogger<RpcClient>());
+        new System.Net.NetworkCredential(RpcUser, RpcPassword), loggerFactory.CreateLogger<RpcClient>(),
+        httpClientFactory.CreateClient(Host));
       try
       {
 
@@ -146,7 +165,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       this.RpcClient = rpcClient;
-      if (emptyDataDir)
+      if (nodesToConnect is null && emptyDataDir)
       {
         var height = rpcClient.GetBlockHeaderAsync(bestBlockhash).Result.Height;
         if (height != 0)

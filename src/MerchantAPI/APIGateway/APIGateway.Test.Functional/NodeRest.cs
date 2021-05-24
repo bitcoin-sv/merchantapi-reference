@@ -1,9 +1,18 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc;
+using MerchantAPI.Common.Json;
+using MerchantAPI.Common.Test;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -14,13 +23,33 @@ using System.Threading.Tasks;
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestClass]
-  public class NodeRest : TestRestBase<NodeViewModelGet, NodeViewModelCreate>
+  public class NodeRest : CommonRestMethodsBase<NodeViewModelGet, NodeViewModelCreate, AppSettings> 
   {
+    public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
+    public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
+    public string DbConnectionStringDDL { get { return Configuration["ConnectionStrings:DBConnectionStringDDL"]; } }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
+    }
+
+    protected RpcClientFactoryMock rpcClientFactoryMock;
+
     [TestInitialize]
     public void TestInitialize()
     {
       Initialize(mockedServices: true);
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
+
+      rpcClientFactoryMock = server.Services.GetRequiredService<IRpcClientFactory>() as RpcClientFactoryMock;
+
+      if (rpcClientFactoryMock != null)
+      {
+        rpcClientFactoryMock.AddKnownBlock(0, HelperTools.HexStringToByteArray(TestBase.genesisBlock));
+
+        rpcClientFactoryMock.Reset(); // remove calls that are used to test node connection when adding a new node
+      }
     }
 
     [TestCleanup]
@@ -28,6 +57,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       Cleanup();
     }
+
 
     public override string GetNonExistentKey() => "ThisKeyDoesNotExists:123";
     public override string GetBaseUrl() => MapiServer.ApiNodeUrl;
@@ -54,6 +84,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       entry.Remarks += "Updated remarks";
       entry.Username += "updatedUsername";
+      entry.ZMQNotificationsEndpoint = "updatedEndpoint";
     }
 
     public override NodeViewModelCreate[] GetItemsToCreate()
@@ -85,11 +116,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(post.Id.ToLower(), get.Id.ToLower()); // Ignore key case
       Assert.AreEqual(post.Remarks, get.Remarks);
       Assert.AreEqual(post.Username, get.Username);
+      Assert.AreEqual(post.ZMQNotificationsEndpoint, get.ZMQNotificationsEndpoint);
       // Password can not be retrieved. We also do not check additional fields such as LastErrorAt
     }
 
     [TestMethod]
-    public async Task CreateNode_WrongIdSyntax_ShouldReturnBadREquest()
+    public async Task CreateNode_WrongIdSyntax_ShouldReturnBadRequest()
     {
       //arrange
       var create = new NodeViewModelCreate
@@ -112,7 +144,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task CreateNode_WrongIdSyntax2_ShouldReturnBadREquest()
+    public async Task CreateNode_WrongIdSyntax2_ShouldReturnBadRequest()
     {
       //arrange
       var create = new NodeViewModelCreate
@@ -154,6 +186,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, vpd.Errors.Count());
       Assert.AreEqual("Username", vpd.Errors.First().Key);
     }
-    
+
+    [TestMethod]
+    public async Task UpdateNode_NoUsername_ShouldReturnBadRequest()
+    {
+      //arrange
+      var create = new NodeViewModelPut
+      {
+        Remarks = "Some remarks2",
+        Password = "somePassword2",
+        Username = null // missing username
+      };
+      var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
+
+      //act
+      await Put(client, UrlForKey("some.host2:2"), content.ToString(), HttpStatusCode.BadRequest);
+
+    }
   }
 }

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 Bitcoin Association
+// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using MerchantAPI.Common.Database;
-using Microsoft.AspNetCore;
+using MerchantAPI.Common.Startup;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

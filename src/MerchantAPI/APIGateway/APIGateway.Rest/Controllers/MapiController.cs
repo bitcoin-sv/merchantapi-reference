@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
 using System.IO;
@@ -10,7 +11,7 @@ using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.APIGateway.Rest.Authentication;
+using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,10 +19,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MerchantAPI.APIGateway.Domain;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using MerchantAPI.APIGateway.Rest.Swagger;
 using NBitcoin;
-using Newtonsoft.Json.Linq;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.APIGateway.Rest.Swagger;
+using MerchantAPI.Common.Authentication;
+using MerchantAPI.Common.Exceptions;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -30,6 +32,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
   [AllowAnonymous]
   [ApiExplorerSettings(GroupName = SwaggerGroup.API)]
+  [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class MapiController : ControllerBase
   {
 
@@ -70,7 +73,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       if (string.IsNullOrEmpty(responseMinerId))
       {
         // Do not sing if we do not have miner id
-        return Ok(new JSONEnvelopeViewModelGet(payload));
+        return Ok(new JSONEnvelopeViewModel(payload));
       }
 
 
@@ -148,7 +151,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       if (!uint256.TryParse(id, out _))
       {
         var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int) HttpStatusCode.BadRequest);
-        problemDetail.Title = "invalid format of TransactionId";
+        problemDetail.Title = "Invalid format of TransactionId";
         return BadRequest(problemDetail);
       }
 
@@ -176,7 +179,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         return Unauthorized("Incorrectly formatted token");
       }
 
-      var domainModel = data.ToDomainModel(null, null, null, false, false);
+      var domainModel = data.ToDomainModel(null, null, null, false, null, false);
 
       var result =
         new SubmitTransactionResponseViewModel(
@@ -206,6 +209,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool merkleProof,
       [FromQuery]
+      string merkleFormat,
+      [FromQuery]
       bool dsCheck)
     {
       if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
@@ -227,6 +232,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         CallbackToken = callbackToken,
         CallbackEncryption =  callbackEncryption,
         MerkleProof = merkleProof,
+        MerkleFormat = merkleFormat,
         DsCheck = dsCheck
       };
       
@@ -258,6 +264,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery]
       bool defaultMerkleProof,
       [FromQuery]
+      string defaultMerkleFormat,
+      [FromQuery]
       bool defaultDsCheck)
     {
       if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
@@ -266,12 +274,23 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       }
       
       var domainModel = data.Select(x =>
-        x.ToDomainModel(defaultCallbackUrl, defaultCallbackToken, defaultCallbackEncryption, defaultMerkleProof, defaultDsCheck)).ToArray();
+        x.ToDomainModel(defaultCallbackUrl, defaultCallbackToken, defaultCallbackEncryption, defaultMerkleProof, defaultMerkleFormat, defaultDsCheck)).ToArray();
 
-      var result =
-        new SubmitTransactionsResponseViewModel(
-          await mapi.SubmitTransactionsAsync(domainModel,
-            identity));
+      SubmitTransactionsResponseViewModel result;
+      try
+      {
+        result =
+          new SubmitTransactionsResponseViewModel(
+            await mapi.SubmitTransactionsAsync(domainModel,
+              identity));
+      }
+      catch(BadRequestException ex)
+      {
+        logger.LogError($"Error while submiting transactions. {ex.Message}.");
+        var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
+        problemDetail.Title = ex.Message;
+        return BadRequest(problemDetail);
+      }
 
       return await SignIfRequiredAsync(result, result.MinerId);
 
@@ -293,6 +312,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       [FromQuery] string callbackEncryption,
       [FromQuery] string callbackToken,
       [FromQuery] bool merkleProof,
+      [FromQuery] string merkleFormat,
       [FromQuery] bool dsCheck
       )
     {
@@ -311,7 +331,6 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       byte[][] transactionAsBytes;
       try
       {
-        // This is not very efficient, since we will reparse bytes into NBitcoin.Transaction later again
         transactionAsBytes = HelperTools.ParseTransactionsIntoBytes(data);
       }
       catch (Exception)
@@ -331,12 +350,24 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
             CallbackEncryption = callbackEncryption,
             CallbackToken = callbackToken,
             MerkleProof = merkleProof,
+            MerkleFormat = merkleFormat,
             DsCheck = dsCheck
           }).ToArray();
 
-      var result =
-        new SubmitTransactionsResponseViewModel(
-          await mapi.SubmitTransactionsAsync(request, identity));
+      SubmitTransactionsResponseViewModel result;
+      try
+      {
+        result =
+          new SubmitTransactionsResponseViewModel(
+            await mapi.SubmitTransactionsAsync(request, identity));
+      }
+      catch (BadRequestException ex)
+      {
+        logger.LogError($"Error while submitting transactions. {ex.Message}.");
+        var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
+        problemDetail.Title = ex.Message;
+        return BadRequest(problemDetail);
+      }
       return await SignIfRequiredAsync(result, result.MinerId);
     }
   }

@@ -1,14 +1,17 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
-using MerchantAPI.APIGateway.Domain.Models;
-using MerchantAPI.APIGateway.Domain.Repositories;
 using System.IO;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Test.Clock;
+using MerchantAPI.Common.Authentication;
+using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Repositories;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
@@ -31,7 +34,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     {
       string path = Directory.GetCurrentDirectory();
 
-      string projectName = "APIGateway.Test.Functional";
+      string projectName = Path.Combine("APIGateway.Test.Functional");
 
       for (int i = 0; i < 6; i++)
       {

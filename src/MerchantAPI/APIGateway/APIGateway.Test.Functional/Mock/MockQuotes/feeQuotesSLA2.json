@@ -1,0 +1,28 @@
+﻿[
+  {
+    "fees": [
+      {
+        "feeType": "standard",
+        "miningFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        }
+      },
+      {
+        "feeType": "data",
+        "miningFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        },
+        "relayFee": {
+          "satoshis": 500,
+          "bytes": 1000
+        }
+      }
+    ]
+  }
+]

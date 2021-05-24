@@ -1,13 +1,6 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using System;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
-using System.Threading;
-using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
@@ -16,13 +9,20 @@ using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
+using System;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Mime;
+using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -110,7 +110,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(txHex1, txHex2);
 
       // Send first transaction using MAPI
-      var payload = await SubmitTransactionAsync(txHex1);
+      var payload = await SubmitTransactionAsync(txHex1, true, true);
       Assert.AreEqual(payload.ReturnResult, "success");
 
       // Send second transaction using RPC
@@ -137,10 +137,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if callback was received
       var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
-      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
       Assert.AreEqual(CallbackReason.DoubleSpendAttempt, callback.CallbackReason);
+      Assert.AreEqual(-1, callback.BlockHeight);
       Assert.AreEqual(new uint256(txId1), new uint256(callback.CallbackTxId));
       Assert.AreEqual(new uint256(txId2), new uint256(callback.CallbackPayload.DoubleSpendTxId));
 
@@ -172,7 +173,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var calls = Callback.Calls;
       Assert.AreEqual(2, calls.Length);
-      var callbackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[1].request)
+      var callbackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[1].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
       Assert.AreEqual(CallbackReason.DoubleSpend, callbackDS.CallbackReason);
       Assert.AreEqual(new uint256(txId1), new uint256(callbackDS.CallbackTxId));
@@ -194,7 +195,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(txHex1, txHex2);
 
       // Send first transaction using mAPI
-      var payload = await SubmitTransactionAsync(txHex1);
+      var payload = await SubmitTransactionAsync(txHex1, true, true);
       Assert.AreEqual("success", payload.ReturnResult);
 
       var mempoolTxs = await rpcClient0.GetRawMempool();
@@ -216,7 +217,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
 
-      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModelGet>(calls[0].request)
+      var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
       Assert.AreEqual(CallbackReason.DoubleSpend, callback.CallbackReason);
@@ -243,7 +244,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
 
       // Send first transaction using mAPI - we want to get DS notification for it 
-      var payload = await SubmitTransactionAsync(txHex1);
+      var payload = await SubmitTransactionAsync(txHex1, true, true);
       Assert.AreEqual(payload.ReturnResult, "success");
 
       // Mine a new block containing tx1
@@ -255,7 +256,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var calls = Callback.Calls;
       Assert.AreEqual(1, calls.Length);
-      var signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[0].request);
+      var signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[0].request);
       var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
 
@@ -277,7 +278,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       calls = Callback.Calls;
       Assert.AreEqual(2, calls.Length);
-      signedJSON = HelperTools.JSONDeserialize<Rest.ViewModels.SignedPayloadViewModel>(calls[1].request);
+      signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[1].request);
       var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);
       Assert.AreEqual(txId2, dsNotification.CallbackPayload.DoubleSpendTxId);
@@ -340,7 +341,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Add node to database and emit repository event
       var node = new Node(0, "localhost", 18332, "user", "password", $"This is a mock node #0",
-        (int)NodeStatus.Connected, null, null);
+        null, (int)NodeStatus.Connected, null, null);
       this.NodeRepository.CreateNode(node);
       eventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
 
@@ -373,35 +374,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // New block discovered event should be fired
       var secondNewBlockArrivedSubscription = await newBlockDiscoveredSubscription.ReadAsync(cts.Token);
       Assert.AreEqual(blockHash[0], secondNewBlockArrivedSubscription.BlockHash);
-    }
-
-    (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
-    { 
-      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
-      var tx = BCash.Instance.Regtest.CreateTransaction();
-
-      tx.Inputs.Add(new TxIn(coin.Outpoint));
-      tx.Outputs.Add(coin.Amount - amount, address);
-
-      var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-
-      tx.Sign(key.GetBitcoinSecret(Network.RegTest), coin);
-
-      return (tx.ToHex(), tx.GetHash().ToString());
-    }
-
-
-    async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex)
-    {
-      // Send transaction
-      var callbackUrl = "http://www.something.com";
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": true, \"dscheck\": true, \"CallbackUrl\": \"{callbackUrl}\",  \"CallbackToken\": \"xxx\"}}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);      
-      var response =
-        await Post<MerchantAPI.APIGateway.Rest.ViewModels.SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-
     }
 
     private async Task RegisterNodesWithServiceAndWait(CancellationToken cancellationToken)
@@ -454,13 +426,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status 
       var response =
-        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
-      Assert.AreEqual(1, response.response.Length);
-      Assert.AreEqual(true, response.response.First().IsResponding);
-      Assert.AreEqual(1, response.response.First().Endpoints.Length);
-      Assert.IsTrue(response.response.First().Endpoints.First().Topics.Contains(ZMQTopic.InvalidTx));
-      Assert.IsTrue(response.response.First().Endpoints.First().Topics.Contains(ZMQTopic.HashBlock));
+      Assert.AreEqual(1, response.Length);
+      Assert.AreEqual(true, response.First().IsResponding);
+      Assert.AreEqual(1, response.First().Endpoints.Length);
+      Assert.IsTrue(response.First().Endpoints.First().Topics.Contains(ZMQTopic.InvalidTx));
+      Assert.IsTrue(response.First().Endpoints.First().Topics.Contains(ZMQTopic.HashBlock));
     }
 
     [TestMethod]
@@ -477,10 +449,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status - node should be responding
       var response =
-        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
-      Assert.AreEqual(1, response.response.Length);
-      Assert.AreEqual(true, response.response.First().IsResponding);
+      Assert.AreEqual(1, response.Length);
+      Assert.AreEqual(true, response.First().IsResponding);
 
       // Stop node
       StopBitcoind(node0);
@@ -490,10 +462,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status again - node should be marked as not responding
       response =
-        await Get<ZmqStatusViewModelGet[]>(MapiServer.ApiZmqStatusUrl, client, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
-      Assert.AreEqual(1, response.response.Length);
-      Assert.AreEqual(false, response.response.First().IsResponding);
+      Assert.AreEqual(1, response.Length);
+      Assert.AreEqual(false, response.First().IsResponding);
     }
+
   }
 }

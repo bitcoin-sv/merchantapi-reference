@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,6 @@ using NetMQ.Sockets;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.BitcoinRpc;
-using MerchantAPI.Common;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
@@ -23,7 +23,6 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models.Zmq;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Clock;
-using System.Security.Permissions;
 
 namespace MerchantAPI.APIGateway.Rest.Services
 {
@@ -263,9 +262,9 @@ namespace MerchantAPI.APIGateway.Rest.Services
         }
         catch (Exception ex)
         {
-          logger.LogError(ex, $"Failed to subscribe to ZMQ events. " +
+          logger.LogError($"Failed to subscribe to ZMQ events. " +
             $"Unable to connect to node {failedSubscription.Node.Host}:{failedSubscription.Node.Port}. " +
-            $"Will retry in {appSettings.ZmqConnectionTestIntervalSec} seconds.");
+            $"Will retry in {appSettings.ZmqConnectionTestIntervalSec} seconds. {ex.Message}");
           failedSubscription.LastError = ex.Message;
           failedSubscription.LastTryAt = clock.UtcNow();
         }
@@ -310,7 +309,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         {
           // Subscription failed so put node on failed list and log
           MarkAsFailed(node, ex.Message);
-          logger.LogError(ex, $"Failed to subscribe to ZMQ events. Unable to connect to node {node.Host}:{node.Port}. Will retry later.");
+          logger.LogError($"Failed to subscribe to ZMQ events. Unable to connect to node {node.Host}:{node.Port}. Will retry later. {ex.Message}");
         }
       }
 
@@ -395,9 +394,14 @@ namespace MerchantAPI.APIGateway.Rest.Services
           LastError = failedSubscription.LastError
         };
       }
-      // No current status - could happen if the node was just added and node repository
+      // Unknown status - could happen if the node was just added and node repository
       // events have not been processed by ZMQ service yet.
-      return null;
+      return new ZmqStatus()
+      {
+        IsResponding = false,
+        LastConnectionAttemptAt = null,
+        LastError = "Unknown"
+      };
     }
 
     private void ValidateNotifications(RpcActiveZmqNotification[] notifications)
@@ -419,7 +423,15 @@ namespace MerchantAPI.APIGateway.Rest.Services
           topic == ZMQTopic.InvalidTx ||
           topic == ZMQTopic.DiscardedFromMempool)
         {
-          SubscribeTopic(node.Id, notification.Address, topic);
+          // Use endpoint returned by rpc method if there is no endpoint configured for this node
+          if (string.IsNullOrEmpty(node.ZMQNotificationsEndpoint))
+          {
+            SubscribeTopic(node.Id, notification.Address, topic);
+          }
+          else
+          {
+            SubscribeTopic(node.Id, node.ZMQNotificationsEndpoint, topic);
+          }
         }
       }
       eventBus.Publish(new ZMQSubscribedEvent() { CreationDate = clock.UtcNow(), SourceNode = node });

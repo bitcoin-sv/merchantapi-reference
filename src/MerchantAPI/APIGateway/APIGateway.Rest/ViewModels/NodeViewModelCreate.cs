@@ -1,4 +1,5 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Models;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ using System.Text.Json.Serialization;
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels
 {
-  public class NodeViewModelCreate : IValidatableObject // used for POST/PUT
+  public class NodeViewModelCreate : IValidatableObject // used for POST
   {
 
     [JsonPropertyName("id")]
@@ -25,6 +26,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("remarks")]
     public string Remarks { get; set; }
 
+    [JsonPropertyName("ZMQNotificationsEndpoint")]
+    public string ZMQNotificationsEndpoint { get; set; }
+
     // No NodeStatus
 
     public Node ToDomainObject()
@@ -36,7 +40,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
         port,
         Username,
         Password,
-        Remarks);
+        Remarks,
+        ZMQNotificationsEndpoint);
     }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

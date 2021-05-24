@@ -1,11 +1,13 @@
-﻿// Copyright (c) 2020 Bitcoin Association
+﻿// Copyright(c) 2020 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.Common;
+using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -14,7 +16,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using System.Web;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -23,6 +24,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [ApiController]
   [Authorize]
   [ApiExplorerSettings(GroupName = SwaggerGroup.Admin)]
+  [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class FeeQuoteController: ControllerBase
   {
 
