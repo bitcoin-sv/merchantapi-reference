@@ -9,3 +9,4 @@
 /src/Deploy/Build
 TestResults
 /src/MerchantAPI.sln.DotSettings.user
+*.idea
