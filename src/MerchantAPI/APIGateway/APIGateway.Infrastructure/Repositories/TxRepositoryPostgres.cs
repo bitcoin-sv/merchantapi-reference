@@ -213,14 +213,22 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 
     public async Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors)
     {
+      if (transactions.Count == 0)
+        return;
+
       using var connection = GetDbConnection();
 
       long txInternalId;
       using (var seqTransaction = await connection.BeginTransactionAsync())
       {
         // Reserve sequence ids so no one else can use them
-        txInternalId = seqTransaction.Connection.ExecuteScalar<long>("SELECT nextval('tx_txinternalid_seq');");
-        seqTransaction.Connection.Execute($"SELECT setval('tx_txinternalid_seq', {txInternalId + transactions.Count});");
+
+        string cmdGenerateIds = @"
+SELECT NEXTVAL('tx_txinternalid_seq') 
+FROM generate_series(1, @transactionsCount)
+";      
+        var internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count })).ToArray();
+        txInternalId = internalIds.First();
         seqTransaction.Commit();
       }
 
