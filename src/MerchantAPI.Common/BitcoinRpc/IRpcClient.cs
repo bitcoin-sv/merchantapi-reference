@@ -39,7 +39,7 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token = null);
 
-    Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] transactions, CancellationToken? token = null);
+    Task<RpcSendTransactions> SendRawTransactionsAsync((byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions, CancellationToken? token = null);
 
     Task StopAsync(CancellationToken? token = null);
 

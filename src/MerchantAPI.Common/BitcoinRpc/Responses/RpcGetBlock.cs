@@ -183,6 +183,9 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
 
     [JsonPropertyName("listunconfirmedancestors")]
     public bool ListUnconfirmedAncestors { get; set; }
+
+    [JsonPropertyName("config")]
+    public Dictionary<string, object> Config { get; set; }
   }
 
   [Serializable]

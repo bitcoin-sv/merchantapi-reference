@@ -123,7 +123,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       return await RequestAsync<RpcGetBlockchainInfo>(token, "getblockchaininfo", null);
     }
 
-    public async Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token )
+    public async Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token)
     {
 
       var rpcResponse = await MakeRequestAsync<string>(token, new RpcRequest(1, "sendrawtransaction", 
@@ -135,7 +135,7 @@ namespace MerchantAPI.Common.BitcoinRpc
     }
 
     public async Task<RpcSendTransactions> SendRawTransactionsAsync(
-      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] transactions, CancellationToken? token = null)
+      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions, CancellationToken? token = null)
     {
 
       var t = transactions.Select(
@@ -144,7 +144,8 @@ namespace MerchantAPI.Common.BitcoinRpc
           Hex = HelperTools.ByteToHexString(tx.transaction),
           AllowHighFees = tx.allowhighfees,
           DontCheckFee = tx.dontCheckFees,
-          ListUnconfirmedAncestors = tx.listUnconfirmedAncestors
+          ListUnconfirmedAncestors = tx.listUnconfirmedAncestors,
+          Config = tx.config, 
         }).Cast<object>().ToArray();
 
       object param1 = t; // cast to object so that it is not interpreted as multiple arguments
@@ -334,6 +335,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       {
         paramDescription += ",...";
       }
+
       logger.LogInformation($"Calling method '{rpcRequest.Method}({paramDescription}) on node {Address.Host}:{Address.Port}");
       var reqMessage = CreateRequestMessage(rpcRequest.GetJSON());
       using var cts = new CancellationTokenSource(RequestTimeout);
