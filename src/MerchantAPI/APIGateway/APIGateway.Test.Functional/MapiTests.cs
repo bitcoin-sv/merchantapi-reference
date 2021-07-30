@@ -12,8 +12,6 @@ using MerchantAPI.Common.Test.Clock;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NBitcoin;
-using NBitcoin.Altcoins;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,6 +28,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   public class MapiTests : TestBase
   {
     public TestContext TestContext { get; set; }
+    private static string CallbackIPaddresses = "127.0.0.1";
 
     void AddMockNode(int nodeNumber)
     {
@@ -94,6 +93,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
       Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHeight, response.CurrentHighestBlockHeight);
       Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHash, response.CurrentHighestBlockHash);
+      Assert.AreEqual(CallbackIPaddresses,
+                response.Callbacks != null ? String.Join(",", response.Callbacks.Select(x => x.IPaddress)) : null);
     }
 
     [TestMethod]
@@ -182,6 +183,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    [OverrideSetting("AppSettings:CallbackIPAddresses", "127.0.0.1,0.1.2.3,4.5.6.7")]
+    public async Task TestGetMultipleDSNotificationServerIPs()
+    {
+      CallbackIPaddresses = "127.0.0.1,0.1.2.3,4.5.6.7";
+      var response = await Get<SignedPayloadViewModel>(
+           client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
+      var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
+      AssertIsOK(payload);
+    }
+
+    [TestMethod]
     public async Task SubmitTransaction_WithInvalidAuthentication()
     {
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
@@ -263,94 +275,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if all fields are set
       AssertIsOK(payload, txC3Hash);
       Assert.AreEqual("", payload.ResultDescription); // Description should be "" (not null)
-    }
-
-    private int GetBytesForScriptLength(ulong totalBytes)
-    {
-      if (totalBytes < byte.MaxValue) // uint8 == byte
-      {
-        return 1;
-      }
-      else if (totalBytes < UInt16.MaxValue) // if script length can not be encoded in single byte we need additional data
-      {
-        return 3; // saved as variable length integer (0xFD followed by the length as uint16_t)
-      }
-      else if (totalBytes < UInt32.MaxValue)
-      {
-        return 5;
-      }
-      else if (totalBytes < UInt64.MaxValue)
-      {
-        return 9;
-      }
-      else
-      {
-        throw new ArgumentException("Script is too big.");
-      }
-    }
-
-
-    /// <summary>
-    /// Create a new transaction with is totalBytes long. Out of this totalBytes, dataBytes are spend for 
-    /// </summary>
-    /// <param name="fundingTx">Input transaction. It's first output will be used as funding for new transaction</param>
-    /// <param name="totalBytes">Total desired length of created transaction</param>
-    /// <param name="dataBytes">Number of data bytes (OP_FALSE transaction ....) that this transaction  should contain</param>
-    /// <param name="totalFees"> total fees payed by this transaction</param>
-    /// <returns></returns>
-    Transaction CreateTransaction(Transaction fundingTx, long totalBytes, long dataBytes, long totalFees)
-    {
-      if (dataBytes > 0)
-      {
-        if (dataBytes < 2)
-        {
-          throw new ArgumentException($"nameof(dataBytes) should be at least 2, since script must start with OP_FALSE OP_RETURN");
-        }
-      }
-      
-      var remainingMoney = fundingTx.Outputs[0].Value - totalFees;
-      if (remainingMoney < 0L)
-      {
-        throw new ArgumentException("Fee is too large (or funding output is to low)");
-      }
-
-      var tx = BCash.Instance.Regtest.CreateTransaction();
-      tx.Inputs.Add(new TxIn(new OutPoint(fundingTx, 0)));
-
-      long sizeOfSingleOutputWithoutScript = sizeof(ulong) + GetBytesForScriptLength((ulong) (totalBytes - dataBytes)); // 9+:	A list of 1 or more transaction outputs or destinations for coins
-      long overHead =
-           tx.ToBytes().Length // length of single input
-          + dataBytes == 0 ? 0 : tx.ToBytes().Length + sizeOfSingleOutputWithoutScript;
-
-      long normalBytes = totalBytes - dataBytes - overHead;
-
-      if (normalBytes > 0 && dataBytes > 0) // Overhead also depends on number of outputs - if this is true we have two outputs 
-      {
-        normalBytes -= (sizeof(ulong) + GetBytesForScriptLength((ulong)dataBytes));
-      }
-
-      if (normalBytes > 0)
-      {
-        var scriptBytes = new byte[normalBytes];
-        tx.Outputs.Add(new TxOut(remainingMoney, new Script(scriptBytes)));
-        remainingMoney = 0L;
-      }
-      else if (normalBytes < 0)
-      {
-        throw new ArgumentException("Argument Databytes is too low.");
-      }
-      if (dataBytes > 0)
-      {
-        var scriptBytes = new byte[dataBytes];
-        scriptBytes[0] = (byte)OpcodeType.OP_FALSE;
-        scriptBytes[1] = (byte)OpcodeType.OP_RETURN;
-        tx.Outputs.Add(new TxOut(remainingMoney, new Script(scriptBytes)));
-      }
-
-      Assert.AreEqual(totalBytes, tx.ToBytes().Length, "Failed to create transaction of desired length");
-
-      return tx;
-      
     }
 
     [TestMethod]

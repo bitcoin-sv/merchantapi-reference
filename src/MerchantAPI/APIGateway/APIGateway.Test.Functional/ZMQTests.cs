@@ -28,9 +28,8 @@ using System.Threading.Tasks;
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestClass]
-  public class ZMQTests : TestBaseWithBitcoind
+  public class ZMQTests : MapiWithBitcoindTestBase
   {
-    private int cancellationTimeout = 30000; // 30 seconds
     public ZMQSubscriptionService zmqService;
 
     [TestInitialize]

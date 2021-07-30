@@ -284,8 +284,8 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       using NpgsqlTransaction transaction = connection.BeginTransaction();
 
       string insertFeeQuote =
-            "INSERT INTO FeeQuote (createdat, validfrom, identity, identityprovider) " +
-            "VALUES(@createdat, @validFrom, @identity, @identityprovider) " +
+            "INSERT INTO FeeQuote (createdat, validfrom, identity, identityprovider, policies) " +
+            "VALUES(@createdat, @validFrom, @identity, @identityprovider, @policies) " +
             "RETURNING *;";
 
       var feeQuoteRes = (await connection.QueryAsync<FeeQuote>(insertFeeQuote,
@@ -294,7 +294,8 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
             createdat = feeQuote.CreatedAt,
             validFrom = feeQuote.ValidFrom,
             identity = feeQuote.Identity,
-            identityprovider = feeQuote.IdentityProvider
+            identityprovider = feeQuote.IdentityProvider,
+            policies = feeQuote.Policies
           })
         ).Single();
 

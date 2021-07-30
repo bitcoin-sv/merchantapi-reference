@@ -36,17 +36,18 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   public class MapiController : ControllerBase
   {
 
-    private readonly double quoteExpiryMinutes;
-    
-    IFeeQuoteRepository feeQuoteRepository;
-    IMapi mapi;
-    ILogger<MapiController> logger;
-    IBlockChainInfo blockChainInfo;
-    IMinerId minerId;
-    private readonly IClock clock;
+    readonly double quoteExpiryMinutes;
+    readonly string[] callbackIPAddressesArray;
+
+    readonly IFeeQuoteRepository feeQuoteRepository;
+    readonly IMapi mapi;
+    readonly ILogger<MapiController> logger;
+    readonly IBlockChainInfo blockChainInfo;
+    readonly IMinerId minerId;
+    readonly IClock clock;
 
 
-    public MapiController(IOptions<AppSettings> options, IFeeQuoteRepository feeQuoteRepository, IMapi mapi, ILogger<MapiController> logger, IBlockChainInfo blockChainInfo, IMinerId minerId, IClock clock)
+    public MapiController(IFeeQuoteRepository feeQuoteRepository, IMapi mapi, ILogger<MapiController> logger, IBlockChainInfo blockChainInfo, IMinerId minerId, IClock clock, IOptions<AppSettings> options)
     {
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -55,11 +56,12 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       this.minerId = minerId ?? throw new ArgumentNullException(nameof(minerId));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       quoteExpiryMinutes = options.Value.QuoteExpiryMinutes;
+      callbackIPAddressesArray = options.Value.CallbackIPAddressesArray;
     }
 
 
     /// <summary>
-    /// Signs response if required. If response already contains minerId (for example as part of fee quote), pass it in as currentMinerId
+    /// Signs response if required. If response already contains minerId (for example as part of policy quote), pass it in as currentMinerId
     /// To make sure that correct key is used even key rotation just occured
     /// </summary>
     /// <typeparam name="T"></typeparam>
@@ -91,6 +93,20 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       return Ok(ret);
     }
 
+    private async Task<ActionResult> FillFeeQuoteViewModelWithInfo<T>(T feeQuoteViewModelGet) where T : FeeQuoteViewModelGet
+    {
+      feeQuoteViewModelGet.ExpiryTime = feeQuoteViewModelGet.Timestamp.Add(TimeSpan.FromMinutes(quoteExpiryMinutes));
+
+      var info = blockChainInfo.GetInfo();
+      feeQuoteViewModelGet.MinerId = await minerId.GetCurrentMinerIdAsync();
+      feeQuoteViewModelGet.CurrentHighestBlockHash = info.BestBlockHash;
+      feeQuoteViewModelGet.CurrentHighestBlockHeight = info.BestBlockHeight;
+
+      logger.LogInformation($"Returning {nameof(feeQuoteViewModelGet)} with ExpiryTime: {feeQuoteViewModelGet.ExpiryTime}.");
+
+      return await SignIfRequiredAsync(feeQuoteViewModelGet, feeQuoteViewModelGet.MinerId);
+    }
+
     // GET /mapi/feeQuote
     /// <summary>
     /// Get a fee quote.
@@ -116,22 +132,46 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         return NotFound();
       }
 
-      var feeQuoteViewModelGet = new FeeQuoteViewModelGet(feeQuote)
+      var feeQuoteViewModelGet = new FeeQuoteViewModelGet(feeQuote, callbackIPAddressesArray)
       {
         Timestamp = clock.UtcNow(),        
       };
-      feeQuoteViewModelGet.ExpiryTime = feeQuoteViewModelGet.Timestamp.Add(TimeSpan.FromMinutes(quoteExpiryMinutes));
 
-      var info = blockChainInfo.GetInfo();
-      feeQuoteViewModelGet.MinerId = await minerId.GetCurrentMinerIdAsync();
-      feeQuoteViewModelGet.CurrentHighestBlockHash = info.BestBlockHash;
-      feeQuoteViewModelGet.CurrentHighestBlockHeight = info.BestBlockHeight;
-
-      logger.LogInformation($"Returning feeQuote with ExpiryTime: {feeQuoteViewModelGet.ExpiryTime}.");
-
-      return await SignIfRequiredAsync(feeQuoteViewModelGet, feeQuoteViewModelGet.MinerId);
+      return await FillFeeQuoteViewModelWithInfo(feeQuoteViewModelGet);
     }
 
+    // GET /mapi/policyQuote
+    /// <summary>
+    /// Get a policy quote.
+    /// </summary>
+    /// <remarks>This endpoint returns a JSONEnvelope with a PolicyQuote payload that contains the fees charged by a specific BSV miner and set policies.</remarks>
+    [HttpGet]
+    [Route("policyQuote")]
+    public async Task<ActionResult<PolicyQuoteViewModelGet>> GetPolicyQuote()
+    {
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
+
+      logger.LogInformation($"Get PolicyQuote for user { ((identity == null) ? "/" : identity.ToString())} ...");
+      FeeQuote feeQuote = feeQuoteRepository.GetCurrentFeeQuoteByIdentity(identity);
+
+
+      if (feeQuote == null)
+      {
+        logger.LogInformation($"There are no active policyQuotes.");
+
+        return NotFound();
+      }
+
+      var policyQuoteViewModelGet = new PolicyQuoteViewModelGet(feeQuote, callbackIPAddressesArray)
+      {
+        Timestamp = clock.UtcNow(),
+      };
+
+      return await FillFeeQuoteViewModelWithInfo(policyQuoteViewModelGet);
+    }
 
 
     // GET /mapi/tx 
@@ -144,7 +184,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     [Route("tx/{id}")]
     public async Task<ActionResult<QueryTransactionStatusResponseViewModel>> QueryTransactionStatus(string id)
     {
-      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out var identity))
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out _))
       {
         return Unauthorized("Incorrectly formatted token");
       }

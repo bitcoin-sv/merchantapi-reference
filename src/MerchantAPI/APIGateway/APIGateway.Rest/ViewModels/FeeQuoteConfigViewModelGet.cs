@@ -3,7 +3,9 @@
 
 using MerchantAPI.APIGateway.Domain.Models;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels
@@ -26,6 +28,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("identityProvider")]
     public string IdentityProvider { get; set; }
 
+    [JsonPropertyName("policies")]
+    public Dictionary<string, object> Policies { get; set; }
 
     [JsonPropertyName("fees")]
     public FeeViewModelGet[] Fees { get; set; }
@@ -39,6 +43,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       Identity = feeQuote.Identity;
       IdentityProvider = feeQuote.IdentityProvider;
       ValidFrom = feeQuote.ValidFrom;
+      Policies = feeQuote.PoliciesDict;
       Fees = (from fee in feeQuote.Fees
               select new FeeViewModelGet(fee)).ToArray();
     }

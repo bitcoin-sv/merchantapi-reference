@@ -118,14 +118,14 @@ namespace MerchantAPI.APIGateway.Domain.Models
       var tasks = await GetAll(call);
 
 
-      var sucesfull = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
+      var successful = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
 
-      if (throwIfEmpty && !tasks.Any())
+      if (throwIfEmpty && !successful.Any())
       {
         throw new BadRequestException($"None of the nodes returned successful response. First error: {tasks[0].Exception} ");
       }
 
-      return sucesfull;
+      return successful;
     }
 
     /// <summary>
@@ -406,7 +406,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     }
 
     public async Task<RpcSendTransactions> SendRawTransactionsAsync(
-      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] transactions)
+      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions)
     {
       var allTxs = transactions.Select(x => Hashes.DoubleSHA256(x.transaction).ToString()).ToArray();
 

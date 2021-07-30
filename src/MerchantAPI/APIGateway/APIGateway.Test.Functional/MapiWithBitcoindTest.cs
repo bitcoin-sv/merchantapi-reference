@@ -11,7 +11,6 @@ using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
-using NBitcoin.Altcoins;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -23,15 +22,13 @@ using System.Threading.Tasks;
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestClass]
-  public class MapiWithBitcoindTest : TestBaseWithBitcoind
+  public class MapiWithBitcoindTest : MapiWithBitcoindTestBase
   {
-    private int cancellationTimeout = 30000; // 30 seconds
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
-      InsertFeeQuote();
     }
 
 
@@ -40,16 +37,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.TestCleanup();
     }
-
-
-    (string txHex, string txId) CreateNewTransaction()
-    {
-      // Create transaction from a coin 
-      var coin = availableCoins.Dequeue();
-      var amount = new Money(1000L);
-      return CreateNewTransaction(coin, amount);
-    }
-
 
     [TestMethod]
     public async Task SubmitTransaction()
@@ -65,6 +52,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual(txHex, HelperTools.ByteToHexString(txFromNode));
     }
+
     [TestMethod]
     public async Task SubmitSameTransactioMultipleTimesAsync()
     {
@@ -196,7 +184,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionWithInvalidMerkleFormat()
     {
-      var (txHex, txId) = CreateNewTransaction();
+      var (txHex, _) = CreateNewTransaction();
 
       var payload = await SubmitTransactionAsync(txHex, merkleProof: true, merkleFormat: "WRONG") ;
 
@@ -219,14 +207,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("Missing inputs", payload.ResultDescription);
     }
 
-
-    async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId)
-    {
-      var response = await Get<SignedPayloadViewModel>(
-        client, MapiServer.ApiMapiQueryTransactionStatus + txId, HttpStatusCode.OK);
-
-      return response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
-    }
 
     [TestMethod]
     public async Task QueryTransactionStatusNonExistent()
@@ -262,6 +242,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, q2.Confirmations);
 
     }
+
 
     [TestMethod]
     public async Task SubmitToOneNodeButQueryTwo()

@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Rest.Swagger;
@@ -11,6 +12,7 @@ using MerchantAPI.Common.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,22 +34,26 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     private readonly IFeeQuoteRepository feeQuoteRepository;
     private readonly IClock clock;
 
+    private readonly string[] callbackIPAddressesArray;
+
     public FeeQuoteController(
       ILogger<FeeQuoteController> logger,
       IFeeQuoteRepository feeQuoteRepository,
-      IClock clock
+      IClock clock,
+      IOptions<AppSettings> options
       )
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+      callbackIPAddressesArray = options.Value.CallbackIPAddressesArray;
     }
 
     // GET /api/v1/feeQuote
     /// <summary>
-    /// Get selected fee quote.
+    /// Get selected policy quote.
     /// </summary>
-    /// <param name="id">Id of the selected fee quote.</param>
+    /// <param name="id">Id of the selected policy quote.</param>
     /// <returns></returns>
     [HttpGet("{id}")]
     public ActionResult<FeeQuoteConfigViewModelGet> GetFeeQuoteById(long id)
@@ -67,13 +73,13 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     }
 
     /// <summary>
-    /// Get general list of fee quotes or fee quotes for given identity.
+    /// Get general list of policy quotes or policy quotes for given identity.
     /// </summary>
     /// <param name="identity">Identity identifier.</param>
     /// <param name="identityProvider">Identity provider.</param>
-    /// <param name="anonymous">Return only fee quotes for anonymous user.</param>
-    /// <param name="current">Return only valid fee quotes.</param>   
-    /// <param name="valid">Return valid fee quotes in interval with QuoteExpiryMinutes.</param>
+    /// <param name="anonymous">Return only policy quotes for anonymous user.</param>
+    /// <param name="current">Return only valid policy quotes.</param>   
+    /// <param name="valid">Return valid policy quotes in interval with QuoteExpiryMinutes.</param>
     /// <returns></returns>
     [HttpGet]
     public ActionResult<IEnumerable<FeeQuoteConfigViewModelGet>> Get(
@@ -155,7 +161,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     }
 
     /// <summary>
-    /// Create new fee quote.
+    /// Create new policy quote.
     /// </summary>
     /// <param name="data"></param>
     /// <returns></returns>

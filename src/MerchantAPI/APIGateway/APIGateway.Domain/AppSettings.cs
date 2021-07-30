@@ -57,6 +57,14 @@ namespace MerchantAPI.APIGateway.Domain
   {
     [Range(1, double.MaxValue)]
     public double QuoteExpiryMinutes { get; set; } = 10;
+    public string CallbackIPAddresses { get; set; }
+    public string[] CallbackIPAddressesArray
+    {
+      get
+      {
+        return CallbackIPAddresses?.Split(",");
+      }
+    }
     public string WifPrivateKey { get; set; }
     
     public MinerIdServer MinerIdServer { get; set; }
@@ -91,7 +99,6 @@ namespace MerchantAPI.APIGateway.Domain
 
     [Range(1, int.MaxValue)]
     public int DSScriptValidationTimeoutSec { get; set; }
-
     public Notification Notification { get; set; }
 
     public bool CheckFeeDisabled { get; set; } = false;
@@ -123,7 +130,26 @@ namespace MerchantAPI.APIGateway.Domain
           return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
         }
       }
-
+      if (options.CallbackIPAddresses != null)
+      {
+        foreach (var ipString in options.CallbackIPAddressesArray)
+        {
+          string error = $"Invalid configuration -  {nameof(AppSettings.CallbackIPAddresses)}: url { ipString } is invalid.";
+          if (String.IsNullOrWhiteSpace(ipString))
+          {
+            return ValidateOptionsResult.Fail(error);
+          }
+          string[] splitValues = ipString.Split('.');
+          if (splitValues.Length != 4)
+          {
+            return ValidateOptionsResult.Fail(error);
+          }
+          if (!splitValues.All(r => byte.TryParse(r, out byte tempForParsing)))
+          {
+            ValidateOptionsResult.Fail(error);
+          }
+        }
+      }
       if (options.Notification == null)
       {
         return ValidateOptionsResult.Fail(

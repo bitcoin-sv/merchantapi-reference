@@ -106,6 +106,7 @@ class FeeQuote {
   not_null(validFrom): datetime
   identity: string
   identityProvider: string
+  policies: text
 }
 
 class Fee {
