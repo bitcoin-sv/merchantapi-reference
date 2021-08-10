@@ -37,7 +37,12 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     public string GetJSON()
     {
-      return JsonSerializer.Serialize(this, new JsonSerializerOptions() { IgnoreNullValues = true });
+      return JsonSerializer.Serialize(this, new JsonSerializerOptions()
+             {
+              IgnoreNullValues = true,
+              // \u0022 -> \"
+              Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+             });
     }
 
     public byte[] GetBytes()
