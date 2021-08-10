@@ -11,6 +11,11 @@ namespace MerchantAPI.Common.Validation
   {
     public static bool IsUrlValid(string url, string memberName, out string error)
     {
+      return IsUrlWithUriSchemesValid(url, memberName, new string[] { Uri.UriSchemeHttp, Uri.UriSchemeHttps }, out error);
+    }
+
+    public static bool IsUrlWithUriSchemesValid(string url, string memberName, string[] validUriSchemes, out string error)
+    {
       error = null;
       if (url == null)
       {
@@ -19,9 +24,9 @@ namespace MerchantAPI.Common.Validation
       else if (Uri.TryCreate(url, UriKind.Absolute, out Uri validatedUri)) //.NET URI validation.
       {
         //If true: validatedUri contains a valid Uri. Check for the scheme in addition.
-        if (validatedUri.Scheme != Uri.UriSchemeHttp && validatedUri.Scheme != Uri.UriSchemeHttps)
+        if (!Array.Exists(validUriSchemes, x => x == validatedUri.Scheme))
         {
-          error = $"{memberName}: { url } uses invalid scheme. Only 'http' and 'https' are supported";
+          error = $"{memberName}: { url } uses invalid scheme. Supported schemes are: { String.Join(",", validUriSchemes) }";
         }
       }
       else
@@ -31,8 +36,8 @@ namespace MerchantAPI.Common.Validation
       return error == null;
     }
 
-  // https://docs.microsoft.com/en-us/dotnet/standard/base-types/how-to-verify-that-strings-are-in-valid-email-format
-  public static bool IsEmailValid(string email)
+    // https://docs.microsoft.com/en-us/dotnet/standard/base-types/how-to-verify-that-strings-are-in-valid-email-format
+    public static bool IsEmailValid(string email)
   {
     if (string.IsNullOrWhiteSpace(email))
     {
