@@ -42,6 +42,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public async Task<Node> CreateNodeAsync(Node node)
     {
       logger.LogInformation($"Adding node {node}");
+
+      IsNodeDataValid(node);
+
       // Try to connect to node
       var bitcoind = bitcoindFactory.Create(node.Host, node.Port, node.Username, node.Password);
       try
@@ -81,6 +84,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public async Task<bool> UpdateNodeAsync(Node node)
     {
       logger.LogInformation($"Updating node {node}");
+
+      IsNodeDataValid(node);
+
       // Try to connect to node
       var bitcoind = bitcoindFactory.Create(node.Host, node.Port, node.Username, node.Password);
       try
@@ -115,6 +121,16 @@ namespace MerchantAPI.APIGateway.Domain.Models
         eventBus.Publish(new NodeDeletedEvent() { CreationDate = clock.UtcNow(), DeletedNode = node });
       }
       return nodeRepository.DeleteNode(id);
+    }
+
+    private void IsNodeDataValid(Node node)
+    {
+      // check if ZMQNotificationsEndpoint exists on this or another node.
+      if (!string.IsNullOrEmpty(node.ZMQNotificationsEndpoint) &&
+          nodeRepository.ZMQNotificationsEndpointExists(node.ToExternalId(), node.ZMQNotificationsEndpoint))
+      {
+        throw new BadRequestException($"The value {node.ZMQNotificationsEndpoint} of {nameof(node.ZMQNotificationsEndpoint)} field already exists on another node.");
+      }
     }
   }
 }
