@@ -53,7 +53,7 @@ namespace MerchantAPI.Common.Test
 
     public CallbackFunctionalTests Callback = new CallbackFunctionalTests();
 
-    protected UserAndIssuer GetMockedIdentity
+    protected UserAndIssuer MockedIdentity
     {
       get
       {
@@ -61,7 +61,7 @@ namespace MerchantAPI.Common.Test
       }
     }
 
-    protected string GetMockedIdentityToken
+    protected string MockedIdentityToken
     {
       get
       {
@@ -70,15 +70,15 @@ namespace MerchantAPI.Common.Test
       }
     }
 
-    protected string GetMockedIdentityBearerToken
+    protected string MockedIdentityBearerAuthentication
     {
       get
       {
-        return GetBearerToken(GetMockedIdentityToken);
+        return GetBearerAuthentication(MockedIdentityToken);
       }
     }
 
-    protected string GetBearerToken(string token)
+    protected string GetBearerAuthentication(string token)
     {
       return $"Bearer { token }";
     }
