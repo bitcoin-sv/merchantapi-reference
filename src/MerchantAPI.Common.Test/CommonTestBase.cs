@@ -8,13 +8,10 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -64,6 +61,27 @@ namespace MerchantAPI.Common.Test
       }
     }
 
+    protected string GetMockedIdentityToken
+    {
+      get
+      {
+        // TokenManager.exe generate -n 5 -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+        return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      }
+    }
+
+    protected string GetMockedIdentityBearerToken
+    {
+      get
+      {
+        return GetBearerToken(GetMockedIdentityToken);
+      }
+    }
+
+    protected string GetBearerToken(string token)
+    {
+      return $"Bearer { token }";
+    }
 
     public async Task WaitUntilAsync(Func<bool> predicate, int timeOutSeconds = 10)
     {
