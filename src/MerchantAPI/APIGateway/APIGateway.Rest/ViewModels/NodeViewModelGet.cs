@@ -31,7 +31,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("lastErrorAt")]
     public DateTime? LastErrorAt { get; set; }
 
-    [JsonPropertyName("ZMQNotificationsEndpoint")]
+    [JsonPropertyName("zmqNotificationsEndpoint")]
     public string ZMQNotificationsEndpoint { get; set; }
 
     public NodeViewModelGet()

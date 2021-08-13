@@ -26,7 +26,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     [JsonPropertyName("remarks")]
     public string Remarks { get; set; }
 
-    [JsonPropertyName("ZMQNotificationsEndpoint")]
+    [JsonPropertyName("zmqNotificationsEndpoint")]
     public string ZMQNotificationsEndpoint { get; set; }
 
     // No NodeStatus

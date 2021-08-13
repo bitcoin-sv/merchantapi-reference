@@ -35,23 +35,24 @@ The reference implementation exposes different **REST API** interfaces
 
 Public interface can be used to submit transactions and query transactions status. It is accessible to both authenticated and unauthenticated users, but authenticated users might get special fee rates.
 
-### 1. getFeeQuote / getPolicyQuote
+### 1. getPolicyQuote / getFeeQuote
 
-Old endpoint: 
-
-```
-GET /mapi/feeQuote
-```
-
-Returns a JSON envelope with a payload that contains the fees types charged by a miner.
-
-New endpoint: 
+Policy quote endpoint: 
 
 ```
 GET /mapi/policyQuote
 ```
 
-Returns a PolicyQuote payload that additionally contains policies set by the miner.
+Returns a PolicyQuote payload that contains the fees types charged by the miner and set policies.
+
+Fee quote endpoint (deprecated): 
+
+```
+GET /mapi/feeQuote
+```
+
+Returns a JSON envelope with a payload that contains the fees types charged by a miner (without policies).
+
 
 ### 2. submitTransaction
 
@@ -291,7 +292,7 @@ To create a new policy quote use the following:
 POST api/v1/PolicyQuote
 ```
 
-or (the old) synonymous endpoint
+or (deprecated) synonymous endpoint
 
 ```
 POST api/v1/FeeQuote

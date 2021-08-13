@@ -225,7 +225,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
 
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      RestAuthentication = GetMockedIdentityBearerToken;
       payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
     }

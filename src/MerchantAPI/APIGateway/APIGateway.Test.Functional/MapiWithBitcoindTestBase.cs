@@ -71,7 +71,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
               (standard * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 27500
 
 
-      var tx1 = CreateTransaction(tx0, txLength, dataLength, minRequiredFees, coin); // submit tx1 should succeed
+      var tx1 = CreateTransaction(tx0, txLength, dataLength, minRequiredFees, coin); 
 
       var key1 = Key.Parse(testPrivateKeyWif, Network.RegTest);
 

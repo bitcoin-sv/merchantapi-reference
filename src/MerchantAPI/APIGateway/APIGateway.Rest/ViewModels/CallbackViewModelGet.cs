@@ -7,14 +7,14 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 {
   public class CallbackViewModelGet
   {
-    [JsonPropertyName("IPaddress")]
-    public string IPaddress { get; set; } 
+    [JsonPropertyName("ipAddress")]
+    public string IPAddress { get; set; } 
 
     public CallbackViewModelGet() { }
 
     public CallbackViewModelGet(string url)
     {
-      IPaddress = url;
+      IPAddress = url;
     }
   }
 }

@@ -23,7 +23,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels  // used for PUT
     [JsonPropertyName("remarks")]
     public string Remarks { get; set; }
 
-    [JsonPropertyName("ZMQNotificationsEndpoint")]
+    [JsonPropertyName("zmqNotificationsEndpoint")]
     public string ZMQNotificationsEndpoint { get; set; }
 
     public Node ToDomainObject()

@@ -358,7 +358,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     /// <summary>
-    /// Create a new transaction with is totalBytes long. Out of this totalBytes, dataBytes are spend for 
+    /// Create a new transaction with is totalBytes long. Out of this totalBytes, dataBytes are spent as data bytes. 
     /// </summary>
     /// <param name="fundingTx">Input transaction. It's first output will be used as funding for new transaction</param>
     /// <param name="totalBytes">Total desired length of created transaction</param>

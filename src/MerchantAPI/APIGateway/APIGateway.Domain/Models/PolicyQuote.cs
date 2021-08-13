@@ -14,7 +14,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public long Id { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime ValidFrom { get; set; }
-    //public int QuoteExpiryMinutes { get; set; } // not in db
     public string Identity { get; set; }
     public string IdentityProvider { get; set; }
     public string Policies { get; set; }

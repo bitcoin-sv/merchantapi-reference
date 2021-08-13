@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MerchantAPI.Common.Test" Version="1.3.0.2" />
+    <PackageReference Include="MerchantAPI.Common.Test" Version="1.4.0-beta-dev2" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.7" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.7" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
