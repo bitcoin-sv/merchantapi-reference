@@ -42,7 +42,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <returns>New node details.</returns>
     [HttpPost]
     public async Task<ActionResult<NodeViewModelGet>> Post(NodeViewModelCreate data)
-    {
+    {      
       var created = await nodes.CreateNodeAsync(data.ToDomainObject());
       if (created == null)
       {

@@ -30,5 +30,10 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     int DeleteNode(string hostAndPort);
 
     public IEnumerable<Node> GetNodes();
+
+    /// <summary>
+    /// Returns true if node with ZMQNotificationsEndpoint exists, otherwise false.
+    /// </summary>
+    bool ZMQNotificationsEndpointExists(string hostAndPort, string zmqNotificationsEndpoint);
   }
 }

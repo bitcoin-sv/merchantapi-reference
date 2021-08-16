@@ -274,5 +274,21 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
         cache.Clear();
       }
     }
+
+    public bool ZMQNotificationsEndpointExists(string hostAndPort, string zmqNotificationsEndpoint)
+    {
+      EnsureCache();
+      lock (cache)
+      {
+        var node = cache.FirstOrDefault(x => string.Compare(x.Value.ZMQNotificationsEndpoint, zmqNotificationsEndpoint, true) == 0).Value;
+        
+        if (node == null ||
+            node.ToExternalId() == GetCacheKey(hostAndPort))
+        {
+          return false;
+        }
+        return true;
+      }
+    }
   }
 }

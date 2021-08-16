@@ -62,6 +62,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       throw new NotImplementedException();
     }
+
+    public (bool, string) IsNodeDataValid(Node node)
+    {
+      throw new NotImplementedException();
+    }
   }
 
 

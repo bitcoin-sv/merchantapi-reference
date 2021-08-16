@@ -84,7 +84,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       entry.Remarks += "Updated remarks";
       entry.Username += "updatedUsername";
-      entry.ZMQNotificationsEndpoint = "updatedEndpoint";
+      entry.ZMQNotificationsEndpoint += "updatedEndpoint";
     }
 
     public override NodeViewModelCreate[] GetItemsToCreate()
@@ -188,6 +188,39 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    public async Task CreateNode_DuplicateZMQNotificationsEndpoint_ShouldReturnBadRequest()
+    {
+      //arrange
+      var node1 = new NodeViewModelCreate
+      {
+        Id = "some.host1:123",
+        Remarks = "Some remarks1",
+        Password = "somePassword1",
+        Username = "user1",
+        ZMQNotificationsEndpoint = "tcp://0.0.0.0:123"
+      };
+
+      var node2 = new NodeViewModelCreate
+      {
+        Id = "some.host2:123",
+        Remarks = "Some remarks 2",
+        Password = "somePassword2",
+        Username = "user2",
+        ZMQNotificationsEndpoint = "tcp://0.0.0.0:123"
+      };
+
+      var content = new StringContent(JsonSerializer.Serialize(node1), Encoding.UTF8, "application/json");
+
+      //act
+      await Post<NodeViewModelGet>(UrlForKey(""), client, content, HttpStatusCode.Created);
+
+      var content2 = new StringContent(JsonSerializer.Serialize(node2), Encoding.UTF8, "application/json");
+
+      //act
+      await Post<string>(UrlForKey(""), client, content2, HttpStatusCode.BadRequest);
+    }
+    
+    [TestMethod]
     public async Task UpdateNode_NoUsername_ShouldReturnBadRequest()
     {
       //arrange
@@ -197,11 +230,57 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Password = "somePassword2",
         Username = null // missing username
       };
-      var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
 
       //act
-      await Put(client, UrlForKey("some.host2:2"), content.ToString(), HttpStatusCode.BadRequest);
+      await Put(client, UrlForKey("some.host2:2"), create, HttpStatusCode.BadRequest);
 
+    }
+
+    [TestMethod]
+    public async Task UpdateNode_DuplicateZMQNotificationsEndpoint_ShouldReturnBadRequest()
+    {
+      //arrange
+      var node1 = new NodeViewModelCreate
+      {
+        Id = "some.host1:123",
+        Remarks = "Some remarks1",
+        Password = "somePassword1",
+        Username = "user1",
+        ZMQNotificationsEndpoint = "tcp://0.0.0.0:123"
+      };
+
+      var node2 = new NodeViewModelCreate
+      {
+        Id = "some.host2:123",
+        Remarks = "Some remarks 2",
+        Password = "somePassword2",
+        Username = "user2",
+        ZMQNotificationsEndpoint = "tcp://0.0.0.0:1234"
+      };
+
+      var content = new StringContent(JsonSerializer.Serialize(node1), Encoding.UTF8, "application/json");
+
+      //act
+      await Post<NodeViewModelGet>(UrlForKey(""), client, content, HttpStatusCode.Created);
+
+      var content2 = new StringContent(JsonSerializer.Serialize(node2), Encoding.UTF8, "application/json");
+
+      //act
+      await Post<NodeViewModelGet>(UrlForKey(""), client, content2, HttpStatusCode.Created);
+
+      //create PUT request with invalid (existing) ZMQNotificationsEndpoint
+      var putNode1 = new NodeViewModelPut
+      {
+        Remarks = "Some remarks12",
+        Password = "somePassword12",
+        Username = "user12",
+        ZMQNotificationsEndpoint = "tcp://0.0.0.0:1234"
+      };
+
+      //act
+      await Put(client, UrlForKey("some.host1:123"), putNode1, HttpStatusCode.BadRequest);
+
+      await Put(client, UrlForKey("SOME.HOST1:123"), putNode1, HttpStatusCode.BadRequest);
     }
   }
 }
