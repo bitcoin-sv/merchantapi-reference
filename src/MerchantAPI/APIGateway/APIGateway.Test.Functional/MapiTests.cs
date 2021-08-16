@@ -122,7 +122,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task GetFeeQuoteAuthenticated()
     {
-      RestAuthentication = GetMockedIdentityBearerToken;
+      RestAuthentication = MockedIdentityBearerAuthentication;
       (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
                      client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.NotFound);
       Assert.AreEqual("Not Found", response.httpResponse.ReasonPhrase);
@@ -138,7 +138,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task GetFeeQuote_WithInvalidAuthentication()
     {
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      var ValidRestAuthentication = GetMockedIdentityBearerToken;
+      var ValidRestAuthentication = MockedIdentityBearerAuthentication;
      
       RestAuthentication = ValidRestAuthentication+"invalid";
       var response = await Get<SignedPayloadViewModel>(
@@ -152,7 +152,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
       // test authentication: same provider and identity as defined in json - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = GetMockedIdentityBearerToken;
+      RestAuthentication = MockedIdentityBearerAuthentication;
       var response = await Get<SignedPayloadViewModel>(
                  client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
@@ -160,7 +160,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // different user, same provider, same authority - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = GetBearerToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjAyOCwiZXhwIjoxOTE5MjI2MDI4LCJpYXQiOjE2MDM4NjYwMjgsImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoiaHR0cDovL215YXVkaWVuY2UuY29tIn0.01Rm6t4GBScDwgoOnFwBjjvgu6U5YBK7qlCTg-_BF6c");
+      RestAuthentication = GetBearerAuthentication("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjAyOCwiZXhwIjoxOTE5MjI2MDI4LCJpYXQiOjE2MDM4NjYwMjgsImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoiaHR0cDovL215YXVkaWVuY2UuY29tIn0.01Rm6t4GBScDwgoOnFwBjjvgu6U5YBK7qlCTg-_BF6c");
       response = await Get<SignedPayloadViewModel>(
                  client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       payload = response.ExtractPayload<FeeQuoteViewModelGet>();
@@ -168,14 +168,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // same user, different (invalid) provider, same authority - should fail
       //TokenManager.exe generate -n 5 - i http://test.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = GetBearerToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjQ4OCwiZXhwIjoxOTE5MjI2NDg4LCJpYXQiOjE2MDM4NjY0ODgsImlzcyI6Imh0dHA6Ly90ZXN0LmNvbSIsImF1ZCI6Imh0dHA6Ly9teWF1ZGllbmNlLmNvbSJ9.oGxXXbTj0yUf0UrwOF44bbRMt-Xe6YjAyuy4A3jrbbU");
+      RestAuthentication = GetBearerAuthentication("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjQ4OCwiZXhwIjoxOTE5MjI2NDg4LCJpYXQiOjE2MDM4NjY0ODgsImlzcyI6Imh0dHA6Ly90ZXN0LmNvbSIsImF1ZCI6Imh0dHA6Ly9teWF1ZGllbmNlLmNvbSJ9.oGxXXbTj0yUf0UrwOF44bbRMt-Xe6YjAyuy4A3jrbbU");
       response = await Get<SignedPayloadViewModel>(
            client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
       Assert.IsNull(response);
 
       // same user and provider, different authority
       // TokenManager.exe generate -n 5 -i http://mysite.com -a http://testaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = GetBearerToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNjAzODY2NzAxLCJleHAiOjE5MTkyMjY3MDEsImlhdCI6MTYwMzg2NjcwMSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vdGVzdGF1ZGllbmNlLmNvbSJ9.d0TU7em4_8ZzO8A3YGxVwyl0ElpDQIu35auPSa24i48");
+      RestAuthentication = GetBearerAuthentication("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNjAzODY2NzAxLCJleHAiOjE5MTkyMjY3MDEsImlhdCI6MTYwMzg2NjcwMSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vdGVzdGF1ZGllbmNlLmNvbSJ9.d0TU7em4_8ZzO8A3YGxVwyl0ElpDQIu35auPSa24i48");
       response = await Get<SignedPayloadViewModel>(
      client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
       Assert.IsNull(response);
@@ -196,7 +196,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task SubmitTransaction_WithInvalidAuthentication()
     {
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      var ValidRestAuthentication = GetMockedIdentityBearerToken;
+      var ValidRestAuthentication = MockedIdentityBearerAuthentication;
       RestAuthentication = ValidRestAuthentication + "invalid";
 
       var txBytes = HelperTools.HexStringToByteArray(txC3Hex);
@@ -562,7 +562,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Test token valid until year 2030. Generate with:
       //    TokenManager.exe generate -n 5 -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       //
-      RestAuthentication = GetMockedIdentityBearerToken;
+      RestAuthentication = MockedIdentityBearerAuthentication;
       // now it should succeed for this user
       response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
       VerifySignature(response);

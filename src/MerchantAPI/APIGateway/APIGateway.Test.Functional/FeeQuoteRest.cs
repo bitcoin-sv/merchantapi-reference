@@ -134,8 +134,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 },
               },
           },
-        Identity = this.GetMockedIdentity.Identity,
-        IdentityProvider = this.GetMockedIdentity.IdentityProvider
+        Identity = this.MockedIdentity.Identity,
+        IdentityProvider = this.MockedIdentity.IdentityProvider
       };
     }
 
@@ -466,7 +466,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task TestPost_WithInvalidAuthentication()
     {
       ApiKeyAuthentication = null;
-      RestAuthentication = GetMockedIdentityBearerToken;
+      RestAuthentication = MockedIdentityBearerAuthentication;
       var entryPost = GetItemToCreate();
       var (_, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.Unauthorized);
 
@@ -552,17 +552,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddSeconds(10)))
       {
         // check GET for identity
-        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity), HttpStatusCode.OK);
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identityProvider
-        var tIdentity = GetMockedIdentity;
+        var tIdentity = MockedIdentity;
         tIdentity.Identity = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identity
-        tIdentity = GetMockedIdentity;
+        tIdentity = MockedIdentity;
         tIdentity.IdentityProvider = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
@@ -572,7 +572,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(2, getEntries.Count());
 
         // check GET for identity+anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(3, getEntries.Count());
 
         // check GET all
@@ -656,7 +656,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes*2)))
       {
         // check GET for identity
-        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity), HttpStatusCode.OK);
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for anonymous
@@ -665,7 +665,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(entryPost.Id, getEntries.Single().Id);
 
         // check GET for identity+anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(2, getEntries.Count());
 
         // check GET all
@@ -693,17 +693,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(-FeeQuoteRepositoryMock.quoteExpiryMinutes)))
       {
         // check GET for identity & identityProvider
-        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), GetMockedIdentity), HttpStatusCode.OK);
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), MockedIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identityProvider
-        var tIdentity = GetMockedIdentity;
+        var tIdentity = MockedIdentity;
         tIdentity.Identity = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identity
-        tIdentity = GetMockedIdentity;
+        tIdentity = MockedIdentity;
         tIdentity.IdentityProvider = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
@@ -713,7 +713,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entryPost, getEntries.Single());
 
         // check GET for identity+anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), GetMockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), MockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(2, getEntries.Count());
 
         // check GET all
@@ -802,7 +802,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       // arrange
       var entryPostWithIdentity = GetItemToCreateWithIdentity();
-      var testIdentity = GetMockedIdentity;
+      var testIdentity = MockedIdentity;
       testIdentity.Identity = "test ";
       entryPostWithIdentity.Identity = testIdentity.Identity;
       await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity, HttpStatusCode.Created);

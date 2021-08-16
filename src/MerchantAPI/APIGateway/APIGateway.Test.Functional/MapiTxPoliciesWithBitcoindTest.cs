@@ -218,14 +218,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // unauthorized user has limited maxscriptsizepolicy
       SetPoliciesForCurrentFeeQuote("{\"maxscriptsizepolicy\": 105 }");
       // insert same feeQuote as for unauthorized user
-      InsertFeeQuote(GetMockedIdentity);
+      InsertFeeQuote(MockedIdentity);
 
       (string txHex, string _) = CreateNewTransaction();
 
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
 
-      RestAuthentication = GetMockedIdentityBearerToken;
+      RestAuthentication = MockedIdentityBearerAuthentication;
       payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
     }
