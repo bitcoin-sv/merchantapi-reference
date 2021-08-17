@@ -16,7 +16,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
   {
 
     Task<RpcSendTransactions> SendRawTransactionsAsync(
-      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)[] transactions);
+      (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions);
 
     Task<byte[]> GetRawTransactionAsBytesAsync(string txId);
     Task<RpcGetBlockchainInfo> GetWorstBlockchainInfoAsync();

@@ -30,9 +30,8 @@ using NBitcoin.Altcoins;
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestClass]
-  public class UnconfirmedAncestorsTestss : TestBaseWithBitcoind
+  public class UnconfirmedAncestorsTestss : MapiWithBitcoindTestBase
   {
-    private int cancellationTimeout = 30000; // 30 seconds
     public ZMQSubscriptionService zmqService;
     private ITxRepository txRepository;
 

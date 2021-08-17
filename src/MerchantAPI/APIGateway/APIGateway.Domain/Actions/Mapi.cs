@@ -541,7 +541,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
 
       var responses = new List<SubmitTransactionOneResponse>();
-      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors)>();
+      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)>();
       int failureCount = 0;
 
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
@@ -601,6 +601,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         allTxs.Add(txId, oneTx.RawTx);
         bool okToMine = false;
         bool okToRelay = false;
+        Dictionary<string, object> policies = null;
         if (await txRepository.TransactionExistsAsync(txId.ToBytes()))
         {
           AddFailureResponse(txIdString, "Transaction already known", ref responses);
@@ -639,7 +640,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               if (GetCheckFeesValue(okToMineTmp, okToRelayTmp) > GetCheckFeesValue(okToMine, okToRelay))
               {
                 // save best combination 
-                (okToMine, okToRelay) = (okToMineTmp, okToRelayTmp);
+                (okToMine, okToRelay, policies) = (okToMineTmp, okToRelayTmp, feeQuote.PoliciesDict);
               }
             }
           }
@@ -725,7 +726,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               break;
             }
           }
-          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors));
+          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, policies));
         }
       }
 
@@ -738,7 +739,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         try
         {
           rpcResponse = await rpcMultiClient.SendRawTransactionsAsync(
-            transactionsToSubmit.Select(x => (x.transaction.RawTx, x.allowhighfees, x.dontCheckFees, x.listUnconfirmedAncestors))
+            transactionsToSubmit.Select(x => (x.transaction.RawTx, x.allowhighfees, x.dontCheckFees, x.listUnconfirmedAncestors, x.config))
               .ToArray());
         }
         catch (Exception ex)

@@ -164,7 +164,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     /// </summary>
     /// <returns></returns>
     [TestMethod]
-    public async Task SubmitTxsWithDSThatInitiatesCall2CallbackServerAsync()
+    public async Task SubmitTxsWithDSCallback()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(30000);
 
@@ -246,7 +246,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task MultipleDSQueriesShouldResultIn1Notification()
+    public async Task MultipleDSQueriesReturn1Notification()
     {
       using CancellationTokenSource cts = new CancellationTokenSource(30000);
 

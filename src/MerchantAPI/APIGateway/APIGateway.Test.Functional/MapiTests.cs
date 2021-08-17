@@ -12,8 +12,6 @@ using MerchantAPI.Common.Test.Clock;
 using MerchantAPI.Common.Json;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NBitcoin;
-using NBitcoin.Altcoins;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,6 +28,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   public class MapiTests : TestBase
   {
     public TestContext TestContext { get; set; }
+    private static string CallbackIPaddresses = "127.0.0.1";
 
     void AddMockNode(int nodeNumber)
     {
@@ -94,6 +93,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
       Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHeight, response.CurrentHighestBlockHeight);
       Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHash, response.CurrentHighestBlockHash);
+      Assert.AreEqual(CallbackIPaddresses,
+                response.Callbacks != null ? String.Join(",", response.Callbacks.Select(x => x.IPAddress)) : null);
     }
 
     [TestMethod]
@@ -121,7 +122,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task GetFeeQuoteAuthenticated()
     {
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      RestAuthentication = MockedIdentityBearerAuthentication;
       (SignedPayloadViewModel response, HttpResponseMessage httpResponse) response = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
                      client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.NotFound);
       Assert.AreEqual("Not Found", response.httpResponse.ReasonPhrase);
@@ -137,8 +138,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task GetFeeQuote_WithInvalidAuthentication()
     {
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      var ValidRestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      var ValidRestAuthentication = MockedIdentityBearerAuthentication;
      
       RestAuthentication = ValidRestAuthentication+"invalid";
       var response = await Get<SignedPayloadViewModel>(
@@ -152,7 +152,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
       // test authentication: same provider and identity as defined in json - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      RestAuthentication = MockedIdentityBearerAuthentication;
       var response = await Get<SignedPayloadViewModel>(
                  client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
@@ -160,32 +160,43 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // different user, same provider, same authority - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjAyOCwiZXhwIjoxOTE5MjI2MDI4LCJpYXQiOjE2MDM4NjYwMjgsImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoiaHR0cDovL215YXVkaWVuY2UuY29tIn0.01Rm6t4GBScDwgoOnFwBjjvgu6U5YBK7qlCTg-_BF6c";
+      RestAuthentication = GetBearerAuthentication("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjAyOCwiZXhwIjoxOTE5MjI2MDI4LCJpYXQiOjE2MDM4NjYwMjgsImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoiaHR0cDovL215YXVkaWVuY2UuY29tIn0.01Rm6t4GBScDwgoOnFwBjjvgu6U5YBK7qlCTg-_BF6c");
       response = await Get<SignedPayloadViewModel>(
                  client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       AssertIsOK(payload);
 
       // same user, different (invalid) provider, same authority - should fail
-      //TokenManager.exe generate -n testName - i http://test.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjQ4OCwiZXhwIjoxOTE5MjI2NDg4LCJpYXQiOjE2MDM4NjY0ODgsImlzcyI6Imh0dHA6Ly90ZXN0LmNvbSIsImF1ZCI6Imh0dHA6Ly9teWF1ZGllbmNlLmNvbSJ9.oGxXXbTj0yUf0UrwOF44bbRMt-Xe6YjAyuy4A3jrbbU";
+      //TokenManager.exe generate -n 5 - i http://test.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+      RestAuthentication = GetBearerAuthentication("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0TmFtZSIsIm5iZiI6MTYwMzg2NjQ4OCwiZXhwIjoxOTE5MjI2NDg4LCJpYXQiOjE2MDM4NjY0ODgsImlzcyI6Imh0dHA6Ly90ZXN0LmNvbSIsImF1ZCI6Imh0dHA6Ly9teWF1ZGllbmNlLmNvbSJ9.oGxXXbTj0yUf0UrwOF44bbRMt-Xe6YjAyuy4A3jrbbU");
       response = await Get<SignedPayloadViewModel>(
            client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
       Assert.IsNull(response);
 
       // same user and provider, different authority
       // TokenManager.exe generate -n 5 -i http://mysite.com -a http://testaudience.com -k thisisadevelopmentkey -d 3650
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNjAzODY2NzAxLCJleHAiOjE5MTkyMjY3MDEsImlhdCI6MTYwMzg2NjcwMSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vdGVzdGF1ZGllbmNlLmNvbSJ9.d0TU7em4_8ZzO8A3YGxVwyl0ElpDQIu35auPSa24i48";
+      RestAuthentication = GetBearerAuthentication("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNjAzODY2NzAxLCJleHAiOjE5MTkyMjY3MDEsImlhdCI6MTYwMzg2NjcwMSwiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vdGVzdGF1ZGllbmNlLmNvbSJ9.d0TU7em4_8ZzO8A3YGxVwyl0ElpDQIu35auPSa24i48");
       response = await Get<SignedPayloadViewModel>(
      client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.Unauthorized);
       Assert.IsNull(response);
     }
 
     [TestMethod]
+    [OverrideSetting("AppSettings:CallbackIPAddresses", "127.0.0.1,0.1.2.3,4.5.6.7")]
+    public async Task TestGetMultipleDSNotificationServerIPs()
+    {
+      CallbackIPaddresses = "127.0.0.1,0.1.2.3,4.5.6.7";
+      var response = await Get<SignedPayloadViewModel>(
+           client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
+      var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
+      AssertIsOK(payload);
+    }
+
+    [TestMethod]
     public async Task SubmitTransaction_WithInvalidAuthentication()
     {
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      var ValidRestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      var ValidRestAuthentication = MockedIdentityBearerAuthentication;
       RestAuthentication = ValidRestAuthentication + "invalid";
 
       var txBytes = HelperTools.HexStringToByteArray(txC3Hex);
@@ -263,94 +274,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if all fields are set
       AssertIsOK(payload, txC3Hash);
       Assert.AreEqual("", payload.ResultDescription); // Description should be "" (not null)
-    }
-
-    private int GetBytesForScriptLength(ulong totalBytes)
-    {
-      if (totalBytes < byte.MaxValue) // uint8 == byte
-      {
-        return 1;
-      }
-      else if (totalBytes < UInt16.MaxValue) // if script length can not be encoded in single byte we need additional data
-      {
-        return 3; // saved as variable length integer (0xFD followed by the length as uint16_t)
-      }
-      else if (totalBytes < UInt32.MaxValue)
-      {
-        return 5;
-      }
-      else if (totalBytes < UInt64.MaxValue)
-      {
-        return 9;
-      }
-      else
-      {
-        throw new ArgumentException("Script is too big.");
-      }
-    }
-
-
-    /// <summary>
-    /// Create a new transaction with is totalBytes long. Out of this totalBytes, dataBytes are spend for 
-    /// </summary>
-    /// <param name="fundingTx">Input transaction. It's first output will be used as funding for new transaction</param>
-    /// <param name="totalBytes">Total desired length of created transaction</param>
-    /// <param name="dataBytes">Number of data bytes (OP_FALSE transaction ....) that this transaction  should contain</param>
-    /// <param name="totalFees"> total fees payed by this transaction</param>
-    /// <returns></returns>
-    Transaction CreateTransaction(Transaction fundingTx, long totalBytes, long dataBytes, long totalFees)
-    {
-      if (dataBytes > 0)
-      {
-        if (dataBytes < 2)
-        {
-          throw new ArgumentException($"nameof(dataBytes) should be at least 2, since script must start with OP_FALSE OP_RETURN");
-        }
-      }
-      
-      var remainingMoney = fundingTx.Outputs[0].Value - totalFees;
-      if (remainingMoney < 0L)
-      {
-        throw new ArgumentException("Fee is too large (or funding output is to low)");
-      }
-
-      var tx = BCash.Instance.Regtest.CreateTransaction();
-      tx.Inputs.Add(new TxIn(new OutPoint(fundingTx, 0)));
-
-      long sizeOfSingleOutputWithoutScript = sizeof(ulong) + GetBytesForScriptLength((ulong) (totalBytes - dataBytes)); // 9+:	A list of 1 or more transaction outputs or destinations for coins
-      long overHead =
-           tx.ToBytes().Length // length of single input
-          + dataBytes == 0 ? 0 : tx.ToBytes().Length + sizeOfSingleOutputWithoutScript;
-
-      long normalBytes = totalBytes - dataBytes - overHead;
-
-      if (normalBytes > 0 && dataBytes > 0) // Overhead also depends on number of outputs - if this is true we have two outputs 
-      {
-        normalBytes -= (sizeof(ulong) + GetBytesForScriptLength((ulong)dataBytes));
-      }
-
-      if (normalBytes > 0)
-      {
-        var scriptBytes = new byte[normalBytes];
-        tx.Outputs.Add(new TxOut(remainingMoney, new Script(scriptBytes)));
-        remainingMoney = 0L;
-      }
-      else if (normalBytes < 0)
-      {
-        throw new ArgumentException("Argument Databytes is too low.");
-      }
-      if (dataBytes > 0)
-      {
-        var scriptBytes = new byte[dataBytes];
-        scriptBytes[0] = (byte)OpcodeType.OP_FALSE;
-        scriptBytes[1] = (byte)OpcodeType.OP_RETURN;
-        tx.Outputs.Add(new TxOut(remainingMoney, new Script(scriptBytes)));
-      }
-
-      Assert.AreEqual(totalBytes, tx.ToBytes().Length, "Failed to create transaction of desired length");
-
-      return tx;
-      
     }
 
     [TestMethod]
@@ -545,7 +468,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     [TestMethod]
     [DataRow("something", HttpStatusCode.OK, "CallbackUrl: something should be a valid URL")]
-    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallbackUrl: invalidScheme://www.something.com uses invalid scheme. Only 'http' and 'https' are supported")]
+    [DataRow("invalidScheme://www.something.com", HttpStatusCode.OK, "CallbackUrl: invalidScheme://www.something.com uses invalid scheme. Supported schemes are: http,https")]
     [DataRow("http://www.something.com", HttpStatusCode.OK, "")]
     [DataRow("https://www.something.com", HttpStatusCode.OK, "")]
     public async Task SubmitTransactionJsonInvalidCallbackUrl(string url, HttpStatusCode expectedCode, string returnResult)
@@ -639,7 +562,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Test token valid until year 2030. Generate with:
       //    TokenManager.exe generate -n 5 -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
       //
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      RestAuthentication = MockedIdentityBearerAuthentication;
       // now it should succeed for this user
       response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
       VerifySignature(response);

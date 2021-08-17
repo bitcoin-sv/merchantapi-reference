@@ -23,6 +23,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using NBitcoin.Altcoins;
+using MerchantAPI.Common.Authentication;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -212,6 +214,29 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return tx;
     }
 
+    protected int GetBytesForScriptLength(ulong totalBytes)
+    {
+      if (totalBytes < byte.MaxValue) // uint8 == byte
+      {
+        return 1;
+      }
+      else if (totalBytes < UInt16.MaxValue) // if script length can not be encoded in single byte we need additional data
+      {
+        return 3; // saved as variable length integer (0xFD followed by the length as uint16_t)
+      }
+      else if (totalBytes < UInt32.MaxValue)
+      {
+        return 5;
+      }
+      else if (totalBytes < UInt64.MaxValue)
+      {
+        return 9;
+      }
+      else
+      {
+        throw new ArgumentException("Script is too big.");
+      }
+    }
 
     public async Task<(long, string)> CreateAndPublishNewBlock(IRpcClient rpcClient, long? blockHeightToStartFork, Transaction transaction, bool noPublish = false)
     {
@@ -268,7 +293,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    protected void InsertFeeQuote()
+    protected void InsertFeeQuote(UserAndIssuer userAndIssuer = null)
     {
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(-1)))
@@ -278,6 +303,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
           Id = 1,
           CreatedAt = MockedClock.UtcNow,
           ValidFrom = MockedClock.UtcNow,
+          Identity = userAndIssuer?.Identity,
+          IdentityProvider = userAndIssuer?.IdentityProvider,
           Fees = new[] {
               new Fee {
                 FeeType = Const.FeeType.Standard,
@@ -312,6 +339,97 @@ namespace MerchantAPI.APIGateway.Test.Functional
           throw new Exception("Can not insert test fee quote");
         }
       }
+    }
+
+    protected void SetPoliciesForCurrentFeeQuote(string policiesJsonString, UserAndIssuer userAndIssuer = null)
+    {
+      var feeQuote = FeeQuoteRepository.GetCurrentFeeQuoteByIdentity(userAndIssuer);
+      FeeQuoteRepositoryPostgres.EmptyRepository(DbConnectionStringDDL);
+
+      feeQuote.Policies = policiesJsonString;
+
+      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(-1)))
+      {
+        if (FeeQuoteRepository.InsertFeeQuoteAsync(feeQuote).Result == null)
+        {
+          throw new Exception("Can not insert test fee quote with policies.");
+        }
+      }
+    }
+
+    /// <summary>
+    /// Create a new transaction with is totalBytes long. Out of this totalBytes, dataBytes are spent as data bytes. 
+    /// </summary>
+    /// <param name="fundingTx">Input transaction. It's first output will be used as funding for new transaction</param>
+    /// <param name="totalBytes">Total desired length of created transaction</param>
+    /// <param name="dataBytes">Number of data bytes (OP_FALSE transaction ....) that this transaction  should contain</param>
+    /// <param name="totalFees"> total fees payed by this transaction</param>
+    /// <param name="coin">If present, coin's outpoint is used as input.</param>
+    /// <returns></returns>
+    protected Transaction CreateTransaction(Transaction fundingTx, long totalBytes, long dataBytes, long totalFees, Coin coin = null)
+    {
+      if (dataBytes > 0)
+      {
+        if (dataBytes < 2)
+        {
+          throw new ArgumentException($"nameof(dataBytes) should be at least 2, since script must start with OP_FALSE OP_RETURN");
+        }
+      }
+
+      var remainingMoney = fundingTx.Outputs[0].Value - totalFees;
+      if (remainingMoney < 0L)
+      {
+        throw new ArgumentException("Fee is too large (or funding output is to low)");
+      }
+
+      var tx = BCash.Instance.Regtest.CreateTransaction();
+      if (coin == null)
+      {
+        tx.Inputs.Add(new TxIn(new OutPoint(fundingTx, 0)));
+      }
+      else
+      {
+        tx.Inputs.Add(new TxIn(coin.Outpoint));
+      }
+
+
+      long sizeOfSingleOutputWithoutScript = sizeof(ulong) + GetBytesForScriptLength((ulong)(totalBytes - dataBytes)); // 9+:	A list of 1 or more transaction outputs or destinations for coins
+      long overHead =
+           tx.ToBytes().Length // length of single input
+          + dataBytes == 0 ? 0 : tx.ToBytes().Length + sizeOfSingleOutputWithoutScript;
+
+      long normalBytes = totalBytes - dataBytes - overHead;
+
+      if (normalBytes > 0 && dataBytes > 0) // Overhead also depends on number of outputs - if this is true we have two outputs 
+      {
+        normalBytes -= (sizeof(ulong) + GetBytesForScriptLength((ulong)dataBytes));
+      }
+
+      if (normalBytes > 0)
+      {
+        var scriptBytes = new byte[normalBytes];
+        tx.Outputs.Add(new TxOut(remainingMoney, new Script(scriptBytes)));
+        remainingMoney = 0L;
+      }
+      else if (normalBytes < 0)
+      {
+        throw new ArgumentException("Argument Databytes is too low.");
+      }
+      if (dataBytes > 0)
+      {
+        var scriptBytes = new byte[dataBytes];
+        scriptBytes[0] = (byte)OpcodeType.OP_FALSE;
+        scriptBytes[1] = (byte)OpcodeType.OP_RETURN;
+        tx.Outputs.Add(new TxOut(remainingMoney, new Script(scriptBytes)));
+      }
+
+      if (totalBytes != tx.ToBytes().Length)
+      {
+        throw new ArgumentException("Failed to create transaction of desired length.");
+      }
+
+      return tx;
+
     }
 
     public async Task WaitForEventBusEventAsync<T>(EventBusSubscription<T> subscription, string description, Func<T, bool> predicate) where T : IntegrationEvent

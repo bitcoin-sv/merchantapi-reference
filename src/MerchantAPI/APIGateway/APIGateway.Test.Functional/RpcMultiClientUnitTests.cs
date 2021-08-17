@@ -169,8 +169,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
 
       var r = c.SendRawTransactionsAsync(
-        txsHex.Select( x=>
-        (HelperTools.HexStringToByteArray(x), true, true, true)).ToArray()).Result;
+        txsHex.Select( x => 
+        (HelperTools.HexStringToByteArray(x), true, true, true, new Dictionary<string, object>())).ToArray()).Result;
       Assert.AreEqual(JsonSerializer.Serialize(expected), JsonSerializer.Serialize(r));
     }
 

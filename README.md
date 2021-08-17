@@ -28,18 +28,31 @@ For setting up development environment see [bellow](#setting-up-a-development-en
 The reference implementation exposes different **REST API** interfaces
 
 * an interface for submitting transactions implemented according [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi)
-* an admin interface for managing connections to bitcoin nodes and fee quotes
+* an admin interface for managing connections to bitcoin nodes and policy quotes
 
 
 ## Public interface
 
 Public interface can be used to submit transactions and query transactions status. It is accessible to both authenticated and unauthenticated users, but authenticated users might get special fee rates.
 
-### 1. getFeeQuote
+### 1. getPolicyQuote / getFeeQuote
+
+Policy quote endpoint: 
+
+```
+GET /mapi/policyQuote
+```
+
+Returns a PolicyQuote payload that contains the fees types charged by the miner and set policies.
+
+Fee quote endpoint (deprecated): 
 
 ```
 GET /mapi/feeQuote
 ```
+
+Returns a JSON envelope with a payload that contains the fees types charged by a miner (without policies).
+
 
 ### 2. submitTransaction
 
@@ -104,7 +117,7 @@ To submit transaction in binary format use `Content-Type: application/octet-stre
 
 Merchants can request callbacks for *merkle proofs* and/or *double spend notifications* in Submit transaction.
 
-You can specify `{callbackReason}` placeholder in your `callbackUrl`. When notification is triggered, placeholder will be replaced by actual callback reason (`merkleProof`, `doubleSpend` or `oubleSpendAttempt`).
+You can specify `{callbackReason}` placeholder in your `callbackUrl`. When notification is triggered, placeholder will be replaced by actual callback reason (`merkleProof`, `doubleSpend` or `doubleSpendAttempt`).
 
 For example, if you specify callback URL:
 ```
@@ -151,7 +164,7 @@ Merkle proof callback can be requested by specifying:
  "merkleFormat" : "TSC",
 }
 ```
-Merlke format is optional and only supported format is TSC. If field is omitted from the request than the callback payload will be the same as with 1.2.0 version.
+Merkle format is optional and only supported format is TSC. If field is omitted from the request than the callback payload will be the same as with 1.2.0 version.
 
 If callback was requested on transaction submit, merchant should receive a notification of a double spend and/or merkle proof via callback URL. mAPI process all requested notifications and sends them out in batches.
 Callbacks have three possible callbackReason: "doubleSpend", "doubleSpendAttempt" and "merkleProof". DoubleSpendAttempt implies, that a double spend was detected in mempool.
@@ -222,7 +235,7 @@ If no token is used, and the call is done anonymously, then the default rate is 
 ### Authorization/Authentication Example
 
 ```console
-$ curl -H "Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDIwLTEwLTE0VDExOjQ0OjA3LjEyOTAwOCswMTowMCIsIm5hbWUiOiJsb3cifQ.LV8kz02bwxZ21qgqCvmgWfbGZCtdSo9px47wQ3_6Zrk" localhost:5051/mapi/feeQuote
+$ curl -H "Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDIwLTEwLTE0VDExOjQ0OjA3LjEyOTAwOCswMTowMCIsIm5hbWUiOiJsb3cifQ.LV8kz02bwxZ21qgqCvmgWfbGZCtdSo9px47wQ3_6Zrk" localhost:5051/mapi/policyQuote
 ```
 
 ### JWT Token Manager
@@ -271,44 +284,70 @@ Token:
 Admin interface can be used to add, update or remove connections to this node. It is only accessible to authenticated users. Authentication is performed through `Api-Key` HTTP header. The provided value must match the one provided in configuration variable `RestAdminAPIKey`.
 
 
-### Managing fee quotes
+### Managing policy quotes
 
-To create a new fee quote use the following:
+To create a new policy quote use the following:
+
+```
+POST api/v1/PolicyQuote
+```
+
+or (deprecated) synonymous endpoint
 
 ```
 POST api/v1/FeeQuote
 ```
 
-Example with curl - add feeQuote valid from 01/10/2020 for anonymous user:
+Curl examples:
+
+- add policyQuote valid from 01/10/2020 for anonymous user:
 
 ```console
-$ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/FeeQuote -d "{ \"validFrom\": \"2020-10-01T12:00:00\", \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }] }"
+$ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/PolicyQuote -d "{ \"validFrom\": \"2020-10-01T12:00:00\", \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }] }"
 ```
 
-To get list of all fee quotes, matching one or more criteria, use the following
+- add policyQuote valid from now with two policies: 
+
+```console
+$ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/PolicyQuote -d "{ \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }], \"policies\": {\"maxtxsizepolicy\": 100000, \"skipscriptflags\": [\"CLEANSTACK\"]} }"
+```
+
+To get list of all policy quotes, matching one or more criteria, use the following
+
+```
+GET api/v1/PolicyQuote
+```
+
+or
 
 ```
 GET api/v1/FeeQuote
 ```
 
-You can filter fee quotes by providing additional optional criteria in query string:
+You can filter policy quotes by providing additional optional criteria in query string:
 
-* `identity` - return only fee quotes for users that authenticate with a JWT token that was issued to specified identity
-* `identityProvider` - return only fee quotes for users that authenticate with a JWT token that was issued by specified token authority
-* `anonymous` - specify  `true` to return only fee quotes for anonymous user.
-* `current` - specify  `true` to return only fee quotes that are currently valid.
-* `valid` - specify  `true` to return only fee quotes that are valid in interval with QuoteExpiryMinutes
+* `identity` - return only policy quotes for users that authenticate with a JWT token that was issued to specified identity
+* `identityProvider` - return only policy quotes for users that authenticate with a JWT token that was issued by specified token authority
+* `anonymous` - specify  `true` to return only policy quotes for anonymous user.
+* `current` - specify  `true` to return only policy quotes that are currently valid.
+* `valid` - specify  `true` to return only policy quotes that are valid in interval with QuoteExpiryMinutes
 
-To get list of all fee quotes (including expired ones) for all users use GET api/v1/FeeQuote without filters.
+To get list of all policy quotes (including expired ones) for all users use GET api/v1/PolicyQuote without filters.
 
 
-To get a specific fee quote by id use:
+To get a specific policy quote by id use:
+
+```
+GET api/v1/PolicyQuote/{id}
+```
+
+or 
 
 ```
 GET api/v1/FeeQuote/{id}
 ```
 
-Note: it is not possible to delete or update a fee quote once it is published, but you can make it obsolete by publishing a new fee quote.
+Note: it is not possible to delete or update a policy quote once it is published, but you can make it obsolete by publishing a new policy quote.
 
 
 ### Managing nodes
@@ -432,7 +471,8 @@ On Windows: build.bat
     | HTTPSPORT | Https port where the application will listen/run |
     | CERTIFICATEPASSWORD | the password of the *.pfx file in the config folder |
     | CERTIFICATEFILENAME | *<certificate_file_name.pfx>* |
-    | QUOTE_EXPIRY_MINUTES | Specify fee quote expiry time |
+    | QUOTE_EXPIRY_MINUTES | Specify policy quote expiry time. Default: 10 |
+    | CALLBACK_IP_ADDRESSES | An array of IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote |
     | ZMQ_CONNECTION_TEST_INTERVAL_SEC | How often does ZMQ subscription service test that the connection with node is still alive. Default: 60 seconds |
     | RESTADMIN_APIKEY | Authorization key for accessing administration interface |
     | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK | Number of old blocks that are checked for double spends |
@@ -508,6 +548,7 @@ Following table lists all configuration settings with mappings to environment va
   | Application Setting | Environment variable |
   | ------------------- | -------------------- |
   | QuoteExpiryMinutes | QUOTE_EXPIRY_MINUTES |
+  | CallbackIPAddresses | CALLBACK_IP_ADDRESSES |
   | RestAdminAPIKey | RESTADMIN_APIKEY |
   | DeltaBlockHeightForDoubleSpendCheck | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK |
   | CleanUpTxAfterDays| CLEAN_UP_TX_AFTER_DAYS |

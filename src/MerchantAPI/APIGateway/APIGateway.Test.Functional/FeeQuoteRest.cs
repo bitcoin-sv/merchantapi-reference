@@ -19,6 +19,8 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web;
+using System.Text.Json;
+using MerchantAPI.Common.Json;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -53,7 +55,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     public override string GetNonExistentKey() => "-1";
-    public override string GetBaseUrl() => MapiServer.ApiMapiFeeQuoteConfigUrl;
+    public override string GetBaseUrl() => MapiServer.ApiFeeQuoteConfigUrl;
     public override string ExtractGetKey(FeeQuoteConfigViewModelGet entry) => entry.Id.ToString();
     public override string ExtractPostKey(FeeQuoteViewModelCreate entry) => entry.Id.ToString();
 
@@ -62,12 +64,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
       entry.Id = long.Parse(key);
     }
 
+    private Dictionary<string, object> GetPoliciesDict(string json)
+    {
+      return HelperTools.JSONDeserialize<Dictionary<string, object>>(json);
+    }
+
     public override FeeQuoteViewModelCreate GetItemToCreate()
     {
       return new FeeQuoteViewModelCreate
       {
         Id = 1,
         ValidFrom = DateTime.UtcNow.AddSeconds(1),
+        Policies = GetPoliciesDict("{\"somePolicy\": \"policyValue\"}"),
         Fees = new[] {
               new FeeViewModelCreate {
                 FeeType = Const.FeeType.Standard,
@@ -101,6 +109,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         Id = 1,
         ValidFrom = MockedClock.UtcNow.AddSeconds(5),
+        Policies = GetPoliciesDict("{\"somePolicy\": \"values\"}"),
         Fees = new[] {
               new FeeViewModelCreate {
                 FeeType = Const.FeeType.Standard,
@@ -125,8 +134,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 },
               },
           },
-        Identity = this.GetMockedIdentity.Identity,
-        IdentityProvider = this.GetMockedIdentity.IdentityProvider
+        Identity = this.MockedIdentity.Identity,
+        IdentityProvider = this.MockedIdentity.IdentityProvider
       };
     }
 
@@ -137,6 +146,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
              {
                 Id = 1,
                 ValidFrom = MockedClock.UtcNow.AddSeconds(1),
+                Policies = GetPoliciesDict("{\"skipScriptFlags\": \"some flags 1\"}"),
                 Fees = new[] {
                   new FeeViewModelCreate {
                     FeeType = Const.FeeType.Standard,
@@ -155,6 +165,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
              {
                 Id = 2,
                 ValidFrom = MockedClock.UtcNow.AddSeconds(1),
+                Policies = GetPoliciesDict("{\"skipScriptFlags\": \"some flags 2\"}"),
                 Fees = new[] {
                   new FeeViewModelCreate {
                     FeeType = Const.FeeType.Standard,
@@ -180,8 +191,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         Assert.IsTrue(Math.Abs((post.ValidFrom.Value.Subtract(get.ValidFrom.Value.ToUniversalTime())).TotalMilliseconds) < 1);
       }
-      
-      for(int i=0; i<post.Fees.Length; i++)
+
+      Assert.IsTrue(post.Policies?.Any() == get.Policies?.Any());
+      if (post.Policies != null && post.Policies.Any())
+      {
+        // compare without extra white spaces
+        var serializeOptions = new JsonSerializerOptions { WriteIndented = false };
+        var postPoliciesJsonString = JsonSerializer.Serialize(post.Policies, serializeOptions);
+        var getPoliciesJsonString = JsonSerializer.Serialize(get.Policies, serializeOptions);
+        Assert.AreEqual(postPoliciesJsonString, getPoliciesJsonString);
+      }
+
+      for (int i=0; i<post.Fees.Length; i++)
       {
         var postFee = post.Fees[i].ToDomainObject();
         var getFee = get.Fees.Single(x => x.FeeType == postFee.FeeType);
@@ -194,7 +215,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual(post.Identity, get.Identity);
       Assert.AreEqual(post.IdentityProvider, get.IdentityProvider);
-
     }
 
     public override void ModifyEntry(FeeQuoteViewModelCreate entry)
@@ -446,7 +466,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task TestPost_WithInvalidAuthentication()
     {
       ApiKeyAuthentication = null;
-      RestAuthentication = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      RestAuthentication = MockedIdentityBearerAuthentication;
       var entryPost = GetItemToCreate();
       var (_, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.Unauthorized);
 
@@ -532,17 +552,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddSeconds(10)))
       {
         // check GET for identity
-        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity), HttpStatusCode.OK);
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identityProvider
-        var tIdentity = GetMockedIdentity;
+        var tIdentity = MockedIdentity;
         tIdentity.Identity = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identity
-        tIdentity = GetMockedIdentity;
+        tIdentity = MockedIdentity;
         tIdentity.IdentityProvider = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
@@ -552,7 +572,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(2, getEntries.Count());
 
         // check GET for identity+anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(3, getEntries.Count());
 
         // check GET all
@@ -636,7 +656,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes*2)))
       {
         // check GET for identity
-        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity), HttpStatusCode.OK);
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for anonymous
@@ -645,7 +665,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(entryPost.Id, getEntries.Single().Id);
 
         // check GET for identity+anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(GetMockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlForValidFeeQuotesKey(MockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(2, getEntries.Count());
 
         // check GET all
@@ -673,17 +693,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(-FeeQuoteRepositoryMock.quoteExpiryMinutes)))
       {
         // check GET for identity & identityProvider
-        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), GetMockedIdentity), HttpStatusCode.OK);
+        var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), MockedIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identityProvider
-        var tIdentity = GetMockedIdentity;
+        var tIdentity = MockedIdentity;
         tIdentity.Identity = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for identity
-        tIdentity = GetMockedIdentity;
+        tIdentity = MockedIdentity;
         tIdentity.IdentityProvider = null;
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), tIdentity), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
@@ -693,7 +713,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entryPost, getEntries.Single());
 
         // check GET for identity+anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), GetMockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(client, UrlWithIdentity(GetBaseUrl(), MockedIdentity) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(2, getEntries.Count());
 
         // check GET all
@@ -782,7 +802,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       // arrange
       var entryPostWithIdentity = GetItemToCreateWithIdentity();
-      var testIdentity = GetMockedIdentity;
+      var testIdentity = MockedIdentity;
       testIdentity.Identity = "test ";
       entryPostWithIdentity.Identity = testIdentity.Identity;
       await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithIdentity, HttpStatusCode.Created);
@@ -836,5 +856,55 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entryPostWithIdentity2, getEntries.Single());
       }
     }
+
+    [TestMethod]
+    public async Task TestPostNullPolicies()
+    {
+      var entryPost = GetItemToCreate();
+      entryPost.Policies = null;
+      var entryPostKey = ExtractPostKey(entryPost);
+
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPost, HttpStatusCode.Created);
+      var getEntry = await Get<FeeQuoteConfigViewModelGet>(client, UrlForKey(entryPostKey), HttpStatusCode.OK);
+      CheckWasCreatedFrom(entryPost, getEntry);
+    }
+
+    [TestMethod]
+    [DataRow("\"\"")]
+    [DataRow("null")]
+    [DataRow("260")]
+    [DataRow("[2.60, 2.61]")]
+    [DataRow("\"DERSIG=1,MAXTXSIZE=1M\"")]
+    [DataRow("{ \"DERSIG\":true, \"MAXTXSIZE\":1000000 }")]
+    [DataRow("{ \"subflags\" : [\"flag1\", \"flag2\"]}")]
+    public async Task TestPostValidPolicies(string jsonValue)
+    {
+      var entryPost = GetItemToCreate();
+      var domain = entryPost.ToDomainObject(DateTime.UtcNow);
+      domain.Policies = "{\"skipScriptFlags\":" + jsonValue + "}";
+      var entryPostWithPolicies = new FeeQuoteViewModelCreate(domain)
+      {
+        Id = entryPost.Id
+      };
+      var entryPostKey = ExtractPostKey(entryPostWithPolicies);
+
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(client, entryPostWithPolicies, HttpStatusCode.Created);
+      var getEntry = await Get<FeeQuoteConfigViewModelGet>(client, UrlForKey(entryPostKey), HttpStatusCode.OK);
+      CheckWasCreatedFrom(entryPostWithPolicies, getEntry);
+    }
+
+    [TestMethod]
+    [ExpectedException(typeof(JsonException))]
+    [DataRow("")]
+    [DataRow("null0")]
+    [DataRow("[260, \"261]")]
+    public void TestPostInvalidPolicies(string jsonValue)
+    {
+      var entryPost = GetItemToCreate();
+      var domain = entryPost.ToDomainObject(DateTime.UtcNow);
+      domain.Policies = "{\"skipScriptFlags\":" + jsonValue + "}";
+      _ = new FeeQuoteViewModelCreate(domain);
+    }
+
   }
 }
