@@ -1,14 +1,16 @@
 ﻿// Copyright (c) 2020 Bitcoin Association
 
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.Common.Validation;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels  // used for PUT
 {
-  public class NodeViewModelPut
+  public class NodeViewModelPut : IValidatableObject
   {
+
     [JsonIgnore]
     public string Id { get; set; }
 
@@ -30,12 +32,23 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels  // used for PUT
     {
       var (host, port) = Node.SplitHostAndPort(Id);
       return new Node(
-        host, 
+        host,
         port,
         Username,
         Password,
         Remarks,
         ZMQNotificationsEndpoint);
+    }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+      if (ZMQNotificationsEndpoint != null) // null value or "tcp://a.b.c.d:port" 
+      {
+        if (!CommonValidator.IsUrlWithUriSchemesValid(ZMQNotificationsEndpoint, nameof(ZMQNotificationsEndpoint), new string[] { "tcp" }, out var error))
+        {
+          yield return new ValidationResult(error, new[] { nameof(ZMQNotificationsEndpoint) });
+        }
+      }
     }
   }
 }

@@ -22,16 +22,18 @@ namespace MerchantAPI.APIGateway.Rest
   public class StartupChecker: IStartupChecker 
   {
     readonly INodeRepository nodeRepository;
+    readonly INodes nodes;
     readonly ILogger<StartupChecker> logger;
     readonly IRpcClientFactory rpcClientFactory;
     readonly IList<Node> accessibleNodes = new List<Node>();
     readonly IBlockParser blockParser;
     readonly INotificationsHandler notificationsHandler;
-    private readonly IMinerId minerId;
-    private readonly IDbManager dbManager;
+    readonly IMinerId minerId;
+    readonly IDbManager dbManager;
     bool nodesAccessible;
 
     public StartupChecker(INodeRepository nodeRepository,
+                          INodes nodes,
                           IRpcClientFactory rpcClientFactory,
                           IMinerId minerId,
                           IBlockParser blockParser,
@@ -42,6 +44,7 @@ namespace MerchantAPI.APIGateway.Rest
     {
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
+      this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
       this.logger = logger ?? throw new ArgumentException(nameof(logger));
       this.blockParser = blockParser ?? throw new ArgumentException(nameof(blockParser));
       this.dbManager = dbManager ?? throw new ArgumentException(nameof(dbManager));
@@ -161,6 +164,11 @@ namespace MerchantAPI.APIGateway.Rest
       logger.LogInformation($"Checking nodes zmq notification services");
       foreach (var node in accessibleNodes)
       {
+        if (!nodes.IsZMQNotificationsEndpointValid(node, out string error))
+        {
+          logger.LogWarning(error);
+        }
+
         var rpcClient = rpcClientFactory.Create(node.Host, node.Port, node.Username, node.Password);
         try
         {

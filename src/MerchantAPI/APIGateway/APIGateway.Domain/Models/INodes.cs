@@ -13,5 +13,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
     Node GetNode(string id);
     IEnumerable<Node> GetNodes();
     Task<bool> UpdateNodeAsync(Node node);
+    bool IsZMQNotificationsEndpointValid(Node node, out string error);
   }
 }

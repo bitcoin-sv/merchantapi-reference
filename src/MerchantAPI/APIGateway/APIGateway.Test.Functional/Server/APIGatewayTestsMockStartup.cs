@@ -13,6 +13,7 @@ using System.Linq;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Test.Functional.Database;
 using MerchantAPI.Common.Test.Clock;
+using MerchantAPI.APIGateway.Domain.Models;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Server
 {
@@ -37,6 +38,10 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
       serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IClock));
       services.Remove(serviceDescriptor);
       services.AddSingleton<IClock, MockedClock>();
+
+      serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IZMQNotificationsEndpoint));
+      services.Remove(serviceDescriptor);
+      services.AddTransient<IZMQNotificationsEndpoint, MockZMQNotificationsEndpoint>();
 
       // We register  fee repository as singleton, so that we can modify the fee filename in individual tests
       serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IFeeQuoteRepository));

@@ -67,6 +67,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       throw new NotImplementedException();
     }
+
+    public bool IsZMQNotificationsEndpointValid(Node node, out string error)
+    {
+      throw new NotImplementedException();
+    }
   }
 
 

@@ -2,6 +2,7 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.Common.Validation;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
@@ -61,6 +62,13 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
           yield return new ValidationResult(
             $"The {nameof(Id)} field must have number after ':'",
               new[] { nameof(Id) });
+        }
+      }
+      if (ZMQNotificationsEndpoint != null) // null value or "tcp://a.b.c.d:port" 
+      {
+        if (!CommonValidator.IsUrlWithUriSchemesValid(ZMQNotificationsEndpoint, nameof(ZMQNotificationsEndpoint), new string[] { "tcp" }, out var error))
+        {
+           yield return new ValidationResult(error, new[] { nameof(ZMQNotificationsEndpoint) });
         }
       }
     }

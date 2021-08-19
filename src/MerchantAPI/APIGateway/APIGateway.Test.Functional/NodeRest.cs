@@ -82,9 +82,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override void ModifyEntry(NodeViewModelCreate entry)
     {
-      entry.Remarks += "Updated remarks";
-      entry.Username += "updatedUsername";
-      entry.ZMQNotificationsEndpoint += "updatedEndpoint";
+      int.TryParse(entry.Remarks[^1..], out int result);
+      entry.Remarks = $"Updated remarks { result }";
+      entry.Username = $"updatedUsername { result }";
+      entry.ZMQNotificationsEndpoint = $"tcp://updatedEndpoint:123{ result }";
     }
 
     public override NodeViewModelCreate[] GetItemsToCreate()
@@ -119,6 +120,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(post.ZMQNotificationsEndpoint, get.ZMQNotificationsEndpoint);
       // Password can not be retrieved. We also do not check additional fields such as LastErrorAt
     }
+
 
     [TestMethod]
     public async Task CreateNode_WrongIdSyntax_ShouldReturnBadRequest()
@@ -281,6 +283,52 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Put(client, UrlForKey("some.host1:123"), putNode1, HttpStatusCode.BadRequest);
 
       await Put(client, UrlForKey("SOME.HOST1:123"), putNode1, HttpStatusCode.BadRequest);
+    }
+
+    [TestMethod]
+    public async Task CreateNode_InvalidZMQNotificationsEndpoint()
+    {
+      //arrange
+      var create = new NodeViewModelCreate
+      {
+        Id = "some.host2:2",
+        Remarks = "Some remarks2",
+        Password = "somePassword2",
+        Username = "someUsername",
+        ZMQNotificationsEndpoint = "invalidEndpoint"
+      };
+      var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
+
+      //act
+      var(_, responseContent) = await Post<string>(UrlForKey(""), client, content, HttpStatusCode.BadRequest);
+
+      var responseAsString = await responseContent.Content.ReadAsStringAsync();
+      var vpd = JsonSerializer.Deserialize<ValidationProblemDetails>(responseAsString);
+      Assert.AreEqual(1, vpd.Errors.Count());
+      Assert.AreEqual("ZMQNotificationsEndpoint", vpd.Errors.First().Key);
+    }
+
+    [TestMethod]
+    public async Task UpdateNode_InvalidZMQNotificationsEndpoint()
+    {
+     //arrange
+     var entryPost = GetItemToCreate();
+     var entryPostKey = ExtractPostKey(entryPost);
+
+     //before we can update it, we have to POST node first
+    await Post<NodeViewModelCreate, NodeViewModelGet>(client, entryPost, HttpStatusCode.Created);
+
+     var entryPut = GetItemToCreate();
+     entryPut.ZMQNotificationsEndpoint = "tcp://1.2.3.4:invalid";
+
+     //invalid port - should return badRequest
+     await Put(client, UrlForKey(entryPostKey), entryPut, HttpStatusCode.BadRequest);
+
+     entryPut = GetItemToCreate();
+     entryPut.ZMQNotificationsEndpoint = "tcp://1.2.3.4:28333";
+
+     //should succeed
+     await Put(client, UrlForKey(entryPostKey), entryPut, HttpStatusCode.NoContent);
     }
   }
 }
