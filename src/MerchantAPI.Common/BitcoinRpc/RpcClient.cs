@@ -61,7 +61,7 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     public async Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
     {
-      return await RequestAsyncWithRetry<RpcBitcoinStreamReader>(token, "getblock", null, blockHash, 0 );
+      return await RequestAsyncWithRetry<RpcBitcoinStreamReader>(token, "getblock", null, blockHash, 0);
     }
 
     public async Task<byte[]> GetBlockByHeightAsBytesAsync(long blockHeight, CancellationToken? token = null)
@@ -126,7 +126,7 @@ namespace MerchantAPI.Common.BitcoinRpc
     public async Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token)
     {
 
-      var rpcResponse = await MakeRequestAsync<string>(token, new RpcRequest(1, "sendrawtransaction", 
+      var rpcResponse = await MakeRequestAsync<string>(token, new RpcRequest(1, "sendrawtransaction",
         HelperTools.ByteToHexString(transaction),
         allowhighfees,
         dontCheckFees
@@ -145,7 +145,7 @@ namespace MerchantAPI.Common.BitcoinRpc
           AllowHighFees = tx.allowhighfees,
           DontCheckFee = tx.dontCheckFees,
           ListUnconfirmedAncestors = tx.listUnconfirmedAncestors,
-          Config = tx.config, 
+          Config = tx.config,
         }).Cast<object>().ToArray();
 
       object param1 = t; // cast to object so that it is not interpreted as multiple arguments
@@ -166,7 +166,7 @@ namespace MerchantAPI.Common.BitcoinRpc
     public Task<string> SendToAddressAsync(string address, double amount, CancellationToken? token = null)
     {
       return RequestAsync<string>(token, "sendtoaddress",
-        address, 
+        address,
         amount.ToString(CultureInfo.InvariantCulture)
       );
     }
@@ -197,7 +197,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       return RequestAsync<string>(token, "submitblock", HelperTools.ByteToHexString(block));
     }
 
-    public  Task<string[]> GetRawMempool(CancellationToken? token = null)
+    public Task<string[]> GetRawMempool(CancellationToken? token = null)
     {
       return RequestAsync<string[]>(token, "getrawmempool");
     }
@@ -242,7 +242,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       {
         throw new RpcException(rpcResponse.Error.code, rpcResponse.Error.message, Address.AbsoluteUri);
       }
-      
+
       return rpcResponse.Result;
     }
 
@@ -286,7 +286,7 @@ namespace MerchantAPI.Common.BitcoinRpc
         {
           if (retriesLeft == 0)
           {
-            throw new Exception($"Failed after {NumOfRetries} retries. Last error: {ex.Message}",ex);
+            throw new Exception($"Failed after {NumOfRetries} retries. Last error: {ex.Message}", ex);
           }
           logger.LogError($"Error while execution RPC method {method} toward node {Address}. Retries left {retriesLeft}. Error:  {ex.Message}");
         }
@@ -305,16 +305,16 @@ namespace MerchantAPI.Common.BitcoinRpc
       throw new Exception("Internal error RequestAsyncWithRetry  reached the end");
 
     }
-  
+
     private async Task<RpcResponse<T>> MakeRequestAsync<T>(CancellationToken? token, RpcRequest rpcRequest)
     {
-      using var httpResponse = await MakeHttpRequestAsync(token, rpcRequest);
+      using var httpResponse = await MakeHttpRequestAsync(token, rpcRequest, false);
       return await GetRpcResponseAsync<T>(httpResponse);
     }
 
     private async Task<RpcBitcoinStreamReader> MakeRequestReturnStreamAsync(CancellationToken? token, RpcRequest rpcRequest)
     {
-      var httpResponse = await MakeHttpRequestAsync(token, rpcRequest);
+      var httpResponse = await MakeHttpRequestAsync(token, rpcRequest, true);
       return await GetRpcResponseAsStreamAsync(httpResponse, token);
     }
 
@@ -328,7 +328,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       return reqMessage;
     }
 
-    private async Task<HttpResponseMessage> MakeHttpRequestAsync(CancellationToken? token, RpcRequest rpcRequest)
+    private async Task<HttpResponseMessage> MakeHttpRequestAsync(CancellationToken? token, RpcRequest rpcRequest, bool readOnlyHeader)
     {
       string paramDescription = rpcRequest.Parameters?.FirstOrDefault()?.ToString() ?? "";
       if (rpcRequest.Parameters?.Count > 1)
@@ -339,9 +339,9 @@ namespace MerchantAPI.Common.BitcoinRpc
       logger.LogInformation($"Calling method '{rpcRequest.Method}({paramDescription}) on node {Address.Host}:{Address.Port}");
       var reqMessage = CreateRequestMessage(rpcRequest.GetJSON());
       using var cts = new CancellationTokenSource(RequestTimeout);
-      using var cts2=  CancellationTokenSource.CreateLinkedTokenSource(cts.Token, token ?? CancellationToken.None);
-      
-      var httpResponse = await HttpClient.SendAsync(reqMessage, cts2.Token).ConfigureAwait(false);
+      using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, token ?? CancellationToken.None);
+      var completionOption = readOnlyHeader ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
+      var httpResponse = await HttpClient.SendAsync(reqMessage, completionOption, cts2.Token).ConfigureAwait(false);
       if (!httpResponse.IsSuccessStatusCode)
       {
         var response = await GetRpcResponseAsync<string>(httpResponse);
@@ -409,7 +409,7 @@ namespace MerchantAPI.Common.BitcoinRpc
 
         char[] charFromStream = new char[1];
         await strReader.ReadBlockAsync(charFromStream, 0, 1);
-        
+
         // Once we find " we clear the content of the bucket to start storing a new value
         if (charFromStream[0] == '"')
         {
