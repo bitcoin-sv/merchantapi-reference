@@ -30,7 +30,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       if (!string.IsNullOrEmpty(url))
       {
-        if (!CommonValidator.IsUrlValid(url, memberName, out var error))
+        if (!CommonValidator.IsHttpUrlValid(url, memberName, out var error))
         {
           yield return new ValidationResult(error);
         }
