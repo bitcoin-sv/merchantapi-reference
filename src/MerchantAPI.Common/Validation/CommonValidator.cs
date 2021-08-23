@@ -9,7 +9,7 @@ namespace MerchantAPI.Common.Validation
 {
   public class CommonValidator
   {
-    public static bool IsUrlValid(string url, string memberName, out string error)
+    public static bool IsHttpUrlValid(string url, string memberName, out string error)
     {
       return IsUrlWithUriSchemesValid(url, memberName, new string[] { Uri.UriSchemeHttp, Uri.UriSchemeHttps }, out error);
     }
