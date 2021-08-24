@@ -36,6 +36,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     public TimeSpan RequestTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     public int NumOfRetries { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
+    public string zmqAddress = "tcp://127.0.0.1:28332";
+
     public RpcClientMock(RpcCallList callList, string host, int port, string username, string password, 
       ConcurrentDictionary<uint256, byte[]> transactions,
       ConcurrentDictionary<uint256, BlockWithHeight> blocks,
@@ -53,6 +55,18 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       this.doNotTraceMethods = doNotTraceMethods;
       this.predefinedResponse = predefinedResponse;
       this.validScriptCombinations = validScriptCombinations;
+    }
+
+    public RpcClientMock(RpcCallList callList, string host, int port, string username, string password, string zmqAddress,
+        ConcurrentDictionary<uint256, byte[]> transactions,
+        ConcurrentDictionary<uint256, BlockWithHeight> blocks,
+        ConcurrentDictionary<string, object> disconnectedNodes,
+        ConcurrentDictionary<string, object> doNotTraceMethods,
+        ConcurrentDictionary<string, object> predefinedResponse,
+        IList<(string, int)> validScriptCombinations
+    ) : this(callList, host, port, username, password, transactions, blocks, disconnectedNodes, doNotTraceMethods, predefinedResponse, validScriptCombinations)
+    {
+      this.zmqAddress = zmqAddress;
     }
 
     public void ThrowIfDisconnected()
@@ -433,7 +447,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         return r;
       }
 
-      return ZMQTopic.RequiredZmqTopics.Select(x => new RpcActiveZmqNotification { Address = "tcp://127.0.0.1:28332", Notification = x}).ToArray();
+      return ZMQTopic.RequiredZmqTopics.Select(x => new RpcActiveZmqNotification { Address = zmqAddress, Notification = x}).ToArray();
     }
     public async Task<string[]> GetRawMempool(CancellationToken? token = null)
     {

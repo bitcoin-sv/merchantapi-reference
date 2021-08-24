@@ -16,6 +16,7 @@ using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.Common.Startup;
 using MerchantAPI.Common.Tasks;
 using MerchantAPI.APIGateway.Rest.Database;
+using MerchantAPI.Common.BitcoinRpc.Responses;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -164,15 +165,11 @@ namespace MerchantAPI.APIGateway.Rest
       logger.LogInformation($"Checking nodes zmq notification services");
       foreach (var node in accessibleNodes)
       {
-        if (!nodes.IsZMQNotificationsEndpointValid(node, out string error))
-        {
-          logger.LogWarning(error);
-        }
-
         var rpcClient = rpcClientFactory.Create(node.Host, node.Port, node.Username, node.Password);
+        RpcActiveZmqNotification[] notifications = null;
         try
         {
-          var notifications = await rpcClient.ActiveZmqNotificationsAsync();
+          notifications = await rpcClient.ActiveZmqNotificationsAsync();
           
           if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
           {
@@ -183,6 +180,11 @@ namespace MerchantAPI.APIGateway.Rest
         catch (Exception ex)
         {
           logger.LogError($"Node at address '{node.Host}:{node.Port}' did not return a valid response to call 'activeZmqNotifications'", ex);
+        }
+
+        if (!nodes.IsZMQNotificationsEndpointValid(node, notifications, out string error))
+        {
+          logger.LogWarning(error);
         }
       }
       logger.LogInformation($"Nodes zmq notification services check complete");

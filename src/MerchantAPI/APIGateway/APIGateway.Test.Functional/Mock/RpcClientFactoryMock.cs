@@ -24,6 +24,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
   public class RpcClientFactoryMock : IRpcClientFactory
   {
+    public string mockedZMQNotificationsEndpoint = "tcp://127.0.0.1:28332";
     ConcurrentDictionary<uint256, byte[]> transactions = new ConcurrentDictionary<uint256, byte[]>();
     ConcurrentDictionary<uint256, BlockWithHeight> blocks = new ConcurrentDictionary<uint256, BlockWithHeight>();
 
@@ -94,7 +95,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     public virtual IRpcClient Create(string host, int port, string username, string password) 
     {
       // Currently all mocks share same transactions and blocks
-      return new RpcClientMock(AllCalls, host, port, username, password,
+      return new RpcClientMock(AllCalls, host, port, username, password, mockedZMQNotificationsEndpoint,
         transactions,
         blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse,
         validScriptCombinations);

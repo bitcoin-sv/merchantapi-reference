@@ -58,11 +58,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
         throw new BadRequestException($"The node was not added. Unable to connect to node {node.Host}:{node.Port}.", ex);
       }
 
-      if (!IsZMQNotificationsEndpointValid(node, out string error))
-      {
-        throw new BadRequestException(error);
-      }
-
       RpcActiveZmqNotification[] notifications;
       try
       {
@@ -73,11 +68,15 @@ namespace MerchantAPI.APIGateway.Domain.Models
         throw new BadRequestException($"Node at address '{node.Host}:{node.Port}' did not return a valid response to call 'activeZmqNotifications'", ex);
       }
 
-
       if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
       {
         var missingNotifications = ZMQTopic.RequiredZmqTopics.Except(notifications.Select(x => x.Notification));
         throw new BadRequestException($"Node '{node.Host}:{node.Port}', does not have all required zmq notifications enabled. Missing notifications ({string.Join(",", missingNotifications)})");
+      }
+
+      if (!IsZMQNotificationsEndpointValid(node, notifications, out string error))
+      {
+        throw new BadRequestException(error);
       }
 
       var createdNode = nodeRepository.CreateNode(node);
@@ -103,7 +102,23 @@ namespace MerchantAPI.APIGateway.Domain.Models
         throw new BadRequestException($"The node was not updated. Can not connect to node {node.Host}:{node.Port}.", ex);
       }
 
-      if (!IsZMQNotificationsEndpointValid(node, out string error))
+      RpcActiveZmqNotification[] notifications;
+      try
+      {
+        notifications = await bitcoind.ActiveZmqNotificationsAsync();
+      }
+      catch (Exception ex)
+      {
+        throw new BadRequestException($"Node at address '{node.Host}:{node.Port}' did not return a valid response to call 'activeZmqNotifications'", ex);
+      }
+
+      if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
+      {
+        var missingNotifications = ZMQTopic.RequiredZmqTopics.Except(notifications.Select(x => x.Notification));
+        throw new BadRequestException($"Node '{node.Host}:{node.Port}', does not have all required zmq notifications enabled. Missing notifications ({string.Join(",", missingNotifications)})");
+      }
+
+      if (!IsZMQNotificationsEndpointValid(node, notifications, out string error))
       {
         throw new BadRequestException(error);
       }
@@ -132,7 +147,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return nodeRepository.DeleteNode(id);
     }
 
-    public bool IsZMQNotificationsEndpointValid(Node node, out string error)
+    public bool IsZMQNotificationsEndpointValid(Node node, RpcActiveZmqNotification[] notifications, out string error)
     {
       error = null;
 
@@ -145,7 +160,21 @@ namespace MerchantAPI.APIGateway.Domain.Models
         }
         else if (!ZMQNotificationsEndpoint.IsZMQNotificationsEndpointReachable(node.ZMQNotificationsEndpoint))
         {
-          error = $"ZMQNotificationsEndpoint: {node.ZMQNotificationsEndpoint} is unreachable.";
+          error = $"ZMQNotificationsEndpoint: '{node.ZMQNotificationsEndpoint}' is unreachable.";
+        }
+      }
+      if (notifications != null)
+      {
+        foreach (var n in notifications.GroupBy(x => x.Address, x => x.Notification, (key, values) => new { Address = key, Notifications = values.ToList() }).ToList())
+        {
+          if (!ZMQNotificationsEndpoint.IsZMQNotificationsEndpointReachable(n.Address))
+          {
+            if (!string.IsNullOrEmpty(error))
+            {
+              error += Environment.NewLine;
+            }
+            error += $"Node's ZMQNotification for {String.Join(", ", n.Notifications)}: '{n.Address}' is unreachable.";
+          }
         }
       }
       return error == null;

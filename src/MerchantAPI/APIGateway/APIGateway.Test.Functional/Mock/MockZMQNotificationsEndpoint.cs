@@ -9,7 +9,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
   {
     public bool IsZMQNotificationsEndpointReachable(string ZMQNotificationsEndpoint)
     {
-      return true;
+      return ZMQNotificationsEndpoint == null || !ZMQNotificationsEndpoint.Contains("unreachable");
     }
   }
 }
