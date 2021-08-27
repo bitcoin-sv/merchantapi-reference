@@ -526,7 +526,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var request = requestEnum.ToArray();
       logger.LogInformation($"Processing {request.Length} incoming transactions");
       // Take snapshot of current metadata and use use it for all transactions
-      var info = blockChainInfo.GetInfo();
+      var info = await blockChainInfo.GetInfoAsync();
       var currentMinerId = await minerId.GetCurrentMinerIdAsync();
       var consolidationParameters = info.ConsolidationTxParameters;
 

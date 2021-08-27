@@ -72,7 +72,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(JsonEnvelopeSignature.VerifySignature(response.response.ToDomainObject()), "Signature is invalid");
     }
 
-    void AssertIsOK(SubmitTransactionResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
+    async Task AssertIsOKAsync(SubmitTransactionResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
     {
 
       Assert.AreEqual("1.3.0", response.ApiVersion);
@@ -81,19 +81,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(expectedDescription, response.ResultDescription);
 
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
-      Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHeight, response.CurrentHighestBlockHeight);
-      Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHash, response.CurrentHighestBlockHash);
+      var blockChainInfo = await BlockChainInfo.GetInfoAsync();
+      Assert.AreEqual(blockChainInfo.BestBlockHeight, response.CurrentHighestBlockHeight);
+      Assert.AreEqual(blockChainInfo.BestBlockHash, response.CurrentHighestBlockHash);
       Assert.AreEqual(expectedTxId, response.Txid);
     }
-    void AssertIsOK(FeeQuoteViewModelGet response)
+
+    async Task AssertIsOKAsync(FeeQuoteViewModelGet response)
     {
 
       Assert.AreEqual("1.3.0", response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
 
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
-      Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHeight, response.CurrentHighestBlockHeight);
-      Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHash, response.CurrentHighestBlockHash);
+      var blockChainInfo = await BlockChainInfo.GetInfoAsync();
+      Assert.AreEqual(blockChainInfo.BestBlockHeight, response.CurrentHighestBlockHeight);
+      Assert.AreEqual(blockChainInfo.BestBlockHash, response.CurrentHighestBlockHash);
     }
 
     [TestMethod]
@@ -103,7 +106,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
 
       var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
-      AssertIsOK(payload);
+      await AssertIsOKAsync(payload);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes + 1)))
       {
@@ -112,7 +115,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
 
         payload = response.ExtractPayload<FeeQuoteViewModelGet>();
-        AssertIsOK(payload);
+        await AssertIsOKAsync (payload);
       }
 
     }
@@ -130,7 +133,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       response = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
                  client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       var payload = response.response.ExtractPayload<FeeQuoteViewModelGet>();
-      AssertIsOK(payload);
+      await AssertIsOKAsync(payload);
     }
 
     [TestMethod]
@@ -156,7 +159,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await Get<SignedPayloadViewModel>(
                  client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
-      AssertIsOK(payload);
+      await AssertIsOKAsync(payload);
 
       // different user, same provider, same authority - should succeed
       // TokenManager.exe generate -n testName -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
@@ -164,7 +167,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       response = await Get<SignedPayloadViewModel>(
                  client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
       payload = response.ExtractPayload<FeeQuoteViewModelGet>();
-      AssertIsOK(payload);
+      await AssertIsOKAsync (payload);
 
       // same user, different (invalid) provider, same authority - should fail
       //TokenManager.exe generate -n testName - i http://test.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
@@ -218,7 +221,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txC3Hash);
+      await AssertIsOKAsync(payload, txC3Hash);
     }
 
     [TestMethod]
@@ -238,7 +241,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txC3Hash);
+      await AssertIsOKAsync(payload, txC3Hash);
 
       response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
       VerifySignature(response);
@@ -261,7 +264,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txC3Hash);
+      await AssertIsOKAsync (payload, txC3Hash);
       Assert.AreEqual("", payload.ResultDescription); // Description should be "" (not null)
     }
 
@@ -412,7 +415,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, tx1.GetHash().ToString());
+      await AssertIsOKAsync (payload, tx1.GetHash().ToString());
 
     }
 
@@ -439,7 +442,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       // Check if all fields are set
-      AssertIsOK(payload, tx1.GetHash().ToString(), "failure", "Not enough fees");
+      await AssertIsOKAsync (payload, tx1.GetHash().ToString(), "failure", "Not enough fees");
 
       var tx2 = CreateTransaction(tx0, txLength, 0, minRequiredFees + 1); // submit tx2 should succeed
 
@@ -454,7 +457,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, tx2.GetHash().ToString());
+      await AssertIsOKAsync (payload, tx2.GetHash().ToString());
     }
 
 
@@ -489,7 +492,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, tx1.GetHash().ToString());
+      await AssertIsOKAsync (payload, tx1.GetHash().ToString());
 
     }
 
@@ -521,7 +524,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       // Check if all fields are set
-      AssertIsOK(payload, tx1.GetHash().ToString(), "failure", "Not enough fees");
+      await AssertIsOKAsync (payload, tx1.GetHash().ToString(), "failure", "Not enough fees");
 
 
       var tx2 = CreateTransaction(tx0, txLength, 0, minRequiredFees + 1); // submit tx2 should succeed
@@ -537,7 +540,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, tx2.GetHash().ToString());
+      await AssertIsOKAsync (payload, tx2.GetHash().ToString());
 
     }
 
@@ -572,7 +575,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, tx1.GetHash().ToString());
+      await AssertIsOKAsync (payload, tx1.GetHash().ToString());
 
     }
 
@@ -668,7 +671,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       // Check if all fields are set
-      AssertIsOK(payload, txZeroFeeHash, "failure", "Not enough fees");
+      await AssertIsOKAsync (payload, txZeroFeeHash, "failure", "Not enough fees");
 
       // Test token valid until year 2030. Generate with:
       //    TokenManager.exe generate -n 5 -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
@@ -682,7 +685,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txZeroFeeHash);
+      await AssertIsOKAsync (payload, txZeroFeeHash);
     }
 
 
@@ -710,7 +713,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
         // Check if all fields are set
-        AssertIsOK(payload, txZeroFeeHash);
+        await AssertIsOKAsync (payload, txZeroFeeHash);
       }
 
     }
@@ -739,7 +742,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
         // Check if all fields are set
-        AssertIsOK(payload, txZeroFeeHash);
+        await AssertIsOKAsync (payload, txZeroFeeHash);
       }
 
     }
@@ -763,7 +766,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txC3Hash);
+      await AssertIsOKAsync (payload, txC3Hash);
     }
 
     [TestMethod]
@@ -785,7 +788,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txC3Hash);
+      await AssertIsOKAsync (payload, txC3Hash);
     }
 
 
@@ -803,7 +806,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
       // fetch blockchain info while one node is sitll available and then last connected node
-      _ = blockChainInfo.GetInfo();
+      _ = blockChainInfo.GetInfoAsync();
       rpcClientFactoryMock.DisconnectNode("mocknode1");
 
       var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
@@ -832,7 +835,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txZeroFeeHash, "failure", "Not enough fees");
+      await AssertIsOKAsync (payload, txZeroFeeHash, "failure", "Not enough fees");
     }
 
     [TestMethod]
@@ -850,10 +853,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
-      AssertIsOK(payload, txZeroFeeHash);      
+      await AssertIsOKAsync (payload, txZeroFeeHash);      
     }
 
-    void Assert2ValidAnd1Invalid(SubmitTransactionsResponseViewModel response)
+    async Task Assert2ValidAnd1InvalidAsync(SubmitTransactionsResponseViewModel response)
     {
 
       // tx1 and tx2 should be acccepted, bzt txZeroFee should not be
@@ -863,8 +866,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("1.3.0", response.ApiVersion);
       Assert.IsTrue((DateTime.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
-      Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHeight, response.CurrentHighestBlockHeight);
-      Assert.AreEqual(BlockChainInfo.GetInfo().BestBlockHash, response.CurrentHighestBlockHash);
+      var blockchainInfo = await BlockChainInfo.GetInfoAsync();
+      Assert.AreEqual(blockchainInfo.BestBlockHeight, response.CurrentHighestBlockHeight);
+      Assert.AreEqual(blockchainInfo.BestBlockHash, response.CurrentHighestBlockHash);
 
       // validate individual transactions
       Assert.AreEqual(1, response.FailureCount);
@@ -893,7 +897,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       VerifySignature(response);
 
 
-      Assert2ValidAnd1Invalid(response.response.ExtractPayload<SubmitTransactionsResponseViewModel>());
+      await Assert2ValidAnd1InvalidAsync(response.response.ExtractPayload<SubmitTransactionsResponseViewModel>());
     }
 
     [TestMethod]
@@ -927,7 +931,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, HttpStatusCode.OK);
       VerifySignature(response);
 
-      Assert2ValidAnd1Invalid(response.response.ExtractPayload<SubmitTransactionsResponseViewModel>());
+      await Assert2ValidAnd1InvalidAsync(response.response.ExtractPayload<SubmitTransactionsResponseViewModel>());
     }
 
 

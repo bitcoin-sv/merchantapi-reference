@@ -122,7 +122,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       };
       feeQuoteViewModelGet.ExpiryTime = feeQuoteViewModelGet.Timestamp.Add(TimeSpan.FromMinutes(quoteExpiryMinutes));
 
-      var info = blockChainInfo.GetInfo();
+      var info = await blockChainInfo.GetInfoAsync();
       feeQuoteViewModelGet.MinerId = await minerId.GetCurrentMinerIdAsync();
       feeQuoteViewModelGet.CurrentHighestBlockHash = info.BestBlockHash;
       feeQuoteViewModelGet.CurrentHighestBlockHeight = info.BestBlockHeight;
