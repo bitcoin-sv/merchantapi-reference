@@ -5,7 +5,7 @@ using MerchantAPI.APIGateway.Domain.Models;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
-  public class MockZMQNotificationsEndpoint : IZMQNotificationsEndpoint
+  public class MockZMQEndpointChecker : IZMQEndpointChecker
   {
     public bool IsZMQNotificationsEndpointReachable(string ZMQNotificationsEndpoint)
     {

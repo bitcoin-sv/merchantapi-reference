@@ -39,9 +39,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
       services.Remove(serviceDescriptor);
       services.AddSingleton<IClock, MockedClock>();
 
-      serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IZMQNotificationsEndpoint));
+      serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IZMQEndpointChecker));
       services.Remove(serviceDescriptor);
-      services.AddTransient<IZMQNotificationsEndpoint, MockZMQNotificationsEndpoint>();
+      services.AddTransient<IZMQEndpointChecker, MockZMQEndpointChecker>();
 
       // We register  fee repository as singleton, so that we can modify the fee filename in individual tests
       serviceDescriptor = services.FirstOrDefault(descriptor => descriptor.ServiceType == typeof(IFeeQuoteRepository));

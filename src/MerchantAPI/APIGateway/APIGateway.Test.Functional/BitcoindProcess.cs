@@ -42,13 +42,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public string Host { get; private set; }
 
-
-    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null) :
+    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, int zmqIndex, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null) :
       this(hostIp, bitcoindFullPath, Path.Combine(dataDirRoot, "node" + nodeIndex),
         18444 + nodeIndex,
         18332 + nodeIndex,
-        zmqIp, 
-        28333 + nodeIndex, 
+        zmqIp,
+        28333 + zmqIndex,
         loggerFactory,
         httpClientFactory,
         nodesToConnect: nodesToConnect)

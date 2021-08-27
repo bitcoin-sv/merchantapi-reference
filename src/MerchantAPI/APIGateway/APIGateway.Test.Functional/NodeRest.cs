@@ -316,7 +316,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
      var entryPostKey = ExtractPostKey(entryPost);
 
      //before we can update it, we have to POST node first
-    await Post<NodeViewModelCreate, NodeViewModelGet>(client, entryPost, HttpStatusCode.Created);
+     await Post<NodeViewModelCreate, NodeViewModelGet>(client, entryPost, HttpStatusCode.Created);
 
      var entryPut = GetItemToCreate();
      entryPut.ZMQNotificationsEndpoint = "tcp://1.2.3.4:invalid";
@@ -328,6 +328,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
      entryPut.ZMQNotificationsEndpoint = "tcp://1.2.3.4:28333";
 
      //should succeed
+     await Put(client, UrlForKey(entryPostKey), entryPut, HttpStatusCode.NoContent);
+
+     entryPut.ZMQNotificationsEndpoint = "";
+     //empty string should succeed
      await Put(client, UrlForKey(entryPostKey), entryPut, HttpStatusCode.NoContent);
     }
   }

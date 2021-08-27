@@ -6,13 +6,15 @@ using System.Net.Sockets;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
-  public class ZMQNotificationsEndpoint : IZMQNotificationsEndpoint
+  public class ZMQEndpointChecker : IZMQEndpointChecker
   {
+    private const int TCP_RESPONSE_TIMEOUT_SECONDS = 5;
+
     public bool IsZMQNotificationsEndpointReachable(string ZMQNotificationsEndpoint)
     {
       if (Uri.TryCreate(ZMQNotificationsEndpoint, UriKind.Absolute, out Uri validatedUri))
       {
-        var open = IsPortOpen(validatedUri.Host, validatedUri.Port, TimeSpan.FromSeconds(2));
+        var open = IsPortOpen(validatedUri.Host, validatedUri.Port, TimeSpan.FromSeconds(TCP_RESPONSE_TIMEOUT_SECONDS));
         return open;
       }
       return false;

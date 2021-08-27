@@ -42,7 +42,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels  // used for PUT
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-      if (ZMQNotificationsEndpoint != null) // null value or "tcp://a.b.c.d:port" 
+      if (!string.IsNullOrEmpty(ZMQNotificationsEndpoint)) // null/empty string value or "tcp://a.b.c.d:port" 
       {
         if (!CommonValidator.IsUrlWithUriSchemesValid(ZMQNotificationsEndpoint, nameof(ZMQNotificationsEndpoint), new string[] { "tcp" }, out var error))
         {

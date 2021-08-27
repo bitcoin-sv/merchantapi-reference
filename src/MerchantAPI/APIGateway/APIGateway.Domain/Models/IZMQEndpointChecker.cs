@@ -3,7 +3,7 @@
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
-  public interface IZMQNotificationsEndpoint
+  public interface IZMQEndpointChecker
   {
 
     bool IsZMQNotificationsEndpointReachable(string ZMQNotificationsEndpoint);

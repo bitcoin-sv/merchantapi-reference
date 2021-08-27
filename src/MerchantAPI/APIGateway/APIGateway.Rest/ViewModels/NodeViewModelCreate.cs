@@ -64,7 +64,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
               new[] { nameof(Id) });
         }
       }
-      if (ZMQNotificationsEndpoint != null) // null value or "tcp://a.b.c.d:port" 
+      if (!string.IsNullOrEmpty(ZMQNotificationsEndpoint)) // null/empty string value or "tcp://a.b.c.d:port" 
       {
         if (!CommonValidator.IsUrlWithUriSchemesValid(ZMQNotificationsEndpoint, nameof(ZMQNotificationsEndpoint), new string[] { "tcp" }, out var error))
         {

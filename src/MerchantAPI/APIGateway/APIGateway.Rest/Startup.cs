@@ -81,7 +81,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<IFeeQuoteRepository, FeeQuoteRepositoryPostgres>(); 
 
       services.AddTransient<INodes, Nodes>();
-      services.AddTransient<IZMQNotificationsEndpoint, ZMQNotificationsEndpoint>();
+      services.AddTransient<IZMQEndpointChecker, ZMQEndpointChecker>();
       services.AddTransient<INodeRepository, NodeRepositoryPostgres>();
       services.AddTransient<ITxRepository, TxRepositoryPostgres>();
       services.AddTransient<IMapi, Mapi>();
