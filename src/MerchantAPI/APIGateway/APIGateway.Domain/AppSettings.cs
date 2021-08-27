@@ -97,6 +97,10 @@ namespace MerchantAPI.APIGateway.Domain
     public bool CheckFeeDisabled { get; set; } = false;
 
     public bool EnableHTTP { get; set; } = false;
+    
+    public bool DontParseBlocks { get; set; } = false;
+
+    public bool DontInsertTransactions { get; set; } = false;
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>

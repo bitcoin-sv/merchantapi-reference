@@ -265,6 +265,40 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("", payload.ResultDescription); // Description should be "" (not null)
     }
 
+    [TestMethod]
+    [OverrideSetting("AppSettings:DontInsertTransactions", true)]
+
+    public async Task SubmitTransactionRejectDontParseTransaction()
+    {
+      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\", \"merkleProof\": true }}");
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      Assert.AreEqual("failure", payload.ReturnResult);
+      Assert.AreEqual("Transaction requires merkle proof notification but this instance of mAPI does not support callbacks", payload.ResultDescription);
+    }
+
+    [TestMethod]
+    [OverrideSetting("AppSettings:DontParseBlocks", true)]
+
+    public async Task SubmitTransactionRejectDontParseBlock()
+    {
+      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\", \"dsCheck\": true }}");
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      Assert.AreEqual("failure", payload.ReturnResult);
+      Assert.AreEqual("Transaction requires double spend notification but this instance of mAPI does not support callbacks", payload.ResultDescription);
+    }
+
     private int GetBytesForScriptLength(ulong totalBytes)
     {
       if (totalBytes < byte.MaxValue) // uint8 == byte

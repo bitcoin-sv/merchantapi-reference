@@ -447,6 +447,8 @@ On Windows: build.bat
     | DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC | Duration how long will the count for queries of unknown transactions be stored before it's reset to 0 |
     | DS_SCRIPT_VALIDATION_TIMEOUT_SEC | Total time for script validation when nodes RPC method verifyScript will be called |
     | ENABLEHTTP | Enables requests through HTTP when set to True. This should only be used for testing and must be set to False in production environment. |
+    | DONT_PARSE_BLOCKS | Disable storing of block data into mAPI DB (notifications are disabled). If block parsing is disabled all tx requiring merkleproof or DS notificiations will be rejected |
+    | DONT_INSERT_TRANSACTIONS | Disable transaction inserting into mAPI DB (notifications are disabled). If transaction inserting is disabled all tx requiring merkleproof or DS notificiations will be rejected |
     | HTTPPORT | Http port where the application will listen/run (if not set, then port 80 is used by defaulte) |
     | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when background service will retry to send notifications with error |
     | NOTIFICATION_INSTANT_NOTIFICATION_TASKS | Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100) |

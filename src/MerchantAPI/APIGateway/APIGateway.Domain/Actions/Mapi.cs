@@ -305,10 +305,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       long sumScriptPubKeySizesTxInputs = 0;
 
-      var outpoints = transaction.Inputs.Select(
-        x => (txId: x.PrevOut.Hash.ToString(), N: (long) x.PrevOut.N));
-
-      
       // combine input with corresponding output it is spending
       var pairsInOut = transaction.Inputs.Zip(prevOuts, 
         (i, o) =>
@@ -347,6 +343,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       return true;
     }
+
     public static (int failureCount, SubmitTransactionOneResponse[] responses) TransformRpcResponse(RpcSendTransactions rpcResponse, string[] allSubmitedTxIds)
     {
 
@@ -581,6 +578,24 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
         string txIdString = txId.ToString();
 
+        if (oneTx.MerkleProof && (appSettings.DontParseBlocks || appSettings.DontInsertTransactions))
+        {
+          AddFailureResponse(txIdString, $"Transaction requires merkle proof notification but this instance of mAPI does not support callbacks", ref responses);
+
+          failureCount++;
+          continue;
+
+        }
+
+        if (oneTx.DsCheck && (appSettings.DontParseBlocks || appSettings.DontInsertTransactions))
+        {
+          AddFailureResponse(txIdString, $"Transaction requires double spend notification but this instance of mAPI does not support callbacks", ref responses);
+
+          failureCount++;
+          continue;
+
+        }
+
         if (allTxs.ContainsKey(txId))
         {
           AddFailureResponse(txIdString, "Transaction with this id occurs more than once within request", ref responses);
@@ -791,40 +806,44 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         result.Txs = responses.ToArray();
         result.FailureCount = failureCount + submitFailureCount;
 
-        var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
-        await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
+        if (!appSettings.DontInsertTransactions)
         {
-          CallbackToken = x.transaction.CallbackToken,
-          CallbackUrl = x.transaction.CallbackUrl,
-          CallbackEncryption = x.transaction.CallbackEncryption,
-          DSCheck = x.transaction.DsCheck,
-          MerkleProof = x.transaction.MerkleProof,
-          MerkleFormat = x.transaction.MerkleFormat,
-          TxExternalId = new uint256(x.transactionId),
-          TxPayload = x.transaction.RawTx,
-          ReceivedAt = clock.UtcNow(),
-          TxIn = x.transaction.TransactionInputs
-        }).ToList(), false);
-
-        if (rpcResponse.Unconfirmed != null)
-        {
-          List<Tx> unconfirmedAncestors = new List<Tx>();
-          foreach (var unconfirmed in rpcResponse.Unconfirmed)
+          var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
+          await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
           {
-            unconfirmedAncestors.AddRange(unconfirmed.Ancestors.Select(u => new Tx
+            CallbackToken = x.transaction.CallbackToken,
+            CallbackUrl = x.transaction.CallbackUrl,
+            CallbackEncryption = x.transaction.CallbackEncryption,
+            DSCheck = x.transaction.DsCheck,
+            MerkleProof = x.transaction.MerkleProof,
+            MerkleFormat = x.transaction.MerkleFormat,
+            TxExternalId = new uint256(x.transactionId),
+            TxPayload = x.transaction.RawTx,
+            ReceivedAt = clock.UtcNow(),
+            TxIn = x.transaction.TransactionInputs
+          }).ToList(), false);
+
+          if (rpcResponse.Unconfirmed != null)
+          {
+            List<Tx> unconfirmedAncestors = new List<Tx>();
+            foreach (var unconfirmed in rpcResponse.Unconfirmed)
             {
-              TxExternalId = new uint256(u.Txid),
-              ReceivedAt = clock.UtcNow(),
-              TxIn = u.Vin.Select(i => new TxInput()
+              unconfirmedAncestors.AddRange(unconfirmed.Ancestors.Select(u => new Tx
               {
-                PrevTxId = (new uint256(i.Txid)).ToBytes(),
-                PrevN = i.Vout
-              }).ToList()
-            })
-            );
+                TxExternalId = new uint256(u.Txid),
+                ReceivedAt = clock.UtcNow(),
+                TxIn = u.Vin.Select(i => new TxInput()
+                {
+                  PrevTxId = (new uint256(i.Txid)).ToBytes(),
+                  PrevN = i.Vout
+                }).ToList()
+              })
+              );
+            }
+            await txRepository.InsertTxsAsync(unconfirmedAncestors, true);
           }
-          await txRepository.InsertTxsAsync(unconfirmedAncestors, true);
         }
+
         return result;
       }
 
