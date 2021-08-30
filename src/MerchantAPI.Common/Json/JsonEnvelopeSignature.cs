@@ -117,7 +117,7 @@ namespace MerchantAPI.Common.Json
     }
 
     // Maps base68 private key prefixes to netowrk https://en.bitcoin.it/wiki/List_of_address_prefixes
-    private static Dictionary<string, Network> prefixToNetwork = new Dictionary<string, Network>
+    private static readonly Dictionary<string, Network> prefixToNetwork = new()
     {
       {"5", Network.Main}, // Private key (WIF, uncompressed pubkey)
       {"K", Network.Main}, // Private key (WIF, uncompressed pubkey)
@@ -163,13 +163,13 @@ namespace MerchantAPI.Common.Json
 
     public static JsonEnvelope CreateJSonSignature(string json, string privateKeyWif)
     {
-      Func<string, Task<(string signature, string publicKey)>> signWithWif = sigHashHex =>
+      Task<(string signature, string publicKey)> signWithWif(string sigHashHex)
       {
         var key = ParseWifPrivateKey(privateKeyWif);
         var signature = key.Sign(new uint256(sigHashHex));
         return Task.FromResult((Encoders.Hex.EncodeData(signature.ToDER()), key.PubKey.ToHex()));
 
-      };
+      }
       return CreateSignatureAsync(json, Encoding.UTF8.BodyName, MediaTypeNames.Application.Json, signWithWif)
         .Result; // We do not await, since this is a sync call
     }

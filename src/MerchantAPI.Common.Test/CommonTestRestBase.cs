@@ -38,7 +38,7 @@ namespace MerchantAPI.Common.Test
       return requestMessage;
     }
 
-    async Task<(TResponse response, HttpResponseMessage httpResponse)> ParseResponse<TResponse>(HttpResponseMessage httpResponse, HttpStatusCode expectedStatusCode) where TResponse : class
+    static async Task<(TResponse response, HttpResponseMessage httpResponse)> ParseResponse<TResponse>(HttpResponseMessage httpResponse, HttpStatusCode expectedStatusCode) where TResponse : class
     {
 
       if (expectedStatusCode != httpResponse.StatusCode)
