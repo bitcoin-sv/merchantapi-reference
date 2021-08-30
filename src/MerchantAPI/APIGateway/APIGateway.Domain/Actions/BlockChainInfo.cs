@@ -17,8 +17,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     // Refresh every 60 seconds even if no ZMQ notification was received
     const int RefreshIntervalSeconds = 60;
 
+    readonly SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
 
-    object objLock = new object();
     DateTime lastRefreshedAt;
     BlockChainInfoData cachedBlockChainInfo;
     IRpcMultiClient rpcMultiClient;
@@ -32,10 +32,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       lastRefreshedAt = clock.UtcNow();
     }
-    public BlockChainInfoData GetInfo()
+    public async Task<BlockChainInfoData> GetInfoAsync()
     {
-
-      lock (objLock)
+      await semaphoreSlim.WaitAsync();
+      try
       {
         // Refresh if needed
         if (cachedBlockChainInfo == null || (clock.UtcNow() - lastRefreshedAt).TotalSeconds > RefreshIntervalSeconds)
@@ -44,7 +44,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           var networkInfoTask = rpcMultiClient.GetAnyNetworkInfoAsync();
 
           // Note that the following call will block.
-          Task.WhenAll(blockChainInfoTask, networkInfoTask).GetAwaiter().GetResult();
+          await Task.WhenAll(blockChainInfoTask, networkInfoTask);
 
           cachedBlockChainInfo = new BlockChainInfoData(
             blockChainInfoTask.Result.BestBlockHash,
@@ -53,9 +53,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           );
           lastRefreshedAt = clock.UtcNow();
         }
-
-        return cachedBlockChainInfo;
       }
+      finally
+      {
+        semaphoreSlim.Release();
+      }
+
+      return cachedBlockChainInfo;
     }
 
     protected override void UnsubscribeFromEventBus()
@@ -72,19 +76,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       _ = newBlockDiscoveredSubscription.ProcessEventsAsync(stoppingToken, logger, NewBlockDiscoveredAsync);
     }
 
-    private Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent arg)
+    private async Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent arg)
     {
-      lock (objLock)
-      {
-        lastRefreshedAt = DateTime.MinValue;
-        // Note that RpcMultiClient.GetBlockchainInfoAsync will return the WORST block from all nodes
-        // so in the case of X nodes reporting the best block, we will do actually do X^2 GetBlockchainInfoAsync
-        // calls and only when the last node will catchup, GetBlockchainInfoAsync will report changes result.
-        // We could optimize this by tracking  per-node state in this class. This would also require
-        // that we subscribe to Node integration events.
-      }
+      await semaphoreSlim.WaitAsync();
 
-      return Task.CompletedTask;
+      lastRefreshedAt = DateTime.MinValue;
+      // Note that RpcMultiClient.GetBlockchainInfoAsync will return the WORST block from all nodes
+      // so in the case of X nodes reporting the best block, we will do actually do X^2 GetBlockchainInfoAsync
+      // calls and only when the last node will catchup, GetBlockchainInfoAsync will report changes result.
+      // We could optimize this by tracking  per-node state in this class. This would also require
+      // that we subscribe to Node integration events.
+
+      semaphoreSlim.Release();
     }
 
     protected override Task ProcessMissedEvents()

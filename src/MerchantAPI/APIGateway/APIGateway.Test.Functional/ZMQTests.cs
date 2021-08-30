@@ -406,11 +406,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await WaitUntilAsync(() => zmqService.GetActiveSubscriptions().Any());
       WaitUntilEventBusIsIdle();
 
-      var info = blockChainInfo.GetInfo();
+      var info = await blockChainInfo.GetInfoAsync();
       var newBlockHash = (await rpcClient0.GenerateAsync(1))[0];
       Assert.AreNotEqual(info.BestBlockHash, newBlockHash[0], "New block should have been mined");
       loggerTest.LogInformation($"We mined a new block {newBlockHash}. Checking if  GetInfo() reports it");
-      await WaitUntilAsync(() => blockChainInfo.GetInfo().BestBlockHash == newBlockHash);
+      await WaitUntilAsync(async () => (await blockChainInfo.GetInfoAsync()).BestBlockHash == newBlockHash);
     }
 
     [TestMethod]
