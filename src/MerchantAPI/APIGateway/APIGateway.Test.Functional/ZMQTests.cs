@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      var zmqUnsubscribedSubscription = eventBus.Subscribe<ZMQUnsubscribedEvent>();
+      var zmqUnsubscribedSubscription = EventBus.Subscribe<ZMQUnsubscribedEvent>();
 
       await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
@@ -77,7 +77,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe new block events
-      var newBlockDiscoveredSubscription = eventBus.Subscribe<NewBlockDiscoveredEvent>();
+      var newBlockDiscoveredSubscription = EventBus.Subscribe<NewBlockDiscoveredEvent>();
 
       WaitUntilEventBusIsIdle();
 
@@ -98,7 +98,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
 
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
@@ -230,7 +230,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
-      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var (txHex1, _) = CreateNewTransaction(coin, new Money(1000L));
       var (txHex2, txId2) = CreateNewTransaction(coin, new Money(500L));
 
 
@@ -292,9 +292,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe zmq subscribe, unsubscribe and new block events
-      var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
-      var unscubscribeToZMQSubscription = eventBus.Subscribe<ZMQUnsubscribedEvent>();
-      var newBlockDiscoveredSubscription = eventBus.Subscribe<NewBlockDiscoveredEvent>();
+      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
+      var unscubscribeToZMQSubscription = EventBus.Subscribe<ZMQUnsubscribedEvent>();
+      var newBlockDiscoveredSubscription = EventBus.Subscribe<NewBlockDiscoveredEvent>();
 
       WaitUntilEventBusIsIdle();
 
@@ -334,15 +334,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Subscribe to failed, subscription and new block events
-      var subscribedToZMQFailed = eventBus.Subscribe<ZMQFailedEvent>();
-      var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
-      var newBlockDiscoveredSubscription = eventBus.Subscribe<NewBlockDiscoveredEvent>();
+      var subscribedToZMQFailed = EventBus.Subscribe<ZMQFailedEvent>();
+      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
+      var newBlockDiscoveredSubscription = EventBus.Subscribe<NewBlockDiscoveredEvent>();
 
       // Add node to database and emit repository event
       var node = new Node(0, "localhost", 18332, "user", "password", $"This is a mock node #0",
         null, (int)NodeStatus.Connected, null, null);
       this.NodeRepository.CreateNode(node);
-      eventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
+      EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
 
       // Should receive failed event
       _ = await subscribedToZMQFailed.ReadAsync(cts.Token);
@@ -377,7 +377,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task RegisterNodesWithServiceAndWait(CancellationToken cancellationToken)
     {
-      var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
+      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
 
       // Register nodes with service
       RegisterNodesWithService(cancellationToken);
@@ -386,7 +386,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
 
       // Unsubscribe from event bus
-      eventBus.TryUnsubscribe(subscribedToZMQSubscription);
+      EventBus.TryUnsubscribe(subscribedToZMQSubscription);
     }
 
     private void RegisterNodesWithService(CancellationToken cancellationToken)
@@ -395,7 +395,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var nodes = this.NodeRepository.GetNodes();
       foreach (var node in nodes)
       {
-        eventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
+        EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
       }
     }
 
@@ -406,11 +406,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await WaitUntilAsync(() => zmqService.GetActiveSubscriptions().Any());
       WaitUntilEventBusIsIdle();
 
-      var info = blockChainInfo.GetInfo();
+      var info = BlockChainInfo.GetInfo();
       var newBlockHash = (await rpcClient0.GenerateAsync(1))[0];
       Assert.AreNotEqual(info.BestBlockHash, newBlockHash[0], "New block should have been mined");
       loggerTest.LogInformation($"We mined a new block {newBlockHash}. Checking if  GetInfo() reports it");
-      await WaitUntilAsync(() => blockChainInfo.GetInfo().BestBlockHash == newBlockHash);
+      await WaitUntilAsync(() => BlockChainInfo.GetInfo().BestBlockHash == newBlockHash);
     }
 
     [TestMethod]
@@ -439,7 +439,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      var subscribedToZMQFailed = eventBus.Subscribe<ZMQFailedEvent>();
+      var subscribedToZMQFailed = EventBus.Subscribe<ZMQFailedEvent>();
 
       await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());

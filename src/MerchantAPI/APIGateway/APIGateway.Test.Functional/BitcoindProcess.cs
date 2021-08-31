@@ -28,9 +28,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     /// </summary>
     public IRpcClient RpcClient { get; private set; }
 
-    ILogger<BitcoindProcess> logger;
-
-    IHttpClientFactory httpClientFactory;
+    readonly ILogger<BitcoindProcess> logger;
+    readonly IHttpClientFactory httpClientFactory;
 
     public int P2Port { get; private set; }
     public int RpcPort { get; private set; }
@@ -102,17 +101,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
       // use StartupInfo.ArgumentList instead of StartupInfo.Arguments to avoid problems with spaces in data dir
-      var argumentList = new List<string>(defaultParams.Split(" ").ToList());
-      argumentList.Add($"-port={p2pPort}");
-      argumentList.Add($"-rpcport={rpcPort}");
-      argumentList.Add($"-datadir={dataDir}");
-      argumentList.Add($"-rpcuser={RpcUser}");
-      argumentList.Add($"-rpcpassword={RpcPassword}");
-      argumentList.Add($"-rest=1");
-      argumentList.Add($"-zmqpubhashblock=tcp://{ZmqIp}:{zmqPort}");
-      argumentList.Add($"-zmqpubinvalidtx=tcp://{ZmqIp}:{zmqPort}");
-      argumentList.Add($"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}");
-      argumentList.Add($"-invalidtxsink=ZMQ");
+      var argumentList = new List<string>(defaultParams.Split(" ").ToList())
+      {
+        $"-port={p2pPort}",
+        $"-rpcport={rpcPort}",
+        $"-datadir={dataDir}",
+        $"-rpcuser={RpcUser}",
+        $"-rpcpassword={RpcPassword}",
+        $"-rest=1",
+        $"-zmqpubhashblock=tcp://{ZmqIp}:{zmqPort}",
+        $"-zmqpubinvalidtx=tcp://{ZmqIp}:{zmqPort}",
+        $"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}",
+        $"-invalidtxsink=ZMQ"
+      };
 
       if (nodesToConnect != null)
       {
@@ -151,7 +152,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       
       var rpcClient = new RpcClient(RpcClientFactory.CreateAddress(Host, rpcPort),
         new System.Net.NetworkCredential(RpcUser, RpcPassword), loggerFactory.CreateLogger<RpcClient>(),
-        httpClientFactory.CreateClient(Host));
+        this.httpClientFactory.CreateClient(Host));
       try
       {
 
@@ -216,8 +217,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-
-    bool ArePortsAvailable(params int[] ports)
+    static bool ArePortsAvailable(params int[] ports)
     {
       var portLists = ports.ToList();
       IPGlobalProperties ipGlobalProperties = IPGlobalProperties.GetIPGlobalProperties();

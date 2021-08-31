@@ -26,13 +26,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
   {
     // Use stack for storing new blocks before triggering event for parsing blocks, to ensure
     // that blocks will be parsed in same order as they were added to the blockchain
-    readonly Stack<NewBlockAvailableInDB> newBlockStack = new Stack<NewBlockAvailableInDB>();
+    readonly Stack<NewBlockAvailableInDB> newBlockStack = new();
     readonly AppSettings appSettings;
     readonly ITxRepository txRepository;
     readonly IRpcMultiClient rpcMultiClient;
     readonly IClock clock;
-    List<string> blockHashesBeingParsed = new List<string>();
-    object lockingObject = new object();
+    readonly List<string> blockHashesBeingParsed = new();
+    readonly object lockingObject = new();
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;

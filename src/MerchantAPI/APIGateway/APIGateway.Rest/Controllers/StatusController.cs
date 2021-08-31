@@ -20,8 +20,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class StatusController : ControllerBase
   {
-    INodes nodes;
-    ZMQSubscriptionService subscriptionService;
+    readonly INodes nodes;
+    readonly ZMQSubscriptionService subscriptionService;
 
     public StatusController(
       INodes nodes,

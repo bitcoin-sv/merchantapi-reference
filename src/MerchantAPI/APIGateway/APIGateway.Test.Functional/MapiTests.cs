@@ -692,7 +692,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
       // fetch blockchain info while one node is sitll available and then last connected node
-      _ = blockChainInfo.GetInfo();
+      _ = BlockChainInfo.GetInfo();
       rpcClientFactoryMock.DisconnectNode("mocknode1");
 
       var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);

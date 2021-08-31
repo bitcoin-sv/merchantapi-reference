@@ -16,12 +16,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
   {
     // Refresh every 60 seconds even if no ZMQ notification was received
     const int RefreshIntervalSeconds = 60;
-
-
-    object objLock = new object();
+    readonly object objLock = new();
     DateTime lastRefreshedAt;
     BlockChainInfoData cachedBlockChainInfo;
-    IRpcMultiClient rpcMultiClient;
+    readonly IRpcMultiClient rpcMultiClient;
     private readonly IClock clock;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;

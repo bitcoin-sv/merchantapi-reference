@@ -16,7 +16,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
   public class NotificationQueueByHost
   {
     // Key represents host name
-    readonly Dictionary<string, Queue<NotificationData>> notificationsQueue = new Dictionary<string, Queue<NotificationData>>(StringComparer.InvariantCultureIgnoreCase);
+    readonly Dictionary<string, Queue<NotificationData>> notificationsQueue = new(StringComparer.InvariantCultureIgnoreCase);
     readonly ILogger logger;
 
     public NotificationQueueByHost(ILogger logger)

@@ -86,7 +86,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
     #endregion
 
-    new (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
+    new static (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx = BCash.Instance.Regtest.CreateTransaction();
@@ -136,7 +136,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // next 4 bytes (0x7f000001) is the IP address for 127.0.0.1
       // next byte (0x01) is the number of input ids that will be listed for checking (in this case only 1)
       // last byte (0x00) is the input id we want to be checked (in this case it's the n=0)
-      string dsData = $"01017f000001{DSprotectedInputs.Length.ToString("D2")}";
+      string dsData = $"01017f000001{DSprotectedInputs.Length:D2}";
       foreach(var input in DSprotectedInputs)
       {
         dsData += input.ToString("D2");

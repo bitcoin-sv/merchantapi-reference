@@ -24,9 +24,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
   /// </summary>
   public class RpcMultiClient : IRpcMultiClient
   {
-    INodes nodes;
-    IRpcClientFactory rpcClientFactory;
-    private ILogger logger;
+    readonly INodes nodes;
+    readonly IRpcClientFactory rpcClientFactory;
+    private readonly ILogger logger;
 
     public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger)
     {
@@ -276,7 +276,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       public int Vout { get; set; }
     }
 
-    Dictionary<string, ResponseTransactionType> CategorizeTransactions(
+    static Dictionary<string, ResponseTransactionType> CategorizeTransactions(
       RpcSendTransactions rpcResponse, string[] submittedTxids)
     {
       var processed =
@@ -367,7 +367,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return processed;
     }
 
-    ResponseTransactionType ChooseNewValue(
+    static ResponseTransactionType ChooseNewValue(
       ResponseTransactionType oldValue,
       ResponseTransactionType newValue)
     {
@@ -385,7 +385,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     /// <summary>
     /// Updates oldResults with data from newResults
     /// </summary>
-    void AddNewResults(
+    static void AddNewResults(
       Dictionary<string, ResponseTransactionType> oldResults,
       Dictionary<string, ResponseTransactionType> newResults)
     {

@@ -26,12 +26,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
   
   public class Mapi : IMapi
   {
-    IRpcMultiClient rpcMultiClient;
-    IFeeQuoteRepository feeQuoteRepository;
-    IBlockChainInfo blockChainInfo;
-    IMinerId minerId;
-    ILogger<Mapi> logger;
-    ITxRepository txRepository;
+    readonly IRpcMultiClient rpcMultiClient;
+    readonly IFeeQuoteRepository feeQuoteRepository;
+    readonly IBlockChainInfo blockChainInfo;
+    readonly IMinerId minerId;
+    readonly ILogger<Mapi> logger;
+    readonly ITxRepository txRepository;
     private readonly IClock clock;
     readonly AppSettings appSettings;
 
@@ -46,9 +46,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
       this.blockChainInfo = blockChainInfo ?? throw new ArgumentNullException(nameof(blockChainInfo));
-      this.minerId = minerId ?? throw new ArgumentException(nameof(minerId));
-      this.txRepository = txRepository ?? throw new ArgumentException(nameof(txRepository));
-      this.logger = logger ?? throw new ArgumentException(nameof(logger));
+      this.minerId = minerId ?? throw new ArgumentNullException(nameof(minerId));
+      this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
+      this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
       this.appSettings = appSettingOptions.Value;
@@ -85,7 +85,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     /// <summary>
     /// Appends source to dest. Duplicates are ignored
     /// </summary>
-    void AppendToDictionary<K, V>(Dictionary<K, V> source, Dictionary<K, V> dest)
+    static void AppendToDictionary<K, V>(Dictionary<K, V> source, Dictionary<K, V> dest)
     {
       foreach (var kv in source)
       {
@@ -235,7 +235,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     /// <param name="txBytesLength">Transactions</param>
     /// <param name="sumPrevOuputs">result of CollectPreviousOutputs. If previous outputs are not found there, the node is consulted</param>
     /// <returns></returns>
-    public (bool okToMine, bool okToRely) CheckFees(Transaction transaction, long txBytesLength, Money sumPrevOuputs, FeeQuote feeQuote)
+    public static (bool okToMine, bool okToRely) CheckFees(Transaction transaction, long txBytesLength, Money sumPrevOuputs, FeeQuote feeQuote)
     {
       // This could leave some og the bytes unparsed. In this case we would charge for bytes at the ned of 
       // the stream that will not be published to the blockchain, but this is sender's problem.
@@ -506,13 +506,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       };
     }
 
-    private int GetCheckFeesValue(bool okToMine, bool okToRelay)
+    private static int GetCheckFeesValue(bool okToMine, bool okToRelay)
     {
       // okToMine is more important than okToRelay
       return (okToMine ? 2 : 0) + (okToRelay ? 1 : 0);
     }
 
-    private void AddFailureResponse(string txId, string errMessage, ref List<SubmitTransactionOneResponse> responses)
+    private static void AddFailureResponse(string txId, string errMessage, ref List<SubmitTransactionOneResponse> responses)
     {
       var oneResponse = new SubmitTransactionOneResponse
       {
@@ -591,7 +591,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         var vc = new ValidationContext(oneTx);
         var errors = oneTx.Validate(vc);
-        if (errors.Count() > 0)
+        if (errors.Any())
         {
           AddFailureResponse(txIdString, string.Join(",", errors.Select(x => x.ErrorMessage)), ref responses);
 
@@ -611,9 +611,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
 
         Transaction transaction = null;
-        CollidedWith[] colidedWith = {};
+        CollidedWith[] colidedWith = Array.Empty<CollidedWith>();
         Exception exception = null;
-        string[] prevOutsErrors = { };
+        string[] prevOutsErrors = Array.Empty<string>();
         try
         {
           transaction = HelperTools.ParseBytesToTransaction(oneTx.RawTx);
@@ -809,7 +809,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         if (rpcResponse.Unconfirmed != null)
         {
-          List<Tx> unconfirmedAncestors = new List<Tx>();
+          List<Tx> unconfirmedAncestors = new();
           foreach (var unconfirmed in rpcResponse.Unconfirmed)
           {
             unconfirmedAncestors.AddRange(unconfirmed.Ancestors.Select(u => new Tx

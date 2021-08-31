@@ -144,7 +144,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task ResumeAndWaitForCleanup(MerchantAPI.Common.EventBus.EventBusSubscription<CleanUpTxTriggeredEvent> cleanUpTxTriggeredSubscription)
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
       await cleanUpTxService.ResumeAsync(cts.Token);
 
       // wait for cleanUpTx service to finish execute
@@ -157,7 +157,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       //arrange
       cleanUpTxService.Pause();
-      var cleanUpTxTriggeredSubscription = eventBus.Subscribe<CleanUpTxTriggeredEvent>();
+      var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
       (List<Tx> txList, _) = await CreateAndInsertTxWithMempoolAsync();
 
       await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
@@ -173,7 +173,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       //arrange
       cleanUpTxService.Pause();
-      var cleanUpTxTriggeredSubscription = eventBus.Subscribe<CleanUpTxTriggeredEvent>();
+      var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
       (List<Tx> txList, _) = await CreateAndInsertTxWithMempoolAsync(addBlocks: false);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterDays)))
@@ -191,7 +191,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       //arrange
       cleanUpTxService.Pause();
-      var cleanUpTxTriggeredSubscription = eventBus.Subscribe<CleanUpTxTriggeredEvent>();
+      var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
 
       List<Tx> txList = await CreateAndInsertTxAsync(true, false);
 
@@ -203,7 +203,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var merkleProofTxs = (await TxRepositoryPostgres.GetTxsToSendMerkleProofNotificationsAsync(0, 10000)).ToList();
 
-      Assert.AreEqual(5, merkleProofTxs.Count());
+      Assert.AreEqual(5, merkleProofTxs.Count);
       Assert.IsTrue(merkleProofTxs.Any(x => new uint256(x.TxExternalId) == new uint256(Tx2Hash)));
 
       foreach (var txWithMerkle in merkleProofTxs)
@@ -212,7 +212,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       merkleProofTxs = (await TxRepositoryPostgres.GetTxsToSendMerkleProofNotificationsAsync(0, 10000)).ToList();
-      Assert.AreEqual(0, merkleProofTxs.Count());
+      Assert.AreEqual(0, merkleProofTxs.Count);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterDays)))
       {
@@ -231,7 +231,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       //arrange
       cleanUpTxService.Pause();
-      var cleanUpTxTriggeredSubscription = eventBus.Subscribe<CleanUpTxTriggeredEvent>();
+      var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
 
       List<Tx> txList = await CreateAndInsertTxAsync(false, true);
 
@@ -242,7 +242,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendBlockDSNotificationsAsync()).ToList();
 
-      Assert.AreEqual(1, doubleSpends.Count());
+      Assert.AreEqual(1, doubleSpends.Count);
       Assert.IsTrue(doubleSpends.Any(x => new uint256(x.TxExternalId) == new uint256(Tx2Hash)));
 
       foreach (var txDoubleSpend in doubleSpends)
@@ -251,7 +251,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       doubleSpends = (await TxRepositoryPostgres.GetTxsToSendBlockDSNotificationsAsync()).ToList();
-      Assert.AreEqual(0, doubleSpends.Count());
+      Assert.AreEqual(0, doubleSpends.Count);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterDays)))
       {
@@ -271,13 +271,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       //arrange
       cleanUpTxService.Pause();
-      var cleanUpTxTriggeredSubscription = eventBus.Subscribe<CleanUpTxTriggeredEvent>();
+      var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
 
       (List<Tx> txList, uint256 firstBlockHash) = await CreateAndInsertTxWithMempoolAsync(dsCheckMempool: true);
 
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
-      List<byte[]> dsTxId = new List<byte[]>
-        {
+      List<byte[]> dsTxId = new()
+      {
           doubleSpendTx.GetHash().ToBytes()
         };
       var txsWithDSCheck = (await TxRepositoryPostgres.GetTxsForDSCheckAsync(dsTxId, true)).ToArray();
@@ -291,7 +291,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           txPayload);
       }
       var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToList();
-      Assert.AreEqual(1, doubleSpends.Count());
+      Assert.AreEqual(1, doubleSpends.Count);
 
       foreach (var txDoubleSpend in doubleSpends)
       {
@@ -299,7 +299,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToList();
-      Assert.AreEqual(0, doubleSpends.Count());
+      Assert.AreEqual(0, doubleSpends.Count);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterDays)))
       {
