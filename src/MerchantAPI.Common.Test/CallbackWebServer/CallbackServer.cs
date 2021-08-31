@@ -25,7 +25,7 @@ namespace MerchantAPI.Common.Test.CallbackWebServer
     public static IHost Start(string url, CancellationToken cancellationToken, ICallbackReceived callbackReceived)
     {
 
-      var host = CreateHostBuilder(new string[0], url, callbackReceived).Build();
+      var host = CreateHostBuilder(Array.Empty<string>(), url, callbackReceived).Build();
       _ = host.RunAsync(cancellationToken);
       return host;
     }

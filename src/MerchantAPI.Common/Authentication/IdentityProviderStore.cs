@@ -30,7 +30,7 @@ namespace MerchantAPI.Common.Authentication
     readonly Dictionary<IdentityProvider, SecurityKey> providerTokey;
     public IdentityProviderStore(IOptions<IdentityProviders> providers)
     {
-      identityProviders = providers.Value?.Providers ?? new IdentityProvider[] {};
+      identityProviders = providers.Value?.Providers ?? Array.Empty<IdentityProvider>();
       providerTokey = identityProviders.ToDictionary(k => k, v => v.GetSecurityKey());
     }
 
@@ -93,10 +93,13 @@ namespace MerchantAPI.Common.Authentication
 
     
     public IEnumerable<SecurityKey> IssuerSigningKeyResolver(
+#pragma warning disable IDE0060 // Remove unused parameter
       string token,
       SecurityToken securityToken,
       string kid,
-      TokenValidationParameters validationParameters)
+      TokenValidationParameters validationParameters
+#pragma warning restore IDE0060 // Remove unused parameter
+      )
     {
       return identityProviders.Where(
           x => securityToken.Issuer == x.Issuer && x.MatchesToken(securityToken))

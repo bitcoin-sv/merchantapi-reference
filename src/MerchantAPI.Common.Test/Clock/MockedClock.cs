@@ -9,7 +9,7 @@ namespace MerchantAPI.Common.Test.Clock
 
   public class MockedClock : IMockedClock
   {
-    private static object lockObj = new object();
+    private static readonly object lockObj = new();
     private static DateTime? _nowForTest;
 
     public static DateTime UtcNow

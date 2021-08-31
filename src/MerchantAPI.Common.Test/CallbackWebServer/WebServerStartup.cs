@@ -15,7 +15,7 @@ namespace MerchantAPI.Common.Test.CallbackWebServer
   /// </summary>
   public class StressTestStartup
   {
-    IConfiguration Configuration;
+    readonly IConfiguration Configuration;
 
     public StressTestStartup(IConfiguration configuration)
     {
