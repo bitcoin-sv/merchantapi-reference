@@ -73,7 +73,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private void StartupLiveMAPI()
     {
       loggerTest.LogInformation("Starting up another instance of MAPI");
-      mapiHost = Host.CreateDefaultBuilder(new string[0])
+      mapiHost = Host.CreateDefaultBuilder(Array.Empty<string>())
         .ConfigureWebHostDefaults(webBuilder => ConfigureWebHostBuilder(webBuilder, "http://localhost:5555")).Build();
 
       mapiHost.RunAsync();
@@ -110,12 +110,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
 
-    private Transaction CreateDS_OP_RETURN_Tx(Coin[] coins, params int[] DSprotectedInputs)
+    private static Transaction CreateDS_OP_RETURN_Tx(Coin[] coins, params int[] DSprotectedInputs)
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx1 = BCash.Instance.Regtest.CreateTransaction();
@@ -136,7 +136,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // next 4 bytes (0x7f000001) is the IP address for 127.0.0.1
       // next byte (0x01) is the number of input ids that will be listed for checking (in this case only 1)
       // last byte (0x00) is the input id we want to be checked (in this case it's the n=0)
-      string dsData = $"01017f000001{DSprotectedInputs.Count().ToString("D2")}";
+      string dsData = $"01017f000001{DSprotectedInputs.Length.ToString("D2")}";
       foreach(var input in DSprotectedInputs)
       {
         dsData += input.ToString("D2");
@@ -166,7 +166,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxsWithDSCallback()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(30000);
+      using CancellationTokenSource cts = new(30000);
 
       // startup another node and link it to the first node
       node1 = StartBitcoind(1, new BitcoindProcess[] { node0 });
@@ -181,7 +181,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       loggerTest.LogInformation($"Submiting {tx1Id} with dsCheck enabled");
       var payload = await SubmitTransactions(new string[] { tx1Hex });
 
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + tx1Id);
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + tx1Id);
 
       // Wait for tx to be propagated to node 1 before submiting a doublespend tx to node 1
       await WaitForTxToBeAcceptedToMempool(node1, tx1Id, cts.Token);
@@ -197,7 +197,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       loggerTest.LogInformation("Retrieving notification data");
       var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
       Assert.AreEqual(txId2, new uint256(notifications.Single().DoubleSpendTxId).ToString());
 
       //Create another DS tx which should not trigger another notification
@@ -210,7 +210,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Task.Delay(3000);
 
       notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
 
       await StopMAPI();
     }
@@ -239,7 +239,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       loggerTest.LogInformation("Retrieving notification data");
       var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
       Assert.AreEqual(txId2, new uint256(notifications.Single().DoubleSpendTxId).ToString());
 
       await StopMAPI();
@@ -248,12 +248,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task MultipleDSQueriesReturn1Notification()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(30000);
+      using CancellationTokenSource cts = new(30000);
 
       StartupLiveMAPI();
 
       int noOfNodes = 4;
-      List<BitcoindProcess> nodeList = new List<BitcoindProcess>
+      List<BitcoindProcess> nodeList = new()
       {
         node0
       };
@@ -274,7 +274,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = await SubmitTransactions(new string[] { tx1Hex });
 
       // Wait for tx to be propagated to all nodes before submiting a doublespend tx to nodes
-      List<Task> mempoolTasks = new List<Task>();
+      List<Task> mempoolTasks = new();
       for (int i = 1; i <= noOfNodes; i++)
       {
         mempoolTasks.Add(WaitForTxToBeAcceptedToMempool(nodeList[i], tx1Id, cts.Token));
@@ -286,7 +286,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (txHex2, txId2) = CreateNewTransaction(coin, new Money(1000L));
 
       loggerTest.LogInformation($"Submiting {txId2} with doublespend to all running nodes at once");
-      List<Task<RpcException>> taskList = new List<Task<RpcException>>();
+      List<Task<RpcException>> taskList = new();
       for (int i = 1; i <= noOfNodes; i++)
       {
         taskList.Add(Assert.ThrowsExceptionAsync<RpcException>(async () => await nodeList[i].RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false)));
@@ -299,7 +299,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       loggerTest.LogInformation("Retrieving notification data");
       var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
       Assert.AreEqual(txId2, new uint256(notifications.Single().DoubleSpendTxId).ToString());
 
       await StopMAPI();
@@ -308,7 +308,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task MultipleInputsWithDS()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(30000);
+      using CancellationTokenSource cts = new(30000);
 
       // startup another node and link it to the first node
       node1 = StartBitcoind(1, new BitcoindProcess[] { node0 });
@@ -325,7 +325,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = await SubmitTransactions(new string[] { tx1Hex });
 
       loggerTest.LogInformation($"Submiting {tx1Id} with dsCheck enabled");
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + tx1Id);
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + tx1Id);
 
       // Wait for tx to be propagated to node 1 before submiting a doublespend tx to node 1
       await WaitForTxToBeAcceptedToMempool(node1, tx1Id, cts.Token);
@@ -341,7 +341,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       loggerTest.LogInformation("Retrieving notification data");
       var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
       Assert.AreEqual(txId2, new uint256(notifications.Single().DoubleSpendTxId).ToString());
 
       //Create another DS tx which should not trigger another notification
@@ -352,7 +352,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Task.Delay(3000);
 
       notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
       await StopMAPI();
     }
   }

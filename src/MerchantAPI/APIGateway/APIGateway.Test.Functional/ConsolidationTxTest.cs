@@ -118,7 +118,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
     }

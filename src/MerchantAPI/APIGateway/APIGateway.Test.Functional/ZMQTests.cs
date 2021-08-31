@@ -53,7 +53,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task UnsubscribeFromNodeOnNodeRemoval()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       var zmqUnsubscribedSubscription = eventBus.Subscribe<ZMQUnsubscribedEvent>();
 
@@ -71,7 +71,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchBlockHashZMQMessage()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
@@ -92,7 +92,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task<(string, string)> CatchInMempoolDoubleSpendZMQMessage()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
@@ -260,7 +260,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
 
       // Mine sibling block to b1 - without any additional transaction
-      var (b2,_) = await MineNextBlockAsync(new Transaction[0], false, parentBlockHash);
+      var (b2,_) = await MineNextBlockAsync(Array.Empty<Transaction>(), false, parentBlockHash);
 
       loggerTest.LogInformation($"Block b2 {b2.Header.GetHash()} was mined with only coinbase transaction");
 
@@ -286,7 +286,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task ReceiveZMQMessagesAfterNodeRestart()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
@@ -331,7 +331,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [SkipNodeStart]
     public async Task SubscribeToZMQOnNodeStart()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Subscribe to failed, subscription and new block events
       var subscribedToZMQFailed = eventBus.Subscribe<ZMQFailedEvent>();
@@ -416,7 +416,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task ZmqStatusReturnsStatusForLiveNode()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWait(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
@@ -425,7 +425,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status 
       var response =
-        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(Client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
       Assert.AreEqual(1, response.Length);
       Assert.AreEqual(true, response.First().IsResponding);
@@ -437,7 +437,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task ZmqStatusReturnsNotRespondingForShutdownNode()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       var subscribedToZMQFailed = eventBus.Subscribe<ZMQFailedEvent>();
 
@@ -448,7 +448,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status - node should be responding
       var response =
-        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(Client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
       Assert.AreEqual(1, response.Length);
       Assert.AreEqual(true, response.First().IsResponding);
@@ -461,7 +461,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Get zmq status again - node should be marked as not responding
       response =
-        await Get<ZmqStatusViewModelGet[]>(client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
+        await Get<ZmqStatusViewModelGet[]>(Client, MapiServer.ApiZmqStatusUrl, HttpStatusCode.OK);
 
       Assert.AreEqual(1, response.Length);
       Assert.AreEqual(false, response.First().IsResponding);

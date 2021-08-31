@@ -56,7 +56,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitSameTransactioMultipleTimesAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       var (txHex1, txId1) = CreateNewTransaction(); // mAPI, mAPI
       var (txHex2, txId2) = CreateNewTransaction(); // mAPI, RPC
@@ -199,7 +199,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent($"{{ \"rawtx\": \"{tx2Hex}\" }}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
@@ -278,7 +278,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxThatCausesDS()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
@@ -301,7 +301,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxsWithOneThatCausesDS()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
@@ -340,7 +340,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task With2NodesOnlyOneDoubleSpendShouldBeSent()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
@@ -388,7 +388,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         loggerTest.LogInformation($"NotificationType: {notification.NotificationType}; TxId: {notification.TxInternalId}");
       }
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
     }
   }
 }

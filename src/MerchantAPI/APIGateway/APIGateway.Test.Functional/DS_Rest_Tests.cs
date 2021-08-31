@@ -46,7 +46,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task InvalidQueryAsync()
     {
-      var (_, httpResponse) = await GetWithHttpResponseReturned<string>(client, MapiServer.ApiDSQuery + "/a", HttpStatusCode.BadRequest);
+      var (_, httpResponse) = await GetWithHttpResponseReturned<string>(Client, MapiServer.ApiDSQuery + "/a", HttpStatusCode.BadRequest);
       var responseString = await httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -56,7 +56,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task QueryReturnPositiveAsync()
     {
       await InsertTXAsync();
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
 
       Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode);
       Assert.IsTrue(httpResponse.Headers.Contains(DsntController.DSHeader));
@@ -66,7 +66,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task QueryReturnNegativeAsync()
     {
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
 
       Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode);
       Assert.IsTrue(httpResponse.Headers.Contains(DsntController.DSHeader));
@@ -82,7 +82,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
 
       // We should get banned because we didn't set query parameters
-      var (_, httpResponse) = await Post<string>(MapiServer.ApiDSSubmit, client, reqContent, HttpStatusCode.BadRequest);
+      var (_, httpResponse) = await Post<string>(MapiServer.ApiDSSubmit, Client, reqContent, HttpStatusCode.BadRequest);
       string responseString = await httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -92,14 +92,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // We should get banned because we didn't set 'ctxid' query parameter
       banList.RemoveFromBanList("localhost");
       queryParams.Add(("txid", "a"));
-      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
 
       // We should get banned because we didn't set valid txId query parameter
       banList.RemoveFromBanList("localhost");
       queryParams.Add(("ctxid", "a"));
-      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
 
@@ -108,7 +108,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       queryParams.Clear();
       queryParams.Add(("txid", txC0Hash));
       queryParams.Add(("ctxid", "a"));
-      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
 
@@ -117,7 +117,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       queryParams.Clear();
       queryParams.Add(("txid", txC0Hash));
       queryParams.Add(("ctxid", txC0Hash));
-      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
       Assert.AreEqual(banList.ReturnBanScore("localhost"), HostBanList.WarningScore);
 
@@ -127,7 +127,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       queryParams.Clear();
       queryParams.Add(("txid", txC0Hash));
       queryParams.Add(("ctxid", txC1Hash));
-      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
       Assert.AreEqual(banList.ReturnBanScore("localhost"), HostBanList.WarningScore);
 
@@ -137,7 +137,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       queryParams.Add(("txid", txC0Hash));
       queryParams.Add(("ctxid", txC1Hash));
       queryParams.Add(("n", "0"));
-      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
       Assert.AreEqual(banList.ReturnBanScore("localhost"), HostBanList.WarningScore);
 
@@ -148,7 +148,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       queryParams.Add(("ctxid", txC1Hash));
       queryParams.Add(("n", "0"));
       queryParams.Add(("cn", "0"));
-      (_, httpResponse) = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      (_, httpResponse) = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       responseString = await httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -167,9 +167,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ("cn", "0")
       };
 
-      var reqContent = new ByteArrayContent(new byte[] { });
+      var reqContent = new ByteArrayContent(System.Array.Empty<byte>());
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
-      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       var responseString = await response.httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -191,7 +191,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var bytes = HelperTools.HexStringToByteArray(txC0Hex);
       var reqContent = new ByteArrayContent(bytes);
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
-      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       var responseString = await response.httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -215,7 +215,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var bytes = HelperTools.HexStringToByteArray(txC1Hex);
       var reqContent = new ByteArrayContent(bytes);
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
-      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       var responseString = await response.httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -239,7 +239,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var bytes = HelperTools.HexStringToByteArray(txC1Hex);
       var reqContent = new ByteArrayContent(bytes);
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
-      _ = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      _ = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
     }
 
@@ -261,7 +261,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var bytes = HelperTools.HexStringToByteArray(txC1Hex);
       var reqContent = new ByteArrayContent(bytes);
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
-      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      var response = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       var responseString = await response.httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -273,7 +273,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(HostBanList.BanScoreLimit, 100);
       await InsertTXAsync();
 
-      var httpResponse1 = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+      var httpResponse1 = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
       Assert.AreEqual(HttpStatusCode.OK, httpResponse1.StatusCode);
       Assert.IsTrue(httpResponse1.Headers.Contains(DsntController.DSHeader));
@@ -284,16 +284,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ("txid", txC0Hash),
         ("ctxid", txC0Hash)
       };
-      var reqContent = new ByteArrayContent(new byte[] { });
+      var reqContent = new ByteArrayContent(System.Array.Empty<byte>());
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
 
       // If host calls submit with invalid missing 'n' parameter 10 times it must be banned on 10th attempt
       for (int i = 1; i <= 9; i++)
       {
-        await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+        await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       }
 
-      var (_, httpResponse) = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      var (_, httpResponse) = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       var responseString = await httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -305,7 +305,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await BanHostOnMultipleBadRequestsAsync();
       await Task.Delay(2500);
 
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
       Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode);
       Assert.IsTrue(httpResponse.Headers.Contains(DsntController.DSHeader));
@@ -316,7 +316,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       for (int i = 1; i < AppSettings.DSMaxNumOfUnknownTxQueries; i++)
       {
-        await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+        await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
         Assert.IsFalse(banList.IsHostBanned("localhost"));
       }
     }
@@ -328,7 +328,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await PerformSeriesOfInvalidTxIdQueriesAsync();
 
-      var (_, httpResponse) = await GetWithHttpResponseReturned<string>(client, MapiServer.ApiDSQuery + "/" + txC0Hash, HttpStatusCode.BadRequest);
+      var (_, httpResponse) = await GetWithHttpResponseReturned<string>(Client, MapiServer.ApiDSQuery + "/" + txC0Hash, HttpStatusCode.BadRequest);
       var responseString = await httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -342,7 +342,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await PerformSeriesOfInvalidTxIdQueriesAsync();
 
       await Task.Delay(2000);
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
       Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
     }
@@ -353,7 +353,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       for (int i = 1; i < AppSettings.DSMaxNumOfTxQueries; i++)
       {
-        var httpResponse1 = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+        var httpResponse1 = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
         Assert.IsFalse(banList.IsHostBanned("localhost"));
 
         Assert.AreEqual(HttpStatusCode.OK, httpResponse1.StatusCode);
@@ -369,7 +369,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await PerformSeriesOfValidTxIdQueriesAsync();
 
-      var (_, httpResponse) = await GetWithHttpResponseReturned<string>(client, MapiServer.ApiDSQuery + "/" + txC0Hash, HttpStatusCode.BadRequest);
+      var (_, httpResponse) = await GetWithHttpResponseReturned<string>(Client, MapiServer.ApiDSQuery + "/" + txC0Hash, HttpStatusCode.BadRequest);
       var responseString = await httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -383,7 +383,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await PerformSeriesOfValidTxIdQueriesAsync();
 
       await Task.Delay(2500);
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.ApiDSQuery + "/" + txC0Hash);
       Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode);
       Assert.IsFalse(banList.IsHostBanned("localhost"));
     }
@@ -408,7 +408,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new ByteArrayContent(tx2.ToBytes());
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
 
-      var (_, httpResponse) = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), client, reqContent, HttpStatusCode.BadRequest);
+      var (_, httpResponse) = await Post<string>(PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), Client, reqContent, HttpStatusCode.BadRequest);
       var responseString = await httpResponse.Content.ReadAsStringAsync();
       Assert.IsTrue(responseString.Contains("banned"));
       Assert.IsTrue(banList.IsHostBanned("localhost"));
@@ -440,7 +440,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       rpcClientFactoryMock.AddScriptCombination(tx2.ToHex(), (int)tx2.Inputs[0].PrevOut.N);
       _ = rpcClientFactoryMock.Create("mocked", 0, "mocked", "mocked");
 
-      var response = await PerformRequestAsync(client, HttpMethod.Post, PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), reqContent);
+      var response = await PerformRequestAsync(Client, HttpMethod.Post, PrepareQueryParams(MapiServer.ApiDSSubmit, queryParams), reqContent);
       Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
       var responseString = await response.Content.ReadAsStringAsync();
       Assert.IsFalse(responseString.Contains("banned"));
