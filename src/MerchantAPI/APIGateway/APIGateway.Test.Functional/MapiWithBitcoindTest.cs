@@ -97,6 +97,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNull(tx3_payload3.ConflictedWith);
     }
 
+    [DataRow(false)]
+    [DataRow(true)]
+    [TestMethod]
+    public async Task SubmitTransactionsWithSameInput(bool dsCheck)
+    {
+      var tx0 = CreateNewTransactionTx();
+
+      // Create two transactions with same input
+      var coin = availableCoins.Dequeue();
+      var tx1 = CreateNewTransactionTx(coin, new Money(1000L));
+      var tx2 = CreateNewTransactionTx(coin, new Money(500L));
+
+      var txHexList = new string[] { tx0.ToHex(), tx1.ToHex(), tx2.ToHex() };
+      var payload = await SubmitTransactionsAsync(txHexList, dsCheck);
+
+      Assert.AreEqual(2, payload.Txs.Count(x => x.ReturnResult == "success"));
+
+      // All txs are sent to node and one from tx1/tx2 fails:
+      // which of them fails and why depends on threads execution
+      var failedTx = payload.Txs.Single(x => x.ReturnResult == "failure");
+      Assert.IsTrue(failedTx.ResultDescription == "18 txn-double-spend-detected" ||
+                    failedTx.ResultDescription == "258 txn-mempool-conflict");
+    }
+
     [TestMethod]
     public async Task SubmitTransactionAndWaitForProof()
     {
