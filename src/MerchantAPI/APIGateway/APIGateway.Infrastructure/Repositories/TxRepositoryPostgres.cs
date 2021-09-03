@@ -213,14 +213,28 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 
     public async Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors)
     {
+      if (transactions.Count == 0)
+        return;
+
+      if (transactions.Count == 1)
+      {
+        await InsertSingleTxAsync(transactions.Single(), areUnconfirmedAncestors);
+        return;
+      }
+
       using var connection = GetDbConnection();
 
       long txInternalId;
       using (var seqTransaction = await connection.BeginTransactionAsync())
       {
         // Reserve sequence ids so no one else can use them
-        txInternalId = seqTransaction.Connection.ExecuteScalar<long>("SELECT nextval('tx_txinternalid_seq');");
-        seqTransaction.Connection.Execute($"SELECT setval('tx_txinternalid_seq', {txInternalId + transactions.Count});");
+
+        string cmdGenerateIds = @"
+SELECT NEXTVAL('tx_txinternalid_seq') 
+FROM generate_series(1, @transactionsCount)
+";      
+        var internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count })).ToArray();
+        txInternalId = internalIds.First();
         seqTransaction.Commit();
       }
 
@@ -306,6 +320,54 @@ WHERE txPayload IS NULL;
 ";
       }
       await transaction.Connection.ExecuteAsync(cmdText);
+      await transaction.CommitAsync();
+    }
+
+    private async Task InsertSingleTxAsync(Tx tx, bool isUnconfirmedAncestor)
+    {
+      using var connection = GetDbConnection();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+INSERT INTO Tx(txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor)
+VALUES (@txExternalId, @txPayload, @receivedAt, @callbackUrl, @callbackToken, @callbackEncryption, @merkleProof, @merkleFormat, @dsCheck, @unconfirmedAncestor)
+ON CONFLICT (txExternalId) DO NOTHING
+RETURNING txInternalId;
+";
+      var txInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new
+      {
+        txExternalId = tx.TxExternalIdBytes,
+        txPayload = tx.TxPayload,
+        receivedAt = tx.ReceivedAt,
+        callbackUrl = tx.CallbackUrl,
+        callbackToken = tx.CallbackToken,
+        callbackEncryption = tx.CallbackEncryption,
+        merkleProof = tx.MerkleProof,
+        merkleFormat = tx.MerkleFormat,
+        dsCheck = tx.DSCheck,
+        unconfirmedAncestor = isUnconfirmedAncestor
+      });
+
+      if (txInternalId > 0)
+      {
+        int n = 0;
+        foreach (var txIn in tx.TxIn)
+        {
+          cmdText = @"
+INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
+VALUES (@txInternalId, @n, @prevTxId, @prev_n);
+";
+          await connection.ExecuteAsync(cmdText, new
+          {
+            txInternalId = txInternalId,
+            n = isUnconfirmedAncestor ? n : txIn.N,
+            prevTxId = txIn.PrevTxId,
+            prev_n = txIn.PrevN
+          });
+          CachePrevOut(txInternalId, tx.TxExternalIdBytes, isUnconfirmedAncestor ? n : txIn.N);
+          n++;
+        }
+      }
       await transaction.CommitAsync();
     }
 

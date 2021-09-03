@@ -2,6 +2,7 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.Common.BitcoinRpc.Responses;
+using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -49,6 +50,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
   public interface IBlockChainInfo 
   { 
-    BlockChainInfoData GetInfo();
+    Task<BlockChainInfoData> GetInfoAsync();
   }
 }
