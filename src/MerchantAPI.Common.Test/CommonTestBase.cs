@@ -8,13 +8,10 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -38,7 +35,7 @@ namespace MerchantAPI.Common.Test
     public string ApiKeyAuthentication { get; set; }
 
     protected TestServer server;
-    public HttpClient client { get; set; }
+    public HttpClient Client { get; set; }
 
     protected TestServer serverCallback;
     protected HttpClient clientCallback;
@@ -52,11 +49,11 @@ namespace MerchantAPI.Common.Test
 
     public virtual string DbConnectionString { get; }
 
-    public static AutoResetEvent SyncTest = new AutoResetEvent(true);
+    public static AutoResetEvent SyncTest = new(true);
 
-    public CallbackFunctionalTests Callback = new CallbackFunctionalTests();
+    public CallbackFunctionalTests Callback = new();
 
-    protected UserAndIssuer GetMockedIdentity
+    protected UserAndIssuer MockedIdentity
     {
       get
       {
@@ -64,6 +61,27 @@ namespace MerchantAPI.Common.Test
       }
     }
 
+    protected string MockedIdentityToken
+    {
+      get
+      {
+        // TokenManager.exe generate -n 5 -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+        return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwibmJmIjoxNTk5NDExNDQzLCJleHAiOjE5MTQ3NzE0NDMsImlhdCI6MTU5OTQxMTQ0MywiaXNzIjoiaHR0cDovL215c2l0ZS5jb20iLCJhdWQiOiJodHRwOi8vbXlhdWRpZW5jZS5jb20ifQ.Z43NASAbIxMZrL2MzbJTJD30hYCxhoAs-8heDjQMnjM";
+      }
+    }
+
+    protected string MockedIdentityBearerAuthentication
+    {
+      get
+      {
+        return GetBearerAuthentication(MockedIdentityToken);
+      }
+    }
+
+    protected string GetBearerAuthentication(string token)
+    {
+      return $"Bearer { token }";
+    }
 
     public async Task WaitUntilAsync(Func<bool> predicate, int timeOutSeconds = 10)
     {
@@ -142,7 +160,7 @@ namespace MerchantAPI.Common.Test
 
         //setup server
         server = this.CreateServer(mockedServices, serverCallback, DbConnectionString, overridenSettings);
-        client = server.CreateClient();
+        Client = server.CreateClient();
 
         // setup common services
         loggerFactory = server.Services.GetRequiredService<ILoggerFactory>();

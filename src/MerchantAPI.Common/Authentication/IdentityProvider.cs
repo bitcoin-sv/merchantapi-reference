@@ -46,7 +46,7 @@ namespace MerchantAPI.Common.Authentication
 
     public bool MatchesToken(SecurityToken token)
     {
-      if (!(token is JwtSecurityToken jwt))
+      if (token is not JwtSecurityToken jwt)
       {
         return false;
       }

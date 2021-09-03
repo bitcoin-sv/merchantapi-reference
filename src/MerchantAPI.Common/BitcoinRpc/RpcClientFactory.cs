@@ -9,8 +9,8 @@ namespace MerchantAPI.Common.BitcoinRpc
 {
   public class RpcClientFactory : IRpcClientFactory
   {
-    ILogger<RpcClient> logger;
-    IHttpClientFactory httpClientFactory;
+    readonly ILogger<RpcClient> logger;
+    readonly IHttpClientFactory httpClientFactory;
 
     public RpcClientFactory(IHttpClientFactory httpClientFactory, ILogger<RpcClient> logger)
     {
@@ -24,7 +24,7 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     public static  Uri CreateAddress(string host, int port)
     {
-      UriBuilder builder = new UriBuilder
+      UriBuilder builder = new()
       {
         Host = host,
         Scheme = "http",
