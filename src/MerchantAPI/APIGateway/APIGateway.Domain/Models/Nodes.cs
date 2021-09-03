@@ -42,7 +42,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       this.ZMQEndpointChecker = ZMQEndpointChecker ?? throw new ArgumentNullException(nameof(ZMQEndpointChecker));
     }
 
-    private async Task ValidateNode(Node node, string action)
+    private async Task ValidateNode(Node node, bool isUpdate = false)
     {
       // Try to connect to node
       var bitcoind = bitcoindFactory.Create(node.Host, node.Port, node.Username, node.Password);
@@ -53,7 +53,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
       catch (Exception ex)
       {
-        throw new BadRequestException($"The node was not { action }. Unable to connect to node {node.Host}:{node.Port}.", ex);
+        throw new BadRequestException($"The node was not { (isUpdate ? "updated" : "added") }. Unable to connect to node {node.Host}:{node.Port}.", ex);
       }
 
       RpcActiveZmqNotification[] notifications;
@@ -83,7 +83,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       logger.LogInformation($"Adding node {node}");
 
-      await ValidateNode(node, "added");
+      await ValidateNode(node);
 
       var createdNode = nodeRepository.CreateNode(node);
 
@@ -96,7 +96,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       logger.LogInformation($"Updating node {node}");
 
-      await ValidateNode(node, "updated");
+      await ValidateNode(node, isUpdate: true);
 
       return nodeRepository.UpdateNode(node);
     }
