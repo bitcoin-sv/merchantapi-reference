@@ -35,7 +35,7 @@ namespace MerchantAPI.Common.Test
     public string ApiKeyAuthentication { get; set; }
 
     protected TestServer server;
-    public HttpClient client { get; set; }
+    public HttpClient Client { get; set; }
 
     protected TestServer serverCallback;
     protected HttpClient clientCallback;
@@ -49,9 +49,9 @@ namespace MerchantAPI.Common.Test
 
     public virtual string DbConnectionString { get; }
 
-    public static AutoResetEvent SyncTest = new AutoResetEvent(true);
+    public static AutoResetEvent SyncTest = new(true);
 
-    public CallbackFunctionalTests Callback = new CallbackFunctionalTests();
+    public CallbackFunctionalTests Callback = new();
 
     protected UserAndIssuer MockedIdentity
     {
@@ -160,7 +160,7 @@ namespace MerchantAPI.Common.Test
 
         //setup server
         server = this.CreateServer(mockedServices, serverCallback, DbConnectionString, overridenSettings);
-        client = server.CreateClient();
+        Client = server.CreateClient();
 
         // setup common services
         loggerFactory = server.Services.GetRequiredService<ILoggerFactory>();

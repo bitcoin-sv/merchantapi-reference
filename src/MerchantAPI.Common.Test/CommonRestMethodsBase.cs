@@ -46,7 +46,7 @@ namespace MerchantAPI.Common.Test
 
     public string ChangeKeyCase(string s)
     {
-      StringBuilder sb = new StringBuilder(s.Length);
+      StringBuilder sb = new(s.Length);
       foreach (var c in s)
       {
         if (char.IsLower(c))
@@ -66,7 +66,7 @@ namespace MerchantAPI.Common.Test
     [TestMethod]
     public virtual async Task GetByID_NonExistingKey_ShouldReturn404()
     {
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, UrlForKey(GetNonExistentKey()));
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, UrlForKey(GetNonExistentKey()));
       Assert.AreEqual(HttpStatusCode.NotFound, httpResponse.StatusCode);
     }
 
@@ -74,7 +74,7 @@ namespace MerchantAPI.Common.Test
     public virtual async Task GetCollection_NoElements_ShouldReturn200Empty()
     {
 
-      var httpResponse = await PerformRequestAsync(client, HttpMethod.Get, GetBaseUrl());
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, GetBaseUrl());
       Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode);
       var content = await httpResponse.Content.ReadAsStringAsync();
       Assert.AreEqual("[]", content);
@@ -87,17 +87,17 @@ namespace MerchantAPI.Common.Test
       var item1Key = ExtractPostKey(item1);
 
       // Check that id does not exists (database is deleted at start of test)
-      await Get<TGetViewModel>(client, UrlForKey(item1Key), HttpStatusCode.NotFound);
+      await Get<TGetViewModel>(Client, UrlForKey(item1Key), HttpStatusCode.NotFound);
 
       // Create new one using POST
-      await Post<TPostViewModel, TGetViewModel>(client, item1, HttpStatusCode.Created);
+      await Post<TPostViewModel, TGetViewModel>(Client, item1, HttpStatusCode.Created);
 
       // We should be able to retrieve it:
-      var entry1Response = await Get<TGetViewModel>(client, UrlForKey(item1Key), HttpStatusCode.OK);
+      var entry1Response = await Get<TGetViewModel>(Client, UrlForKey(item1Key), HttpStatusCode.OK);
       Assert.AreEqual(item1Key, ExtractGetKey(entry1Response));
 
       // Retrieval by key should be case sensitive
-      await Get<TGetViewModel>(client, UrlForKey(ChangeKeyCase(item1Key)), HttpStatusCode.OK);
+      await Get<TGetViewModel>(Client, UrlForKey(ChangeKeyCase(item1Key)), HttpStatusCode.OK);
     }
 
     [TestMethod]
@@ -107,10 +107,10 @@ namespace MerchantAPI.Common.Test
       var entryPostKey = ExtractPostKey(entryPost);
 
       // Check that id does not exists (database is deleted at start of test)
-      await Get<TGetViewModel>(client, UrlForKey(ExtractPostKey(entryPost)), HttpStatusCode.NotFound);
+      await Get<TGetViewModel>(Client, UrlForKey(ExtractPostKey(entryPost)), HttpStatusCode.NotFound);
 
       // Create new one using POST
-      var (entryResponsePost, reponsePost) = await Post<TPostViewModel, TGetViewModel>(client, entryPost, HttpStatusCode.Created);
+      var (entryResponsePost, reponsePost) = await Post<TPostViewModel, TGetViewModel>(Client, entryPost, HttpStatusCode.Created);
 
       CheckWasCreatedFrom(entryPost, entryResponsePost);
 
@@ -120,7 +120,7 @@ namespace MerchantAPI.Common.Test
 
 
       // And we should be able to retrieve the entry through GET
-      var get2 = await Get<TGetViewModel>(client, UrlForKey(entryPostKey), HttpStatusCode.OK);
+      var get2 = await Get<TGetViewModel>(Client, UrlForKey(entryPostKey), HttpStatusCode.OK);
 
       // And entry returned by POST should be the same as entry returned by GET
       CheckWasCreatedFrom(entryPost, get2);
@@ -131,8 +131,8 @@ namespace MerchantAPI.Common.Test
     {
       var entryPost = GetItemToCreate();
 
-      var (entryResponsePost, reponsePost) = await Post<TPostViewModel, TGetViewModel>(client, entryPost, HttpStatusCode.Created);
-      var (entryResponsePost2, reponsePost2) = await Post<TPostViewModel, TGetViewModel>(client, entryPost, HttpStatusCode.Conflict);
+      await Post<TPostViewModel, TGetViewModel>(Client, entryPost, HttpStatusCode.Created);
+      await Post<TPostViewModel, TGetViewModel>(Client, entryPost, HttpStatusCode.Conflict);
     }
 
     [TestMethod]
@@ -143,11 +143,11 @@ namespace MerchantAPI.Common.Test
       foreach (var entry in entries)
       {
         // Create new one using POST
-        await Post<TPostViewModel, TGetViewModel>(client, entry, HttpStatusCode.Created);
+        await Post<TPostViewModel, TGetViewModel>(Client, entry, HttpStatusCode.Created);
       }
 
       // We should be able to retrieve it:
-      var getEntries = await Get<TGetViewModel[]>(client,
+      var getEntries = await Get<TGetViewModel[]>(Client,
         GetBaseUrl(), HttpStatusCode.OK);
 
       Assert.AreEqual(entries.Length, getEntries.Length);
@@ -168,14 +168,14 @@ namespace MerchantAPI.Common.Test
       var entryPostKey = ExtractPostKey(entryPost);
 
       // Check that id does not exists (database is deleted at start of test)
-      await Get<TGetViewModel>(client, UrlForKey(entryPostKey), HttpStatusCode.NotFound);
+      await Get<TGetViewModel>(Client, UrlForKey(entryPostKey), HttpStatusCode.NotFound);
 
 
       // Create new one using POST
-      await Post<TPostViewModel, TGetViewModel>(client, entryPost, HttpStatusCode.Created);
+      await Post<TPostViewModel, TGetViewModel>(Client, entryPost, HttpStatusCode.Created);
 
       // Try to create it again - it should fail
-      await Post<TPostViewModel, TGetViewModel>(client, entryPost, HttpStatusCode.Conflict);
+      await Post<TPostViewModel, TGetViewModel>(Client, entryPost, HttpStatusCode.Conflict);
     }
 
     [TestMethod]
@@ -185,20 +185,20 @@ namespace MerchantAPI.Common.Test
       var entryPostKey = ExtractPostKey(entryPost);
 
       // Check that id does not exists (database is deleted at start of test)
-      await Get<TGetViewModel>(client, UrlForKey(entryPostKey), HttpStatusCode.NotFound);
+      await Get<TGetViewModel>(Client, UrlForKey(entryPostKey), HttpStatusCode.NotFound);
 
 
       // Try updating a non existent entry
-      await Put(client, UrlForKey(entryPostKey), entryPost, HttpStatusCode.NotFound);
+      await Put(Client, UrlForKey(entryPostKey), entryPost, HttpStatusCode.NotFound);
 
       // Create new one using POST
-      await Post<TPostViewModel, TGetViewModel>(client, entryPost, HttpStatusCode.Created);
+      await Post<TPostViewModel, TGetViewModel>(Client, entryPost, HttpStatusCode.Created);
 
       // Update entry:
       ModifyEntry(entryPost);
-      await Put(client, UrlForKey(entryPostKey), entryPost, HttpStatusCode.NoContent);
+      await Put(Client, UrlForKey(entryPostKey), entryPost, HttpStatusCode.NoContent);
 
-      var entryGot = await Get<TGetViewModel>(client, UrlForKey(entryPostKey), HttpStatusCode.OK);
+      var entryGot = await Get<TGetViewModel>(Client, UrlForKey(entryPostKey), HttpStatusCode.OK);
       CheckWasCreatedFrom(entryPost, entryGot);
 
 
@@ -206,9 +206,9 @@ namespace MerchantAPI.Common.Test
       entryPostKey = ChangeKeyCase(entryPostKey);
       SetPostKey(entryPost, entryPostKey);
       ModifyEntry(entryPost);
-      await Put(client, UrlForKey(entryPostKey), entryPost, HttpStatusCode.NoContent);
+      await Put(Client, UrlForKey(entryPostKey), entryPost, HttpStatusCode.NoContent);
 
-      var entryGot2 = await Get<TGetViewModel>(client, UrlForKey(entryPostKey), HttpStatusCode.OK);
+      var entryGot2 = await Get<TGetViewModel>(Client, UrlForKey(entryPostKey), HttpStatusCode.OK);
       CheckWasCreatedFrom(entryPost, entryGot2);
     }
 
@@ -220,26 +220,26 @@ namespace MerchantAPI.Common.Test
       foreach (var entry in entries)
       {
         // Create new one using POST
-        await Post<TPostViewModel, TGetViewModel>(client, entry, HttpStatusCode.Created);
+        await Post<TPostViewModel, TGetViewModel>(Client, entry, HttpStatusCode.Created);
       }
 
       // Check if all are there
       foreach (var entry in entries)
       {
         // Create new one using POST
-        await Get<TGetViewModel>(client, UrlForKey(ExtractPostKey(entry)), HttpStatusCode.OK);
+        await Get<TGetViewModel>(Client, UrlForKey(ExtractPostKey(entry)), HttpStatusCode.OK);
       }
 
       var firstKey = ExtractPostKey(entries.First());
 
       // Delete first one
-      await Delete(client, UrlForKey(firstKey));
+      await Delete(Client, UrlForKey(firstKey));
 
       // GET should not find the first anymore, but it should find the rest
       foreach (var entry in entries)
       {
         var key = ExtractPostKey(entry);
-        await Get<TGetViewModel>(client, UrlForKey(key),
+        await Get<TGetViewModel>(Client, UrlForKey(key),
 
           key == firstKey ? HttpStatusCode.NotFound : HttpStatusCode.OK);
       }
@@ -249,7 +249,7 @@ namespace MerchantAPI.Common.Test
     public virtual async Task Delete_NoElement_ShouldReturnNoContent()
     {
       // Delete always return NoContent to make (response) idempotent
-      await Delete(client, UrlForKey(GetNonExistentKey()));
+      await Delete(Client, UrlForKey(GetNonExistentKey()));
     }
   }
 }

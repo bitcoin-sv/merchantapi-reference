@@ -21,7 +21,7 @@ namespace MerchantAPI.Common.EventBus
   public class EventBusSubscription<T> : EventBusSubscription
     where T : IntegrationEvent
   {
-    ChannelReader<T> reader;
+    readonly ChannelReader<T> reader;
 
     public EventBusSubscription(ChannelReader<T> reader)
     {

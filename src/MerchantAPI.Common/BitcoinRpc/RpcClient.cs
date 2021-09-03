@@ -22,12 +22,12 @@ namespace MerchantAPI.Common.BitcoinRpc
   {
     readonly Uri Address;
     readonly NetworkCredential Credentials;
-    ILogger<RpcClient> logger;
+    readonly ILogger<RpcClient> logger;
 
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(100);
     public int NumOfRetries { get; set; } = 50;
 
-    private static Lazy<HttpClient> SharedHttpClient = new Lazy<HttpClient>(() => new HttpClient() { Timeout = Timeout.InfiniteTimeSpan }); // intended to be instantiated once : ref docs.microsoft.com
+    private static readonly Lazy<HttpClient> SharedHttpClient = new(() => new HttpClient() { Timeout = Timeout.InfiniteTimeSpan }); // intended to be instantiated once : ref docs.microsoft.com
 
     public HttpClient HttpClient { get; set; }
 
@@ -402,7 +402,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       var responseStream = await responseMessage.Content.ReadAsStreamAsync();
       var strReader = new StreamReader(responseStream);
       // Bucket to hold data that is present between quotation marks, used to find field names
-      StringBuilder bucket = new StringBuilder();
+      StringBuilder bucket = new();
       do
       {
         token?.ThrowIfCancellationRequested();

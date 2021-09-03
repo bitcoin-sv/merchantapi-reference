@@ -21,7 +21,7 @@ namespace MerchantAPI.Common.Test.CallbackWebServer
     readonly ICallbackReceived callbackReceived;
     public CallbackController(ICallbackReceived callbackReceived)
     {
-      this.callbackReceived = callbackReceived ?? throw new ArgumentException(nameof(callbackReceived));
+      this.callbackReceived = callbackReceived ?? throw new ArgumentException(null, nameof(callbackReceived));
     }
 
     [HttpPost]

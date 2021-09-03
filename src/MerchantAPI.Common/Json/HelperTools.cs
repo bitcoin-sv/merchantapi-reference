@@ -100,13 +100,13 @@ namespace MerchantAPI.Common.Json
     /// </summary>
     public static string JSONSerializeNewtonsoft(object value, bool writeIndented)
     {
-      DefaultContractResolver contractResolver = new DefaultContractResolver
+      DefaultContractResolver contractResolver = new()
       {
         NamingStrategy = new CamelCaseNamingStrategy()
       };
 
       JsonSerializerSettings serializeSettings =
-        new JsonSerializerSettings
+        new()
         {
           ContractResolver = contractResolver,
           Formatting = writeIndented ? Formatting.Indented : Formatting.None,
@@ -123,13 +123,13 @@ namespace MerchantAPI.Common.Json
     /// </summary>
     public static T JSONDeserializeNewtonsoft<T>(string value)
     {
-      DefaultContractResolver contractResolver = new DefaultContractResolver
+      DefaultContractResolver contractResolver = new()
       {
         NamingStrategy = new CamelCaseNamingStrategy()
       };
 
       JsonSerializerSettings serializeSettings =
-        new JsonSerializerSettings
+        new()
         {
           ContractResolver = contractResolver,
           NullValueHandling = NullValueHandling.Ignore,
@@ -143,7 +143,7 @@ namespace MerchantAPI.Common.Json
     {
       if (string.IsNullOrEmpty(input))
       {
-        return new byte[] { };
+        return Array.Empty<byte>();
       }
       if (input.Length % 2 > 0)
       {
@@ -183,8 +183,10 @@ namespace MerchantAPI.Common.Json
     public static Transaction ParseBytesToTransaction(byte[] objectBytes)
     {
       // Create or own MemoryStream, so that we support bigger blocks
-      BitcoinStream s = new BitcoinStream(new MemoryStream(objectBytes, false), false);
-      s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
+      BitcoinStream s = new(new MemoryStream(objectBytes, false), false)
+      {
+        MaxArraySize = unchecked((int)uint.MaxValue) // NBitcoin internally casts to uint when comparing
+      };
 
       var tx = Transaction.Create(Network.Main);
       tx.ReadWrite(s);
@@ -195,10 +197,10 @@ namespace MerchantAPI.Common.Json
     public static Block ParseBytesToBlock(byte[] objectBytes)
     {
       // Create or own MemoryStream, so that we support bigger blocks
-      BitcoinStream s = new BitcoinStream(new MemoryStream(objectBytes, false), false);
+      BitcoinStream s = new(new MemoryStream(objectBytes, false), false);
       s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
 
-      var block = Block.CreateBlock(Network.Main);
+      var block = s.ConsensusFactory.CreateBlock();
       block.ReadWrite(s);
       return block;
     }
@@ -206,10 +208,10 @@ namespace MerchantAPI.Common.Json
     public static Block ParseByteStreamToBlock(RpcBitcoinStreamReader streamReader)
     {
       // Create or own MemoryStream, so that we support bigger blocks
-      BitcoinStream s = new BitcoinStream(streamReader, false);
+      BitcoinStream s = new(streamReader, false);
       s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
 
-      var block = Block.CreateBlock(Network.Main);
+      var block = s.ConsensusFactory.CreateBlock();
       block.ReadWrite(s);
       streamReader.Close();
       return block;
@@ -219,7 +221,7 @@ namespace MerchantAPI.Common.Json
     {
       var transactions = new List<byte[]>();
       // Create or own MemoryStream, so that we support bigger blocks
-      BitcoinStream s = new BitcoinStream(new MemoryStream(multipleTransactions, false), false);
+      BitcoinStream s = new(new MemoryStream(multipleTransactions, false), false);
       s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
       while (s.Inner.Position < s.Inner.Length)
       {

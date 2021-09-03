@@ -11,12 +11,10 @@ namespace MerchantAPI.Common.EventBus
 {
   public class InMemoryEventBus : IEventBus
   {
-    readonly Dictionary<Type, List<EventBusSubscription>> subscriptions = new Dictionary<Type, List<EventBusSubscription>>();
+    readonly Dictionary<Type, List<EventBusSubscription>> subscriptions = new();
 
-    private readonly Dictionary<EventBusSubscription, object> subscription2Channel =
-      new Dictionary<EventBusSubscription, object>();
-
-    ILogger<InMemoryEventBus> logger;
+    private readonly Dictionary<EventBusSubscription, object> subscription2Channel = new();
+    readonly ILogger<InMemoryEventBus> logger;
     public InMemoryEventBus(ILogger<InMemoryEventBus> logger)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
