@@ -24,7 +24,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
   public class NotificationServiceHttpClientFactoryDefault : INotificationServiceHttpClientFactory
   {
     public const string ClientName = "Notification.Service.Http.Client";
-    IHttpClientFactory factory;
+    readonly IHttpClientFactory factory;
     public NotificationServiceHttpClientFactoryDefault(IHttpClientFactory defaultFactory)
     {
       this.factory = defaultFactory ?? throw new ArgumentNullException(nameof(defaultFactory));

@@ -40,17 +40,16 @@ namespace MerchantAPI.APIGateway.Rest
                           IBlockParser blockParser,
                           IDbManager dbManager,
                           INotificationsHandler notificationsHandler,
-                          ILogger<StartupChecker> logger,
-                          IConfiguration configuration)
+                          ILogger<StartupChecker> logger)
     {
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
-      this.logger = logger ?? throw new ArgumentException(nameof(logger));
-      this.blockParser = blockParser ?? throw new ArgumentException(nameof(blockParser));
-      this.dbManager = dbManager ?? throw new ArgumentException(nameof(dbManager));
-      this.minerId = minerId ?? throw new ArgumentException(nameof(nodeRepository));
-      this.notificationsHandler = notificationsHandler ?? throw new ArgumentException(nameof(notificationsHandler));
+      this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+      this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      this.dbManager = dbManager ?? throw new ArgumentNullException(nameof(dbManager));
+      this.minerId = minerId ?? throw new ArgumentNullException(nameof(nodeRepository));
+      this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
     }
 
     public async Task<bool> CheckAsync(bool testingEnvironment)

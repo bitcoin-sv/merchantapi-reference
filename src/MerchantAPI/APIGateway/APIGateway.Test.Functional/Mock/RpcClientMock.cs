@@ -22,16 +22,16 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
   class RpcClientMock : IRpcClient
   {
-    RpcCallList callList;
-    string nodeId;
-    ConcurrentDictionary<uint256, byte[]> transactions;
-    ConcurrentDictionary<uint256, BlockWithHeight> blocks;
-    ConcurrentDictionary<string, object> disconnectedNodes;
-    ConcurrentDictionary<string, object> doNotTraceMethods;
-    IList<(string, int)> validScriptCombinations;
+    readonly RpcCallList callList;
+    readonly string nodeId;
+    readonly ConcurrentDictionary<uint256, byte[]> transactions;
+    readonly ConcurrentDictionary<uint256, BlockWithHeight> blocks;
+    readonly ConcurrentDictionary<string, object> disconnectedNodes;
+    readonly ConcurrentDictionary<string, object> doNotTraceMethods;
+    readonly IList<(string, int)> validScriptCombinations;
 
     // Key is nodeID:memberName value is value that should be returned to the caller
-    private ConcurrentDictionary<string, object> predefinedResponse;
+    private readonly ConcurrentDictionary<string, object> predefinedResponse;
 
     public TimeSpan RequestTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     public int NumOfRetries { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
@@ -456,7 +456,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       {
         return r;
       }
-      return new string[0];
+      return Array.Empty<string>();
     }
 
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid, 

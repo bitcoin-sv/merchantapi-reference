@@ -21,7 +21,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   /// </summary>
   public class MockNodes : INodes
   {
-    List<Node> nodes = new List<Node>();
+    readonly List<Node> nodes = new();
 
     public MockNodes(int nrNodes)
     {
@@ -80,25 +80,25 @@ namespace MerchantAPI.APIGateway.Test.Functional
   public class RpcMultiClientUnitTests
   {
     RpcClientFactoryMock rpcClientFactoryMock;
-    string txC1Hex = TestBase.txC1Hex;
-    string txC1Hash = TestBase.txC1Hash;
+    readonly string txC1Hex = TestBase.txC1Hex;
+    readonly string txC1Hash = TestBase.txC1Hash;
 
-    string txC2Hex = TestBase.txC2Hex;
-    string txC2Hash = TestBase.txC2Hash;
+    readonly string txC2Hex = TestBase.txC2Hex;
+    readonly string txC2Hash = TestBase.txC2Hash;
 
-    string txC3Hex = TestBase.txC3Hex;
-    string txC3Hash = TestBase.txC3Hash;
+    readonly string txC3Hex = TestBase.txC3Hex;
+    readonly string txC3Hash = TestBase.txC3Hash;
 
 
     // Empty response means, that everything was accepted
-    RpcSendTransactions okResponse =
-      new RpcSendTransactions
+    readonly RpcSendTransactions okResponse =
+      new()
       {
-        Known = new string[0],
-        Evicted = new string[0],
+        Known = Array.Empty<string>(),
+        Evicted = Array.Empty<string>(),
 
-        Invalid = new RpcSendTransactions.RpcInvalidTx[0],
-        Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
+        Invalid = Array.Empty<RpcSendTransactions.RpcInvalidTx>(),
+        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
       };
 
     [TestInitialize]
@@ -198,8 +198,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       ExecuteAndCheckSendTransactions(new[] { txC1Hex }, new RpcSendTransactions
         {
-          Known = new string[0],
-          Evicted = new string[0],
+          Known = Array.Empty<string>(),
+          Evicted = Array.Empty<string>(),
 
           Invalid = new[]
           {
@@ -209,8 +209,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
               RejectReason = "Mixed results"
             }
           },
-          Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
-        },
+          Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
+      },
         node0Response,
         node1Response);
 
@@ -305,8 +305,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var invalidResponse =
         new RpcSendTransactions
         {
-          Known = new string[0],
-          Evicted = new string[0],
+          Known = Array.Empty<string>(),
+          Evicted = Array.Empty<string>(),
 
           Invalid = new[]
           {
@@ -315,7 +315,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
               Txid = txC1Hash
             }
           },
-          Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
+          Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
         };
 
       ExecuteAndCheckSendTransactions(
@@ -340,8 +340,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
         new RpcSendTransactions
         {
-          Known = new string[0],
-          Evicted = new string[0],
+          Known = Array.Empty<string>(),
+          Evicted = Array.Empty<string>(),
 
           Invalid = new[]
           {
@@ -359,15 +359,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
             }
 
           },
-          Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
+          Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
 
         },
 
 
       new RpcSendTransactions
       {
-        Known = new string[0],
-        Evicted = new string[0],
+        Known = Array.Empty<string>(),
+        Evicted = Array.Empty<string>(),
 
         Invalid = new[]
         {
@@ -379,15 +379,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
           }
         },
         // tx3 is accepted here (so we do not have it in results)
-        Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
-        
+        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
+
       },
 
 
       new RpcSendTransactions
       {
-        Known = new string[0],
-        Evicted = new string[0],
+        Known = Array.Empty<string>(),
+        Evicted = Array.Empty<string>(),
 
         Invalid = new[]
         {
@@ -402,7 +402,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
             RejectCode =  1
           }
         },
-        Unconfirmed = new RpcSendTransactions.RpcUnconfirmedTx[0]
+        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
       });
 
    }
@@ -423,12 +423,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Blockhash = "b1"
       };
 
-      var r = await ExecuteGetRawTransaction("tx1", node0Response, node1Response);
+      var (result, allTheSame, error) = await ExecuteGetRawTransaction("tx1", node0Response, node1Response);
 
-      Assert.AreEqual(null, r.error);
-      Assert.IsTrue(r.allTheSame);
-      Assert.AreEqual("tx1", r.result.Txid);
-      Assert.AreEqual("b1", r.result.Blockhash);
+      Assert.AreEqual(null, error);
+      Assert.IsTrue(allTheSame);
+      Assert.AreEqual("tx1", result.Txid);
+      Assert.AreEqual("b1", result.Blockhash);
     }
 
     [TestMethod]
@@ -447,13 +447,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Txid = "tx1",
         Blockhash = "b1"
       };
+      var (result, allTheSame, _) = await ExecuteGetRawTransaction("tx1", node0Response, node1Response);
 
-      var r = await ExecuteGetRawTransaction("tx1", node0Response, node1Response);
-
-      Assert.IsNotNull(r.result);
-      Assert.IsTrue(r.allTheSame);
-      Assert.AreEqual("tx1", r.result.Txid);
-      Assert.AreEqual("b1", r.result.Blockhash);
+      Assert.IsNotNull(result);
+      Assert.IsTrue(allTheSame);
+      Assert.AreEqual("tx1", result.Txid);
+      Assert.AreEqual("b1", result.Blockhash);
 
     }
 
@@ -474,11 +473,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Blockhash = "**this*is*some*other*block"
       };
 
-      var r = await ExecuteGetRawTransaction("tx1", node0Response, node1Response);
+      var (result, allTheSame, error) = await ExecuteGetRawTransaction("tx1", node0Response, node1Response);
 
-      Assert.AreEqual(null, r.error);
-      Assert.IsFalse(r.allTheSame);
-      Assert.IsNull(r.result);
+      Assert.AreEqual(null, error);
+      Assert.IsFalse(allTheSame);
+      Assert.IsNull(result);
     }
 
   }

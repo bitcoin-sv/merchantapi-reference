@@ -13,7 +13,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     readonly int slowHttpClientThresholdInMs;
       
     // Key represents host name
-    readonly Dictionary<string, (bool SlowHost, Queue<long> Times)> hostExecutionTimes = new Dictionary<string, (bool, Queue<long>)>(StringComparer.InvariantCultureIgnoreCase);
+    readonly Dictionary<string, (bool SlowHost, Queue<long> Times)> hostExecutionTimes = new(StringComparer.InvariantCultureIgnoreCase);
 
     public HostExecutionTimes(int maxNoOfSavedExecutionTimes, int slowHttpClientThresholdInMs)
     {
@@ -39,7 +39,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
           {
             executionTimeQueue.Dequeue();
           }
-          bool slowHost = (executionTimeQueue.Sum() / executionTimeQueue.Count()) > slowHttpClientThresholdInMs;
+          bool slowHost = (executionTimeQueue.Sum() / executionTimeQueue.Count) > slowHttpClientThresholdInMs;
           hostExecutionTimes[host] = (slowHost, executionTimeQueue);
         }
         else

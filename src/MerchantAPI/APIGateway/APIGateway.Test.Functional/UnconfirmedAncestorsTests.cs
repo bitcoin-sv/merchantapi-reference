@@ -57,25 +57,25 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task RegisterNodesWithServiceAndWaitAsync(CancellationToken cancellationToken)
     {
-      var subscribedToZMQSubscription = eventBus.Subscribe<ZMQSubscribedEvent>();
+      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
 
       // Register nodes with service
-      RegisterNodesWithService(cancellationToken);
+      RegisterNodesWithService();
 
       // Wait for subscription event so we can make sure that service is listening to node
       _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
 
       // Unsubscribe from event bus
-      eventBus.TryUnsubscribe(subscribedToZMQSubscription);
+      EventBus.TryUnsubscribe(subscribedToZMQSubscription);
     }
 
-    private void RegisterNodesWithService(CancellationToken cancellationToken)
+    private void RegisterNodesWithService()
     {
       // Register all nodes with service
       var nodes = this.NodeRepository.GetNodes();
       foreach (var node in nodes)
       {
-        eventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
+        EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
       }
     }
 
@@ -109,13 +109,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task StoreUnconfirmedParentsOnSubmitTxAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
 
       // Create and submit first transaction
       var coin = availableCoins.Dequeue();
@@ -134,13 +134,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task AncestorsAreAlreadyInDBForSecondMAPITxAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
 
       // Create and submit first transaction
       var coin = availableCoins.Dequeue();
@@ -169,13 +169,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task AllAncestorsAreNotInDBForSecondMAPITxIfChainContainsOtherTxsAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
 
       // Create and submit first transaction
       var coin = availableCoins.Dequeue();
@@ -206,13 +206,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchMempoolDSForUnconfirmedParentAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
 
       // Create and submit first transaction
       var coin = availableCoins.Dequeue();
@@ -256,13 +256,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task NotifyMempoolDSForAllTxWithDsCheckInChainAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
 
       // Create and submit first transaction
       var coin = availableCoins.Dequeue();
@@ -306,7 +306,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchDSOfBlockAncestorTxByBlockTxAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
@@ -317,7 +317,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (txHexDS, txIdDS) = CreateNewTransaction(coin, new Money(500L));
 
       // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = eventBus.Subscribe<InvalidTxDetectedEvent>();
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
 
       // Submit transactions
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
@@ -340,7 +340,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
       
       // Mine sibling block to b1 - without any additional transaction
-      var (b2, _) = await MineNextBlockAsync(new Transaction[0], false, parentBlockHash);
+      var (b2, _) = await MineNextBlockAsync(Array.Empty<Transaction>(), false, parentBlockHash);
 
       // Mine a child block to b2, containing txDS. This will create a longer chain and we should be notified about doubleSpend
       var txDS = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txHexDS));
@@ -362,7 +362,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchDSOfMempoolAncestorTxByBlockTxAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());

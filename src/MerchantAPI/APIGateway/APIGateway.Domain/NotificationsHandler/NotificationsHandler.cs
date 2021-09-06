@@ -92,7 +92,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       var numOfSlowTasks = (int)Math.Ceiling(notificationSettings.InstantNotificationsTasks * ((double)notificationSettings.InstantNotificationsSlowTaskPercentage / 100));
       int numOfTasks = slowClient ? numOfSlowTasks : notificationSettings.InstantNotificationsTasks - numOfSlowTasks;
       logger.LogInformation($"Starting up '{numOfTasks}' of {(slowClient ? "slow" : "fast")} tasks");
-      List<Task> executingTasks = new List<Task>();
+      List<Task> executingTasks = new();
 
       do
       {
@@ -191,12 +191,12 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
 
       async Task<JsonEnvelope> TryToSign()
       {
-        Func<string, Task<(string signature, string publicKey)>> signWithMinerId = async sigHashHex =>
+        async Task<(string signature, string publicKey)> signWithMinerId(string sigHashHex)
         {
           var signature = await minerId.SignWithMinerIdAsync(lastMinerId, sigHashHex);
 
           return (signature, lastMinerId);
-        };
+        }
 
         var envelope = await JsonEnvelopeSignature.CreateJSonSignatureAsync(payload, signWithMinerId);
 
@@ -306,23 +306,16 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       {
         // Prepare notification data from DB before writing it to queue
         NotificationData notificationData = null;
-        switch (notificationEvent.NotificationType)
+        notificationData = notificationEvent.NotificationType switch
         {
-          case CallbackReason.DoubleSpend:
-            notificationData = await txRepository.GetTxToSendBlockDSNotificationAsync(notificationEvent.TransactionId);
-            break;
-          case CallbackReason.DoubleSpendAttempt:
-            notificationData = notificationEvent.NotificationData;
-            break;
-          case CallbackReason.MerkleProof:
-            notificationData = await txRepository.GetTxToSendMerkleProofNotificationAsync(notificationEvent.TransactionId);
-            break;
-          default:
-            throw new InvalidOperationException($"Invalid notification type {notificationEvent.NotificationType}");
-        }
+          CallbackReason.DoubleSpend => await txRepository.GetTxToSendBlockDSNotificationAsync(notificationEvent.TransactionId),
+          CallbackReason.DoubleSpendAttempt => notificationEvent.NotificationData,
+          CallbackReason.MerkleProof => await txRepository.GetTxToSendMerkleProofNotificationAsync(notificationEvent.TransactionId),
+          _ => throw new InvalidOperationException($"Invalid notification type {notificationEvent.NotificationType}"),
+        };
         notificationData.NotificationType = notificationEvent.NotificationType;
         notificationData.CreatedAt = clock.UtcNow();
-        Uri uri = new Uri(notificationData.CallbackUrl);
+        Uri uri = new(notificationData.CallbackUrl);
         var host = uri.Host.ToLower();
 
         if (!notificationScheduler.Add(notificationData, host))

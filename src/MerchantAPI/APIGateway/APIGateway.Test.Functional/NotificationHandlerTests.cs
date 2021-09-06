@@ -36,7 +36,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var notificationSettings = AppSettings.Notification;
       var hostExecution = new HostExecutionTimes(notificationSettings.NoOfSavedExecutionTimes.Value, notificationSettings.SlowHostThresholdInMs.Value);
 
-      var taskList = new List<Task>();
       for (int i = 0; i < 20; i++)
       {
         hostExecution.AddExecutionTime(slowHostName, new Random(DateTime.UtcNow.Millisecond).Next(notificationSettings.SlowHostThresholdInMs.Value, notificationSettings.SlowHostThresholdInMs.Value + 500));

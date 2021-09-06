@@ -12,12 +12,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
   /// </summary>
   class TransactionReader 
   {
-    object objLock = new object();
+    readonly object objLock = new();
 
-    int txIndex;
-    IEnumerator<string> lines;
+    readonly int txIndex;
+    readonly IEnumerator<string> lines;
     bool hasCurrent;
-    long limit;
+    readonly long limit;
     long returnedCount = 0;
 
     public TransactionReader(string fileName, int txIndex, long limit)

@@ -63,7 +63,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
       else
       {
-        ub.Query = ub.Query.Substring(1) + "&" + queryString; // remove leading ?  it is added back automatically
+        ub.Query = ub.Query[1..] + "&" + queryString; // remove leading ?  it is added back automatically
       }
 
       string urlWithParams = ub.Uri.ToString();
@@ -196,7 +196,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
     }
 
-    static Random rnd = new Random();
+    static readonly Random rnd = new();
     static async Task<int> SendTransactions(string configFileName, IHttpClientFactory httpClientFactory)
     {
       // Use Newtonsoft deserializer with default camel case policy:
@@ -221,7 +221,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         var uri = new UriBuilder(config.Callback.Url);
         
-        uri.Host = uri.Host + rnd.Next(1, config.Callback.AddRandomNumberToHost.Value+1);
+        uri.Host += rnd.Next(1, config.Callback.AddRandomNumberToHost.Value+1);
         return uri.ToString();
       }
 
@@ -358,7 +358,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     private static void DirectoryCopy(string sourceDirName, string destDirName)
     {
       // Get the subdirectories for the specified directory.
-      DirectoryInfo dir = new DirectoryInfo(sourceDirName);
+      DirectoryInfo dir = new(sourceDirName);
 
       if (!dir.Exists)
       {

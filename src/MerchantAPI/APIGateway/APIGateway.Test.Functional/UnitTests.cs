@@ -13,7 +13,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   [TestClass]
   public class UnitTests : TestBase
   {
-    private const string testPrivateKeyWif = "cNpxQaWe36eHdfU3fo2jHVkWXVt5CakPDrZSYguoZiRHSz9rq8nF";
+    //private const string testPrivateKeyWif = "cNpxQaWe36eHdfU3fo2jHVkWXVt5CakPDrZSYguoZiRHSz9rq8nF";
     private const string testAddress = "msRNSw5hHA1W1jXXadxMDMQCErX1X8whTk";
 
     [TestInitialize]
@@ -31,7 +31,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitAndCheckMultipleDSRead()
     {
-      var address = BitcoinAddress.Create("msRNSw5hHA1W1jXXadxMDMQCErX1X8whTk", Network.RegTest);
+      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
 
       var tx1 = BCash.Instance.Regtest.CreateTransaction();
       tx1.Inputs.Add(new TxIn(new OutPoint(new uint256(txC1Hash), 0)));

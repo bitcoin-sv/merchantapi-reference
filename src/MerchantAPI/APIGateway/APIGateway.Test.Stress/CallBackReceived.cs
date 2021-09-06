@@ -22,7 +22,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
   {
     readonly Stats stats;
     readonly Dictionary<string, CallbackHostConfig> callbackHostConfig;
-    Random rnd = new Random();
+    readonly Random rnd = new();
 
     public CallbackReceived(Stats stats, CallbackHostConfig[] callbackHostConfig)
     {

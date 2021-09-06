@@ -13,7 +13,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
 {
   public class NotificationScheduler
   {
-    readonly object lockingObject = new object();
+    readonly object lockingObject = new();
 
     readonly HostExecutionTimes hostExecutionTimes;
 
@@ -21,12 +21,12 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     // Hosts are ordered by notification arrival time. When collecting data for callback, we consume up to 
     // maxNotificationsInBatch notifications. If there are any left, we move the the hosts to the end 
     // of the queue to give other hosts chance to get their notifications
-    readonly Queue<string> slowWaitingHosts = new Queue<string>();
-    readonly Queue<string> fastWaitingHosts = new Queue<string>();
+    readonly Queue<string> slowWaitingHosts = new();
+    readonly Queue<string> fastWaitingHosts = new();
 
     // Queues of waiting tasks, upon releasing of the task, the task will receive list of notifications that must be sent
-    readonly Queue<TaskCompletionSource<List<NotificationData>>> slowWaitingQueue = new Queue<TaskCompletionSource<List<NotificationData>>>();
-    readonly Queue<TaskCompletionSource<List<NotificationData>>> fastWaitingQueue = new Queue<TaskCompletionSource<List<NotificationData>>>();
+    readonly Queue<TaskCompletionSource<List<NotificationData>>> slowWaitingQueue = new();
+    readonly Queue<TaskCompletionSource<List<NotificationData>>> fastWaitingQueue = new();
 
     readonly NotificationQueueByHost notificationsQueue;
 

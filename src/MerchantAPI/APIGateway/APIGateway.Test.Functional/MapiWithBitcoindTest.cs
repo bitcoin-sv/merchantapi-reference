@@ -56,7 +56,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitSameTransactioMultipleTimesAsync()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       var (txHex1, txId1) = CreateNewTransaction(); // mAPI, mAPI
       var (txHex2, txId2) = CreateNewTransaction(); // mAPI, RPC
@@ -97,6 +97,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNull(tx3_payload3.ConflictedWith);
     }
 
+    [DataRow(false)]
+    [DataRow(true)]
+    [TestMethod]
+    public async Task SubmitTransactionsWithSameInput(bool dsCheck)
+    {
+      var tx0 = CreateNewTransactionTx();
+
+      // Create two transactions with same input
+      var coin = availableCoins.Dequeue();
+      var tx1 = CreateNewTransactionTx(coin, new Money(1000L));
+      var tx2 = CreateNewTransactionTx(coin, new Money(500L));
+
+      var txHexList = new string[] { tx0.ToHex(), tx1.ToHex(), tx2.ToHex() };
+      var payload = await SubmitTransactionsAsync(txHexList, dsCheck);
+
+      Assert.AreEqual(2, payload.Txs.Count(x => x.ReturnResult == "success"));
+
+      // All txs are sent to node and one from tx1/tx2 fails:
+      // which of them fails and why depends on threads execution
+      var failedTx = payload.Txs.Single(x => x.ReturnResult == "failure");
+      Assert.IsTrue(failedTx.ResultDescription == "18 txn-double-spend-detected" ||
+                    failedTx.ResultDescription == "258 txn-mempool-conflict");
+    }
+
     [TestMethod]
     public async Task SubmitTransactionAndWaitForProof()
     {
@@ -112,7 +136,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual(0, Callback.Calls.Length);
 
-      var notificationEventSubscription = eventBus.Subscribe<NewNotificationEvent>();
+      var notificationEventSubscription = EventBus.Subscribe<NewNotificationEvent>();
       // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
       // with troubleshooting:
       var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
@@ -152,7 +176,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual(0, Callback.Calls.Length);
 
-      var notificationEventSubscription = eventBus.Subscribe<NewNotificationEvent>();
+      var notificationEventSubscription = EventBus.Subscribe<NewNotificationEvent>();
       // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
       // with troubleshooting:
       var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
@@ -199,7 +223,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent($"{{ \"rawtx\": \"{tx2Hex}\" }}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
@@ -278,7 +302,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxThatCausesDS()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
@@ -301,7 +325,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxsWithOneThatCausesDS()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
@@ -340,7 +364,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task With2NodesOnlyOneDoubleSpendShouldBeSent()
     {
-      using CancellationTokenSource cts = new CancellationTokenSource(cancellationTimeout);
+      using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
@@ -388,7 +412,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         loggerTest.LogInformation($"NotificationType: {notification.NotificationType}; TxId: {notification.TxInternalId}");
       }
-      Assert.AreEqual(1, notifications.Count());
+      Assert.AreEqual(1, notifications.Length);
     }
   }
 }

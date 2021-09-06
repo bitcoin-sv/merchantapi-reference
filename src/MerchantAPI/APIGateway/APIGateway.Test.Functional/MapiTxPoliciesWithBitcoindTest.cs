@@ -27,7 +27,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.TestCleanup();
     }
 
-    private Dictionary<string, object> GetPoliciesDict(string json)
+    private static Dictionary<string, object> GetPoliciesDict(string json)
     {
       return HelperTools.JSONDeserialize<Dictionary<string, object>>(json);
     }
@@ -44,7 +44,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // SendRawTransactionAsync does not support config param, only SendRawTransactionsAsync does
       var txResponses = await node0.RpcClient.SendRawTransactionsAsync(transactionsToSubmit, null);
-      Assert.AreEqual(1, txResponses.Invalid.Count());
+      Assert.AreEqual(1, txResponses.Invalid.Length);
       Assert.AreEqual("Policy value for max tx size must not be less than 99999", txResponses.Invalid.Single().RejectReason);
     }
 
@@ -61,7 +61,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // SendRawTransactionAsync does not support config param, only SendRawTransactionsAsync does
       var txResponses = await node0.RpcClient.SendRawTransactionsAsync(transactionsToSubmit, null);
-      Assert.AreEqual(1, txResponses.Invalid.Count());
+      Assert.AreEqual(1, txResponses.Invalid.Length);
       Assert.AreEqual("maxtxsizepolicy must be a number", txResponses.Invalid.Single().RejectReason);
     }
 

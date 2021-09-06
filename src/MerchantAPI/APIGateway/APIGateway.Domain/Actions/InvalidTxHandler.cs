@@ -31,7 +31,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     EventBusSubscription<InvalidTxDetectedEvent> invalidTxDetectedSubscription;
     EventBusSubscription<RemovedFromMempoolEvent>removedFromMempoolSubscription;
-    IBlockParser blockParser;
+    readonly IBlockParser blockParser;
     readonly IClock clock;
 
     public InvalidTxHandler(ITxRepository txRepository, ILogger<InvalidTxHandler> logger, IEventBus eventBus, IBlockParser blockParser, IClock clock)
@@ -113,7 +113,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           if (txsWithDSCheck.Any())
           {
             var dsTxId = new uint256(e.Message.TxId).ToBytes();
-            var dsTxPayload = string.IsNullOrEmpty(e.Message.Hex) ? new byte[0] :  HelperTools.HexStringToByteArray(e.Message.Hex);
+            var dsTxPayload = string.IsNullOrEmpty(e.Message.Hex) ? Array.Empty<byte>() :  HelperTools.HexStringToByteArray(e.Message.Hex);
             foreach (var tx in txsWithDSCheck)
             {
               var inserted = await txRepository.InsertMempoolDoubleSpendAsync(

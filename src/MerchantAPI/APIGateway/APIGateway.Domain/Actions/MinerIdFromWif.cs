@@ -15,8 +15,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
   /// </summary>
   public class MinerIdFromWif : IMinerId
   {
-    Key privateKey;
-    string publicKey;
+    readonly Key privateKey;
+    readonly string publicKey;
 
     public MinerIdFromWif(string wifPrivateKey)
     {

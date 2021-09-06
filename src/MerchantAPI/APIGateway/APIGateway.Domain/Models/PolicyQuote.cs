@@ -53,7 +53,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
       else
       {
-        HashSet<string> hs = new HashSet<string>();
+        HashSet<string> hs = new();
         foreach (var fee in Fees)
         {
           if (hs.Contains(fee.FeeType))

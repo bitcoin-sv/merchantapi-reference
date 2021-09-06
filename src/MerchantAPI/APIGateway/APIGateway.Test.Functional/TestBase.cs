@@ -37,21 +37,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public IMinerId MinerId { get; private set; }
 
-    public IBlockChainInfo BlockChainInfo { get; private set; }
-
     public INodes Nodes { get; private set; }
 
-    public IRpcMultiClient rpcMultiClient { get; private set; }
+    public IRpcMultiClient RpcMultiClient { get; private set; }
 
-    public IBlockChainInfo blockChainInfo { get; private set; }
+    public IBlockChainInfo BlockChainInfo { get; private set; }
 
-    public IEventBus eventBus { get; private set; }
+    public IEventBus EventBus { get; private set; }
 
     // Mocks are non-null only when we actually use the,
     protected FeeQuoteRepositoryMock feeQuoteRepositoryMock;
     protected RpcClientFactoryMock rpcClientFactoryMock;
 
-    private static double quoteExpiryMinutes = 10;
+    private static readonly double quoteExpiryMinutes = 10;
 
     public const string genesisBlock =
       "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000";
@@ -129,16 +127,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
       TxRepositoryPostgres = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryPostgres;
       FeeQuoteRepository = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryPostgres;
 
-      BlockChainInfo = server.Services.GetRequiredService<IBlockChainInfo>();
       MinerId = server.Services.GetRequiredService<IMinerId>();
 
       // setup common services
 
       Nodes = server.Services.GetRequiredService<INodes>();
-      blockChainInfo = server.Services.GetRequiredService<IBlockChainInfo>();
-      rpcMultiClient = server.Services.GetRequiredService<IRpcMultiClient>();
+      BlockChainInfo = server.Services.GetRequiredService<IBlockChainInfo>();
+      RpcMultiClient = server.Services.GetRequiredService<IRpcMultiClient>();
 
-      eventBus = server.Services.GetRequiredService<IEventBus>();
+      EventBus = server.Services.GetRequiredService<IEventBus>();
 
       rpcClientFactoryMock = server.Services.GetRequiredService<IRpcClientFactory>() as RpcClientFactoryMock;
       feeQuoteRepositoryMock = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryMock;
@@ -170,7 +167,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public void WaitUntilEventBusIsIdle()
     {
-      eventBus.WaitForIdle();
+      EventBus.WaitForIdle();
       loggerTest.LogInformation("Waiting for the EventBus to become idle completed");
     }
     public static void RepeatUntilException(Action action, int timeOutSeconds = 10)
@@ -283,7 +280,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected void PublishBlockHashToEventBus(string blockHash)
     {
-      eventBus.Publish(new NewBlockDiscoveredEvent()
+      EventBus.Publish(new NewBlockDiscoveredEvent()
       {
         CreationDate = MockedClock.UtcNow,
         BlockHash = blockHash

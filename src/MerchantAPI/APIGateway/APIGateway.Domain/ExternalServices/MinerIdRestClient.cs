@@ -14,8 +14,8 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
 
   public class MinerIdRestClient : IMinerId
   {
-    bool? supportPassingInSigningPublicKey; 
-    object lockObj = new object();
+    bool? supportPassingInSigningPublicKey;
+    readonly object lockObj = new();
     readonly RestClient restClient;
     public MinerIdRestClient(string minerIdUrl, string minerIdAlias, string authorization, HttpClient httpClient)
     {
@@ -42,7 +42,7 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
       return await restClient.GetStringAsync("");
     }
 
-    string RefreseHash(string hash)
+    static string RefreseHash(string hash)
     {
       var array = HelperTools.HexStringToByteArray(hash);
       Array.Reverse(array);

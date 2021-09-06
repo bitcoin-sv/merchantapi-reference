@@ -200,7 +200,7 @@ namespace MerchantAPI.APIGateway.Rest
                 Id = "Bearer"
               }
             },
-            new string[] { }
+            Array.Empty<string>()
           }
         });
 
@@ -226,7 +226,7 @@ namespace MerchantAPI.APIGateway.Rest
                 Id = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName
               },
             },
-            new string[] {}
+            Array.Empty<string>()
           }
         });
 

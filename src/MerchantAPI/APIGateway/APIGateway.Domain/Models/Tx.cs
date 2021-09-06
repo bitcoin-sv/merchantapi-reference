@@ -23,8 +23,10 @@ namespace MerchantAPI.APIGateway.Domain.Models
       CallbackUrl = txWithInput.CallbackUrl;
       CallbackEncryption = txWithInput.CallbackEncryption;
       DSCheck = txWithInput.DsCheck;
-      TxIn = new List<TxInput>();
-      TxIn.Add(new TxInput(txWithInput));
+      TxIn = new List<TxInput>
+      {
+        new TxInput(txWithInput)
+      };
     }
 
     public long TxInternalId { get; set; }
