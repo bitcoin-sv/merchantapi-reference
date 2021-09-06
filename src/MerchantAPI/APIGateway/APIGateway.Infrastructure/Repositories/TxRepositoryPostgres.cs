@@ -359,7 +359,7 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
 ";
           await connection.ExecuteAsync(cmdText, new
           {
-            txInternalId = txInternalId,
+            txInternalId,
             n = isUnconfirmedAncestor ? n : txIn.N,
             prevTxId = txIn.PrevTxId,
             prev_n = txIn.PrevN

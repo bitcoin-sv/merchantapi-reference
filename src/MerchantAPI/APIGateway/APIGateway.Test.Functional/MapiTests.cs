@@ -313,30 +313,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("Transaction requires double spend notification but this instance of mAPI does not support callbacks", payload.ResultDescription);
     }
 
-    private int GetBytesForScriptLength(ulong totalBytes)
-    {
-      if (totalBytes < byte.MaxValue) // uint8 == byte
-      {
-        return 1;
-      }
-      else if (totalBytes < UInt16.MaxValue) // if script length can not be encoded in single byte we need additional data
-      {
-        return 3; // saved as variable length integer (0xFD followed by the length as uint16_t)
-      }
-      else if (totalBytes < UInt32.MaxValue)
-      {
-        return 5;
-      }
-      else if (totalBytes < UInt64.MaxValue)
-      {
-        return 9;
-      }
-      else
-      {
-        throw new ArgumentException("Script is too big.");
-      }
-    }
-
     [TestMethod]
     public async Task SubmitTransactionJsonMinFee()
     {
