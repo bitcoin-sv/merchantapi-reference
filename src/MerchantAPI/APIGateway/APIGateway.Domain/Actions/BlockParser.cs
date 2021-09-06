@@ -143,6 +143,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       try
       {
+        if (appSettings.DontParseBlocks)
+        {
+          logger.LogInformation($"Block parsing is disabled. Won't store block header information for block '{e.BlockHash}' into database");
+          return;
+        }
+
         var blockHash = new uint256(e.BlockHash);
 
         // If block is already present in DB, there is no need to parse it again
@@ -193,7 +199,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           BlockHash = new uint256(dbBlock.BlockHash).ToString(),
           BlockDBInternalId = dbBlock.BlockInternalId,
         });
-        await VerifyBlockChain(blockHeader.Previousblockhash);
+        _ = VerifyBlockChain(blockHeader.Previousblockhash);
       }
       catch(BadRequestException ex)
       {
