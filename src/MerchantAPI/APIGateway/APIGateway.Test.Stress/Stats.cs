@@ -16,7 +16,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     /// <summary>
     /// Key contains host name. Value contains txId and number of times we have seenthis tx.
     /// </summary>
-    readonly Dictionary<string, Dictionary<uint256, long>> countByHost = new Dictionary<string, Dictionary<uint256,long>>();
+    readonly Dictionary<string, Dictionary<uint256, long>> countByHost = new();
 
     // total count
     long count;
@@ -129,7 +129,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
   /// </summary>
   public class Stats
   {
-    Stopwatch sw = new Stopwatch();
+    readonly Stopwatch sw = new();
 
     /// <summary>
     /// Number of submitTransactions request that failed
@@ -139,14 +139,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     long simulatedCallbackErrors;
 
-    TxByHost requestTxFailures = new TxByHost();
-    
-    TxByHost okSubmitted = new TxByHost();
-    
-    TxByHost callbackReceived = new TxByHost();
+    readonly TxByHost requestTxFailures = new();
 
-    object lockObj = new object();
-    DateTime lastUpDateTimeUtc =DateTime.UtcNow;
+    readonly TxByHost okSubmitted = new();
+
+    readonly TxByHost callbackReceived = new();
+
+    readonly object lockObj = new();
+    DateTime lastUpDateTimeUtc = DateTime.UtcNow;
     
     void  UpdateLastUpdateTime()
     {

@@ -17,11 +17,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     // Refresh every 60 seconds even if no ZMQ notification was received
     const int RefreshIntervalSeconds = 60;
 
-    readonly SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1, 1);
+    readonly SemaphoreSlim semaphoreSlim = new(1, 1);
 
     DateTime lastRefreshedAt;
     BlockChainInfoData cachedBlockChainInfo;
-    IRpcMultiClient rpcMultiClient;
+    readonly IRpcMultiClient rpcMultiClient;
     private readonly IClock clock;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;

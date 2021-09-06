@@ -22,8 +22,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   [ServiceFilter(typeof(HttpsRequiredAttribute))]
   public class NodeController : ControllerBase
   {
-    INodes nodes;
-    IBlockParser blockParser;
+    readonly INodes nodes;
+    readonly IBlockParser blockParser;
 
     public NodeController(
       INodes nodes,

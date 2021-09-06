@@ -10,8 +10,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
   public class RpcCallList
   {
-    readonly object objLock = new object();
-    readonly List<Call> Calls = new List<Call>(); 
+    readonly object objLock = new();
+    readonly List<Call> Calls = new(); 
 
     public void AddCall(string methodName, string nodeId, string txIds = null)
     {

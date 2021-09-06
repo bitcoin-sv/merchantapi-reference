@@ -82,9 +82,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override void ModifyEntry(NodeViewModelCreate entry)
     {
-      entry.Remarks += "Updated remarks";
-      entry.Username += "updatedUsername";
-      entry.ZMQNotificationsEndpoint += "updatedEndpoint";
+      _ = int.TryParse(entry.Remarks[^1..], out int result);
+      entry.Remarks = $"Updated remarks { result }";
+      entry.Username = $"updatedUsername { result }";
+      entry.ZMQNotificationsEndpoint = $"tcp://updatedEndpoint:123{ result }";
     }
 
     public override NodeViewModelCreate[] GetItemsToCreate()
@@ -120,6 +121,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Password can not be retrieved. We also do not check additional fields such as LastErrorAt
     }
 
+
     [TestMethod]
     public async Task CreateNode_WrongIdSyntax_ShouldReturnBadRequest()
     {
@@ -134,12 +136,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
 
       //act
-      var (_, responseContent) = await Post<string>(UrlForKey(""), client, content, HttpStatusCode.BadRequest);
+      var (_, responseContent) = await Post<string>(UrlForKey(""), Client, content, HttpStatusCode.BadRequest);
       var responseAsString = await responseContent.Content.ReadAsStringAsync();
 
       var vpd = JsonSerializer.Deserialize<ValidationProblemDetails>(responseAsString);
 
-      Assert.AreEqual(1, vpd.Errors.Count());
+      Assert.AreEqual(1, vpd.Errors.Count);
       Assert.AreEqual("Id", vpd.Errors.First().Key);
     }
 
@@ -157,11 +159,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
 
       //act
-      var (_, responseContent) = await Post<string>(UrlForKey(""), client, content, HttpStatusCode.BadRequest);
+      var (_, responseContent) = await Post<string>(UrlForKey(""), Client, content, HttpStatusCode.BadRequest);
       var responseAsString = await responseContent.Content.ReadAsStringAsync();
 
       var vpd = JsonSerializer.Deserialize<ValidationProblemDetails>(responseAsString);
-      Assert.AreEqual(1, vpd.Errors.Count());
+      Assert.AreEqual(1, vpd.Errors.Count);
       Assert.AreEqual("Id", vpd.Errors.First().Key);
     }
 
@@ -179,11 +181,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
 
       //act
-      var (_, responseContent) = await Post<string>(UrlForKey(""), client, content, HttpStatusCode.BadRequest);
+      var (_, responseContent) = await Post<string>(UrlForKey(""), Client, content, HttpStatusCode.BadRequest);
 
       var responseAsString =await responseContent.Content.ReadAsStringAsync();
       var vpd = JsonSerializer.Deserialize<ValidationProblemDetails>(responseAsString);
-      Assert.AreEqual(1, vpd.Errors.Count());
+      Assert.AreEqual(1, vpd.Errors.Count);
       Assert.AreEqual("Username", vpd.Errors.First().Key);
     }
 
@@ -212,12 +214,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var content = new StringContent(JsonSerializer.Serialize(node1), Encoding.UTF8, "application/json");
 
       //act
-      await Post<NodeViewModelGet>(UrlForKey(""), client, content, HttpStatusCode.Created);
+      await Post<NodeViewModelGet>(UrlForKey(""), Client, content, HttpStatusCode.Created);
 
       var content2 = new StringContent(JsonSerializer.Serialize(node2), Encoding.UTF8, "application/json");
 
       //act
-      await Post<string>(UrlForKey(""), client, content2, HttpStatusCode.BadRequest);
+      await Post<string>(UrlForKey(""), Client, content2, HttpStatusCode.BadRequest);
     }
     
     [TestMethod]
@@ -232,7 +234,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       };
 
       //act
-      await Put(client, UrlForKey("some.host2:2"), create, HttpStatusCode.BadRequest);
+      await Put(Client, UrlForKey("some.host2:2"), create, HttpStatusCode.BadRequest);
 
     }
 
@@ -261,12 +263,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var content = new StringContent(JsonSerializer.Serialize(node1), Encoding.UTF8, "application/json");
 
       //act
-      await Post<NodeViewModelGet>(UrlForKey(""), client, content, HttpStatusCode.Created);
+      await Post<NodeViewModelGet>(UrlForKey(""), Client, content, HttpStatusCode.Created);
 
       var content2 = new StringContent(JsonSerializer.Serialize(node2), Encoding.UTF8, "application/json");
 
       //act
-      await Post<NodeViewModelGet>(UrlForKey(""), client, content2, HttpStatusCode.Created);
+      await Post<NodeViewModelGet>(UrlForKey(""), Client, content2, HttpStatusCode.Created);
 
       //create PUT request with invalid (existing) ZMQNotificationsEndpoint
       var putNode1 = new NodeViewModelPut
@@ -278,9 +280,59 @@ namespace MerchantAPI.APIGateway.Test.Functional
       };
 
       //act
-      await Put(client, UrlForKey("some.host1:123"), putNode1, HttpStatusCode.BadRequest);
+      await Put(Client, UrlForKey("some.host1:123"), putNode1, HttpStatusCode.BadRequest);
 
-      await Put(client, UrlForKey("SOME.HOST1:123"), putNode1, HttpStatusCode.BadRequest);
+      await Put(Client, UrlForKey("SOME.HOST1:123"), putNode1, HttpStatusCode.BadRequest);
+    }
+
+    [TestMethod]
+    public async Task CreateNode_InvalidZMQNotificationsEndpoint()
+    {
+      //arrange
+      var create = new NodeViewModelCreate
+      {
+        Id = "some.host2:2",
+        Remarks = "Some remarks2",
+        Password = "somePassword2",
+        Username = "someUsername",
+        ZMQNotificationsEndpoint = "invalidEndpoint"
+      };
+      var content = new StringContent(JsonSerializer.Serialize(create), Encoding.UTF8, "application/json");
+
+      //act
+      var(_, responseContent) = await Post<string>(UrlForKey(""), Client, content, HttpStatusCode.BadRequest);
+
+      var responseAsString = await responseContent.Content.ReadAsStringAsync();
+      var vpd = JsonSerializer.Deserialize<ValidationProblemDetails>(responseAsString);
+      Assert.AreEqual(1, vpd.Errors.Count);
+      Assert.AreEqual("ZMQNotificationsEndpoint", vpd.Errors.First().Key);
+    }
+
+    [TestMethod]
+    public async Task UpdateNode_InvalidZMQNotificationsEndpoint()
+    {
+     //arrange
+     var entryPost = GetItemToCreate();
+     var entryPostKey = ExtractPostKey(entryPost);
+
+     //before we can update it, we have to POST node first
+     await Post<NodeViewModelCreate, NodeViewModelGet>(Client, entryPost, HttpStatusCode.Created);
+
+     var entryPut = GetItemToCreate();
+     entryPut.ZMQNotificationsEndpoint = "tcp://1.2.3.4:invalid";
+
+     //invalid port - should return badRequest
+     await Put(Client, UrlForKey(entryPostKey), entryPut, HttpStatusCode.BadRequest);
+
+     entryPut = GetItemToCreate();
+     entryPut.ZMQNotificationsEndpoint = "tcp://1.2.3.4:28333";
+
+     //should succeed
+     await Put(Client, UrlForKey(entryPostKey), entryPut, HttpStatusCode.NoContent);
+
+     entryPut.ZMQNotificationsEndpoint = "";
+     //empty string should succeed
+     await Put(Client, UrlForKey(entryPostKey), entryPut, HttpStatusCode.NoContent);
     }
   }
 }

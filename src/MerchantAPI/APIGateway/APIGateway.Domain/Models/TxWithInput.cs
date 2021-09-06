@@ -37,7 +37,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public override int GetHashCode()
     {
-      return (TxExternalId, N).GetHashCode();
+      return HashCode.Combine(TxExternalId, N);
     }
   }
 }

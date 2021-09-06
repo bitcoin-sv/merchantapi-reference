@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         limit = hashes.Length;
       }
-      List<Tx> txList = new List<Tx>();
+      List<Tx> txList = new();
       for (int i = 0; i < limit; i++)
       {
         txList.Add(CreateNewTx(hashes[i], hexes[i], merkleProof, null, dsCheck));
@@ -98,7 +98,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var node = NodeRepository.GetNodes().First();
       var rpcClient = (Mock.RpcClientMock)rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
-      var restClient = rpcClient;
 
       long blockCount = await RpcClient.GetBlockCountAsync();
       var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());

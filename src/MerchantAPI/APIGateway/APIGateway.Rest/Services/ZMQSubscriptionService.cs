@@ -33,12 +33,11 @@ namespace MerchantAPI.APIGateway.Rest.Services
     private readonly IRpcClientFactory bitcoindFactory;
     private readonly IClock clock;
 
-    private readonly ConcurrentDictionary<string, ZMQSubscription> subscriptions =
-      new ConcurrentDictionary<string, ZMQSubscription>();
+    private readonly ConcurrentDictionary<string, ZMQSubscription> subscriptions = new();
 
-    private readonly List<Node> nodesAdded = new List<Node>();
-    private readonly List<Node> nodesDeleted = new List<Node>();
-    private readonly List<ZMQFailedSubscription> failedSubscriptions = new List<ZMQFailedSubscription>();
+    private readonly List<Node> nodesAdded = new();
+    private readonly List<Node> nodesDeleted = new();
+    private readonly List<ZMQFailedSubscription> failedSubscriptions = new();
 
     private EventBusSubscription<NodeAddedEvent> nodeAddedSubscription;
     private EventBusSubscription<NodeDeletedEvent> nodeDeletedSubscription;
@@ -121,7 +120,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
           // Process failed subscribe events
           await ProcessFailedNodesAsync(stoppingToken);
 
-          if (subscriptions.Count > 0)
+          if (!subscriptions.IsEmpty)
           {
             // Ping nodes that haven't sent any messages for a long time
             await PingNodesAsync(stoppingToken);
@@ -404,7 +403,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       };
     }
 
-    private void ValidateNotifications(RpcActiveZmqNotification[] notifications)
+    private static void ValidateNotifications(RpcActiveZmqNotification[] notifications)
     {
       // Check that we have all required notifications
       if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
@@ -418,7 +417,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     {
       foreach (var notification in activeZmqNotifications)
       {
-        string topic = notification.Notification.Substring(3); // Chop off "pub" prefix
+        string topic = notification.Notification[3..]; // Chop off "pub" prefix
         if (topic == ZMQTopic.HashBlock ||
           topic == ZMQTopic.InvalidTx ||
           topic == ZMQTopic.DiscardedFromMempool)
@@ -507,7 +506,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
 
   public class ZMQSubscription : IDisposable
   {
-    private readonly List<string> topics = new List<string>();
+    private readonly List<string> topics = new();
 
     public ZMQSubscription(long nodeId, string address, DateTime lastPingAt, string topic = null)
     {

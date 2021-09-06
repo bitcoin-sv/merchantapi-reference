@@ -17,7 +17,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
   public class FeeQuoteRepositoryMock : IFeeQuoteRepository
   {
+#pragma warning disable CA2211 // Non-constant fields should not be visible
     public static double quoteExpiryMinutes;
+#pragma warning restore CA2211 // Non-constant fields should not be visible
     private List<FeeQuote> _feeQuotes;
 
     private readonly IClock clock;

@@ -147,7 +147,7 @@ CREATE TEMPORARY TABLE BlockTxsWithInputs (
             txImporter.Write(blockInternalId, NpgsqlTypes.NpgsqlDbType.Bigint);
 
             // Let's search for block double spends in batches
-            if (index % 20000 == 0 || index == txWithInputs.Count())
+            if (index % 20000 == 0 || index == txWithInputs.Length)
             {
               break;
             }
@@ -167,7 +167,7 @@ WHERE t.txExternalId <> bin.txExternalId;
 
         await transaction.Connection.ExecuteAsync(cmdInsertDS);
       }
-      while (index < txWithInputs.Count());
+      while (index < txWithInputs.Length);
 
       await transaction.CommitAsync();
     }
@@ -189,7 +189,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
       return count;
     }
 
-    private void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
+    private static void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
                                  string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck, 
                                  long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor)
     {
@@ -359,7 +359,7 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
 ";
           await connection.ExecuteAsync(cmdText, new
           {
-            txInternalId = txInternalId,
+            txInternalId,
             n = isUnconfirmedAncestor ? n : txIn.N,
             prevTxId = txIn.PrevTxId,
             prev_n = txIn.PrevN
@@ -574,10 +574,10 @@ WHERE NOT EXISTS
     /// must contain additional inputs for created transactions, so they are added to existing transactions
     /// as TxInput 
     /// </summary>
-    private IEnumerable<Tx> TxWithInputDataToTx(HashSet<TxWithInput> txWithInputs)
+    private static IEnumerable<Tx> TxWithInputDataToTx(HashSet<TxWithInput> txWithInputs)
     {
       var distinctItems = new HashSet<TxWithInput>(txWithInputs.Distinct().ToArray());
-      HashSet<Tx> txSet = new HashSet<Tx>(distinctItems.Select(x =>
+      HashSet<Tx> txSet = new(distinctItems.Select(x =>
                                                                {
                                                                   return new Tx(x);
                                                                }), new TxComparer());
@@ -734,7 +734,7 @@ LIMIT @fetch OFFSET @skip
           break;
 
         default:
-          return new byte[] { };
+          return Array.Empty<byte>();
       }
 
       cmdText += "WHERE txInternalId = @txInternalId";

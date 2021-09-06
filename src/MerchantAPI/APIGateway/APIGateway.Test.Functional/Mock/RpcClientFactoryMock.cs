@@ -24,8 +24,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
   public class RpcClientFactoryMock : IRpcClientFactory
   {
-    ConcurrentDictionary<uint256, byte[]> transactions = new ConcurrentDictionary<uint256, byte[]>();
-    ConcurrentDictionary<uint256, BlockWithHeight> blocks = new ConcurrentDictionary<uint256, BlockWithHeight>();
+    public string mockedZMQNotificationsEndpoint = "tcp://127.0.0.1:28332";
+    readonly ConcurrentDictionary<uint256, byte[]> transactions = new();
+    readonly ConcurrentDictionary<uint256, BlockWithHeight> blocks = new();
 
     /// <summary>
     /// Key is nodeID:memberName value is value that should be returned to the caller
@@ -35,9 +36,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     /// <summary>
     /// Nodes that are not working
     /// </summary>
-    ConcurrentDictionary<string,object> disconnectedNodes = new ConcurrentDictionary<string, object>(StringComparer.InvariantCultureIgnoreCase);
-    ConcurrentDictionary<string, object> doNotTraceMethods = new ConcurrentDictionary<string,object>(StringComparer.InvariantCultureIgnoreCase);
-    IList<(string, int)> validScriptCombinations = new List<(string, int)>();
+    readonly ConcurrentDictionary<string,object> disconnectedNodes = new(StringComparer.InvariantCultureIgnoreCase);
+    readonly ConcurrentDictionary<string, object> doNotTraceMethods = new(StringComparer.InvariantCultureIgnoreCase);
+    readonly IList<(string, int)> validScriptCombinations = new List<(string, int)>();
     
 
     public RpcClientFactoryMock()
@@ -89,12 +90,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       validScriptCombinations.Add((tx, n));
     }
 
-    public readonly RpcCallList AllCalls = new RpcCallList(); 
+    public readonly RpcCallList AllCalls = new(); 
 
     public virtual IRpcClient Create(string host, int port, string username, string password) 
     {
       // Currently all mocks share same transactions and blocks
-      return new RpcClientMock(AllCalls, host, port, username, password,
+      return new RpcClientMock(AllCalls, host, port, username, password, mockedZMQNotificationsEndpoint,
         transactions,
         blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse,
         validScriptCombinations);

@@ -24,7 +24,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     private readonly string connectionString;
     private readonly IClock clock;
     // cache contains valid and future feeQuotes, so that mAPI calls get results faster
-    private static readonly Dictionary<(string Identity, string IdentityProvider), List<FeeQuote>> cache = new Dictionary<(string Identity, string IdentityProvider), List<FeeQuote>>();
+    private static readonly Dictionary<(string Identity, string IdentityProvider), List<FeeQuote>> cache = new();
 
     public FeeQuoteRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
     {
@@ -48,16 +48,16 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     }
 
 
-    private (string identity, string identityProvider) GetCacheKey(FeeQuote feeQuote)
+    private static (string identity, string identityProvider) GetCacheKey(FeeQuote feeQuote)
     {
       return GetCacheKey(feeQuote.Identity, feeQuote.IdentityProvider);
     }
 
-    private (string identity, string identityProvider) GetCacheKey(UserAndIssuer identity)
+    private static (string identity, string identityProvider) GetCacheKey(UserAndIssuer identity)
     {
       return GetCacheKey(identity?.Identity, identity?.IdentityProvider);
     }
-    private (string identity, string identityProvider) GetCacheKey(string identity, string identityProvider)
+    private static (string identity, string identityProvider) GetCacheKey(string identity, string identityProvider)
     {
       return (identity ?? "", identityProvider ?? ""); // ("", "") = key for anonymous user
     }
@@ -120,7 +120,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
               SELECT * FROM FeeQuote feeQuote
               JOIN Fee fee ON feeQuote.id=fee.feeQuote
               JOIN FeeAmount feeAmount ON fee.id=feeAmount.fee ";
-      List<string> whereParams = new List<string>();
+      List<string> whereParams = new();
 
       if (!ignoreIdentity)
       {
@@ -153,7 +153,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       // on every call we get feeQuotes from cache and update it
       // mAPI calls should always have UserAndIssuer fully filled or null, so only one value in cache will be checked and updated
 
-      List<FeeQuote> mergedResultFeeQuotes = new List<FeeQuote>();
+      List<FeeQuote> mergedResultFeeQuotes = new();
       lock (cache)
       {
         EnsureCache();
@@ -302,7 +302,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       if (feeQuoteRes == null)
         return null;
 
-      List<Fee> feeResArr = new List<Fee>();
+      List<Fee> feeResArr = new();
       foreach (var fee in feeQuote.Fees)
       {
         string insertFee =

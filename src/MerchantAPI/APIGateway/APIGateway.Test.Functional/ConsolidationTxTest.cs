@@ -49,7 +49,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(bool valid = true, string reason = "")
+    async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(string reason = "")
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx = BCash.Instance.Regtest.CreateTransaction();
@@ -106,7 +106,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       tx.Sign(key.GetBitcoinSecret(Network.RegTest), availableCoins);
 
       var spendOutputs = tx.Inputs.Select(x => (txId: x.PrevOut.Hash.ToString(), N: (long)x.PrevOut.N)).ToArray();
-      var (_, prevOuts) = await Mapi.CollectPreviousOuputs(tx, null, rpcMultiClient);
+      var (_, prevOuts) = await Mapi.CollectPreviousOuputs(tx, null, RpcMultiClient);
       return (tx.ToHex(), tx, prevOuts);
     }
 
@@ -118,7 +118,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
     }
@@ -143,7 +143,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionRatioInOutCount()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(false, "ratioInOutCount");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("ratioInOutCount");
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
@@ -156,7 +156,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionRatioInOutScript()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(false, "ratioInOutScriptSize");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("ratioInOutScriptSize");
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
@@ -169,7 +169,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionInputMaturity()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(false, "inputMaturity");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("inputMaturity");
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
       var payload = await SubmitTransaction(txHex);
@@ -181,7 +181,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionInputScriptSize()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(false, "inputScriptSize");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("inputScriptSize");
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 

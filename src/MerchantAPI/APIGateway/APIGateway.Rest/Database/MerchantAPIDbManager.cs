@@ -15,8 +15,7 @@ namespace MerchantAPI.APIGateway.Rest.Database
   {
     private const string DB_MAPI = "APIGateway";
     private readonly CreateDB mapiDb;
-
-    ILogger<CreateDB> logger;
+    readonly ILogger<CreateDB> logger;
 
     // Instances used for upgrade from v1.2.0
     private readonly CreateDB mapiDbNoMaster;
@@ -83,7 +82,7 @@ namespace MerchantAPI.APIGateway.Rest.Database
       return mapiDbUpgradeV12.CreateDatabase(out errorMessage, out errorMessageShort);
     }
 
-    private string GetScriptsRootForUpgradeFromV12()
+    private static string GetScriptsRootForUpgradeFromV12()
     {
       string scriptsRoot = ScriptPathTools.FindScripts(DB_MAPI, RDBMS.Postgres);
       return Path.Combine(scriptsRoot, "Upgrade_v12_v13");     

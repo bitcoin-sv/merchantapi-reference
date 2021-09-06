@@ -81,6 +81,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<IFeeQuoteRepository, FeeQuoteRepositoryPostgres>(); 
 
       services.AddTransient<INodes, Nodes>();
+      services.AddTransient<IZMQEndpointChecker, ZMQEndpointChecker>();
       services.AddTransient<INodeRepository, NodeRepositoryPostgres>();
       services.AddTransient<ITxRepository, TxRepositoryPostgres>();
       services.AddTransient<IMapi, Mapi>();
@@ -199,7 +200,7 @@ namespace MerchantAPI.APIGateway.Rest
                 Id = "Bearer"
               }
             },
-            new string[] { }
+            Array.Empty<string>()
           }
         });
 
@@ -225,7 +226,7 @@ namespace MerchantAPI.APIGateway.Rest
                 Id = ApiKeyAuthenticationHandler<AppSettings>.ApiKeyHeaderName
               },
             },
-            new string[] {}
+            Array.Empty<string>()
           }
         });
 

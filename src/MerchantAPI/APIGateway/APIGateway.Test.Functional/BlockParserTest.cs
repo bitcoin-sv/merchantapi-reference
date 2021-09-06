@@ -50,7 +50,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var dbRecords = (await TxRepositoryPostgres.GetTxsToSendBlockDSNotificationsAsync()).ToList();
 
-      Assert.AreEqual(1, dbRecords.Count());
+      Assert.AreEqual(1, dbRecords.Count);
       Assert.AreEqual(doubleSpendTx.GetHash(), new uint256(dbRecords[0].DoubleSpendTxId));
       Assert.AreEqual(doubleSpendTx.Inputs.First().PrevOut.Hash, tx2.Inputs.First().PrevOut.Hash);
       Assert.AreEqual(doubleSpendTx.Inputs.First().PrevOut.N, tx2.Inputs.First().PrevOut.N);
@@ -66,7 +66,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
-      var restClient = (Mock.RpcClientMock)rpcClient;
 
       long blockCount;
       string blockHash;

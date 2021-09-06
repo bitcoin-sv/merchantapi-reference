@@ -20,7 +20,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
   {
 
     private readonly string connectionString;
-    private static readonly Dictionary<string, Node> cache = new Dictionary<string, Node>();
+    private static readonly Dictionary<string, Node> cache = new();
     private readonly IClock clock;
 
 
@@ -44,7 +44,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       }
     }
 
-    private string GetCacheKey(string cachedKey)
+    private static string GetCacheKey(string cachedKey)
     {
       return $"{cachedKey.ToLower()}";
     }

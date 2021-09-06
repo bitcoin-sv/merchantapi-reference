@@ -8,6 +8,7 @@ using MerchantAPI.APIGateway.Test.Functional.Server;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -87,12 +88,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = GetRequestContent(txHex, merkleProof, dsCheck, merkleFormat);
 
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
     }
 
-    public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList)
+    public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = false)
     {
 
       // Send transaction
@@ -101,8 +102,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent(reqJSON);
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
+      string url = MapiServer.ApiMapiSubmitTransactions;
+      if (dsCheck)
+      {
+        List<(string, string)> queryParams = new()
+        {
+          ("defaultDsCheck", dsCheck.ToString()),
+          ("defaultCallbackUrl", "https://test.domain")
+        };
+        url = PrepareQueryParams(url, queryParams);
+      }
+
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(url, Client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
@@ -123,7 +135,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId)
     {
       var response = await Get<SignedPayloadViewModel>(
-        client, MapiServer.ApiMapiQueryTransactionStatus + txId, HttpStatusCode.OK);
+        Client, MapiServer.ApiMapiQueryTransactionStatus + txId, HttpStatusCode.OK);
 
       return response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
     }

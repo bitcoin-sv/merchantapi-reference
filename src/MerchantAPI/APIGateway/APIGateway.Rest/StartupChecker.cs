@@ -16,37 +16,40 @@ using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.Common.Startup;
 using MerchantAPI.Common.Tasks;
 using MerchantAPI.APIGateway.Rest.Database;
+using MerchantAPI.Common.BitcoinRpc.Responses;
 
 namespace MerchantAPI.APIGateway.Rest
 {
   public class StartupChecker: IStartupChecker 
   {
     readonly INodeRepository nodeRepository;
+    readonly INodes nodes;
     readonly ILogger<StartupChecker> logger;
     readonly IRpcClientFactory rpcClientFactory;
     readonly IList<Node> accessibleNodes = new List<Node>();
     readonly IBlockParser blockParser;
     readonly INotificationsHandler notificationsHandler;
-    private readonly IMinerId minerId;
-    private readonly IDbManager dbManager;
+    readonly IMinerId minerId;
+    readonly IDbManager dbManager;
     bool nodesAccessible;
 
     public StartupChecker(INodeRepository nodeRepository,
+                          INodes nodes,
                           IRpcClientFactory rpcClientFactory,
                           IMinerId minerId,
                           IBlockParser blockParser,
                           IDbManager dbManager,
                           INotificationsHandler notificationsHandler,
-                          ILogger<StartupChecker> logger,
-                          IConfiguration configuration)
+                          ILogger<StartupChecker> logger)
     {
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
-      this.logger = logger ?? throw new ArgumentException(nameof(logger));
-      this.blockParser = blockParser ?? throw new ArgumentException(nameof(blockParser));
-      this.dbManager = dbManager ?? throw new ArgumentException(nameof(dbManager));
-      this.minerId = minerId ?? throw new ArgumentException(nameof(nodeRepository));
-      this.notificationsHandler = notificationsHandler ?? throw new ArgumentException(nameof(notificationsHandler));
+      this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
+      this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+      this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      this.dbManager = dbManager ?? throw new ArgumentNullException(nameof(dbManager));
+      this.minerId = minerId ?? throw new ArgumentNullException(nameof(nodeRepository));
+      this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
     }
 
     public async Task<bool> CheckAsync(bool testingEnvironment)
@@ -162,9 +165,10 @@ namespace MerchantAPI.APIGateway.Rest
       foreach (var node in accessibleNodes)
       {
         var rpcClient = rpcClientFactory.Create(node.Host, node.Port, node.Username, node.Password);
+        RpcActiveZmqNotification[] notifications = null;
         try
         {
-          var notifications = await rpcClient.ActiveZmqNotificationsAsync();
+          notifications = await rpcClient.ActiveZmqNotificationsAsync();
           
           if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
           {
@@ -175,6 +179,11 @@ namespace MerchantAPI.APIGateway.Rest
         catch (Exception ex)
         {
           logger.LogError($"Node at address '{node.Host}:{node.Port}' did not return a valid response to call 'activeZmqNotifications'", ex);
+        }
+
+        if (!nodes.IsZMQNotificationsEndpointValid(node, notifications, out string error))
+        {
+          logger.LogWarning(error);
         }
       }
       logger.LogInformation($"Nodes zmq notification services check complete");
