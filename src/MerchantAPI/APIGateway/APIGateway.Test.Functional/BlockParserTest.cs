@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -191,5 +192,39 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(tx.GetHash(int.MaxValue) != uint256.Zero);
     }
 
+    [TestMethod]
+    public virtual async Task TestSkipParsing()
+    {
+      var node = NodeRepository.GetNodes().First();
+      var rpcClient = (Mock.RpcClientMock)rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+
+      long blockCount = await RpcClient.GetBlockCountAsync();
+      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
+      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
+      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
+
+      var tx = Transaction.Parse(Tx1Hex, Network.Main);
+      await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+
+      Assert.AreEqual(0, (await TxRepositoryPostgres.GetUnparsedBlocksAsync()).Length);
+
+      var block = await TxRepositoryPostgres.GetBestBlockAsync();
+
+      // we publish same NewBlockAvailableInDB as before
+      var block2Parse = block;
+      EventBus.Publish(new NewBlockAvailableInDB
+      {
+        BlockDBInternalId = block2Parse.BlockInternalId,
+        BlockHash = new uint256(block2Parse.BlockHash).ToString()
+      });
+
+      WaitUntilEventBusIsIdle();
+
+      // best block must stay the same, since parsing was skipped
+      var blockAfterRepublish = await TxRepositoryPostgres.GetBestBlockAsync();
+      Assert.AreEqual(block.BlockInternalId, blockAfterRepublish.BlockInternalId);
+      Assert.AreEqual(block.ParsedForMerkleAt, blockAfterRepublish.ParsedForMerkleAt);
+      Assert.AreEqual(block.ParsedForDSAt, blockAfterRepublish.ParsedForDSAt);
+    }
   }
 }
