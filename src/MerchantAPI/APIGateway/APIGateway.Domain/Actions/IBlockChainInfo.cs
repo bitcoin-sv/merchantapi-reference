@@ -15,11 +15,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public ConsolidationTxParameters(RpcGetNetworkInfo networkInfo)
     {
+      Version = networkInfo.Version;
       MinConsolidationFactor = networkInfo.MinConsolidationFactor;
       MinConsolidationInputMaturity = networkInfo.MinConsolidationInputMaturity;
       MaxConsolidationInputScriptSize = networkInfo.MaxConsolidationInputScriptSize;
       AcceptNonStdConsolidationInput = networkInfo.AcceptNonStdConsolidationInput;
     }
+
+    public long Version { get; set; }
 
     public long MinConsolidationFactor { get; set; }
 

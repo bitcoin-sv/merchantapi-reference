@@ -2,6 +2,7 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.Common;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace MerchantAPI.APIGateway.Domain
@@ -16,6 +17,23 @@ namespace MerchantAPI.APIGateway.Domain
     private static string GetBuildVersion()
     {
       return Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
+    }
+
+    public static string MinBitcoindRequired()
+    {
+      List<(string mapiVersion, string nodeVersion)> mapiNodeCompatibleVersions = new()
+      {
+        ( "1.4.0", "1.0.10" ) // mAPI v1.4.0 and up require node 1.0.10
+      };
+      string version = null; 
+      foreach ((string mapiVersion, string nodeVersion) in mapiNodeCompatibleVersions)
+      {
+        if (MERCHANT_API_VERSION.CompareTo(mapiVersion) >= 0)
+        {
+          version = nodeVersion;
+        }
+      }
+      return version;
     }
 
     public class FeeType
