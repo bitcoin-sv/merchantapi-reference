@@ -21,6 +21,11 @@ namespace MerchantAPI.APIGateway.Domain
 
     public static string MinBitcoindRequired()
     {
+      return MinBitcoindRequired(MERCHANT_API_VERSION);
+    }
+
+    public static string MinBitcoindRequired(string mAPIVersion)
+    {
       List<(string mapiVersion, string nodeVersion)> mapiNodeCompatibleVersions = new()
       {
         ( "1.4.0", "1.0.10" ) // mAPI v1.4.0 and up require node 1.0.10
@@ -28,7 +33,7 @@ namespace MerchantAPI.APIGateway.Domain
       string version = null; 
       foreach ((string mapiVersion, string nodeVersion) in mapiNodeCompatibleVersions)
       {
-        if (MERCHANT_API_VERSION.CompareTo(mapiVersion) >= 0)
+        if (mAPIVersion.CompareTo(mapiVersion) >= 0)
         {
           version = nodeVersion;
         }
