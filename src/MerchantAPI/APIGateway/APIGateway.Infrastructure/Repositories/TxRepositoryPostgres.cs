@@ -224,17 +224,17 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 
       using var connection = GetDbConnection();
 
-      long txInternalId;
+      long[] internalIds;
       using (var seqTransaction = await connection.BeginTransactionAsync())
       {
         // Reserve sequence ids so no one else can use them
+        // nextval is guaranteed to return distinct and increasing values, but it is not guaranteed to do so without "holes" or "gaps"
 
         string cmdGenerateIds = @"
 SELECT NEXTVAL('tx_txinternalid_seq') 
 FROM generate_series(1, @transactionsCount)
-";      
-        var internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count })).ToArray();
-        txInternalId = internalIds.First();
+";
+        internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count })).ToArray();
         seqTransaction.Commit();
       }
 
@@ -263,9 +263,11 @@ CREATE TEMPORARY TABLE TxTemp (
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, 
                                                                                       merkleProof, merkleFormat, dsCheck, n, prevTxId, prev_n, unconfirmedAncestor) FROM STDIN (FORMAT BINARY)"))
       {
-        foreach (var tx in transactions)
+        for (int txIndex = 0; txIndex < transactions.Count; txIndex++)
         {
-          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption, 
+          var tx = transactions[txIndex];
+          var txInternalId = internalIds[txIndex];
+          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
                           tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
 
           int n = 0;
@@ -275,7 +277,6 @@ CREATE TEMPORARY TABLE TxTemp (
             CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
             n++;
           }
-          txInternalId++;
         }
 
         await txImporter.CompleteAsync();
