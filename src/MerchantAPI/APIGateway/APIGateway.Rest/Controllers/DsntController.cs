@@ -26,7 +26,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 {
   [Route("[controller]/1")]
   [ServiceFilter(typeof(CheckHostActionFilter))]
-  [ApiExplorerSettings(GroupName = SwaggerGroup.API)]
+  [ApiExplorerSettings(IgnoreApi = true)]
   public class DsntController : Controller
   {
     public const string DSHeader = "x-bsv-dsnt";
@@ -35,18 +35,16 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     readonly IRpcMultiClient rpcMultiClient;
     readonly ITransactionRequestsCheck transactionRequestsCheck;
     readonly IClock clock;
-    readonly INotificationsHandler notificationsHandler;
     readonly IHostBanList banList;
     readonly ILogger<DsntController> logger;
     readonly AppSettings appSettings;
     readonly IEventBus eventBus;
 
     public DsntController(ITxRepository txRepository, IRpcMultiClient rpcMultiClient, ITransactionRequestsCheck transactionRequestsCheck, IHostBanList banList,
-                          INotificationsHandler notificationsHandler, IClock clock, IOptions<AppSettings> options, IEventBus eventBus,  ILogger<DsntController> logger)
+                          IClock clock, IOptions<AppSettings> options, IEventBus eventBus,  ILogger<DsntController> logger)
     {
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
-      this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       this.transactionRequestsCheck = transactionRequestsCheck ?? throw new ArgumentNullException(nameof(transactionRequestsCheck));
       this.banList = banList ?? throw new ArgumentNullException(nameof(banList));
