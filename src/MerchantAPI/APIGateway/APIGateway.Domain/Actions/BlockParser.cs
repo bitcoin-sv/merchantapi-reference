@@ -32,7 +32,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly IRpcMultiClient rpcMultiClient;
     readonly IClock clock;
     readonly List<string> blockHashesBeingParsed = new();
-    readonly object lockingObject = new();
+    readonly SemaphoreSlim semaphoreSlim = new(1, 1);
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
@@ -215,17 +215,27 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       try
       {
-        lock (lockingObject)
+        await semaphoreSlim.WaitAsync();
+        try
         {
           if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
           {
-            logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skiped processing.");
+            logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skipped processing.");
+            return;
+          }
+          else if (await txRepository.CheckIfBlockWasParsed(e.BlockDBInternalId))
+          {
+            logger.LogInformation($"Block '{e.BlockHash}' was already parsed...skipped processing.");
             return;
           }
           else
           {
             blockHashesBeingParsed.Add(e.BlockHash);
           }
+        }
+        finally
+        {
+          semaphoreSlim.Release();
         }
 
         logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
@@ -237,9 +247,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
 
         logger.LogInformation($"Block {e.BlockHash} successfully parsed.");
-        lock (lockingObject)
+        await semaphoreSlim.WaitAsync();
+        try
         {
           blockHashesBeingParsed.Remove(e.BlockHash);
+        }
+        finally
+        {
+          semaphoreSlim.Release();
         }
       }
       catch (BadRequestException ex)

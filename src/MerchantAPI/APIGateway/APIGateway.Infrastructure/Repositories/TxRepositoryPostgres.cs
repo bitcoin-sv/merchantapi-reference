@@ -646,7 +646,7 @@ FROM (
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT b.blockinternalid, b.blocktime, b.blockhash, b.prevblockhash, b.blockheight, b.onactivechain
+SELECT b.blockinternalid, b.blocktime, b.blockhash, b.prevblockhash, b.blockheight, b.onactivechain, b.parsedformerkleat, b.parsedfordsat
 FROM block b 
 ORDER BY blockheight DESC 
 FETCH FIRST 1 ROW ONLY;
@@ -998,6 +998,19 @@ WHERE parsedformerkleat IS NULL OR parsedfordsat IS NULL;
       var blocks = (await connection.QueryAsync<Block>(cmdText)).ToArray();
 
       return blocks;
+    }
+
+    public async Task<bool> CheckIfBlockWasParsed(long blockInternalId)
+    {
+      using var connection = GetDbConnection();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+SELECT EXISTS 
+(SELECT 1 from block 
+WHERE blockInternalId=@blockInternalId AND (parsedForMerkleAt IS NOT NULL OR parsedfordsat IS NOT NULL));
+";
+      return await connection.QuerySingleAsync<bool>(cmdText, new { blockInternalId });
     }
   }
 }

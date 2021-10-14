@@ -71,5 +71,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<NotificationData[]> GetNotificationsForTestsAsync();
     
     Task<Block[]> GetUnparsedBlocksAsync();
+
+    Task<bool> CheckIfBlockWasParsed(long blockInternalId);
   }
 }
