@@ -516,7 +516,7 @@ The docker images are automatically pulled from Docker Hub. Database updates are
 
 For development, you will need the following
 
-1. [.NET core SDK 3.1](https://dotnet.microsoft.com/download/dotnet-core/3.1) installed in your environment.
+1. [.NET core SDK 5.0](https://dotnet.microsoft.com/download/dotnet/5.0) installed in your environment.
 2. and instance of PostgreSQL database. You can download it from [here](https://www.postgresql.org/download/) or use a [Docker image](https://hub.docker.com/_/postgres).
 3. access to instance of running [BSV node](https://github.com/bitcoin-sv/bitcoin-sv/releases) with RPC interface and ZMQ notifications enabled
 

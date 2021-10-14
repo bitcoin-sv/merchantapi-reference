@@ -102,10 +102,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
         "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
-        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, \"minconsolidationinputmaturity\": 10," +
+        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
         "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10 }");
       var (txHex, txHash) = CreateNewTransaction();
-  
+
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
 
@@ -132,7 +132,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
         "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
-        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, \"minconsolidationinputmaturity\": 10," +
+        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
         "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10 }");
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
@@ -144,7 +144,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
         "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
-        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, \"minconsolidationinputmaturity\": 10," +
+        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
         "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10, \"dustlimitfactor\": -1 }");
       payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
@@ -156,30 +156,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
         "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
-        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, \"minconsolidationinputmaturity\": 10," +
+        "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
         "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10, \"dustlimitfactor\": 20 }");
       payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
     }
 
     [TestMethod]
-    public async Task SubmitTransactionWithIgnoredPolicy()
+    public async Task SubmitTransactionWithUnknownPolicy()
     {
       var (txHex, _) = CreateNewTransaction();
 
-      // unknown policy is ignored, so we get success
+      // unknown policy is not ignored, so we get failure
       SetPoliciesForCurrentFeeQuote(
         "{\"unknownpolicy\" : 99999 }");
       var payloadSubmit = await SubmitTransactionAsync(txHex);
-      Assert.AreEqual("success", payloadSubmit.ReturnResult);
+      Assert.AreEqual("failure", payloadSubmit.ReturnResult);
 
       (txHex, _) = CreateNewTransaction();
 
-      // test casing - we get success, because flag is not found
+      // test casing - we get failure, because flag is not found
       SetPoliciesForCurrentFeeQuote(
-        "{\"maxTxSizepolicy\" : -1 }");
+        "{\"maxTxSizepolicy\" : 99999 }");
       payloadSubmit = await SubmitTransactionAsync(txHex);
-      Assert.AreEqual("success", payloadSubmit.ReturnResult);
+      Assert.AreEqual("failure", payloadSubmit.ReturnResult);
     }
 
     [TestMethod]
@@ -235,7 +235,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       SetPoliciesForCurrentFeeQuote("{ \"acceptnonstdoutputs\": false}");
       // for success value must be bigger than 27500
-      var tx1 = CreateNewTransactionTx(28000L); 
+      var tx1 = CreateNewTransactionTx(28000L);
 
       var payloadSubmit1 = await SubmitTransactionAsync(tx1.ToHex());
       Assert.AreEqual("success", payloadSubmit1.ReturnResult);
@@ -279,7 +279,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [DataRow("{\"skipscriptflags\": [\"MINIMALDATA\"] }")]
-    [DataRow("{\"skipscriptflags\": [\"MINIMALDATA\", \"DERSIG\", \"NULLDUMMY\", \"DISCOURAGE_UPGRADABLE_NOPS\", \"CLEANSTACK\"]}")] 
+    [DataRow("{\"skipscriptflags\": [\"MINIMALDATA\", \"DERSIG\", \"NULLDUMMY\", \"DISCOURAGE_UPGRADABLE_NOPS\", \"CLEANSTACK\"]}")]
     [TestMethod]
     public async Task SubmitTransactionWithSkipScriptFlags(string skipScriptFlags)
     {
@@ -294,7 +294,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [DataRow("{\"skipscriptflags\": 105 }")]
     [DataRow("{\"skipscriptflags\": -1 }")]
     [DataRow("{\"skipscriptflags\": \"MINIMALDATA\"}")]
-    [DataRow("{\"skipscriptflags\": \"CLEANSTACK,DERSIG\"}")] 
+    [DataRow("{\"skipscriptflags\": \"CLEANSTACK,DERSIG\"}")]
     [TestMethod]
     public async Task SubmitTransactionWithSkipScriptFlagsInvalid(string skipScriptFlags)
     {
