@@ -1,7 +1,8 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using MerchantAPI.Common;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace MerchantAPI.APIGateway.Domain
@@ -16,6 +17,21 @@ namespace MerchantAPI.APIGateway.Domain
     private static string GetBuildVersion()
     {
       return Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
+    }
+
+    public static string MinBitcoindRequired()
+    {
+      return MinBitcoindRequired(MERCHANT_API_VERSION);
+    }
+
+    public static string MinBitcoindRequired(string mAPIVersion)
+    {
+      List<(string mapiVersion, string nodeVersion)> mapiNodeCompatibleVersions = new()
+      {
+        ( "1.4.0", "1.0.10" ) // mAPI v1.4.0 and up require node 1.0.10
+      };
+      string version = mapiNodeCompatibleVersions.LastOrDefault(x => mAPIVersion.CompareTo(x.mapiVersion) >= 0).nodeVersion;
+      return version;
     }
 
     public class FeeType

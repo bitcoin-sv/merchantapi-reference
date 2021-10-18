@@ -64,7 +64,7 @@ namespace MerchantAPI.APIGateway.Rest
         ExecuteCreateDb();
         if (!testingEnvironment)
         {
-          await TestNodesConnectivityAsync();
+          await TestNodesConnectivityAndVersionAsync();
           await CheckNodesZmqNotificationsAsync();
           await TestMinerId();
           await CheckBlocksAsync();
@@ -130,7 +130,7 @@ namespace MerchantAPI.APIGateway.Rest
       logger.LogInformation($"ExecuteCreateDb completed.");
     }
 
-    private async Task TestNodesConnectivityAsync()
+    private async Task TestNodesConnectivityAndVersionAsync()
     {
       logger.LogInformation($"Checking nodes connectivity");
 
@@ -147,7 +147,12 @@ namespace MerchantAPI.APIGateway.Rest
         rpcClient.NumOfRetries = 10;
         try
         {
-          await rpcClient.GetBlockCountAsync();
+          var networkInfo = await rpcClient.GetNetworkInfoAsync();
+
+          if (!Nodes.IsNodeVersionValid(networkInfo.Version, out string error))
+          {
+            logger.LogError(error);
+          }
           accessibleNodes.Add(node);
           nodesAccessible = true;
         }
@@ -158,6 +163,8 @@ namespace MerchantAPI.APIGateway.Rest
       }
       logger.LogInformation($"Nodes connectivity check complete");
     }
+
+
 
     private async Task CheckNodesZmqNotificationsAsync()
     {

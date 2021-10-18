@@ -314,6 +314,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       return new RpcGetNetworkInfo
         {
+          Version = 101001000,
           MinConsolidationFactor = 20,
           MaxConsolidationInputScriptSize = 150,
           MinConsolidationInputMaturity = 6,

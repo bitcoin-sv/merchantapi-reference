@@ -38,7 +38,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null, null));
 
       rpcClientFactoryMock.AssertEqualAndClear(
-        "node1:getblockcount", "node1:activezmqnotifications");
+        "node1:getnetworkinfo", "node1:activezmqnotifications");
 
       // We are able to retrieve a node
       Assert.IsNotNull(Nodes.GetNode("node1:0"));
@@ -106,6 +106,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual("ZMQNotificationsEndpoint: 'tcp://unreachable' is unreachable.", ex.Message);
       }
       Assert.AreEqual("tcp://reachable", Nodes.GetNode("node1:0").ZMQNotificationsEndpoint);
+    }
+
+
+    [TestMethod]
+    public void TestMinBitcoindRequired()
+    {
+      // lower versions from 1.4.0 don't require any version
+      Assert.IsNull(Domain.Const.MinBitcoindRequired("0.0.1"));
+      Assert.IsNull(Domain.Const.MinBitcoindRequired("1.3.9"));
+
+      // mAPI 1.4.0 and up require node 1.0.10.
+      Assert.AreEqual("1.0.10", Domain.Const.MinBitcoindRequired("1.4.0"));
+      Assert.AreEqual("1.0.10", Domain.Const.MinBitcoindRequired("1.4.1"));
     }
 
   }

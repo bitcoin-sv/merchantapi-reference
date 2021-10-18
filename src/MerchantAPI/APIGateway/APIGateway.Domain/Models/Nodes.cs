@@ -49,7 +49,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
       try
       {
         // try to call some method to test if connectivity parameters are correct
-        _ = await bitcoind.GetBlockCountAsync();
+        var networkInfo = await bitcoind.GetNetworkInfoAsync();
+
+        if (!Nodes.IsNodeVersionValid(networkInfo.Version, out string versionError))
+        {
+          throw new BadRequestException(versionError);
+        }
       }
       catch (Exception ex)
       {
@@ -122,6 +127,22 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return nodeRepository.DeleteNode(id);
     }
 
+    public static bool IsNodeVersionValid(long version, out string error)
+    {
+      error = null;
+
+      string requiredNodeVersion = Const.MinBitcoindRequired();
+      if (!string.IsNullOrEmpty(requiredNodeVersion))
+      {
+        long clientVersion = GetBitcoindClientVersion(requiredNodeVersion);
+        if (version < clientVersion)
+        {
+          error = $"Node version must be at least { requiredNodeVersion }.";
+        }
+      }
+      return error == null;
+    }
+
     public bool IsZMQNotificationsEndpointValid(Node node, RpcActiveZmqNotification[] notifications, out string error)
     {
       error = null;
@@ -153,6 +174,32 @@ namespace MerchantAPI.APIGateway.Domain.Models
         }
       }
       return error == null;
+    }
+
+    static long GetBitcoindClientVersion(int clientVersionMajor, int clientVersionMinor, int clientVersionRevision)
+    {
+      // Initial bitcoin has its own way of calculating the client version number
+      // i.e CLIENT_VERSION. Bitcoin SV start at a very low version numbers.
+      // In order to keep backward compatibility, the calculated CLIENT_VERSION
+      // is shifted in the way the lowest version of Bitcoin SV is still higher 
+      // than the highest calculated version in the traditional Bitcoin.
+
+      int clientVersionBuild = 0; // currently not important for mAPI 
+      const int svVersionShift = 100000000;
+      int clientVersion = svVersionShift +
+                          1000000 * clientVersionMajor +
+                          10000 * clientVersionMinor +
+                          100 * clientVersionRevision +
+                          1 * clientVersionBuild;
+      return clientVersion;
+    }
+
+    static long GetBitcoindClientVersion(string requiredNodeVersion)
+    {
+      var values = (requiredNodeVersion.Split(".")).Select(x => int.Parse(x)).ToArray();
+      (int clientVersionMajor, int clientVersionMinor, int clientVersionRevision) = (values[0], values[1], values[2]);
+      long clientVersion = GetBitcoindClientVersion(clientVersionMajor, clientVersionMinor, clientVersionRevision);
+      return clientVersion;
     }
 
   }

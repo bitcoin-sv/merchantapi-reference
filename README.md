@@ -14,7 +14,7 @@ For support and general discussion of both standards and reference implementatio
 
 ## Requirements
 
-mAPI requires access to Bitcoin SV node version 1.0.8 or newer. See [Managing nodes](#Managing-nodes) for details how to connect to a bitcoin node.
+mAPI requires access to Bitcoin SV node version 1.0.10 or newer. See [Managing nodes](#Managing-nodes) for details how to connect to a bitcoin node.
 
 For running in production, you should use Docker. Docker images are created as part of the [build](#build-and-deploy). See [Deploying docker images](#Deploying-docker-images) for details how to run them.
 
