@@ -12,6 +12,9 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
   [Serializable]
   public class RpcGetNetworkInfo
   {
+    [JsonPropertyName("version")]
+    public long Version { get; set; }
+
     [JsonPropertyName("minconsolidationfactor")]
     public long MinConsolidationFactor { get; set; }
 
