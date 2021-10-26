@@ -1,1 +1,1 @@
-1.4.0-beta-dev6
+1.4.0-beta-dev7
