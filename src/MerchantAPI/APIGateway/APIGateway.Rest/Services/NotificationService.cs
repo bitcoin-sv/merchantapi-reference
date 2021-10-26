@@ -10,7 +10,6 @@ using MerchantAPI.Common.NotificationsHandler;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
-using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -61,7 +60,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       while (!stoppingToken.IsCancellationRequested)
       {
         await PrepareAndSendNotificationsAsync(stoppingToken);
-        await Task.Delay(notificationSettings.NotificationIntervalSec * 1000, stoppingToken);
+        await Task.Delay(notificationSettings.NotificationIntervalSec.Value * 1000, stoppingToken);
       }
     }
 

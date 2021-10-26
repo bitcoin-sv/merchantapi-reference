@@ -28,7 +28,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     public FeeQuoteRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
     {
-      this.quoteExpiryMinutes = appSettings.Value.QuoteExpiryMinutes;
+      this.quoteExpiryMinutes = appSettings.Value.QuoteExpiryMinutes.Value;
       this.connectionString = configuration["ConnectionStrings:DBConnectionString"];
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }

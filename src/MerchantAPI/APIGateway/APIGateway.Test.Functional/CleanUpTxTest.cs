@@ -30,7 +30,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.TestInitialize();
 
       cleanUpTxService = server.Services.GetRequiredService<CleanUpTxWithPauseHandlerForTest>();
-      cleanUpTxAfterDays = AppSettings.CleanUpTxAfterDays;
+      cleanUpTxAfterDays = AppSettings.CleanUpTxAfterDays.Value;
     }
 
     [TestCleanup]

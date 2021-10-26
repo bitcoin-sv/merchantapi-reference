@@ -111,7 +111,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                                                                     });
 
       // Insert raw data and let the database queries find double spends
-      await txRepository.CheckAndInsertBlockDoubleSpendAsync(allTransactionInputs, appSettings.DeltaBlockHeightForDoubleSpendCheck, blockInternalId);
+      await txRepository.CheckAndInsertBlockDoubleSpendAsync(allTransactionInputs, appSettings.DeltaBlockHeightForDoubleSpendCheck.Value, blockInternalId);
 
       // Insert DS notifications for unconfirmed ancestors and mark unconfirmed ancestors as processed
       var dsAncestorTxIds = await txRepository.GetDSTxWithoutPayloadAsync(true);
@@ -143,7 +143,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       try
       {
-        if (appSettings.DontParseBlocks)
+        if (appSettings.DontParseBlocks.Value)
         {
           logger.LogInformation($"Block parsing is disabled. Won't store block header information for block '{e.BlockHash}' into database");
           return;

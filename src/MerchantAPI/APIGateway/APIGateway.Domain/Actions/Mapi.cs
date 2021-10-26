@@ -578,7 +578,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
         string txIdString = txId.ToString();
 
-        if (oneTx.MerkleProof && (appSettings.DontParseBlocks || appSettings.DontInsertTransactions))
+        if (oneTx.MerkleProof && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
         {
           AddFailureResponse(txIdString, $"Transaction requires merkle proof notification but this instance of mAPI does not support callbacks", ref responses);
 
@@ -587,7 +587,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         }
 
-        if (oneTx.DsCheck && (appSettings.DontParseBlocks || appSettings.DontInsertTransactions))
+        if (oneTx.DsCheck && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
         {
           AddFailureResponse(txIdString, $"Transaction requires double spend notification but this instance of mAPI does not support callbacks", ref responses);
 
@@ -642,7 +642,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
           colidedWith = prevOuts.Where(x => x.CollidedWith != null).Select(x => x.CollidedWith).ToArray();
 
-          if (appSettings.CheckFeeDisabled || IsConsolidationTxn(transaction, consolidationParameters, prevOuts))
+          if (appSettings.CheckFeeDisabled.Value || IsConsolidationTxn(transaction, consolidationParameters, prevOuts))
           {
             (okToMine, okToRelay) = (true, true);
           }
@@ -808,7 +808,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         result.FailureCount = failureCount + submitFailureCount;
 
 
-        if (!appSettings.DontInsertTransactions)
+        if (!appSettings.DontInsertTransactions.Value)
         {
           var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
           await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
