@@ -23,7 +23,7 @@ namespace MerchantAPI.APIGateway.Domain
   public class Notification
   {
     [Range(1, int.MaxValue)]
-    public int NotificationIntervalSec { get; set; } = 60;
+    public int? NotificationIntervalSec { get; set; } = 60;
 
     [Range(2, 100)]
     public int InstantNotificationsTasks { get; set; }
@@ -56,31 +56,31 @@ namespace MerchantAPI.APIGateway.Domain
   public class AppSettings : CommonAppSettings
   {
     [Range(1, double.MaxValue)]
-    public double QuoteExpiryMinutes { get; set; } = 10;
+    public double? QuoteExpiryMinutes { get; set; } = 10;
     public string CallbackIPAddresses { get; set; }
     public string[] CallbackIPAddressesArray
     {
       get
       {
-        return CallbackIPAddresses?.Split(",");
+        return string.IsNullOrEmpty(CallbackIPAddresses) ? null : CallbackIPAddresses?.Split(",");
       }
     }
     public string WifPrivateKey { get; set; }
     
     public MinerIdServer MinerIdServer { get; set; }
 
-    public int MaxBlockChainLengthForFork { get; set; } = 288;
+    public int? MaxBlockChainLengthForFork { get; set; } = 288;
 
     [Range(1, int.MaxValue)]
-    public int ZmqConnectionTestIntervalSec { get; set; } = 60;
+    public int? ZmqConnectionTestIntervalSec { get; set; } = 60;
  
-    public int DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
+    public long? DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 
     [Range(1, int.MaxValue)]
-    public int CleanUpTxAfterDays { get; set; } = 3;
+    public int? CleanUpTxAfterDays { get; set; } = 3;
 
     [Range(600, int.MaxValue)]
-    public int CleanUpTxPeriodSec { get; set; } = 3600;
+    public int? CleanUpTxPeriodSec { get; set; } = 3600;
 
     [Range(1, int.MaxValue)]
     public int DSHostBanTimeSec { get; set; }
@@ -101,13 +101,13 @@ namespace MerchantAPI.APIGateway.Domain
     public int DSScriptValidationTimeoutSec { get; set; }
     public Notification Notification { get; set; }
 
-    public bool CheckFeeDisabled { get; set; } = false;
+    public bool? CheckFeeDisabled { get; set; } = false;
 
-    public bool EnableHTTP { get; set; } = false;
+    public bool? EnableHTTP { get; set; } = false;
     
-    public bool DontParseBlocks { get; set; } = false;
+    public bool? DontParseBlocks { get; set; } = false;
 
-    public bool DontInsertTransactions { get; set; } = false;
+    public bool? DontInsertTransactions { get; set; } = false;
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>
@@ -134,7 +134,7 @@ namespace MerchantAPI.APIGateway.Domain
           return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
         }
       }
-      if (options.CallbackIPAddresses != null)
+      if (!string.IsNullOrEmpty(options.CallbackIPAddresses))
       {
         foreach (var ipString in options.CallbackIPAddressesArray)
         {

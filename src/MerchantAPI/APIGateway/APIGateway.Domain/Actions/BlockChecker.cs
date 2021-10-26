@@ -48,7 +48,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-      if (appSettings.DontParseBlocks || appSettings.DontInsertTransactions)
+      if (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value)
       {
         logger.LogInformation($"Settings `{nameof(appSettings.DontParseBlocks)}` or `{nameof(appSettings.DontInsertTransactions)}` are enabled. Blockchecker will not be started up.");
         return;
