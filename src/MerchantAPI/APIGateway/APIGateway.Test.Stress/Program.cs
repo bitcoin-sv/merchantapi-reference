@@ -23,6 +23,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NBitcoin;
 using Microsoft.Extensions.DependencyInjection;
+using CsvHelper;
+using System.Globalization;
+using CsvHelper.Configuration;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
@@ -278,8 +281,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
             batch.Add(transaction);
             if (batch.Count >= batchSize)
             {
-              await SendTransactionsBatch(batch, client, stats, config.MapiUrl+ "mapi/txs", GetDynamicCallbackUrl(), config.Callback.CallbackToken,
-                config.Callback.CallbackEncryption);
+              await SendTransactionsBatch(batch, client, stats, config.MapiUrl+ "mapi/txs", GetDynamicCallbackUrl(), config.Callback?.CallbackToken,
+                config.Callback?.CallbackEncryption);
               batch.Clear();
             }
 
@@ -288,8 +291,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
           if (batch.Any())
           {
-            await SendTransactionsBatch(batch, client, stats, config.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.Callback.CallbackToken,
-              config.Callback.CallbackEncryption);
+            await SendTransactionsBatch(batch, client, stats, config.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.Callback?.CallbackToken,
+              config.Callback?.CallbackEncryption);
             batch.Clear();
           }
         }
@@ -343,7 +346,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           await webServer.StopAsync();
         }
 
-
+        GenerateCsvRow(config, stats);
       }
       finally
       {
@@ -352,6 +355,31 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       return 0;
 
+    }
+
+    static void GenerateCsvRow(SendConfig config, Stats stats)
+    {
+      StatsCsv statsCsv = new(Domain.Const.MERCHANT_API_VERSION, config.Filename, config.BatchSize, config.Threads, string.IsNullOrEmpty(config.Callback?.Url), stats, config.CsvComment);
+
+      string statsFile = "stats.csv";
+      bool fileExists = File.Exists(statsFile);
+      using var stream = File.Open(statsFile, FileMode.Append);
+      using var writer = new StreamWriter(stream);
+      CsvConfiguration conf = new(CultureInfo.InvariantCulture)
+      {
+        Delimiter = ";",
+        DetectColumnCountChanges = true
+      };
+
+      using var csv = new CsvWriter(writer, conf);
+      if (!fileExists)
+      {
+        csv.WriteHeader<StatsCsv>();
+        csv.NextRecord();
+      }
+      csv.WriteRecord(statsCsv);
+      csv.NextRecord();
+      csv.Flush();
     }
 
 

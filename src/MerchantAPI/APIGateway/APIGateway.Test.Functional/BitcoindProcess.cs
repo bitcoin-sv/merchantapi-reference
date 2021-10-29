@@ -112,7 +112,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
         $"-zmqpubhashblock=tcp://{ZmqIp}:{zmqPort}",
         $"-zmqpubinvalidtx=tcp://{ZmqIp}:{zmqPort}",
         $"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}",
-        $"-invalidtxsink=ZMQ"
+        $"-invalidtxsink=ZMQ",
+        $"-rpcallowip=0.0.0.0/0",
+        $"-maxmempool=10000",
+        $"-rpcthreads=100",
+        $"-txnvalidationqueuesmaxmemory=5120",
+        $"-blockmintxfee=0"
       };
 
       if (nodesToConnect != null)

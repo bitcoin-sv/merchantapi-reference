@@ -732,13 +732,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                                                                                       PrevN = x.PrevOut.N, 
                                                                                       PrevTxId = x.PrevOut.Hash.ToBytes() 
                                                                                     }).ToList();
-          foreach(TxInput txInput in oneTx.TransactionInputs)
+          if (oneTx.DsCheck)
           {
-            var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevTxId, txInput.PrevN);
-            if (prevOut == null)
+            foreach (TxInput txInput in oneTx.TransactionInputs)
             {
-              listUnconfirmedAncestors = oneTx.DsCheck;
-              break;
+              var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevTxId, txInput.PrevN);
+              if (prevOut == null)
+              {
+                listUnconfirmedAncestors = true;
+                break;
+              }
             }
           }
           transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, policies));

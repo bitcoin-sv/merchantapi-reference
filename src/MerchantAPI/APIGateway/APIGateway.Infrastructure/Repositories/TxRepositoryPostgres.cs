@@ -224,19 +224,14 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 
       using var connection = GetDbConnection();
 
-      long[] internalIds;
-      using (var seqTransaction = await connection.BeginTransactionAsync())
-      {
-        // Reserve sequence ids so no one else can use them
-        // nextval is guaranteed to return distinct and increasing values, but it is not guaranteed to do so without "holes" or "gaps"
+      // Reserve sequence ids so no one else can use them
+      // nextval is guaranteed to return distinct and increasing values, but it is not guaranteed to do so without "holes" or "gaps"
 
-        string cmdGenerateIds = @"
+      string cmdGenerateIds = @"
 SELECT NEXTVAL('tx_txinternalid_seq') 
 FROM generate_series(1, @transactionsCount)
 ";
-        internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count })).ToArray();
-        seqTransaction.Commit();
-      }
+      long[] internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count })).ToArray();
 
       using var transaction = await connection.BeginTransactionAsync();
 
@@ -269,13 +264,15 @@ CREATE TEMPORARY TABLE TxTemp (
           var txInternalId = internalIds[txIndex];
           AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
                           tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
-
-          int n = 0;
-          foreach (var txIn in tx.TxIn)
+          if (tx.DSCheck || areUnconfirmedAncestors)
           {
-            AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
-            CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
-            n++;
+            int n = 0;
+            foreach (var txIn in tx.TxIn)
+            {
+              AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
+              CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
+              n++;
+            }
           }
         }
 
@@ -349,7 +346,7 @@ RETURNING txInternalId;
         unconfirmedAncestor = isUnconfirmedAncestor
       });
 
-      if (txInternalId > 0)
+      if (txInternalId > 0 && tx.DSCheck)
       {
         int n = 0;
         foreach (var txIn in tx.TxIn)
@@ -478,8 +475,7 @@ SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.
 FROM Tx
 INNER JOIN TxBlockDoubleSpend ON Tx.txInternalId = TxBlockDoubleSpend.txInternalId
 INNER JOIN Block ON block .blockinternalid = TxBlockDoubleSpend.blockinternalid 
-WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND Tx.dscheck = true AND txExternalId = @txId
-ORDER BY callbackUrl;
+WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND Tx.dscheck = true AND txExternalId = @txId;
 ";
 
       return await connection.QuerySingleOrDefaultAsync<NotificationData>(cmdText, new { txId });
@@ -675,13 +671,14 @@ WHERE b.blockhash = @blockHash;
       using var connection = GetDbConnection();
 
       string cmdText = @"
-SELECT COUNT(*)
+SELECT true
 FROM tx
-WHERE tx.txexternalid = @txId;
+WHERE tx.txexternalid = @txId
+LIMIT 1;
 ";
 
-      var foundTx = await connection.ExecuteScalarAsync<int>(cmdText, new { txId } );
-      return foundTx > 0;
+      var foundTx = await connection.ExecuteScalarAsync<bool>(cmdText, new { txId } );
+      return foundTx;
     }
 
     public async Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch)
