@@ -359,7 +359,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     static void GenerateCsvRow(SendConfig config, Stats stats)
     {
-      StatsCsv statsCsv = new(Domain.Const.MERCHANT_API_VERSION, config.Filename, config.BatchSize, config.Threads, string.IsNullOrEmpty(config.Callback?.Url), stats, config.CsvComment);
+      StatsCsv statsCsv = new(Domain.Const.MERCHANT_API_VERSION, config.Filename, config.BatchSize, config.Threads, !string.IsNullOrEmpty(config.Callback?.Url), stats, config.CsvComment);
 
       string statsFile = "stats.csv";
       bool fileExists = File.Exists(statsFile);
