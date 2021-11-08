@@ -64,7 +64,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     /// <param name="valueDiff">Function(v1,v2) that calculates v1 -v2 </param>
     /// <param name="valueNegate">Function(v)  that calculates -v</param>
     /// <returns></returns>
-    static Dictionary<K, V> DictionaryDifference<K,V>(Dictionary<K, V> first, Dictionary<K, V> second, Func<V,V,V> valueDiff, Func<V,V> valueNegate)
+    static Dictionary<K, V> DictionaryDifference<K, V>(Dictionary<K, V> first, Dictionary<K, V> second, Func<V, V, V> valueDiff, Func<V, V> valueNegate)
     {
       var result = new Dictionary<K, V>();
       foreach (var f in first)
@@ -87,19 +87,19 @@ namespace MerchantAPI.APIGateway.Test.Stress
     /// Returns difference between this and other (this-other)
     /// </summary>
     /// <returns></returns>
-    public (string host, Dictionary<uint256, long> txs)[]  GetDifference(TxByHost other)
+    public (string host, Dictionary<uint256, long> txs)[] GetDifference(TxByHost other)
     {
       var otherCopy = other.GetCopy();
       var thisCopy = this.GetCopy();
 
 
       var result = DictionaryDifference(thisCopy, otherCopy,
-        (f, s) => DictionaryDifference(f, s, (v1,v2) => v1-v2, v1 => -v1),
+        (f, s) => DictionaryDifference(f, s, (v1, v2) => v1 - v2, v1 => -v1),
         (f) => f.ToDictionary(x => x.Key, x => -x.Value)
       );
 
       // Convert to sorted list of tuples
-      return 
+      return
         result.OrderBy(x => x.Key)
         .Select(x => (x.Key, x.Value))
         .ToArray();
@@ -147,8 +147,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     readonly object lockObj = new();
     DateTime lastUpDateTimeUtc = DateTime.UtcNow;
-    
-    void  UpdateLastUpdateTime()
+
+    void UpdateLastUpdateTime()
     {
       lock (lockObj)
       {
@@ -162,10 +162,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
       => callbackReceived.GetDifference(okSubmitted)
         .Select(x
           => (x.host,
-              txs: x.txs.Where(t => t.Value < 0).Select( t=>t.Key).ToArray()))
-        .Where(x=>x.txs.Any())  
+              txs: x.txs.Where(t => t.Value < 0).Select(t => t.Key).ToArray()))
+        .Where(x => x.txs.Any())
         .ToArray();
-          
+
 
     public Stats()
     {
@@ -192,13 +192,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public void IncrementCallbackReceived(string host, uint256 txId)
     {
-      callbackReceived.Add(host, new[] {txId});
+      callbackReceived.Add(host, new[] { txId });
       UpdateLastUpdateTime();
     }
 
     public void AddRequestTxFailures(string host, IEnumerable<uint256> txIds)
     {
-      requestTxFailures.Add(host,txIds);
+      requestTxFailures.Add(host, txIds);
       UpdateLastUpdateTime();
     }
 
@@ -210,11 +210,37 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
 
     public long RequestErrors => Interlocked.Read(ref requestErrors);
-    
+
     public long SimulatedCallbackErrors => Interlocked.Read(ref simulatedCallbackErrors);
     public long RequestTxFailures => requestTxFailures.Count;
     public long OKSubmitted => okSubmitted.Count;
     public long CallbacksReceived => callbackReceived.Count;
+
+    private long Elapsed
+    {
+      get
+      {
+        return Math.Max(1, sw.ElapsedMilliseconds);
+      }
+    }
+
+    public long Throughput
+    {
+      get
+      {
+        long throughput = 1000 * (OKSubmitted + RequestTxFailures) / Elapsed;
+        return throughput;
+      }
+    }
+
+    public TimeSpan ElapsedTime
+    {
+      get
+      {
+        return TimeSpan.FromMilliseconds(Elapsed);
+      }
+    }
+
 
     public int LastUpdateAgeMs
     {
@@ -222,17 +248,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         lock (lockObj)
         {
-          return (int) (DateTime.UtcNow - lastUpDateTimeUtc).TotalMilliseconds;
+          return (int)(DateTime.UtcNow - lastUpDateTimeUtc).TotalMilliseconds;
         }
-
       }
     }
+
     public override string ToString()
     {
-      var elapsed = Math.Max(1, sw.ElapsedMilliseconds);
-
-      long throughput = 1000 * (OKSubmitted + RequestTxFailures) / elapsed;
-      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {throughput} Callbacks: {CallbacksReceived} SimulatedErrors: {SimulatedCallbackErrors}";
+      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {Throughput} Callbacks: {CallbacksReceived} SimulatedErrors: {SimulatedCallbackErrors}";
     }
 
   }

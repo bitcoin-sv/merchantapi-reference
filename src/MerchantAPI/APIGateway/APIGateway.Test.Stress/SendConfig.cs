@@ -33,6 +33,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
     // When using multiple threads, make sure that transactions in the file are not dependent on each other"
     public int Threads { get; set; } = 1;
 
+    // fill column comment in csv file
+    public string CsvComment { get; set; }
+
     public CallbackConfig Callback { get; set; }
 
     public BitcoindConfig BitcoindConfig { get; set; }

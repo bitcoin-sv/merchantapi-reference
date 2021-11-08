@@ -132,4 +132,5 @@ DROP TABLE Node;
 DROP TABLE FeeAmount;
 DROP TABLE Fee;
 DROP TABLE FeeQuote;
+DROP TABLE Version;
 */
