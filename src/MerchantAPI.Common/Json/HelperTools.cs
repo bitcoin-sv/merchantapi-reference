@@ -19,6 +19,24 @@ namespace MerchantAPI.Common.Json
   public static class HelperTools
   {
     const int BufferChunkSize = 1024 * 1024;
+
+    // we reuse the same options instance and avoid performance penalty
+    // see: https://www.meziantou.net/avoid-performance-issue-with-jsonserializer-by-reusing-the-same-instance-of-json.htm
+    static readonly System.Text.Json.JsonSerializerOptions SerializerOptions = new()
+    {
+      IgnoreNullValues = true,
+      // \u0022 -> \"
+      Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    static readonly System.Text.Json.JsonSerializerOptions SerializerOptionsIndented = new()
+    {
+      IgnoreNullValues = true,
+      WriteIndented = true,
+      // \u0022 -> \"
+      Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     public static async Task<byte[]> HexStringToByteArrayAsync(Stream stream)
     {
       IList<byte> outputBuffer = new List<byte>();
@@ -73,14 +91,14 @@ namespace MerchantAPI.Common.Json
     /// </summary>
     public static string JSONSerialize(object value, bool writeIndented)
     {
-      return System.Text.Json.JsonSerializer.Serialize(value , 
-        new System.Text.Json.JsonSerializerOptions
-        {
-          IgnoreNullValues = true,
-          WriteIndented =  writeIndented,
-          // \u0022 -> \"
-          Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        });
+      if (writeIndented)
+      {
+        return System.Text.Json.JsonSerializer.Serialize(value, SerializerOptionsIndented);
+      }
+      else
+      {
+        return System.Text.Json.JsonSerializer.Serialize(value, SerializerOptions);
+      }
     }
 
     /// <summary>
