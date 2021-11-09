@@ -15,7 +15,7 @@ namespace MerchantAPI.APIGateway.Rest
     {
       IOptions<AppSettings> appSettings = (IOptions<AppSettings>) context.HttpContext.RequestServices.GetService(typeof(IOptions<AppSettings>));
 
-      if (Startup.HostEnvironment.EnvironmentName != "Testing" && !context.HttpContext.Request.IsHttps && !appSettings.Value.EnableHTTP)
+      if (Startup.HostEnvironment.EnvironmentName != "Testing" && !context.HttpContext.Request.IsHttps && !appSettings.Value.EnableHTTP.Value)
       {
         context.Result = new StatusCodeResult((int)HttpStatusCode.BadRequest);
         return;

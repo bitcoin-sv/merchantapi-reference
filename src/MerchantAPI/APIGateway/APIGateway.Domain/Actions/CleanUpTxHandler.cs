@@ -24,8 +24,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-      cleanUpTxPeriodSec = options.Value.CleanUpTxPeriodSec;
-      cleanUpTxAfterDays = options.Value.CleanUpTxAfterDays;
+      cleanUpTxPeriodSec = options.Value.CleanUpTxPeriodSec.Value;
+      cleanUpTxAfterDays = options.Value.CleanUpTxAfterDays.Value;
     }
 
 

@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       this.blockChainInfo = blockChainInfo ?? throw new ArgumentNullException(nameof(blockChainInfo));
       this.minerId = minerId ?? throw new ArgumentNullException(nameof(minerId));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
-      quoteExpiryMinutes = options.Value.QuoteExpiryMinutes;
+      quoteExpiryMinutes = options.Value.QuoteExpiryMinutes.Value;
       callbackIPAddressesArray = options.Value.CallbackIPAddressesArray;
     }
 
