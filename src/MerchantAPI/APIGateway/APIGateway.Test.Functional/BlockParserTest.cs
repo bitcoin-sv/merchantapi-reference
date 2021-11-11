@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -192,6 +193,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(tx.GetHash(int.MaxValue) != uint256.Zero);
     }
 
+
     [TestMethod]
     public virtual async Task TestSkipParsing()
     {
@@ -225,6 +227,51 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(block.BlockInternalId, blockAfterRepublish.BlockInternalId);
       Assert.AreEqual(block.ParsedForMerkleAt, blockAfterRepublish.ParsedForMerkleAt);
       Assert.AreEqual(block.ParsedForDSAt, blockAfterRepublish.ParsedForDSAt);
+    }
+
+    [DataRow(750)] // block of size 2.1GB
+    [DataRow(1500)] // block of size > 4 GB
+    [TestMethod]
+    public async Task TestBigBlocks(double txsCount)
+    {
+      var node = NodeRepository.GetNodes().First();
+      var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+
+      var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/16mb_tx.txt")));
+      var bStream = new BitcoinStream(stream, false)
+      {
+        MaxArraySize = unchecked((int)uint.MaxValue)
+      };
+      var tx = Transaction.Create(Network.Main);
+
+      tx.ReadWrite(bStream);
+
+      var txId = tx.GetHash(int.MaxValue).ToString();
+      _ = await CreateAndInsertTxAsync(false, true, 2, new string[] { txId.ToString() });
+
+      List<Transaction> txs = new();
+      for (int i = 0; i < txsCount; i++)
+      {
+        txs.Add(tx);
+      }
+
+      (_, string blockHash) = await CreateAndPublishNewBlockWithTxs(rpcClient, null, txs.ToArray(), true, true);
+
+      var block = await TxRepositoryPostgres.GetBestBlockAsync();
+      Assert.IsFalse(HelperTools.AreByteArraysEqual(block.BlockHash, new uint256(blockHash).ToBytes()));
+
+      PublishBlockHashToEventBus(blockHash);
+
+      WaitUntilEventBusIsIdle();
+
+      block = await TxRepositoryPostgres.GetBestBlockAsync();
+      Assert.IsTrue(HelperTools.AreByteArraysEqual(block.BlockHash, new uint256(blockHash).ToBytes()));
+      Assert.AreEqual(0, (await TxRepositoryPostgres.GetUnparsedBlocksAsync()).Length);
+
+      // check if block was correctly parsed
+      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
+      var parsedBlock = HelperTools.ParseByteStreamToBlock(blockStream);
+      Assert.AreEqual(txsCount + 1, parsedBlock.Transactions.Count);
     }
   }
 }
