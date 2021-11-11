@@ -150,8 +150,22 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         throw new Exception($"Mock block {blockHash} not found");
       }
 
-      var str = new StreamReader(new MemoryStream(block.BlockData));
-      var rpc = new RpcBitcoinStreamReaderMock(str, token);
+      RpcBitcoinStreamReaderMock rpc = null;
+      StreamReader str = null;
+      if (block.BlockData != null)
+      {
+        str = new StreamReader(new MemoryStream(block.BlockData));
+      }
+      else if (block.StreamFilename != null)
+      {
+        str = new StreamReader(block.StreamFilename);
+      }
+
+      if (str != null)
+      {
+        rpc = new RpcBitcoinStreamReaderMock(str, token);
+      }
+
       return rpc;
     }
 

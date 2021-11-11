@@ -47,9 +47,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.Cleanup();
     }
 
-    protected async Task<List<Tx>> CreateAndInsertTxAsync(bool merkleProof, bool dsCheck, int? limit = null)
+    protected async Task<List<Tx>> CreateAndInsertTxAsync(bool merkleProof, bool dsCheck, int? limit = null, string[] hashes = null)
     {
-      string[] hashes = new string[] { Tx1Hash, Tx2Hash, Tx3Hash, Tx4Hash, Tx5Hash };
+      hashes = new string[] { Tx1Hash, Tx2Hash, Tx3Hash, Tx4Hash, Tx5Hash };
+      if (hashes == null)
+      {
+        hashes = new string[] { Tx1Hash, Tx2Hash, Tx3Hash, Tx4Hash, Tx5Hash };
+      }
       string[] hexes = new string[] { Tx1Hex, Tx2Hex, Tx3Hex, Tx4Hex, Tx5Hex };
       if (limit == null)
       {
