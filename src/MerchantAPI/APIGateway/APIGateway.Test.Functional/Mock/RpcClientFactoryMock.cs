@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
@@ -17,6 +18,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     public long Height { get; set; }
     public uint256 BlockHash { get; set; }
     public byte[] BlockData { get; set; }
+    public string StreamFilename { get; set; }
 
     public BlockHeader BlockHeader { get; set; }
 
@@ -83,6 +85,68 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         BlockHeader = block.Header
       };
       blocks.TryAdd(blockHash, b);
+    }
+
+    public void AddBigKnownBlock(long blockHeight, Block block)
+    {
+      string filename = null;
+      byte[] blockData = GetBytesFromBlock(block);
+      if (blockData == null) // too big block for Memorystream
+      {
+        filename = SaveStreamFromBlock(block);
+      }
+
+      var blockHash = block.GetHash();
+      var b = new BlockWithHeight
+      {
+        Height = blockHeight,
+        BlockHash = blockHash,
+        BlockHeader = block.Header,
+        BlockData = blockData,
+        StreamFilename = filename
+      };
+      blocks.TryAdd(blockHash, b);
+    }
+
+    /// <summary>
+    /// This method has block size limitation because of the Memorystream. The maximum index in any single dimension 
+    /// is 2,147,483,591(0x7FFFFFC7) for byte arrays and arrays of single byte structures, 
+    /// and 2,146,435,071(0X7FEFFFFF) for other types.
+    /// </summary>
+    /// <param name="b">NBitcoin block.</param>
+    /// <returns>Block bytes.</returns>
+    public static byte[] GetBytesFromBlock(Block b)
+    {
+      byte[] objectBytes = null;
+      using var ms = new MemoryStream();
+      BitcoinStream s = new(ms, true);
+      s.MaxArraySize = unchecked((int)uint.MaxValue);
+
+      try
+      {
+        b.ReadWrite(s);
+        objectBytes = ms.ToArray();
+      }
+      catch (IOException)
+      {
+        // block size bigger than 2.1GB
+      }
+      return objectBytes;
+    }
+
+    public static string SaveStreamFromBlock(Block b)
+    {
+      // create FileStream, so that we support bigger blocks from 2.2GB
+      var fileName = @"Data/big_block.txt";
+
+      using FileStream fs = File.OpenWrite(fileName);
+      using var ms = new MemoryStream();
+      BitcoinStream s = new(fs, true);
+      s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
+
+      b.ReadWrite(s);
+
+      return fileName;
     }
 
     public void AddScriptCombination(string tx, int n)
