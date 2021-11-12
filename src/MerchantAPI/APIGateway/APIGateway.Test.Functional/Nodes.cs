@@ -71,20 +71,24 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
       Assert.IsNull(Nodes.GetNode("node1:0"));
 
-      rpcClientFactoryMock.Reset();
-
-      // zmqEndpoint is unreachable and has unreachable zmqnotification endpoints
+      // zmqEndpoint is null and has unreachable zmqnotification endpoints
       rpcClientFactoryMock.mockedZMQNotificationsEndpoint = "tcp://unreachable";
       try
       {
-        await Nodes.CreateNodeAsync(new Node("node2", 0, "mocked", "mocked", null, "tcp://unreachable"));
+        await Nodes.CreateNodeAsync(new Node("node2", 0, "mocked", "mocked", null, null));
       }
       catch (BadRequestException ex)
       {
-        Assert.AreEqual($"ZMQNotificationsEndpoint: 'tcp://unreachable' is unreachable.{ Environment.NewLine }" +
-          $"Node's ZMQNotification for pubhashblock, pubdiscardedfrommempool, pubinvalidtx: 'tcp://unreachable' is unreachable.", ex.Message);
+        Assert.AreEqual(
+          $"Node's ZMQNotification for pubhashblock, pubdiscardedfrommempool, pubinvalidtx: 'tcp://unreachable' is unreachable.",
+          ex.Message);
       }
       Assert.IsNull(Nodes.GetNode("node2:0"));
+
+      // zmqEndpoint is reachable and has unreachable zmqnotification endpoints
+      rpcClientFactoryMock.mockedZMQNotificationsEndpoint = "tcp://unreachable";
+      await Nodes.CreateNodeAsync(new Node("node3", 0, "mocked", "mocked", null, "tcp://reachable"));
+      Assert.IsNotNull(Nodes.GetNode("node3:0"));
     }
 
     [TestMethod]
