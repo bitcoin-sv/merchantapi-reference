@@ -159,7 +159,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
           error = $"ZMQNotificationsEndpoint: '{node.ZMQNotificationsEndpoint}' is unreachable.";
         }
       }
-      if (notifications != null)
+      else if (notifications != null)
       {
         foreach (var n in notifications.GroupBy(x => x.Address, x => x.Notification, (key, values) => new { Address = key, Notifications = values.ToList() }).ToList())
         {
