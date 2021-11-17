@@ -821,6 +821,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
           logger.LogInformation($"Starting with InsertTxsAsync: { successfullTxs.Count() } (TransactionsToSubmit: { transactionsToSubmit.Count })");
+          var watch = System.Diagnostics.Stopwatch.StartNew();
           await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
           {
             CallbackToken = x.transaction.CallbackToken,
@@ -835,6 +836,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             TxIn = x.transaction.TransactionInputs
           }).ToList(), false);
 
+          long unconfirmedAncestorsCount = 0;
           if (rpcResponse.Unconfirmed != null)
           {
             List<Tx> unconfirmedAncestors = new();
@@ -853,8 +855,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               );
             }
             await txRepository.InsertTxsAsync(unconfirmedAncestors, true);
+            unconfirmedAncestorsCount = unconfirmedAncestors.Count;
           }
-          logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } (TransactionsToSubmit: { transactionsToSubmit.Count })");
+          watch.Stop();
+          logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } found unconfirmedAncestors { unconfirmedAncestorsCount } took {watch.ElapsedMilliseconds} ms.");
         }
 
         return result;
