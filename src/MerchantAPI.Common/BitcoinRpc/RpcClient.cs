@@ -336,15 +336,20 @@ namespace MerchantAPI.Common.BitcoinRpc
         paramDescription += ",...";
       }
 
-      logger.LogInformation($"Calling method '{rpcRequest.Method}({paramDescription}) on node {Address.Host}:{Address.Port}");
+      logger.LogInformation($"Calling method '{rpcRequest.Method}({paramDescription}) on node {Address.Host}:{Address.Port} with readOnlyHeader={readOnlyHeader}");
+      var watch = System.Diagnostics.Stopwatch.StartNew();
       var reqMessage = CreateRequestMessage(rpcRequest.GetJSON());
       using var cts = new CancellationTokenSource(RequestTimeout);
       using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, token ?? CancellationToken.None);
       var completionOption = readOnlyHeader ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
       var httpResponse = await HttpClient.SendAsync(reqMessage, completionOption, cts2.Token).ConfigureAwait(false);
+      watch.Stop();
+      logger.LogInformation($"Execution Time '{rpcRequest.Method}({paramDescription})' on node {Address.Host}:{Address.Port} took {watch.ElapsedMilliseconds} ms");
       if (!httpResponse.IsSuccessStatusCode)
       {
         var response = await GetRpcResponseAsync<string>(httpResponse);
+        logger.LogInformation($"Calling method '{rpcRequest.Method}({paramDescription})' on node {Address.Host}:{Address.Port} " +
+          $"returned errorCode: { (response?.Error?.code.ToString() ?? "unknown") }");
         throw new RpcException(response.Error.code, response.Error.message, Address.AbsoluteUri);
       }
       return httpResponse;
