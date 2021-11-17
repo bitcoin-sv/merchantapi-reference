@@ -641,13 +641,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
           prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
           colidedWith = prevOuts.Where(x => x.CollidedWith != null).Select(x => x.CollidedWith).ToArray();
+          logger.LogInformation($"CollectPreviousOuputs for {txIdString} returned { prevOuts.Length } prevOuts ({prevOutsErrors.Length } prevOutsErrors, {colidedWith.Length} colidedWith).");
 
           if (appSettings.CheckFeeDisabled.Value || IsConsolidationTxn(transaction, consolidationParameters, prevOuts))
           {
+            logger.LogInformation($"{txIdString}: appSettings.CheckFeeDisabled { appSettings.CheckFeeDisabled }");
             (okToMine, okToRelay) = (true, true);
           }
           else
           {
+            logger.LogInformation($"Starting with CheckFees calculation for {txIdString} and { quotes.Length} quotes.");
             foreach (var feeQuote in quotes)
             {
               var (okToMineTmp, okToRelayTmp) =
@@ -658,6 +661,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 (okToMine, okToRelay, policies) = (okToMineTmp, okToRelayTmp, feeQuote.PoliciesDict);
               }
             }
+            logger.LogInformation($"Finished with CheckFees calculation for {txIdString} and { quotes.Length} quotes: { (okToMine, okToRelay, policies == null ? "" : string.Join(";", policies.Select(x => x.Key + "=" + x.Value)) )}.");
           }
 
         }
@@ -748,6 +752,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
       }
 
+      logger.LogInformation($"TransactionsToSubmit: { transactionsToSubmit.Count }");
+
       RpcSendTransactions rpcResponse;
 
       Exception submitException = null;
@@ -814,6 +820,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         if (!appSettings.DontInsertTransactions.Value)
         {
           var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
+          logger.LogInformation($"Starting with InsertTxsAsync: { successfullTxs.Count() } (TransactionsToSubmit: { transactionsToSubmit.Count })");
+          var watch = System.Diagnostics.Stopwatch.StartNew();
           await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
           {
             CallbackToken = x.transaction.CallbackToken,
@@ -828,6 +836,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             TxIn = x.transaction.TransactionInputs
           }).ToList(), false);
 
+          long unconfirmedAncestorsCount = 0;
           if (rpcResponse.Unconfirmed != null)
           {
             List<Tx> unconfirmedAncestors = new();
@@ -846,7 +855,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               );
             }
             await txRepository.InsertTxsAsync(unconfirmedAncestors, true);
+            unconfirmedAncestorsCount = unconfirmedAncestors.Count;
           }
+          watch.Stop();
+          logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } found unconfirmedAncestors { unconfirmedAncestorsCount } took {watch.ElapsedMilliseconds} ms.");
         }
 
         return result;

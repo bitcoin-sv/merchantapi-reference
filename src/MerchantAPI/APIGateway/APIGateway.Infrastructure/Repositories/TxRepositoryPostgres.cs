@@ -11,6 +11,7 @@ using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -25,12 +26,14 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     private readonly string connectionString;
     private readonly IClock clock;
     private readonly PrevTxOutputCache prevTxOutputCache;
+    readonly ILogger<TxRepositoryPostgres> logger;
 
-    public TxRepositoryPostgres(IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache)
+    public TxRepositoryPostgres(IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache, ILogger<TxRepositoryPostgres> logger)
     {
       connectionString = configuration["ConnectionStrings:DBConnectionString"];
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       this.prevTxOutputCache = prevTxOutputCache ?? throw new ArgumentNullException(nameof(prevTxOutputCache));
+      this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     private NpgsqlConnection GetDbConnection()
@@ -933,6 +936,10 @@ AND txinput.n = @prevOutN;
         {
           CachePrevOut(foundPrevOut);
         }
+      }
+      else
+      {
+        logger.LogInformation($"GetPrevOutAsync: prevOut was found in prevTxOutputCache, key={HelperTools.ByteToHexString(prevOutTxId)}_{prevOutN}.");
       }
       return foundPrevOut;
     }
