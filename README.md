@@ -94,7 +94,7 @@ Where recipients are using [SPV Channels](https://github.com/bitcoin-sv-specs/br
 
 #### Response Timeout
 
-There is a small possibility that no response will be forthcoming due to exceptional circumstances such as the Node being reset.
+There is a small possibility that no response will be forthcoming due to exceptional circumstances such as the node being reset.
 
 Therefore the user may wish to keep a record of all transactions submitted, and if no response is obtained within an acceptable timescale (several seconds), the transaction may be resubmitted.
 
@@ -139,8 +139,49 @@ POST api/v1/PolicyQuote
 Example with curl - add a policyQuote valid from 01/10/2021 for unauthenticated (anonymous) users:
 
 ```console
-$ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/PolicyQuote -d "{ \"validFrom\": \"2021-10-01T12:00:00\", \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }], \"policies\": {\"skipscriptflags\": [\"MINIMALDATA\", \"DERSIG\", \"NULLDUMMY\",\"DISCOURAGE_UPGRADABLE_NOPS\", \"CLEANSTACK\"],\"maxtxsizepolicy\": 99999, \"datacarriersize\": 100000, \"maxscriptsizepolicy\": 100000, \"maxscriptnumlengthpolicy\": 100000, \"maxstackmemoryusagepolicy\": 10000000, \"limitancestorcount\": 1000, \"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, \"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, \"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, \"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 
+$ curl -H "Api-Key: [RestAdminAPIKey]" \
+       -H "Content-Type: application/json" \
+       -X POST https://localhost:5051/api/v1/PolicyQuote \
+       -d "{ \"validFrom\": \"2021-10-01T12:00:00\", \
+            \"identity\": null, \"identityProvider\": null, \
+            \"fees\": [ \
+              { \
+                \"feeType\": \"standard\", \
+                  \"miningFee\": \
+                     { \"satoshis\": 100, \"bytes\": 200 }, \
+                  \"relayFee\": \
+                     { \"satoshis\": 100, \"bytes\": 200 } }, \
+               { \"feeType\": \"data\", \
+                  \"miningFee\": \
+                     { \"satoshis\": 100, \"bytes\": 200 }, \
+                  \"relayFee\": \
+                     { \"satoshis\": 100, \"bytes\": 200 } \
+              }], \
+            \"policies\": { \
+                \"skipscriptflags\": [\"MINIMALDATA\", \"DERSIG\", \
+                \"NULLDUMMY\", \"CLEANSTACK\"], \
+                \"maxtxsizepolicy\": 99999, \
+                \"datacarriersize\": 100000, \
+                \"maxscriptsizepolicy\": 100000, \
+                \"maxscriptnumlengthpolicy\": 100000, \
+                \"maxstackmemoryusagepolicy\": 10000000, \
+                \"limitancestorcount\": 1000, \
+                \"limitcpfpgroupmemberscount\": 10, \
+                \"acceptnonstdoutputs\": true, \
+                \"datacarrier\": true, \
+                \"dustrelayfee\": 150, \
+                \"maxstdtxvalidationduration\": 99, \
+                \"maxnonstdtxvalidationduration\": 100, \
+                \"minconsolidationfactor\": 10, \
+                \"maxconsolidationinputscriptsize\": 100, \
+                \"minconfconsolidationinput\": 10, \
+                \"acceptnonstdconsolidationinput\": false, \
+                \"dustlimitfactor\": 500 \
+            } \
+          }"
 ```
+
+The parameters above are:
 
     | Parameter | Description |
     | ----------- | ----------- |
@@ -414,13 +455,13 @@ For development, the following will be needed:
 
 ## Building docker images
 
-To run the build script you must have git and docker installed. Get the source code with the git clone command. Build docker images for **MerchantAPI App** by running this command in the folder `/src/Deploy/`:
+To run the build script you must have git and docker installed. Get the source code with the git clone command. Build docker images for **MerchantAPI App** by running this command in the folder `src/Deploy/`:
 
 ```console
 On Linux: ./build.sh
 On Windows: build.bat
 ```
-Upon a successful build, a new subfolder `/src/Deploy/Build` is created, where the `.env` and `docker-compose.yml` files will be found. The `.env` file must be edited to enable deployment, as described above.
+Upon a successful build, a new subfolder `src/Deploy/Build` is created, where the `.env` and `docker-compose.yml` files will be found. The `.env` file must be edited to enable deployment, as described above.
 
 ## Set up
 
@@ -432,7 +473,7 @@ Perform the following set up steps:
 
 ## Load docker images
 
-Issue this command in the `/src/Deploy/Build` folder:
+Issue this command in the `src/Deploy/Build` folder:
 ```console
 docker load -i merchantapiapp.tar
 ```
