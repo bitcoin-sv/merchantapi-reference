@@ -229,6 +229,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(block.ParsedForDSAt, blockAfterRepublish.ParsedForDSAt);
     }
 
+    [TestCategory("Manual")]
     [DataRow(750)] // block of size 2.1GB
     [DataRow(1500)] // block of size > 4 GB
     [TestMethod]
