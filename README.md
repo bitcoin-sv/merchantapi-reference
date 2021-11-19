@@ -1,8 +1,10 @@
-# mAPI
+# mAPI Reference Implementation
 
-More details available in the [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi) for Merchant API.  
+Readme v.1.4.0.
 
-> The old golang (v1.1) implementation is no longer being maintained and has been moved to the [golang-v1.1 branch](https://github.com/bitcoin-sv/merchantapi-reference/tree/golang-v1.1).
+The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
+
+> The golang (v1.1) implementation is no longer being maintained and has been moved to the [golang-v1.1 branch](https://github.com/bitcoin-sv/merchantapi-reference/tree/golang-v1.1).
 
 ## Swagger UI
 
@@ -10,281 +12,123 @@ The REST API can also be seen in the [Swagger UI](https://bitcoin-sv.github.io/m
 
 ## Support
 
-For support and general discussion of both standards and reference implementations please join the following [telegram group](https://t.me/joinchat/JB6ZzktqwaiJX_5lzQpQIA).
+For support and general discussion of both the mAPI standard and the reference implementation, please join the following [telegram group](https://t.me/joinchat/JB6ZzktqwaiJX_5lzQpQIA).
 
 ## Requirements
 
 mAPI requires access to Bitcoin SV node version 1.0.10 or newer. See [Managing nodes](#Managing-nodes) for details how to connect to a bitcoin node.
 
-For running in production, you should use Docker. Docker images are created as part of the [build](#build-and-deploy). See [Deploying docker images](#Deploying-docker-images) for details how to run them.
+For running in production, use Docker. Docker images can be [downloaded](#Download-docker-images) from docker hub, or created as part of the [build](#Building-docker-images). See [Deploying docker images](#Deploying-docker-images) for details on how to run them.
 
-An SSL server certificate is required for installation. You can obtain the certificate from your IT support team. There are also services that issue free SSL certificates such as letsencrypt.org.  The certificate must be issued for the host with fully qualified domain name. To use the server side certificate, you need to export it (including corresponding private key) it in PFX file format (*.pfx).
+A SSL server certificate is required for installation. You can obtain the certificate from your IT support team. There are also services that issue free SSL certificates, such as letsencrypt.org.  The certificate must be issued for the host with a fully qualified domain name. To use the server side certificate, you need to export it (including its corresponding private key) in PFX file format (*.pfx).
 
-For setting up development environment see [bellow](#setting-up-a-development-environment)
+For setting up a development environment see [development](#Development).
 
+## REST API Interfaces
 
-## REST interface
+The reference implementation exposes different **REST API** interfaces:
 
-The reference implementation exposes different **REST API** interfaces
+* a public interface for submitting and querying transactions
+* an administrator interface for managing connections to bitcoin nodes and policy quotes
 
-* an interface for submitting transactions implemented according [BRFC Spec](https://github.com/bitcoin-sv-specs/brfc-merchantapi)
-* an admin interface for managing connections to bitcoin nodes and policy quotes
+It also provides a JWT Manager to enable authenticated users to obtain special policy rates.
 
+## Public Interface
 
-## Public interface
+The public interface can be used to submit transactions and query transaction status. It is accessible to both authenticated and unauthenticated users, but authenticated users might get special fee rates.
 
-Public interface can be used to submit transactions and query transactions status. It is accessible to both authenticated and unauthenticated users, but authenticated users might get special fee rates.
+The endpoints are implemented in accordance with the BRFC mAPI Specification and are summarised below:
 
-### 1. getPolicyQuote / getFeeQuote
-
-Policy quote endpoint: 
+### 1. Get Policy Quote
 
 ```
 GET /mapi/policyQuote
 ```
 
-Returns a PolicyQuote payload that contains the fees types charged by the miner and set policies.
+Responds with a policy quotation. This is a superset of the fee quotation (below).
 
-Fee quote endpoint (deprecated): 
+#### Special Policy Quotes
 
-```
-GET /mapi/feeQuote
-```
+The administrator may wish to offer special policy quotes to specific customers. The reference implementation supports JSON Web Tokens (JWT) issued to authenticated users. The authenticated users include the JWT in their HTTP header and, as a result, receive special policy quotes.
 
-Returns a JSON envelope with a payload that contains the fees types charged by a miner (without policies).
+If no JWT is supplied, then the call is anonymous (unauthenticated), and the default policy quote is supplied. If a JWT (created by the mAPI JWT Manager user or other JWT provider) is supplied, then the caller will receive the corresponding special policy quote. For this version of the merchant API reference implementation, the JWT must be created by the JWT manager and issued to the customer manually.
 
-
-### 2. submitTransaction
-
-```
-POST /mapi/tx
-```
-
-To submit a transaction in JSON format use `Content-Type: application/json` with the following request body:
-
-```json
-{
-  "rawtx":        "[transaction_hex_string]",
-  "callbackUrl":  "https://your.service.callback/endpoint",
-  "callbackToken" : "Authorization: <your_authorization_header>",
-  "merkleProof" : true,
-  "merkleFormat" : "TSC",
-  "dsCheck" : true
-}
-```
-
-To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transaction in the request body. You can specify `callbackUrl`, `callbackToken`, `merkleProof`, `merkleFormat` and `dsCheck` in the query string.
-
-If a double spend notification or merkle proof is requested in Submit transaction, the response is sent to the specified callbackURL. Where recipients are using [SPV Channels](https://github.com/bitcoin-sv/brfc-spvchannels), this would require the recipient to have a channel setup and ready to receive messages.
-Check [Callback Notifications](#callback-notifications) for details.
-
-### 3. queryTransactionStatus
-
-```
-GET /mapi/tx/{hash:[0-9a-fA-F]+}
-```
-
-### 4. sendMultiTransaction
-
-
-```
-POST /mapi/txs
-```
-
-To submit a list of transactions in JSON format use `Content-Type: application/json` with the following request body:
-
-```json
-[
-  {
-
-    "rawtx":        "[transaction_hex_string]",
-    "callbackUrl":  "https://your.service.callback/endpoint",
-    "callbackToken" : "Authorization: <your_authorization_header>",
-    "merkleProof" : true,
-    "merkleFormat" : "TSC",
-    "dsCheck" : true
-  },
-  ....
-]
-```
-
-You can also omit `callbackUrl`, `callbackToken`, `merkleProof`, `merkleFormat` and `dsCheck` from the request body and provide the values in the query string.
-
-To submit transaction in binary format use `Content-Type: application/octet-stream` with the binary serialized transactions in the request body. Use query string to specify the remaining parameters.
-
-
-### Callback Notifications
-
-Merchants can request callbacks for *merkle proofs* and/or *double spend notifications* in Submit transaction.
-
-You can specify `{callbackReason}` placeholder in your `callbackUrl`. When notification is triggered, placeholder will be replaced by actual callback reason (`merkleProof`, `doubleSpend` or `doubleSpendAttempt`).
-
-For example, if you specify callback URL:
-```
-  "callbackUrl":  "https://your.service.callback/endpoint/{callbackReason}",
-```
-than merkle proof callback notification will be sent to:
-```
-https://your.service.callback/endpoint/merkleProof
-```
-
-Double Spend example:
-```
-POST /mapi/tx
-```
-
-#### Request:
-
-Request Body:
-
-```json
-{
-    "rawtx": "0100000001157865db28b21f3a95ead7bbc8fc206ff4ce1f5673f5ff56d09f66e20cd33b2a000000006a473044022024c78442c5371af32bef8af7d3c6ecd1af6d5ac3d3b51b2150985e4575bd180d02204d0477e72037c362a026ddeb298127b93ba2356df537cd4020d13565d0f114b34121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff018c949800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000",
-    "callbackUrl":"https://your-server/api/v1/channel/533",
-    "callbackToken":"CNaecHA44nGNJCvvccx3TSxwb4F490574knnkf44S19W6cNmbumVa6k3ESQw",
-    "merkleProof":false,
-    "dsCheck": true
-}
-```
-#### Response:
-```json
-{
-   "payload":"{\"apiVersion\":\"1.3.0\",\"timestamp\":\"2021-05-07T07:25:21.7758023Z\",\"minerId\":\"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e\",\"currentHighestBlockHash\":\"7bcdff17aa5d7d9fd23b142ad0b77198084b2408952ad92569212d147953a7c9\",\"currentHighestBlockHeight\":151,\"txSecondMempoolExpiry\":0,\"txs\":[{\"txid\":\"a12084cbee9b183e4205646a5dd31f62e343991b32d64123d356dcce3b1fe80a\",\"returnResult\":\"failure\",\"resultDescription\":\"Missing inputs\",\"conflictedWith\":[{\"txid\":\"ad9816d201fdc5d7660a0df43f07716f4c9a77e3d3c738367fa4791ae7d90190\",\"size\":191,\"hex\":\"0100000001157865db28b21f3a95ead7bbc8fc206ff4ce1f5673f5ff56d09f66e20cd33b2a000000006a47304402207c675be49f94c26b7cb31980a2b436689107358e71d3104868db15defd90348c02202b84b50d6f1869c11123fed14a5b5a903cfd60ba2ae1de9f6d55e3242ed4e5274121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff0198929800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000\"}]}],\"failureCount\":1}",
-   "signature":"304402202f76d8716995811fc56426e5860f6e39a93c7fe0f6730da20149822463f46aa3022059bdb5d0f11f4baf504cc67666ab50d487164d945a8011af30d1631bdb824cbc",
-   "publicKey":"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
-   "encoding":"UTF-8",
-   "mimetype":"application/json"
-}
-```
-
-Merkle proof callback can be requested by specifying:
-```json
-{
- "merkleProof": true,
- "merkleFormat" : "TSC",
-}
-```
-Merkle format is optional and only supported format is TSC. If field is omitted from the request than the callback payload will be the same as with 1.2.0 version.
-
-If callback was requested on transaction submit, merchant should receive a notification of a double spend and/or merkle proof via callback URL. mAPI process all requested notifications and sends them out in batches.
-Callbacks have three possible callbackReason: "doubleSpend", "doubleSpendAttempt" and "merkleProof". DoubleSpendAttempt implies, that a double spend was detected in mempool.
-
-Double spend callback example:
-```json
-{	
-  "callbackPayload": "{\"doubleSpendTxId\":\"f1f8d3de162f3558b97b052064ce1d0c45805490c210bdbc4d4f8b44cd0f143e\", \"payload\":\"01000000014979e6d8237d7579a19aa657a568a3db46a973f737c120dffd6a8ba9432fa3f6010000006a47304402205fc740f902ccdadc2c3323f0258895f597fb75f92b13d14dd034119bee96e5f302207fd0feb68812dfa4a8e281f9af3a5b341a6fe0d14ff27648ae58c9a8aacee7d94121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff018c949800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000\"}",
-  "apiVersion": "1.3.0",
-  "timestamp": "2020-11-03T13:24:31.233647Z",
-  "minerId": "030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
-  "blockHash": "34bbc00697512058cb040e1c7bbba5d03a2e94270093eb28114747430137f9b7",
-  "blockHeight": 153,
-  "callbackTxId": "8750e986a296d39262736ed8b8f8061c6dce1c262844e1ad674a3bc134772167",
-  "callbackReason": "doubleSpend"
-}
-```
-
-Double spend attempt callback example:
-```json
-{	
-  "callbackPayload": "{\"doubleSpendTxId\":\"7ea230b1610768374285150537323add313c1b9271b1b8110f5ddc629bf77f46\", \"payload\":\"0100000001e75284dc47cb0beae5ebc7041d04dd2c6d29644a000af67810aad48567e879a0000000006a47304402203d13c692142b4b50737141145795ccb5bb9f5f8505b2d9b5a35f2f838b11feb102201cee2f2fe33c3d592f5e990700861baf9605b3b0199142bbc69ae88d1a28fa964121027ae06a5b3fe1de495fa9d4e738e48810b8b06fa6c959a5305426f78f42b48f8cffffffff018c949800000000001976a91482932cf55b847ffa52832d2bbec2838f658f226788ac00000000\"}",
-  "apiVersion": "1.3.0",
-  "timestamp": "2020-11-03T13:24:31.233647Z",
-  "minerId": "030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
-  "blockHash": "34bbc00697512058cb040e1c7bbba5d03a2e94270093eb28114747430137f9b7",
-  "blockHeight": 153,
-  "callbackTxId": "8750e986a296d39262736ed8b8f8061c6dce1c262844e1ad674a3bc134772167",
-  "callbackReason": "doubleSpendAttempt"
-}
-```
-
-Merkle proof callback example:
-```json
-{	  
-  "callbackPayload": "{\"flags\":2,\"index\":1,\"txOrId\":\"acad8d40b3a17117026ace82ef56d269283753d310ddaeabe7b5d226e8dbe973\",\"target\": {\"hash\":\"0e9a2af27919b30a066383d512d64d4569590f935007198dacad9824af643177\",\"confirmations\":1,\"height\":152,\"version\":536870912,\"versionHex\":"20000000",\"merkleroot\":\"0298acf415976238163cd82b9aab9826fb8fbfbbf438e55185a668d97bf721a8\",\"num_tx\":2,\"time\":1604409778,\"mediantime\":1604409777,\"nonce\":0,\"bits\":\"207fffff\",\"difficulty\":4.656542373906925E-10,\"chainwork\":\"0000000000000000000000000000000000000000000000000000000000000132\",\"previousblockhash\":\"62ae67b463764d045f4cbe54f1f7eb63ccf70d52647981ffdfde43ca4979a8ee\"},\"nodes\":[\"5b537f8fba7b4057971f7e904794c59913d9a9038e6900669d08c1cf0cc48133\"]}",
-  "apiVersion":"1.3.0",
-  "timestamp":"2020-11-03T13:22:42.1341243Z",
-  "minerId":"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
-  "blockHash":"0e9a2af27919b30a066383d512d64d4569590f935007198dacad9824af643177",
-  "blockHeight":152,
-  "callbackTxId":"acad8d40b3a17117026ace82ef56d269283753d310ddaeabe7b5d226e8dbe973",
-  "callbackReason":"merkleProof"
-}
-```
-
-TSC Merkle proof callback example:
-```json
-{
-   "callbackPayload": "{\"index\":1,\"txOrId\":\"e7b3eefab33072e62283255f193ef5d22f26bbcfc0a80688fe2cc5178a32dda6\",\"targetType\":\"header\",\"target\":\"00000020a552fb757cf80b7341063e108884504212da2f1e1ce2ad9ffc3c6163955a27274b53d185c6b216d9f4f8831af1249d7b4b8c8ab16096cb49dda5e5fbd59517c775ba8b60ffff7f2000000000\",\"nodes\":[\"30361d1b60b8ca43d5cec3efc0a0c166d777ada0543ace64c4034fa25d253909\",\"e7aa15058daf38236965670467ade59f96cfc6ec6b7b8bb05c9a7ed6926b884d\",\"dad635ff856c81bdba518f82d224c048efd9aae2a045ad9abc74f2b18cde4322\",\"6f806a80720b0603d2ad3b6dfecc3801f42a2ea402789d8e2a77a6826b50303a\"]}",
-   "apiVersion":"1.3.0",
-   "timestamp":"2021-04-30T08:06:13.4129624Z",
-   "minerId":"030d1fe5c1b560efe196ba40540ce9017c20daa9504c4c4cec6184fc702d9f274e",
-   "blockHash":"2ad8af91739e9dc41ea155a9ab4b14ab88fe2a0934f14420139867babf5953c4",
-   "blockHeight":105,
-   "callbackTxId":"e7b3eefab33072e62283255f193ef5d22f26bbcfc0a80688fe2cc5178a32dda6",
-   "callbackReason":"merkleProof"
-}
-```
-
-
-### Authorization/Authentication and Special Rates
-
-Merchant API providers would likely want to offer special or discounted rates to specific customers. To do this they would need to add an extra layer to enable authorization/authentication on public interface. Current implementation supports JSON Web Tokens (JWT) issued to specific users. The users can include that token in their HTTP header and as a result receive lower fee rates.
-
-If no token is used, and the call is done anonymously, then the default rate is supplied. If a JWT token (issued by merchant API or other identity provider) is used, then the caller will receive the corresponding fee rate. At the moment, for this version of the merchant API implementation, the token must be issued and sent to the customer manually.
-
-### Authorization/Authentication Example
+##### Special Policy Quote Example
 
 ```console
 $ curl -H "Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDIwLTEwLTE0VDExOjQ0OjA3LjEyOTAwOCswMTowMCIsIm5hbWUiOiJsb3cifQ.LV8kz02bwxZ21qgqCvmgWfbGZCtdSo9px47wQ3_6Zrk" localhost:5051/mapi/policyQuote
 ```
 
-### JWT Token Manager
-
-The reference implementation contains a token manager that can be used to generate and verify validity of the tokens. Token manager currently only supports symmetric encryption `HS256`.
-
-The following command line options can be specified when generating a token
-
-```console
-Options:
-  -n, --name <name> (REQUIRED)        Unique name of the subject token is being issued to
-  -d, --days <days> (REQUIRED)        Days the token will be valid for
-  -k, --key <key> (REQUIRED)          Secret shared use to sign the token. At lest 16 characters
-  -i, --issuer <issuer> (REQUIRED)    Unique issuer of the token (for example URI identifiably the miner)
-  -a, --audience <audience>           Audience tha this token should be used for [default: merchant_api]
-```
-
-For example, you can generate the token by running
-
-```console
-$ TokenManager generate -n specialuser -i http://mysite.com -k thisisadevelopmentkey -d 1000
-
-Token:{"alg":"HS256","typ":"JWT"}.{"sub":"specialuser","nbf":1599494789,"exp":1685894789,"iat":1599494789,"iss":"http://mysite.com","aud":"merchant_api"}
-Valid until UTC: 4. 06. 2023 16:06:29
-
-The following should be used as authorization header:
-Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzcGVjaWFsdXNlciIsIm5iZiI6MTU5OTQ5NDc4OSwiZXhwIjoxNjg1ODk0Nzg5LCJpYXQiOjE1OTk0OTQ3ODksImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoibWVyY2hhbnRfYXBpIn0.xbtwEKdbGv1AasXe_QYsmb5sURyrcr-812cX-Ps98Yk
+### 2. Get Fee Quote
 
 ```
-
-Now any `specialuser` using this token will be offered special fee rates when uploaded. The special fees needs to be uploaded through admin interface
-
-To validate a token, you can use `validate` command:
-
-```console
-$ TokenManager validate -k thisisadevelopmentkey -t eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzcGVjaWFsdXNlciIsIm5iZiI6MTU5OTQ5NDc4OSwiZXhwIjoxNjg1ODk0Nzg5LCJpYXQiOjE1OTk0OTQ3ODksImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoibWVyY2hhbnRfYXBpIn0.xbtwEKdbGv1AasXe_QYsmb5sURyrcr-812cX-Ps98Yk
-
-Token signature and time constraints are OK. Issuer and audience were not validated.
-
-Token:
-{"alg":"HS256","typ":"JWT"}.{"sub":"specialuser","nbf":1599494789,"exp":1685894789,"iat":1599494789,"iss":"http://mysite.com","aud":"merchant_api"}
+GET /mapi/feeQuote
 ```
 
-## Admin interface  
+Responds with a fee quotation. This is a subset of the policy quotation (above).
 
-Admin interface can be used to add, update or remove connections to this node. It is only accessible to authenticated users. Authentication is performed through `Api-Key` HTTP header. The provided value must match the one provided in configuration variable `RestAdminAPIKey`.
+### 3. Submit Transaction
+
+```
+POST /mapi/tx
+```
+
+#### Example JSON Request body
+
+The body may also be binary.
+
+```json
+{
+  "rawtx": "[transaction_hex_string]",
+  "callbackUrl": "https://your.service.callback/endpoint",
+  "callbackToken": "Authorization: <your_authorization_header>",
+  "merkleProof": true,
+  "merkleFormat": "TSC",
+  "dsCheck": true
+}
+```
+
+Users may either poll the status of the transactions they have submitted, or employ the callback mechanism.
+Double spend and Merkle proof notifications will be sent to the callbackURL if supplied. 
+Where recipients are using [SPV Channels](https://github.com/bitcoin-sv-specs/brfc-spvchannels), this requires the channel to be set up and ready to receive messages.
+
+#### Response Timeout
+
+There is a small possibility that no response will be forthcoming due to exceptional circumstances such as the Node being reset.
+
+Therefore the user may wish to keep a record of all transactions submitted, and if no response is obtained within an acceptable timescale (several seconds), the transaction may be resubmitted.
+
+#### Special Policy Quotes
+
+A JWT may be supplied as above, in order to authenticate the user and cause the associated special policy quote to be applied in computation of the Submit Transaction cost.
+
+### 4. Query Transaction Status
+
+```
+GET /mapi/tx/{hash:[0-9a-fA-F]+}
+```
+
+Responds with the status of the transaction.
+
+### 5. Submit Multiple Transactions
+
+```
+POST /mapi/txs
+```
+
+This is similar to Submit Transaction, but an array of transactions may be sent.
 
 
-### Managing policy quotes
+## Administrator Interface
+
+The Administrator Interface of the reference implementation manages policy quotes, nodes and special policy fee rates for the Public API.
+
+These services are only available to the administrator. Authentication is performed through the Api-Key HTTP header. The value provided must match the one stored in the configuration variable `RestAdminAPIKey`.
+
+
+### Managing Policy Quotes
+
+Policy Quotes may be specified for the unauthenticated users, or specific authenticated users.
 
 To create a new policy quote use the following:
 
@@ -292,82 +136,74 @@ To create a new policy quote use the following:
 POST api/v1/PolicyQuote
 ```
 
-or (deprecated) synonymous endpoint
-
-```
-POST api/v1/FeeQuote
-```
-
-Curl examples:
-
-- add policyQuote valid from 01/10/2020 for anonymous user:
+Example with curl - add a policyQuote valid from 01/10/2021 for unauthenticated (anonymous) users:
 
 ```console
-$ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/PolicyQuote -d "{ \"validFrom\": \"2020-10-01T12:00:00\", \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }] }"
+$ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/PolicyQuote -d "{ \"validFrom\": \"2021-10-01T12:00:00\", \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }], \"policies\": {\"skipscriptflags\": [\"MINIMALDATA\", \"DERSIG\", \"NULLDUMMY\",\"DISCOURAGE_UPGRADABLE_NOPS\", \"CLEANSTACK\"],\"maxtxsizepolicy\": 99999, \"datacarriersize\": 100000, \"maxscriptsizepolicy\": 100000, \"maxscriptnumlengthpolicy\": 100000, \"maxstackmemoryusagepolicy\": 10000000, \"limitancestorcount\": 1000, \"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, \"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, \"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, \"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 
 ```
 
-- add policyQuote valid from now with two policies: 
+    | Parameter | Description |
+    | ----------- | ----------- |
+    | `validFrom` | the timestamp from when the policy is valid. Only one policy should be valid for each identity (or the anonymous user) at any one time |
+    | `identity` | the identity of the user, or null for the anonymous user |
+    | `identityProvider` | the identity of the JWT authority, or null for the anonymous user |
+    | `fees` | fees charged by the miner (see [feeSpec BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/feespec)) |
+    | `callbacks` | IP addresses of DSNT servers (see [specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md)) such as this mAPI reference implementation |
+    | `policies` | values of miner policies as configured by the administrator (below) |
 
-```console
-$ curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/PolicyQuote -d "{ \"identity\": null, \"identityProvider\": null, \"fees\": [{ \"feeType\": \"standard\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }, { \"feeType\": \"data\", \"miningFee\" : { \"satoshis\": 100, \"bytes\": 200 }, \"relayFee\" : { \"satoshis\": 100, \"bytes\": 200 } }], \"policies\": {\"maxtxsizepolicy\": 100000, \"skipscriptflags\": [\"CLEANSTACK\"]} }"
-```
-
-To get list of all policy quotes, matching one or more criteria, use the following
+To get a list of all policy quotes matching one or more criteria, use the following:
 
 ```
 GET api/v1/PolicyQuote
 ```
 
-or
+You can filter fee quotes by providing additional optional criteria in the query string:
+
+* `identity` - returns only fee quotes for users that authenticate with a JWT token that was issued to the specified `identity`
+* `identityProvider` - returns only fee quotes for users that authenticate with a JWT token that was issued by the specified token authority
+* `anonymous` - specify `true` to return only fee quotes for anonymous (unauthenticated) users
+* `current` - specify `true` to return only fee quotes that are currently valid
+* `valid` - specify `true` to return only fee quotes that are valid within QUOTE_EXPIRY_MINUTES (configured in the .env file)
+
+To get a list of all policy quotes (including expired ones) for all users use GET api/v1/PolicyQuote without filters.
+
+
+To get a specific policy quote by `identity` use:
 
 ```
-GET api/v1/FeeQuote
+GET api/v1/PolicyQuote/{identity}
 ```
 
-You can filter policy quotes by providing additional optional criteria in query string:
+Note: it is not possible to delete or update a policy quote once it is published, but it can be made obsolete by publishing a new policy quote.
 
-* `identity` - return only policy quotes for users that authenticate with a JWT token that was issued to specified identity
-* `identityProvider` - return only policy quotes for users that authenticate with a JWT token that was issued by specified token authority
-* `anonymous` - specify  `true` to return only policy quotes for anonymous user.
-* `current` - specify  `true` to return only policy quotes that are currently valid.
-* `valid` - specify  `true` to return only policy quotes that are valid in interval with QuoteExpiryMinutes
+### Managing Nodes
 
-To get list of all policy quotes (including expired ones) for all users use GET api/v1/PolicyQuote without filters.
+The reference implementation can communicate with one or more instances of bitcoind nodes.
 
+Each node that is being added to the Merchant API must have zmq notifications enabled (***pubhashblock, pubinvalidtx, pubdiscardedfrommempool***) as well as `invalidtxsink` set to `ZMQ`. When enabling zmq notifications on the node, ensure that the URI that will be used for zmq notification is accessible from the host where the MerchantAPI will be running (*WARNING: localhost (127.0.0.1) should only be used if bitcoin node and Merchant API are running on same host*)
 
-To get a specific policy quote by id use:
-
-```
-GET api/v1/PolicyQuote/{id}
-```
-
-or 
-
-```
-GET api/v1/FeeQuote/{id}
-```
-
-Note: it is not possible to delete or update a policy quote once it is published, but you can make it obsolete by publishing a new policy quote.
-
-
-### Managing nodes
-
-The reference implementation can talk to one or more instances of bitcoind nodes.
-
-Each node that is being added to the Merchant API has to have zmq notifications enabled (***pubhashblock, pubinvalidtx, pubdiscardedfrommempool***) as well as `invalidtxsink` set to `ZMQ`. When enabling zmq notifications on node, care should be taken that the URI that will be used for zmq notification is accessible from the host where the MerchantAPI will be running (*WARNING: localhost (127.0.0.1) should only be used if bitcoin node and MerchantAPI are running on same host*)
-
-
-To create new connection to a new  bitcoind instance use:
+#### Add Node Connection
+To create a new connection to a bitcoind instance use:
 
 ```
 POST api/v1/Node
 ```
 
-Add node with curl:
+For example, to add a node with curl:
 
 ```console
-curl -H "Api-Key: [RestAdminAPIKey]" -H "Content-Type: application/json" -X POST https://localhost:5051/api/v1/Node -d "{ \"id\" : \"[host:port]\", \"username\": \"[username]\", \"password\": \"[password]\", \"remarks\":\"[remarks]\" }"
+curl -H "Api-Key: [RestAdminAPIKey]" \
+     -H "Content-Type: application/json" \
+     -X POST https://localhost:5051/api/v1/Node \
+     -d "{ \"id\" : \"[host:port]\", \
+           \"username\": \"[username]\", \
+           \"password\": \"[password]\", \
+           \"remarks\": \"[remarks]\", \
+           \"zmqNotificationsEndpoint\": \"tcp://a.b.c.d:port\" \
+        }"
 ```
+
+#### Update Node Connection
 
 To update parameters for an existing bitcoind instance use:
 
@@ -375,82 +211,133 @@ To update parameters for an existing bitcoind instance use:
 PUT api/v1/Node/{nodeId}
 ```
 
-To update node's password created with curl before use `Content-Type: application/json` and authorization `Api-Key: [RestAdminAPIKey]` with the following JSON request body:
+To update a node's fields created with curl, use the authorization `Api-Key: [RestAdminAPIKey]` and `Content-Type: application/json` with the following JSON request body:
 
 ```json
 {
-    "id": "[host:port]",
-    "username": "[username]",
-    "password": "[newPassword]",
-    "remarks": "[remarks]"
+  "id": "[host:port]",
+  "username": "[username]",
+  "password": "[newPassword]",
+  "remarks": "[remarks]",
+  "zmqNotificationsEndpoint": "[zmqNotificationsEndpoint]"
 }
 ```
 
-To remove connection to an existing bitcoind instance use:
+#### Remove Node Connection
 
-```bash
+To remove a connection to an existing bitcoind instance, use:
+
+```
 DELETE api/v1/Node/{nodeId}
 ```
 
-To get a list of parameters for a specific node use:
+#### View Node Connection
 
-```bash
+To get the list of parameters for a specific node, use:
+
+```
 GET api/v1/Node/{nodeId}
 ```
 
-To get a list of parameters for all nodes use:
+#### View All Node Connections
 
-```bash
+To get the list of parameters for all nodes, use:
+
+```
 GET api/v1/Node
 ```
 
-NOTE: when returning connection parameters, password is not return for security reasons.
+NOTE: When returning connection parameters, the password is not returned for security reasons.
 
-### Status check
+### View ZMQ Status
 
-To check status of ZMQ subscriptions use:
+To check the status of ZMQ subscriptions use:
 
 ```
 GET api/v1/status/zmq
 ```
 
-## How callbacks are being processed
+## JWT Manager
 
-For each transaction that is submitted to mAPI it can be set if the submitter should receive a notification of a double spend or merkle proof via callback URL. mAPI processes all requested notifications and sends them out as described below:
+The reference implementation contains a JWT Manager that can be used to generate and verify validity of the JWTs. The JWT Manager supports symmetric encryption `HS256`.
+
+JWTs may be supplied by the administrator to users, who can then supply them when they invoke the public interface REST API calls.
+
+The JWT authenticates the user and ensures that a special policy quote is applied.
+
+The following command line options can be specified when generating a JWT:
+
+```console
+Options:
+  -n, --name <name> (REQUIRED)        Unique name of the subject that the token is being issued to
+  -d, --days <days> (REQUIRED)        Days the token will be valid for
+  -k, --key <key> (REQUIRED)          Shared secret used to sign the token (at least 16 characters)
+  -i, --issuer <issuer> (REQUIRED)    Unique issuer of the token (for example the URI identifying the miner)
+  -a, --audience <audience>           Intended audience for this JWT [default: merchant_api]
+```
+
+For example, generate the JWT by running this command:
+
+```console
+$ TokenManager generate -n specialuser -i http://mysite.com -k thisisadevelopmentkey -d 1000
+
+Token:{"alg":"HS256","typ":"JWT"}.{"sub":"specialuser","nbf":1599494789,"exp":1685894789,"iat":1599494789,"iss":"http://mysite.com","aud":"merchant_api"}
+Valid until UTC: 4. 06. 2023 16:06:29
+
+The following should be used as the authorization header:
+Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzcGVjaWFsdXNlciIsIm5iZiI6MTU5OTQ5NDc4OSwiZXhwIjoxNjg1ODk0Nzg5LCJpYXQiOjE1OTk0OTQ3ODksImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoibWVyY2hhbnRfYXBpIn0.xbtwEKdbGv1AasXe_QYsmb5sURyrcr-812cX-Ps98Yk
+
+```
+
+Any authenticated user supplying this JWT will have a special policy quote applied. The special policy quote needs to be configured via the administrator interface as described above.
+
+To validate a JWT, use the `validate` command:
+
+```console
+$ TokenManager validate -k thisisadevelopmentkey -t eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzcGVjaWFsdXNlciIsIm5iZiI6MTU5OTQ5NDc4OSwiZXhwIjoxNjg1ODk0Nzg5LCJpYXQiOjE1OTk0OTQ3ODksImlzcyI6Imh0dHA6Ly9teXNpdGUuY29tIiwiYXVkIjoibWVyY2hhbnRfYXBpIn0.xbtwEKdbGv1AasXe_QYsmb5sURyrcr-812cX-Ps98Yk
+
+Token signature and time constraints are validated. Issuer and audience are not validated.
+
+Token:
+{"alg":"HS256","typ":"JWT"}.{"sub":"specialuser","nbf":1599494789,"exp":1685894789,"iat":1599494789,"iss":"http://mysite.com","aud":"merchant_api"}
+```
+
+## How Submit Transaction Callbacks are Processed
+
+For each transaction that is submitted to mAPI it is possible for the submitter to include a DSNT output in the transaction according to the [DSNT specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md).
+The submitter may later receive a notification of a double spend or merkle proof via a callback URL that they included with the submit transaction request.
+mAPI processes all requested notifications and sends them out as described below:
 
 * all notifications are sent out in batches
-* each batch contains a limited number of notifications for single host (configurable with `NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH`)
-* response time for each host is tracked and two separate pools of tasks are used for delivering instant notifications: One pool for fast hosts and second pool for slow hosts. (threshold for slow/fast pools can be configured with `NOTIFICATION_SLOW_HOST_THRESHOLD_MS`)
-* when an event is received from the node an attempt is made to insert notification it into queue for instant delivery
-* if a callback fails or if instant delivery queues are full, the notifications is scheduled for delivery in background.
-* background delivery queue is used for periodically processing failed notifications. Single task is used for background delivery
+* each batch contains a limited number of notifications for a single host (configurable with `NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH`)
+* the response time for each host is tracked and two separate pools of tasks are used for delivering notifications: One pool for fast hosts and a second pool for slow hosts. (The threshold for slow/fast hosts can be configured with `NOTIFICATION_SLOW_HOST_THRESHOLD_MS`)
+* when an event is received from the node, an attempt is made to insert a notification into the queue for instant delivery
+* if a callback fails or if the instant delivery queue is full, the notification is scheduled for delivery in the background
+* a background delivery queue is used for periodically processing failed notifications. A single task is used for background delivery
 
-## Build and deploy
+## Download and deploy
 
-### Building docker images
+### Download docker images
 
-Build docker images for **MerchantAPI App & Data**  running this commands in folder `/src/Deploy/APIGateway`
+Download docker images from [here](https://hub.docker.com/r/bitcoinsv/mapi).
 
-```bash
-On Linux: ./build.sh
-On Windows: build.bat
-```
+Or see below for building an image from this source kit.
 
 ### Deploying docker images
   
-1. Create `config` folder and save SSL server certificate file (*<certificate_file_name>.pfx*) into to the `config` folder. This server certificate is required to setup TLS (SSL).
-2. Copy .crt files with the root and intermediate CA certificates that issued SSL server certificates which are used by callback endpoint. Each certificate must be exported as a **Base-64 encoded X.509** file with a crt extension type. This step is required if callback endpoint uses SSL server certificate issued by untrusted CA (such as self signed certificate).
-3. Create and copy **providers.json** file into config folder. Sample provider.json :
+1. Create a `config` folder and save the SSL server certificate file (*<certificate_file_name>.pfx*) into the `config` folder. This server certificate is required to set up TLS (SSL).
+2. Copy the .crt files with the root and intermediate CA certificates that issued the SSL server certificates which are used by the callback endpoint. Each certificate must be exported as a **Base-64 encoded X.509** file with a .crt extension type. This step is required if the callback endpoint uses SSL server certificates issued by an untrusted CA (such as a self signed certificate).
+3. Create and copy the **providers.json** file into the config folder. A sample provider.json file is shown below:
 
     ```JSON
     {
       "IdentityProviders": {
         "Providers": [
           {
-          "Issuer": "http://mysite.com",
-          "Audience": "http://myaudience.com",
-          "Algorithm": "HS256",
-          "SymmetricSecurityKey": "thisisadevelopmentkey"
+            "Issuer": "http://mysite.com",
+            "Audience": "http://myaudience.com",
+            "Algorithm": "HS256",
+            "SymmetricSecurityKey": "thisisadevelopmentkey"
           }
         ]
       }
@@ -461,71 +348,94 @@ On Windows: build.bat
     | ----------- | ----------- |
     | Issuer | Token issuer |
     | Audience | Token audience |
-    | Algorithm | (optional) Signing algorithm allowed for token (if not set **HS256** will be used) |
-    | SymmetricSecurityKey | Symmetric security key that token should be signed with |
+    | Algorithm | (optional) Signing algorithm allowed for the token (if not set, **HS256** will be used) |
+    | SymmetricSecurityKey | Symmetric security key that the token should be signed with |
 
-4. Populate all environment variables in `.env` file in target folder:
+4. Populate all environment variables in the `.env` file in the target folder:
 
     | Parameter | Description |
     | ----------- | ----------- |
+    | CALLBACK_IP_ADDRESSES | An array of DSNT server IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote |
     | HTTPSPORT | Https port where the application will listen/run |
-    | CERTIFICATEPASSWORD | the password of the *.pfx file in the config folder |
+    | CERTIFICATEPASSWORD | password of the *.pfx file in the config folder |
     | CERTIFICATEFILENAME | *<certificate_file_name.pfx>* |
-    | QUOTE_EXPIRY_MINUTES | Specify policy quote expiry time. Default: 10 |
-    | CALLBACK_IP_ADDRESSES | An array of IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote |
-    | ZMQ_CONNECTION_TEST_INTERVAL_SEC | How often does ZMQ subscription service test that the connection with node is still alive. Default: 60 seconds |
+    | QUOTE_EXPIRY_MINUTES | policy quote expiry period |
+    | ZMQ_CONNECTION_TEST_INTERVAL_SEC | How frequently the ZMQ subscription service tests that the connection with the node is still alive. Default: 60 seconds |
     | RESTADMIN_APIKEY | Authorization key for accessing administration interface |
     | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK | Number of old blocks that are checked for double spends |
-    | CLEAN_UP_TX_AFTER_DAYS | Number of days transactions and blocks are kept in database. Default: 3 days |
+    | CLEAN_UP_TX_AFTER_DAYS | Number of days transactions and blocks are kept in the database. Default: 3 days |
     | CLEAN_UP_TX_PERIOD_SEC | Time period of transactions cleanup check. Default: 1 hour |
     | CHECK_FEE_DISABLED | Disable fee check |
-    | WIF_PRIVATEKEY | Private key that is used to sign responses with (must be omitted if minerid settings are specified, and vice versa) |
-    | DS_HOST_BAN_TIME_SEC | Ban duration for hosts that didn't behave |
-    | DS_MAX_NUM_OF_TX_QUERIES | Maximum number of queries for the same transaction id before a host will be banned |
-    | DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC | Duration how long will the same transaction id query count per host be stored before it's reset to 0 |
-    | DS_MAX_NUM_OF_UNKNOWN_QUERIES | Maximum number of queries for unknown transaction id before a host will be banned |
-    | DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC | Duration how long will the count for queries of unknown transactions be stored before it's reset to 0 |
+    | WIF_PRIVATEKEY | Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa) |
+    | DS_HOST_BAN_TIME_SEC | See Banning Persistent Hosts below |
+    | DS_MAX_NUM_OF_TX_QUERIES | See Banning Persistent Hosts below |
+    | DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC | See Banning Persistent Hosts below |
+    | DS_MAX_NUM_OF_UNKNOWN_QUERIES | Maximum number of queries for unknown transaction ids allowed before a host will become banned |
+    | DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC | How long unknown transactions queries will be stored, before being discarded |
     | DS_SCRIPT_VALIDATION_TIMEOUT_SEC | Total time for script validation when nodes RPC method verifyScript will be called |
-    | ENABLEHTTP | Enables requests through HTTP when set to True. This should only be used for testing and must be set to False in production environment. |
-    | DONT_PARSE_BLOCKS | Disable storing of block data into mAPI DB (notifications are disabled). If block parsing is disabled all tx requiring merkleproof or DS notificiations will be rejected |
-    | DONT_INSERT_TRANSACTIONS | Disable transaction inserting into mAPI DB (notifications are disabled). If transaction inserting is disabled all tx requiring merkleproof or DS notificiations will be rejected |
-    | HTTPPORT | Http port where the application will listen/run (if not set, then port 80 is used by defaulte) |
-    | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when background service will retry to send notifications with error |
+    | ENABLEHTTP | Enables requests through HTTP when set to True. This should only be used for testing and must be set to False in the production environment in order to maintain security. |
+    | HTTPPORT | HTTP port where the application will listen/run. Default: port 80 |
+    | NOTIFICATION_NOTIFICATION_INTERVAL_SEC | Period when the background service will retry sending notifications with an error |
     | NOTIFICATION_INSTANT_NOTIFICATION_TASKS | Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100) |
-    | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE | Maximum number of notifications waiting in instant queue before new notifications will be scheduled for slow background delivery |
-    | NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH | Maximum number of notifications per host being processed by delivery task at once |
-    | NOTIFICATION_SLOW_HOST_THRESHOLD_MS | Callback response time threshold that determines which host is deemed slow/fast |
+    | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE | Maximum number of notifications waiting in the instant queue before any new notifications will be scheduled for (slower) background delivery |
+    | NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH | Maximum number of notifications per host being processed by the delivery task at any one time |
+    | NOTIFICATION_SLOW_HOST_THRESHOLD_MS | Callback response time threshold that determines which host is deemed slow or fast |
     | NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE | Percent of notification tasks from NOTIFICATION_INSTANT_NOTIFICATION_TASKS that will be reserved for slow hosts |
-    | NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES | Maximum number of callback response times saved for each host. Used for calculating average response time for a host |
-    | NOTIFICATION_NOTIFICATIONS_RETRY_COUNT | Number of retries for failed notifications, before quiting with retries |
+    | NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES | Maximum number of callback response times saved for each host. Used for calculating the average response time for a host |
+    | NOTIFICATION_NOTIFICATIONS_RETRY_COUNT | Number of retries for failed notifications, before abandoning retries |
     | NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS | Callback response timeout for slow host |
     | NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS | Callback response timeout for fast host |
     | MINERID_SERVER_URL | URL pointing to MinerID REST endpoint |
-    | MINERID_SERVER_ALIAS | Alias be used when communicating with the endpoint |
-    | MINERID_SERVER_AUTHENTICATION | HTTP authentication header that will be used to when communicating with the endpoint, this should include the `Bearer` keyword, example `Bearer 2b4a73f333b0aa1a1dfb5ea023d206c8454b3a1d416285d421d78e2efe183df9` |
+    | MINERID_SERVER_ALIAS | Alias to be used when communicating with the endpoint |
+    | MINERID_SERVER_AUTHENTICATION | HTTP authentication header that will be used when communicating with the endpoint, this should include the `Bearer` keyword, for example `Bearer 2b4a73....183df9` |
 
-5. Run this command in target folder to start mAPI application:
+#### Banning Persistent Hosts
+
+DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC is how long the count of requests (queries or submits) for the same transaction id per host is accumulated, before being reset to 0.
+If the request count for the same transaction Id exceeds DS_MAX_NUM_OF_TX_QUERIES during this period, the host will be banned and removed from the whitelist. The host will have to desist from sending requests for the same transaction id for at least the cool-down period DS_HOST_BAN_TIME_SEC, before it will become acceptable (un-banned) and can successfully try again.
+
+5. Run this command in the target folder to start the mAPI application:
 
     ```bash
     docker-compose up -d
     ```
 
-The docker images are automatically pulled from Docker Hub. Database updates are triggered upon application start or when tests are run.
+The docker images are automatically pulled from the Docker Hub. Database updates are triggered when the application starts or when tests are run.
 
-# Setting up a development environment
+# Development
 
-For development, you will need the following
+## Development environment
 
-1. [.NET core SDK 5.0](https://dotnet.microsoft.com/download/dotnet/5.0) installed in your environment.
-2. and instance of PostgreSQL database. You can download it from [here](https://www.postgresql.org/download/) or use a [Docker image](https://hub.docker.com/_/postgres).
-3. access to instance of running [BSV node](https://github.com/bitcoin-sv/bitcoin-sv/releases) with RPC interface and ZMQ notifications enabled
+For development, the following will be needed:
+
+1. [.NET 5.0](https://dotnet.microsoft.com/download/dotnet/5.0) installed in your environment
+2. an instance of PostgreSQL database. Download it from [here](https://www.postgresql.org/download/) or use a [Docker image](https://hub.docker.com/_/postgres)
+3. access to an instance of a running [BSV node](https://github.com/bitcoin-sv/bitcoin-sv/releases) with both RPC interface and ZMQ notifications enabled
+
+## Building docker images
+
+To run the build script you must have git and docker installed. Get the source code with the git clone command. Build docker images for **MerchantAPI App** by running this command in the folder `/src/Deploy/`:
+
+```console
+On Linux: ./build.sh
+On Windows: build.bat
+```
+Upon a successful build, a new subfolder `/src/Deploy/Build` is created, where the `.env` and `docker-compose.yml` files will be found. The `.env` file must be edited to enable deployment, as described above.
+
+## Set up
 
 Perform the following set up steps:
 
-1. Update `DBConnectionString`(connection string used by mAPI), `DBConnectionStringDDL`(same as DBConnectionString, but with user that is owner of the database - it is used to upgrade database) and `DBConnectionStringMaster` (same as DBConnectionString, but with user that has admin privileges - it is used to create database) setting in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they point to your PostgreSQL server
-2. Update `BitcoindFullPath` in `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that it points to bitcoind executable used during functional tests
-3. Run scripts from `src/crea/merchantapi2/src/MerchantAPI/APIGateway.Database/APIGateway/Database/scripts` to create database.
+1. Update `DBConnectionString` (the connection string used by mAPI), `DBConnectionStringDDL` (the same as DBConnectionString, but with a user that is the owner of the database - it is used to upgrade the database) and `DBConnectionStringMaster` (the same as DBConnectionString, but with a user that has admin privileges - it is used to create the database) settings in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they point to your PostgreSQL server
+2. Update `BitcoindFullPath` in `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that it points to the bitcoind executable used during functional tests
+3. Run scripts from `src/MerchantAPI/APIGateway.Database/APIGateway/Database/scripts` to create a database
 
+## Load docker images
+
+Issue this command in the `/src/Deploy/Build` folder:
+```console
+docker load -i merchantapiapp.tar
+```
 
 ## Run
 
@@ -545,19 +455,18 @@ dotnet test
 
 ## Configuration
 
-Following table lists all configuration settings with mappings to environment variables. For description of each setting see `Populate all environment variables` under **Deploying docker images**
+The following table lists all the configuration settings with mappings to the environment variables. For a description of each setting see `Populate all environment variables` above.
 
   | Application Setting | Environment variable |
   | ------------------- | -------------------- |
   | QuoteExpiryMinutes | QUOTE_EXPIRY_MINUTES |
-  | CallbackIPAddresses | CALLBACK_IP_ADDRESSES |
   | RestAdminAPIKey | RESTADMIN_APIKEY |
   | DeltaBlockHeightForDoubleSpendCheck | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK |
   | CleanUpTxAfterDays| CLEAN_UP_TX_AFTER_DAYS |
   | CleanUpTxPeriodSec| CLEAN_UP_TX_PERIOD_SEC |
   | WifPrivateKey | WIF_PRIVATEKEY |
   | ZmqConnectionTestIntervalSec | ZMQ_CONNECTION_TEST_INTERVAL_SEC |
-  | **Notification region**|
+  | **Notification section**|
   | NotificationIntervalSec | NOTIFICATION_NOTIFICATION_INTERVAL_SEC |
   | InstantNotificationsTasks | NOTIFICATION_INSTANT_NOTIFICATION_TASKS |
   | InstantNotificationsQueueSize | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE |
@@ -568,49 +477,49 @@ Following table lists all configuration settings with mappings to environment va
   | NotificationsRetryCount | NOTIFICATION_NOTIFICATIONS_RETRY_COUNT |
   | SlowHostResponseTimeoutMS | NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS |
   | FastHostResponseTimeoutMS | NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS |
-  | **MinerIdServer region** |
+  | **MinerIdServer section** |
   | Url | MINERID_SERVER_URL |
   | Alias | MINERID_SERVER_ALIAS |
   | Authentication | MINERID_SERVER_AUTHENTICATION |
 
-
-Following table lists additional configuration settings:
+The following table lists additional configuration settings:
 
   | Setting | Description |
   | ------- | ----------- |
-  | **ConnectionStrings** region |
+  | **ConnectionStrings section** |
   | DBConnectionString | connection string for CRUD access to PostgreSQL database |
-  | DBConnectionStringDDL | is same as DBConnectionString, but with user that is owner of the database |
-  | DBConnectionStringMaster | is same as DBConnectionString, but with user that has admin privileges (usually postgres) |
+  | DBConnectionStringDDL | is the same as DBConnectionString, but with a user that is owner of the database |
+  | DBConnectionStringMaster | is the same as DBConnectionString, but with a user that has admin privileges (usually postgres) |
 
 ## Configuration with standalone database server
 
-mAPI can be configured to use standalone Postgres database instead of mapi-db Docker container by updating connection strings in docker-compose.yml
+mAPI can be configured to use a standalone Postgres database instead of mapi-db Docker container by updating the following connection strings in docker-compose.yml:
 
   | Setting | Description |
   | ------- | ----------- |
-  | ConnectionStrings:DBConnectionString | connection string with user that has mapi_crud role granted |
-  | ConnectionStrings:DBConnectionStringDDL | connection string with user that has DDL privileges |
+  | ConnectionStrings:DBConnectionString | connection string to a user that has mapi_crud role granted |
+  | ConnectionStrings:DBConnectionStringDDL | connection string to a user that has DDL privileges |
 
-Additional requirements is existence of mapi_crud role.
+An additional requirement is the existence of a mapi_crud role.
 
-### Example
+## Example
 
-To execute commands from this example connect to database created for mAPI with admin priveleges. 
+To execute commands from this example, connect to the database created for mAPI with admin privileges. 
 
-In this example we create mapi_crud role and two user roles. One user role (myddluser) has DDL priveleges and the other (mycruduser) has CRUD priveleges.
+In this example we will create the mapi_crud role and two user roles. One user role (myddluser) has DDL priveleges and the other (mycruduser), has CRUD privileges.
 
-1. Create pa_crud role:
+1. Create pa_crud role
 ```
-	  CREATE ROLE "mapi_crud" WITH
-	    NOLOGIN
-	    NOSUPERUSER
-	    INHERIT
-	    NOCREATEDB
-	    NOCREATEROLE
-	    NOREPLICATION;
+  CREATE ROLE "mapi_crud" WITH
+    NOLOGIN
+    NOSUPERUSER
+    INHERIT
+    NOCREATEDB
+    NOCREATEROLE
+    NOREPLICATION;
 ```
-2. Create DDL user and make it owner of public schema
+
+2. Create a DDL user and make it the owner of the public schema
 ```
   CREATE ROLE myddluser LOGIN
     PASSWORD 'mypassword'
@@ -626,5 +535,5 @@ In this example we create mapi_crud role and two user roles. One user role (mydd
     NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
 
   GRANT mapi_crud TO mycruduser;
-
 ```
+
