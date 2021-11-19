@@ -182,15 +182,14 @@ $ curl -H "Api-Key: [RestAdminAPIKey]" \
 ```
 
 The parameters above are:
-
     | Parameter | Description |
     | ----------- | ----------- |
-    | `validFrom` | the timestamp from when the policy is valid. Only one policy should be valid for each identity (or the anonymous user) at any one time |
-    | `identity` | the identity of the user, or null for the anonymous user |
-    | `identityProvider` | the identity of the JWT authority, or null for the anonymous user |
-    | `fees` | fees charged by the miner (see [feeSpec BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/feespec)) |
-    | `callbacks` | IP addresses of DSNT servers (see [specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md)) such as this mAPI reference implementation |
-    | `policies` | values of miner policies as configured by the administrator (below) |
+    | validFrom | the timestamp from when the policy is valid. Only one policy should be valid for each identity (or the anonymous user) at any one time |
+    | identity | the identity of the user, or null for the anonymous user |
+    | identityProvider | the identity of the JWT authority, or null for the anonymous user |
+    | fees | fees charged by the miner (see [feeSpec BRFC](https://github.com/bitcoin-sv-specs/brfc-misc/tree/master/feespec)) |
+    | callbacks | IP addresses of DSNT servers (see [specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md)) such as this mAPI reference implementation |
+    | policies | values of miner policies as configured by the administrator (below) |
 
 To get a list of all policy quotes matching one or more criteria, use the following:
 
