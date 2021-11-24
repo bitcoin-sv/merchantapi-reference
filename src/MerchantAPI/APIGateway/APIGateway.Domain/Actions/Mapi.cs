@@ -577,6 +577,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
         string txIdString = txId.ToString();
+        logger.LogInformation($"Processing transaction: { txIdString }");
 
         if (oneTx.MerkleProof && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
         {
@@ -752,7 +753,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
       }
 
-      logger.LogInformation($"TransactionsToSubmit: { transactionsToSubmit.Count }");
+      logger.LogInformation($"TransactionsToSubmit: { transactionsToSubmit.Count }: { string.Join("; ", transactionsToSubmit.Select(x => x.transactionId))} ");
 
       RpcSendTransactions rpcResponse;
 
@@ -820,7 +821,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         if (!appSettings.DontInsertTransactions.Value)
         {
           var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
-          logger.LogInformation($"Starting with InsertTxsAsync: { successfullTxs.Count() } (TransactionsToSubmit: { transactionsToSubmit.Count })");
+          logger.LogInformation($"Starting with InsertTxsAsync: { successfullTxs.Count() }: { string.Join("; ", successfullTxs.Select(x => x.transactionId))} (TransactionsToSubmit: { transactionsToSubmit.Count })");
           var watch = System.Diagnostics.Stopwatch.StartNew();
           await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
           {
