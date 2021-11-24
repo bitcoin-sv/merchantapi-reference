@@ -28,7 +28,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public long MaxConsolidationInputScriptSize { get; set; }
 
-    public long MinConfConsolidationInput { get; set; } // deprecated MinConsolidationInputMaturity
+    public long MinConfConsolidationInput { get; set; }
 
     public bool AcceptNonStdConsolidationInput { get; set; }
 

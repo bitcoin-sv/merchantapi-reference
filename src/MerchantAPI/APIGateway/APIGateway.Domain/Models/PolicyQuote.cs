@@ -30,6 +30,14 @@ namespace MerchantAPI.APIGateway.Domain.Models
     [JsonPropertyName("fees")]
     public Fee[] Fees { get; set; }
 
+    class ConsolidationPolicies
+    {
+      public const string MinConsolidationFactor = "minconsolidationfactor";
+      public const string MaxConsolidationInputScriptSize = "maxconsolidationinputscriptsize";
+      public const string MinConfConsolidationInput = "minconfconsolidationinput";
+      public const string AcceptNonStdConsolidationInput = "acceptnonstdconsolidationinput";
+    }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
       if (CreatedAt > ValidFrom)
@@ -70,20 +78,30 @@ namespace MerchantAPI.APIGateway.Domain.Models
           }
         }
       }
-
     }
+
+    private T GetPolicyValue<T>(string policyName, T defaultValue)
+    {
+      if (PoliciesDict?.ContainsKey(policyName) == true)
+      {
+        var jsonElement = (JsonElement)PoliciesDict[policyName];
+        var v = JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
+        return v;
+      }
+      return defaultValue;
+    }
+
 
     public ConsolidationTxParameters GetMergedConsolidationTxParameters(ConsolidationTxParameters consolidationTxParameters)
     {
       return new ConsolidationTxParameters
       {
         Version = consolidationTxParameters.Version,
-        MinConsolidationFactor = PoliciesDict?.ContainsKey("minconsolidationfactor") == true ? ((JsonElement)PoliciesDict["minconsolidationfactor"]).GetInt64() : consolidationTxParameters.MinConsolidationFactor,
-        MaxConsolidationInputScriptSize = PoliciesDict?.ContainsKey("maxconsolidationinputscriptsize") == true ? ((JsonElement)PoliciesDict["maxconsolidationinputscriptsize"]).GetInt64() : consolidationTxParameters.MaxConsolidationInputScriptSize,
-        MinConfConsolidationInput = PoliciesDict?.ContainsKey("minconfconsolidationinput") == true ? ((JsonElement)PoliciesDict["minconfconsolidationinput"]).GetInt64() : consolidationTxParameters.MinConfConsolidationInput,
-        AcceptNonStdConsolidationInput = PoliciesDict?.ContainsKey("acceptnonstdconsolidationinput") == true ? ((JsonElement)PoliciesDict["acceptnonstdconsolidationinput"]).GetBoolean() : consolidationTxParameters.AcceptNonStdConsolidationInput
+        MinConsolidationFactor = GetPolicyValue(ConsolidationPolicies.MinConsolidationFactor, consolidationTxParameters.MinConsolidationFactor),
+        MaxConsolidationInputScriptSize = GetPolicyValue(ConsolidationPolicies.MaxConsolidationInputScriptSize, consolidationTxParameters.MaxConsolidationInputScriptSize),
+        MinConfConsolidationInput = GetPolicyValue(ConsolidationPolicies.MinConfConsolidationInput, consolidationTxParameters.MinConfConsolidationInput),
+        AcceptNonStdConsolidationInput = GetPolicyValue(ConsolidationPolicies.AcceptNonStdConsolidationInput, consolidationTxParameters.AcceptNonStdConsolidationInput)
       };
     }
-
   }
 }
