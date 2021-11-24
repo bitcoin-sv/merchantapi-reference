@@ -3,29 +3,22 @@
 
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.ViewModels;
-using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
 using System;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
 using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo1")]
   [TestClass]
-  public class ConsolidationTxTest : TestBaseWithBitcoind
+  public class ConsolidationTxTest : MapiWithBitcoindTestBase
   {
 
-    ConsolidationTxParameters consolidationParameters;
+    protected ConsolidationTxParameters consolidationParameters;
 
     [TestInitialize]
     public override void TestInitialize()
@@ -48,8 +41,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.TestCleanup();
     }
 
+    protected enum ConsolidationReason
+    {
+     None,
+     InputMaturity,
+     InputScriptSize,
+     RatioInOutCount,
+     RatioInOutScriptSize
+    }
 
-    async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(string reason = "")
+    protected async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(ConsolidationReason reason = ConsolidationReason.None)
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx = BCash.Instance.Regtest.CreateTransaction();
@@ -57,16 +58,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       int inCount = 0;
       var OP_NOP_string = "61";
       var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-      int noBlocks = (int)consolidationParameters.MinConsolidationInputMaturity - 1;
+      int noBlocks = (int)consolidationParameters.MinConfConsolidationInput - 1;
 
-      if (reason == "inputMaturity")
+      if (reason == ConsolidationReason.InputMaturity)
       {
         noBlocks--;
       }
 
       await rpcClient0.GenerateAsync(noBlocks);
 
-      if (reason == "inputScriptSize")
+      if (reason == ConsolidationReason.InputScriptSize)
       {
         Coin coin = availableCoins.Dequeue();
         tx.Inputs.Add(new TxIn(coin.Outpoint));
@@ -89,12 +90,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
         value += coin.Amount;
         inCount++;
 
-        if (reason == "ratioInOutCount" && inCount == consolidationParameters.MinConsolidationFactor - 1)
+        if (reason == ConsolidationReason.RatioInOutCount && inCount == consolidationParameters.MinConsolidationFactor - 1)
         {
           break;
         }
       }
-      if (reason == "ratioInOutScriptSize")
+      if (reason == ConsolidationReason.RatioInOutScriptSize)
       {
         string coinPubKey = availableCoins.ElementAt(0).ScriptPubKey.ToHex();
         tx.Outputs.Add(value, Script.FromHex(OP_NOP_string + coinPubKey));
@@ -110,27 +111,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return (tx.ToHex(), tx, prevOuts);
     }
 
-
-    async Task<SubmitTransactionResponseViewModel> SubmitTransaction(string txHex)
-    {
-      // Send transaction
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-    }
-
     [TestMethod]
-    public async Task SubmitTransactionValid()
+    public virtual async Task SubmitTransactionValid()
     {
       var (txHex, tx, prevOuts) = await CreateNewConsolidationTx();
 
       Assert.IsTrue(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      var payload = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("success", payload.ReturnResult);
 
@@ -141,51 +129,51 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task SubmitTransactionRatioInOutCount()
+    public virtual async Task SubmitTransactionRatioInOutCount()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("ratioInOutCount");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.RatioInOutCount);
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      var payload = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("failure", payload.ReturnResult);
       Assert.AreEqual("Not enough fees", payload.ResultDescription);
     }
 
     [TestMethod]
-    public async Task SubmitTransactionRatioInOutScript()
+    public virtual async Task SubmitTransactionRatioInOutScript()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("ratioInOutScriptSize");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.RatioInOutScriptSize);
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      var payload = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("failure", payload.ReturnResult);
       Assert.AreEqual("Not enough fees", payload.ResultDescription);
     }
 
     [TestMethod]
-    public async Task SubmitTransactionInputMaturity()
+    public virtual async Task SubmitTransactionInputMaturity()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("inputMaturity");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.InputMaturity);
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      var payload = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("failure", payload.ReturnResult);
       Assert.AreEqual("Not enough fees", payload.ResultDescription);
     }
 
     [TestMethod]
-    public async Task SubmitTransactionInputScriptSize()
+    public virtual async Task SubmitTransactionInputScriptSize()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("inputScriptSize");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.InputScriptSize);
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      var payload = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("failure", payload.ReturnResult);
       Assert.AreEqual("Not enough fees", payload.ResultDescription);

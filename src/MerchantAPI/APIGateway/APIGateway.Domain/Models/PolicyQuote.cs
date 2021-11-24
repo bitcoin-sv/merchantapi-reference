@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain.Actions;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -70,6 +71,18 @@ namespace MerchantAPI.APIGateway.Domain.Models
         }
       }
 
+    }
+
+    public ConsolidationTxParameters GetMergedConsolidationTxParameters(ConsolidationTxParameters consolidationTxParameters)
+    {
+      return new ConsolidationTxParameters
+      {
+        Version = consolidationTxParameters.Version,
+        MinConsolidationFactor = PoliciesDict?.ContainsKey("minconsolidationfactor") == true ? ((JsonElement)PoliciesDict["minconsolidationfactor"]).GetInt64() : consolidationTxParameters.MinConsolidationFactor,
+        MaxConsolidationInputScriptSize = PoliciesDict?.ContainsKey("maxconsolidationinputscriptsize") == true ? ((JsonElement)PoliciesDict["maxconsolidationinputscriptsize"]).GetInt64() : consolidationTxParameters.MaxConsolidationInputScriptSize,
+        MinConfConsolidationInput = PoliciesDict?.ContainsKey("minconfconsolidationinput") == true ? ((JsonElement)PoliciesDict["minconfconsolidationinput"]).GetInt64() : consolidationTxParameters.MinConfConsolidationInput,
+        AcceptNonStdConsolidationInput = PoliciesDict?.ContainsKey("acceptnonstdconsolidationinput") == true ? ((JsonElement)PoliciesDict["acceptnonstdconsolidationinput"]).GetBoolean() : consolidationTxParameters.AcceptNonStdConsolidationInput
+      };
     }
 
   }
