@@ -1,58 +1,16 @@
 openapi: 3.0.1
 info:
   title: Merchant API
-  version: 1.3.0
+  version: 1.4.0
 paths:
-  '/Dsnt/1/query/{txId}':
-    get:
-      tags:
-        - Dsnt
-      parameters:
-        - name: txId
-          in: path
-          required: true
-          schema:
-            type: string
-            nullable: true
-      responses:
-        '200':
-          description: Success
-  /Dsnt/1/submit:
-    post:
-      tags:
-        - Dsnt
-      parameters:
-        - name: txId
-          in: query
-          schema:
-            type: string
-            nullable: true
-        - name: 'n'
-          in: query
-          schema:
-            type: integer
-            format: int32
-            nullable: true
-        - name: cTxId
-          in: query
-          schema:
-            type: string
-            nullable: true
-        - name: cn
-          in: query
-          schema:
-            type: integer
-            format: int32
-            nullable: true
-      responses:
-        '200':
-          description: Success
   /mapi/feeQuote:
     get:
       tags:
         - Mapi
       summary: Get a fee quote.
-      description: This endpoint returns a JSONEnvelope with a payload that contains the fees charged by a specific BSV miner.
+      description: >-
+        This endpoint returns a JSONEnvelope with a payload that contains the
+        fees charged by a specific BSV miner.
       responses:
         '200':
           description: Success
@@ -66,12 +24,35 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/FeeQuoteViewModelGet'
-  '/mapi/tx/{id}':
+  /mapi/policyQuote:
+    get:
+      tags:
+        - Mapi
+      summary: Get a policy quote.
+      description: >-
+        This endpoint returns a JSONEnvelope with a PolicyQuote payload that
+        contains the fees charged by a specific BSV miner and set policies.
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/PolicyQuoteViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyQuoteViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/PolicyQuoteViewModelGet'
+  /mapi/tx/{id}:
     get:
       tags:
         - Mapi
       summary: Query transaction status.
-      description: This endpoint is used to check the current status of a previously submitted transaction.
+      description: >-
+        This endpoint is used to check the current status of a previously
+        submitted transaction.
       parameters:
         - name: id
           in: path
@@ -79,8 +60,6 @@ paths:
           required: true
           schema:
             type: string
-            description: The transaction ID (32 byte hash) hex string
-            nullable: true
       responses:
         '200':
           description: Success
@@ -99,7 +78,9 @@ paths:
       tags:
         - Mapi
       summary: Submit a transaction.
-      description: This endpoint is used to send a raw transaction to a miner for inclusion in the next block that the miner creates.
+      description: >-
+        This endpoint is used to send a raw transaction to a miner for inclusion
+        in the next block that the miner creates.
       requestBody:
         description: ''
         content:
@@ -124,44 +105,40 @@ paths:
       tags:
         - Mapi
       summary: Submit multiple transactions.
-      description: This endpoint is used to send multiple raw transactions to a miner for inclusion in the next block that the miner creates.
+      description: >-
+        This endpoint is used to send multiple raw transactions to a miner for
+        inclusion in the next block that the miner creates.
       parameters:
         - name: defaultCallbackUrl
           in: query
-          description: Default double spend and merkle proof notification callback endpoint.
+          description: >-
+            Default double spend and merkle proof notification callback
+            endpoint.
           schema:
             type: string
-            description: Default double spend and merkle proof notification callback endpoint.
-            nullable: true
         - name: defaultCallbackToken
           in: query
           description: Default access token for notification callback endpoint.
           schema:
             type: string
-            description: Default access token for notification callback endpoint.
-            nullable: true
         - name: defaultCallbackEncryption
           in: query
           schema:
             type: string
-            nullable: true
         - name: defaultMerkleProof
           in: query
           description: Default merkle proof requirement.
           schema:
             type: boolean
-            description: Default merkle proof requirement.
         - name: defaultMerkleFormat
           in: query
           schema:
             type: string
-            nullable: true
         - name: defaultDsCheck
           in: query
           description: Default double spend notification request.
           schema:
             type: boolean
-            description: Default double spend notification request.
       requestBody:
         description: ''
         content:
@@ -170,8 +147,6 @@ paths:
               type: array
               items:
                 $ref: '#/components/schemas/SubmitTransactionViewModel'
-              description: ''
-              nullable: true
       responses:
         '200':
           description: Success
@@ -187,6 +162,13 @@ paths:
                 $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
 components:
   schemas:
+    CallbackViewModelGet:
+      type: object
+      properties:
+        ipAddress:
+          type: string
+          nullable: true
+      additionalProperties: false
     FeeAmountViewModelGet:
       type: object
       properties:
@@ -196,17 +178,6 @@ components:
         bytes:
           type: integer
           format: int32
-      additionalProperties: false
-    FeeViewModelGet:
-      type: object
-      properties:
-        feeType:
-          type: string
-          nullable: true
-        miningFee:
-          $ref: '#/components/schemas/FeeAmountViewModelGet'
-        relayFee:
-          $ref: '#/components/schemas/FeeAmountViewModelGet'
       additionalProperties: false
     FeeQuoteViewModelGet:
       type: object
@@ -233,6 +204,58 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FeeViewModelGet'
+          nullable: true
+        callbacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallbackViewModelGet'
+          nullable: true
+      additionalProperties: false
+    FeeViewModelGet:
+      type: object
+      properties:
+        feeType:
+          type: string
+          nullable: true
+        miningFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+        relayFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+      additionalProperties: false
+    PolicyQuoteViewModelGet:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        expiryTime:
+          type: string
+          format: date-time
+        minerId:
+          type: string
+          nullable: true
+        currentHighestBlockHash:
+          type: string
+          nullable: true
+        currentHighestBlockHeight:
+          type: integer
+          format: int64
+        fees:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeViewModelGet'
+          nullable: true
+        callbacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallbackViewModelGet'
+          nullable: true
+        policies:
+          type: object
+          additionalProperties: {}
           nullable: true
       additionalProperties: false
     QueryTransactionStatusResponseViewModel:
@@ -270,31 +293,6 @@ components:
         txSecondMempoolExpiry:
           type: integer
           format: int32
-      additionalProperties: false
-    SubmitTransactionViewModel:
-      type: object
-      properties:
-        rawTx:
-          type: string
-          nullable: true
-        callbackUrl:
-          type: string
-          nullable: true
-        callbackToken:
-          type: string
-          nullable: true
-        callbackEncryption:
-          type: string
-          nullable: true
-        merkleProof:
-          type: boolean
-          nullable: true
-        merkleFormat:
-          type: string
-          nullable: true
-        dsCheck:
-          type: boolean
-          nullable: true
       additionalProperties: false
     SubmitTransactionConflictedTxResponseViewModel:
       type: object
@@ -342,21 +340,50 @@ components:
         conflictedWith:
           type: array
           items:
-            $ref: '#/components/schemas/SubmitTransactionConflictedTxResponseViewModel'
+            $ref: >-
+              #/components/schemas/SubmitTransactionConflictedTxResponseViewModel
+          nullable: true
+      additionalProperties: false
+    SubmitTransactionViewModel:
+      type: object
+      properties:
+        rawTx:
+          type: string
+          nullable: true
+        callbackUrl:
+          type: string
+          nullable: true
+        callbackToken:
+          type: string
+          nullable: true
+        callbackEncryption:
+          type: string
+          nullable: true
+        merkleProof:
+          type: boolean
+          nullable: true
+        merkleFormat:
+          type: string
+          nullable: true
+        dsCheck:
+          type: boolean
           nullable: true
       additionalProperties: false
   securitySchemes:
     Bearer:
       type: apiKey
-      description: 'Please enter JWT with Bearer needed to access MAPI into field. Authorization: Bearer JWT'
+      description: >-
+        Please enter JWT with Bearer needed to access MAPI into field.
+        Authorization: Bearer JWT
       name: Authorization
       in: header
     Api-Key:
       type: apiKey
-      description: 'Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key'
+      description: >-
+        Please enter API key needed to access admin endpoints into field.
+        Api-Key: My_API_Key
       name: Api-Key
       in: header
 security:
   - Bearer: []
   - Api-Key: []
-

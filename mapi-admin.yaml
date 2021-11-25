@@ -1,21 +1,20 @@
 openapi: 3.0.1
 info:
   title: Merchant API Admin
-  version: 1.3.0
+  version: 1.4.0
 paths:
-  '/api/v1/FeeQuote/{id}':
+  /api/v1/FeeQuote/{id}:
     get:
       tags:
         - FeeQuote
-      summary: Get selected fee quote.
+      summary: Get selected policy quote.
       parameters:
         - name: id
           in: path
-          description: Id of the selected fee quote.
+          description: Id of the selected policy quote.
           required: true
           schema:
             type: integer
-            description: Id of the selected fee quote.
             format: int64
       responses:
         '200':
@@ -34,40 +33,33 @@ paths:
     get:
       tags:
         - FeeQuote
-      summary: Get general list of fee quotes or fee quotes for given identity.
+      summary: Get general list of policy quotes or policy quotes for given identity.
       parameters:
         - name: identity
           in: query
           description: Identity identifier.
           schema:
             type: string
-            description: Identity identifier.
-            nullable: true
         - name: identityProvider
           in: query
           description: Identity provider.
           schema:
             type: string
-            description: Identity provider.
-            nullable: true
         - name: anonymous
           in: query
-          description: Return only fee quotes for anonymous user.
+          description: Return only policy quotes for anonymous user.
           schema:
             type: boolean
-            description: Return only fee quotes for anonymous user.
         - name: current
           in: query
-          description: Return only valid fee quotes.
+          description: Return only valid policy quotes.
           schema:
             type: boolean
-            description: Return only valid fee quotes.
         - name: valid
           in: query
-          description: Return valid fee quotes in interval with QuoteExpiryMinutes.
+          description: Return valid policy quotes in interval with QuoteExpiryMinutes.
           schema:
             type: boolean
-            description: Return valid fee quotes in interval with QuoteExpiryMinutes.
       responses:
         '200':
           description: Success
@@ -90,7 +82,7 @@ paths:
     post:
       tags:
         - FeeQuote
-      summary: Create new fee quote.
+      summary: Create new policy quote.
       requestBody:
         description: ''
         content:
@@ -169,7 +161,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/NodeViewModelGet'
-  '/api/v1/Node/{id}':
+  /api/v1/Node/{id}:
     put:
       tags:
         - Node
@@ -181,8 +173,6 @@ paths:
           required: true
           schema:
             type: string
-            description: Id of the selected node.
-            nullable: true
       requestBody:
         description: ''
         content:
@@ -209,8 +199,6 @@ paths:
           required: true
           schema:
             type: string
-            description: Id of the selected node.
-            nullable: true
       responses:
         '200':
           description: Success
@@ -225,8 +213,6 @@ paths:
           required: true
           schema:
             type: string
-            description: Id of the selected node.
-            nullable: true
       responses:
         '200':
           description: Success
@@ -240,6 +226,111 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/NodeViewModelGet'
+  /api/v1/PolicyQuote/{id}:
+    get:
+      tags:
+        - PolicyQuote
+      summary: Get selected policy quote.
+      parameters:
+        - name: id
+          in: path
+          description: Id of the selected policy quote.
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+  /api/v1/PolicyQuote:
+    get:
+      tags:
+        - PolicyQuote
+      summary: Get general list of policy quotes or policy quotes for given identity.
+      parameters:
+        - name: identity
+          in: query
+          description: Identity identifier.
+          schema:
+            type: string
+        - name: identityProvider
+          in: query
+          description: Identity provider.
+          schema:
+            type: string
+        - name: anonymous
+          in: query
+          description: Return only policy quotes for anonymous user.
+          schema:
+            type: boolean
+        - name: current
+          in: query
+          description: Return only valid policy quotes.
+          schema:
+            type: boolean
+        - name: valid
+          in: query
+          description: Return valid policy quotes in interval with QuoteExpiryMinutes.
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            text/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+    post:
+      tags:
+        - PolicyQuote
+      summary: Create new policy quote.
+      requestBody:
+        description: ''
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeeQuoteViewModelCreate'
+          text/json:
+            schema:
+              $ref: '#/components/schemas/FeeQuoteViewModelCreate'
+          application/*+json:
+            schema:
+              $ref: '#/components/schemas/FeeQuoteViewModelCreate'
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/FeeQuoteConfigViewModelGet'
   /api/v1/Status/zmq:
     get:
       tags:
@@ -266,7 +357,7 @@ paths:
                   $ref: '#/components/schemas/ZmqStatusViewModelGet'
 components:
   schemas:
-    FeeAmountViewModelGet:
+    FeeAmountViewModelCreate:
       type: object
       properties:
         satoshis:
@@ -276,16 +367,15 @@ components:
           type: integer
           format: int32
       additionalProperties: false
-    FeeViewModelGet:
+    FeeAmountViewModelGet:
       type: object
       properties:
-        feeType:
-          type: string
-          nullable: true
-        miningFee:
-          $ref: '#/components/schemas/FeeAmountViewModelGet'
-        relayFee:
-          $ref: '#/components/schemas/FeeAmountViewModelGet'
+        satoshis:
+          type: integer
+          format: int32
+        bytes:
+          type: integer
+          format: int32
       additionalProperties: false
     FeeQuoteConfigViewModelGet:
       type: object
@@ -306,32 +396,15 @@ components:
         identityProvider:
           type: string
           nullable: true
+        policies:
+          type: object
+          additionalProperties: {}
+          nullable: true
         fees:
           type: array
           items:
             $ref: '#/components/schemas/FeeViewModelGet'
           nullable: true
-      additionalProperties: false
-    FeeAmountViewModelCreate:
-      type: object
-      properties:
-        satoshis:
-          type: integer
-          format: int32
-        bytes:
-          type: integer
-          format: int32
-      additionalProperties: false
-    FeeViewModelCreate:
-      type: object
-      properties:
-        feeType:
-          type: string
-          nullable: true
-        miningFee:
-          $ref: '#/components/schemas/FeeAmountViewModelCreate'
-        relayFee:
-          $ref: '#/components/schemas/FeeAmountViewModelCreate'
       additionalProperties: false
     FeeQuoteViewModelCreate:
       type: object
@@ -346,12 +419,44 @@ components:
         identityProvider:
           type: string
           nullable: true
+        policies:
+          type: object
+          additionalProperties: {}
+          nullable: true
         fees:
           type: array
           items:
             $ref: '#/components/schemas/FeeViewModelCreate'
           nullable: true
       additionalProperties: false
+    FeeViewModelCreate:
+      type: object
+      properties:
+        feeType:
+          type: string
+          nullable: true
+        miningFee:
+          $ref: '#/components/schemas/FeeAmountViewModelCreate'
+        relayFee:
+          $ref: '#/components/schemas/FeeAmountViewModelCreate'
+      additionalProperties: false
+    FeeViewModelGet:
+      type: object
+      properties:
+        feeType:
+          type: string
+          nullable: true
+        miningFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+        relayFee:
+          $ref: '#/components/schemas/FeeAmountViewModelGet'
+      additionalProperties: false
+    NodeStatus:
+      enum:
+        - 600
+        - 601
+      type: integer
+      format: int32
     NodeViewModelCreate:
       required:
         - id
@@ -368,16 +473,10 @@ components:
         remarks:
           type: string
           nullable: true
-        ZMQNotificationsEndpoint:
+        zmqNotificationsEndpoint:
           type: string
           nullable: true
       additionalProperties: false
-    NodeStatus:
-      enum:
-        - 600
-        - 601
-      type: integer
-      format: int32
     NodeViewModelGet:
       type: object
       properties:
@@ -399,7 +498,7 @@ components:
           type: string
           format: date-time
           nullable: true
-        ZMQNotificationsEndpoint:
+        zmqNotificationsEndpoint:
           type: string
           nullable: true
       additionalProperties: false
@@ -416,7 +515,7 @@ components:
         remarks:
           type: string
           nullable: true
-        ZMQNotificationsEndpoint:
+        zmqNotificationsEndpoint:
           type: string
           nullable: true
       additionalProperties: false
@@ -463,15 +562,18 @@ components:
   securitySchemes:
     Bearer:
       type: apiKey
-      description: 'Please enter JWT with Bearer needed to access MAPI into field. Authorization: Bearer JWT'
+      description: >-
+        Please enter JWT with Bearer needed to access MAPI into field.
+        Authorization: Bearer JWT
       name: Authorization
       in: header
     Api-Key:
       type: apiKey
-      description: 'Please enter API key needed to access admin endpoints into field. Api-Key: My_API_Key'
+      description: >-
+        Please enter API key needed to access admin endpoints into field.
+        Api-Key: My_API_Key
       name: Api-Key
       in: header
 security:
   - Bearer: []
   - Api-Key: []
-
