@@ -172,10 +172,6 @@ $ curl -H "Api-Key: [RestAdminAPIKey]" \
                 \"dustrelayfee\": 150, \
                 \"maxstdtxvalidationduration\": 99, \
                 \"maxnonstdtxvalidationduration\": 100, \
-                \"minconsolidationfactor\": 10, \
-                \"maxconsolidationinputscriptsize\": 100, \
-                \"minconfconsolidationinput\": 10, \
-                \"acceptnonstdconsolidationinput\": false, \
                 \"dustlimitfactor\": 500 \
             } \
           }"
