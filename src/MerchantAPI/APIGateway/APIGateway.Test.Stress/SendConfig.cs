@@ -14,38 +14,47 @@ namespace MerchantAPI.APIGateway.Test.Stress
     [Required]
     public string Filename { get; set; }
 
-    // Only submit up to specified number of transactions from transaction file
-    public long? Limit { get; set; }
-    // Specifies a zero based index of column that contains hex encoded transaction in 
+    // Specifies a zero based index of column that contains hex encoded transaction in a file
     public int TxIndex { get; set; } = 1;
 
-    // Authorization header used when submitting transactions
-    public string Authorization { get; set; }
+    // Only submit up to specified number of transactions from transaction file
+    public long? Limit { get; set; }
 
-    // "URL used for submitting transactions. Example: http://localhost:5000/"
-    [Required]
-    public string MapiUrl { get; set; }
-
-    // Number of transactions submitted in one call"
+    // Number of transactions submitted in one call
     public int BatchSize { get; set; } = 100;
 
     // Number of concurrent threads that will be used to submitting transactions.
-    // When using multiple threads, make sure that transactions in the file are not dependent on each other"
+    // When using multiple threads, make sure that transactions in the file are not dependent on each other
     public int Threads { get; set; } = 1;
 
-    // fill column comment in csv file
+    // Fill column comment in csv file
     public string CsvComment { get; set; }
 
-    public CallbackConfig Callback { get; set; }
-
+    [Required]
+    public MapiConfig MapiConfig { get; set; }
     public BitcoindConfig BitcoindConfig { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContextRoot)
     {
-      if (Callback != null)
+      if (MapiConfig.MapiUrl != null)
       {
-        var validationContext = new ValidationContext(Callback, serviceProvider: null, items: null);
+        if (!MapiConfig.MapiUrl.EndsWith("/"))
+        {
+          yield return new ValidationResult($"MapiUrl must end with '/'");
+        }
+      }
+      if (MapiConfig.TruncateTables)
+      {
+        if (string.IsNullOrEmpty(MapiConfig.MapiDBConnectionStringDDL))
+        {
+          yield return new ValidationResult($"If { nameof(MapiConfig.TruncateTables) } is true, { nameof(MapiConfig.MapiDBConnectionStringDDL) } must be set.");
+        }
+      }
+      if (MapiConfig.Callback != null)
+      {
+        var validationContext = new ValidationContext(MapiConfig.Callback, serviceProvider: null, items: null);
         var validationResults = new List<ValidationResult>();
-        Validator.TryValidateObject(Callback, validationContext, validationResults, true);
+        Validator.TryValidateObject(MapiConfig.Callback, validationContext, validationResults, true);
         foreach (var x in validationResults)
         {
           yield return x;
@@ -65,6 +74,30 @@ namespace MerchantAPI.APIGateway.Test.Stress
     }
   }
 
+  public class MapiConfig
+  {
+    // Authorization header used when submitting transactions
+    public string Authorization { get; set; }
+
+    // URL used for submitting transactions. Example: "http://localhost:5000/"
+    [Required]
+    public string MapiUrl { get; set; }
+
+    // At start truncate data in all tables  / if false user has to take care for this by himself
+    public bool TruncateTables { get; set; }
+
+    // Required if TruncateTables is true
+    public string MapiDBConnectionStringDDL { get; set; }
+
+    // Delete node on mAPI (if exists) and add it again / if false user has to take care for it by himself
+    public bool RearrangeNodes { get; set; }
+
+    // Use if node is running on different machine (when you need to override localhost)
+    public string BitcoindHost { get; set; }
+    // Use when you need to override node's default zmqEndpoint
+    public string BitcoindZmqEndpointIp { get; set; }
+    public CallbackConfig Callback { get; set; }
+  }
   public class CallbackConfig : IValidatableObject
   {
     // Url that will process double spend and merkle proof notifications. When present, transactions will be submitted
@@ -147,6 +180,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
     // bitcoind with mAPI 
     [Required]
     public string MapiAdminAuthorization { get; set; }
+
+    // override default "127.0.0.1" zmqEndpoint ip
+    public string ZmqEndpointIp { get; set; }
   }
 
 

@@ -41,6 +41,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public string Host { get; private set; }
 
+    public string[] ArgumentList
+    {
+      get {
+        return process.StartInfo.ArgumentList.ToArray();
+      }
+    }
+
     public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, int zmqIndex, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null) :
       this(hostIp, bitcoindFullPath, Path.Combine(dataDirRoot, "node" + nodeIndex),
         18444 + nodeIndex,
@@ -57,7 +64,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     /// <summary>
     /// Deletes node data directory (if exists) and start new instance of bitcoind
     /// </summary>
-    public BitcoindProcess(string hostIp, string bitcoindFullPath, string dataDir, int p2pPort, int rpcPort, string zmqIp, int zmqPort, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, bool emptyDataDir = true, BitcoindProcess[] nodesToConnect = null)
+    public BitcoindProcess(string hostIp, string bitcoindFullPath, string dataDir, int p2pPort, int rpcPort, string zmqIp, int zmqPort, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, bool emptyDataDir = true, BitcoindProcess[] nodesToConnect = null, List<string> argumentList = null)
     {
       this.Host = hostIp;
       this.P2Port = p2pPort;
@@ -101,24 +108,35 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
       // use StartupInfo.ArgumentList instead of StartupInfo.Arguments to avoid problems with spaces in data dir
-      var argumentList = new List<string>(defaultParams.Split(" ").ToList())
+      if (argumentList == null)
       {
-        $"-port={p2pPort}",
-        $"-rpcport={rpcPort}",
-        $"-datadir={dataDir}",
-        $"-rpcuser={RpcUser}",
-        $"-rpcpassword={RpcPassword}",
-        $"-rest=1",
-        $"-zmqpubhashblock=tcp://{ZmqIp}:{zmqPort}",
-        $"-zmqpubinvalidtx=tcp://{ZmqIp}:{zmqPort}",
-        $"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}",
-        $"-invalidtxsink=ZMQ",
-        $"-rpcallowip=0.0.0.0/0",
-        $"-maxmempool=10000",
-        $"-rpcthreads=100",
-        $"-txnvalidationqueuesmaxmemory=5120",
-        $"-blockmintxfee=0"
-      };
+        argumentList = defaultParams.Split(" ").ToList();
+      }
+      else
+      {
+        argumentList = defaultParams.Split(" ").Concat(argumentList).ToList();
+      }
+
+      argumentList.AddRange(
+        new List<string>
+        {
+          $"-port={p2pPort}",
+          $"-rpcport={rpcPort}",
+          $"-datadir={dataDir}",
+          $"-rpcuser={RpcUser}",
+          $"-rpcpassword={RpcPassword}",
+          $"-rest=1",
+          $"-zmqpubhashblock=tcp://{ZmqIp}:{zmqPort}",
+          $"-zmqpubinvalidtx=tcp://{ZmqIp}:{zmqPort}",
+          $"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}",
+          $"-invalidtxsink=ZMQ",
+          $"-rpcallowip=0.0.0.0/0",
+          $"-maxmempool=10000",
+          $"-rpcthreads=100",
+          $"-txnvalidationqueuesmaxmemory=5120",
+          $"-blockmintxfee=0"
+        }
+      );
 
       if (nodesToConnect != null)
       {
