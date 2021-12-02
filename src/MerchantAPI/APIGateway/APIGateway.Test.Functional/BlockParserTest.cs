@@ -1,13 +1,11 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -214,13 +212,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // we publish same NewBlockAvailableInDB as before
       var block2Parse = block;
-      EventBus.Publish(new NewBlockAvailableInDB
-      {
-        BlockDBInternalId = block2Parse.BlockInternalId,
-        BlockHash = new uint256(block2Parse.BlockHash).ToString()
-      });
-
-      WaitUntilEventBusIsIdle();
+      PublishBlockToEventBus(block2Parse, 1);
 
       // best block must stay the same, since parsing was skipped
       var blockAfterRepublish = await TxRepositoryPostgres.GetBestBlockAsync();
@@ -233,28 +225,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [DataRow(750)] // block of size 2.1GB
     [DataRow(1500)] // block of size > 4 GB
     [TestMethod]
-    public async Task TestBigBlocks(double txsCount)
+    public async Task TestBigBlocks(int txsCount)
     {
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/16mb_tx.txt")));
-      var bStream = new BitcoinStream(stream, false)
-      {
-        MaxArraySize = unchecked((int)uint.MaxValue)
-      };
-      var tx = Transaction.Create(Network.Main);
-
-      tx.ReadWrite(bStream);
-
-      var txId = tx.GetHash(int.MaxValue).ToString();
-      _ = await CreateAndInsertTxAsync(false, true, 2, new string[] { txId.ToString() });
-
-      List<Transaction> txs = new();
-      for (int i = 0; i < txsCount; i++)
-      {
-        txs.Add(tx);
-      }
+      var txs = await Transaction16mbList(txsCount, dsCheck: true);
 
       (_, string blockHash) = await CreateAndPublishNewBlockWithTxs(rpcClient, null, txs.ToArray(), true, true);
 

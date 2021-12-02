@@ -6,7 +6,9 @@ using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
+using NBitcoin.DataEncoders;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -68,6 +70,28 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await TxRepositoryPostgres.InsertTxsAsync(txList, false);
 
       return txList;
+    }
+
+    public async Task<List<Transaction>> Transaction16mbList(int txsCount, bool merkleProof=false, bool dsCheck=false)
+    {
+      var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/16mb_tx.txt")));
+      var bStream = new BitcoinStream(stream, false)
+      {
+        MaxArraySize = unchecked((int)uint.MaxValue)
+      };
+      var tx = Transaction.Create(Network.Main);
+
+      tx.ReadWrite(bStream);
+
+      var txId = tx.GetHash(int.MaxValue).ToString();
+      _ = await CreateAndInsertTxAsync(merkleProof, dsCheck, 2, new string[] { txId.ToString() });
+
+      List<Transaction> txs = new();
+      for (int i = 0; i < txsCount; i++)
+      {
+        txs.Add(tx);
+      }
+      return txs;
     }
 
     public async Task<uint256> InsertMerkleProof()
