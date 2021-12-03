@@ -1,5 +1,5 @@
 {
-  "filename": "D:\\bitcoind\\2MtoSend\\transactionsgenerate2M.2000000.0",
+  "filename": "D:\\stressTest\\5M800KUTXOS\\txblasterfile\\transactions5M800Ktransactions.5832000.0",
   "txIndex": 2,
   "limit": 300,
   "batchSize": 1000,
@@ -35,7 +35,7 @@
   },
   "bitcoindConfig": {
     "bitcoindPath": "D:\\src\\crea\\merchantapi2-private\\bitcoind\\windows\\bitcoind.exe",
-    "templateData": "D:\\bitcoind\\temp\\regtest2",
+    "templateData": "D:\\stressTest\\5M800KUTXOS\\node\\regtest",
     "mapiAdminAuthorization": "66dd203a-2736-4373-9024-4a525f90f89b",
     "zmqEndpointIp": "127.0.0.1"
   }
