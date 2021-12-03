@@ -84,5 +84,12 @@ namespace MerchantAPI.Common.BitcoinRpc
     {
       throw new NotImplementedException();
     }
+
+    protected override void Dispose(bool disposing)
+    {
+      base.Dispose(disposing);
+      StreamReader.Dispose();
+    }
+
   }
 }
