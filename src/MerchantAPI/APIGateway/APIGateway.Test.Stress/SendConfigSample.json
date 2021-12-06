@@ -7,8 +7,6 @@
   "csvComment": "",
   "mapiConfig": {
     "mapiUrl": "https://localhost:5001/",
-    "truncateTables": false,
-    "mapiDBConnectionStringDDL": "Server=localhost;Port=54321;User Id=merchantddl; Password=merchant;Database=merchant_gateway;",
     "rearrangeNodes": true,
     "bitcoindHost": "host.docker.internal",
     "bitcoindZmqEndpointIp": "host.docker.internal",

@@ -218,7 +218,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         var allErrors = string.Join(Environment.NewLine, validationResults.Select(x => x.ErrorMessage).ToArray());
         Console.WriteLine($"Invalid configuration {configFileName}. Errors: {allErrors}");
-        return  0;
+        return 0;
       }
 
 
@@ -249,14 +249,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
       BitcoindProcess bitcoind = null;
       try
       {
-        if (config.MapiConfig.TruncateTables)
-        {
-          TruncateTables(config.MapiConfig.MapiDBConnectionStringDDL);
-          Console.WriteLine($"Tables truncated.");
-          Console.WriteLine($"mAPI cache is out of sync, you have to restart mAPI!");
-          Environment.Exit(0);
-        }
-
         if (!string.IsNullOrEmpty(config.BitcoindConfig?.TemplateData))
         {
 
@@ -459,12 +451,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
       return testDataDir;
     }
 
-    static void TruncateTables(string mapiDBConnectionString)
-    {
-      NodeRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
-      TxRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
-    }
-
     static async Task EnsureMapiIsConnectedToNodeAsync(string mapiUrl, string authAdmin, bool rearrangeNodes, BitcoindProcess bitcoind, string bitcoindHost, string bitcoindZmqEndpointIp)
     {
       var adminClient = new HttpClient();
@@ -540,6 +526,20 @@ namespace MerchantAPI.APIGateway.Test.Stress
       await Task.Delay(TimeSpan.FromSeconds(1)); // Give mAPI some time to establish ZMQ subscriptions
     }
 
+    static async Task<int> ClearDb(string mapiDBConnectionString)
+    {
+      await Task.Delay(0);
+      TruncateTables(mapiDBConnectionString);
+      Console.WriteLine($"Tables truncated.");
+      Console.WriteLine($"mAPI cache is out of sync, you have to restart mAPI!");
+      return 0;
+    }
+    static void TruncateTables(string mapiDBConnectionString)
+    {
+      NodeRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
+      TxRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
+    }
+
     static async Task<int> Main(string[] args)
     {
       var builder = new HostBuilder()
@@ -560,18 +560,32 @@ namespace MerchantAPI.APIGateway.Test.Stress
         }
       };
 
-      sendCommand.Description = "Read transactions from a file and submit it to mAPI";
+      sendCommand.Description = "Read transactions from a json file and submit it to mAPI.";
+      sendCommand.Handler = CommandHandler.Create(async (string configFileName) =>
+        await SendTransactions(configFileName, (IHttpClientFactory)host.Services.GetService(typeof(IHttpClientFactory))));
 
+      var clearDbCommand = new Command("clearDb")
+      {
+        new Argument<string>(
+          name: "mapiDBConnectionStringDDL",
+          description: "Connection string DDL, e.g.'Server=localhost;Port=54321;User Id=merchantddl; Password=merchant;Database=merchant_gateway;'"
+        )
+        {
+          Arity = new ArgumentArity(1,1)
+        }
+      };
+
+      clearDbCommand.Description = "Truncate data in all tables (except feeQuote) and stops program. If mAPI is running, restart it to reinitialize cache.";
+      clearDbCommand.Handler = CommandHandler.Create(async (string mapiDBConnectionString) =>
+        await ClearDb(mapiDBConnectionString));
 
       var rootCommand = new RootCommand
       {
-        sendCommand
+        sendCommand,
+        clearDbCommand
       };
 
       rootCommand.Description = "mAPI stress test";
-
-      sendCommand.Handler = CommandHandler.Create( async (string configFileName) =>
-        await SendTransactions(configFileName, (IHttpClientFactory)host.Services.GetService(typeof(IHttpClientFactory))));
 
       return await rootCommand.InvokeAsync(args);
     }

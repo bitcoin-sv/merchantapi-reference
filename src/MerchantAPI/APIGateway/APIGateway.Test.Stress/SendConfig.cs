@@ -36,18 +36,15 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContextRoot)
     {
+      if (Limit.HasValue && BatchSize > Limit)
+      {
+        yield return new ValidationResult($"{ nameof(BatchSize) } must be smaller than { nameof(Limit) }.");
+      }
       if (MapiConfig.MapiUrl != null)
       {
         if (!MapiConfig.MapiUrl.EndsWith("/"))
         {
           yield return new ValidationResult($"MapiUrl must end with '/'");
-        }
-      }
-      if (MapiConfig.TruncateTables)
-      {
-        if (string.IsNullOrEmpty(MapiConfig.MapiDBConnectionStringDDL))
-        {
-          yield return new ValidationResult($"If { nameof(MapiConfig.TruncateTables) } is true, { nameof(MapiConfig.MapiDBConnectionStringDDL) } must be set.");
         }
       }
       if (MapiConfig.Callback != null)
@@ -82,12 +79,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
     // URL used for submitting transactions. Example: "http://localhost:5000/"
     [Required]
     public string MapiUrl { get; set; }
-
-    // At start truncate data in all tables  / if false user has to take care for this by himself
-    public bool TruncateTables { get; set; }
-
-    // Required if TruncateTables is true
-    public string MapiDBConnectionStringDDL { get; set; }
 
     // Delete node on mAPI (if exists) and add it again / if false user has to take care for it by himself
     public bool RearrangeNodes { get; set; }
