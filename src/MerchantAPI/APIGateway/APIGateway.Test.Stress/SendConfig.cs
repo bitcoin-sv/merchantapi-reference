@@ -10,24 +10,18 @@ namespace MerchantAPI.APIGateway.Test.Stress
 {
   public class SendConfig : IValidatableObject
   {
-    // File containing transactions to send
+    // See the readme file for more information.
     [Required]
     public string Filename { get; set; }
 
-    // Specifies a zero based index of column that contains hex encoded transaction in a file
     public int TxIndex { get; set; } = 1;
 
-    // Only submit up to specified number of transactions from transaction file
     public long? Limit { get; set; }
 
-    // Number of transactions submitted in one call
     public int BatchSize { get; set; } = 100;
 
-    // Number of concurrent threads that will be used to submitting transactions.
-    // When using multiple threads, make sure that transactions in the file are not dependent on each other
     public int Threads { get; set; } = 1;
 
-    // Fill column comment in csv file
     public string CsvComment { get; set; }
 
     [Required]
@@ -73,44 +67,32 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
   public class MapiConfig
   {
-    // Authorization header used when submitting transactions
     public string Authorization { get; set; }
 
-    // URL used for submitting transactions. Example: "http://localhost:5000/"
     [Required]
     public string MapiUrl { get; set; }
 
-    // Delete node on mAPI (if exists) and add it again / if false user has to take care for it by himself
     public bool RearrangeNodes { get; set; }
 
-    // Use if node is running on different machine (when you need to override localhost)
     public string BitcoindHost { get; set; }
-    // Use when you need to override node's default zmqEndpoint
+
     public string BitcoindZmqEndpointIp { get; set; }
+
     public CallbackConfig Callback { get; set; }
   }
   public class CallbackConfig : IValidatableObject
   {
-    // Url that will process double spend and merkle proof notifications. When present, transactions will be submitted
-    // with MerkleProof and DsCheck set to true. Example: http://localhost:2000/callbacks
     [Required]
     public string Url { get; set; }
 
-    // When specified, a random number between 1 and  AddRandomNumberToHost will be appended to host name specified in Url when submitting each batch of transactions.
-    // This is useful for testing callbacks toward different hosts
     public int? AddRandomNumberToHost { get; set; }
 
-    // Full authorization header that mAPI should use when performing callbacks.
     public string CallbackToken { get; set; }
 
-    // Encryption parameters used when performing callbacks.
     public string CallbackEncryption { get; set; }
 
-    // Start a listener that will listen to callbacks on port specified by Url
-    // When specified, error will be reported if not all callbacks are received
     public bool StartListener { get; set; }
-
-    /// Maximum number of milliseconds that we are willing to wait for next callbacks 
+ 
     public int IdleTimeoutMS { get; set; } = 30_000;
 
     public CallbackHostConfig[] Hosts { get; set; }
