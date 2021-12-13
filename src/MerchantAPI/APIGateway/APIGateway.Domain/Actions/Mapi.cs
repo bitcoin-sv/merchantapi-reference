@@ -23,6 +23,7 @@ using Microsoft.Extensions.Options;
 using Prometheus;
 using System.Diagnostics.CodeAnalysis;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
+using NBitcoin.DataEncoders;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -107,16 +108,114 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
     }
 
-    static bool IsDataOuput(TxOut output)
+    static bool IsDataOutput(byte[] scriptBytes)
     {
       // OP_FALSE OP_RETURN represents data outputs after Genesis was activated. 
       // There is no need to check for output.Value=0.
       // We do not care if somebody wants to burn some satoshis. 
-      var scriptBytes = output.ScriptPubKey.ToBytes(@unsafe: true); // unsafe == true -> make sure we do not modify the result
-
       return scriptBytes.Length > 1 &&
              scriptBytes[0] == (byte)OpcodeType.OP_FALSE &&
              scriptBytes[1] == (byte)OpcodeType.OP_RETURN;
+    }
+
+    static bool IsDsntOutput(byte[] scriptBytes)
+    {
+      // OP_FALSE OP_RETURN represents data outputs after Genesis was activated. 
+      // There is no need to check for output.Value=0.
+      // We do not care if somebody wants to burn some satoshis. 
+      var scriptDsnt = new Script(OpcodeType.OP_FALSE);
+      scriptDsnt += OpcodeType.OP_RETURN;
+      scriptDsnt += Op.GetPushOp(Encoders.Hex.DecodeData("64736e74"));
+
+      var scriptDsntBytes = scriptDsnt.ToBytes();
+      if (scriptBytes.Length < scriptDsntBytes.Length)
+      {
+        return false;
+      }
+
+      for (int i=0; i<scriptDsntBytes.Length; i++)
+      {
+        if (scriptBytes[i] != scriptDsntBytes[i])
+        {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    static (bool valid, string warning) ValidateDsntCallbackMessage(TxOut output, int numOfInputs)
+    {
+      var ops = output.ScriptPubKey.ToOps().ToArray();
+      if (ops.Length < 4)
+      {
+        return (false, "Missing DSNT callback message.");
+      }
+      var dsntCallbackMessage = ops.Last().ToBytes();
+
+      // check version field
+      // Bit 7 = 0 for IPv4, 1 for IPv6
+      // Bit 6 = 0, reserved
+      // Bit 5 = 0, reserved
+      // Bits 4 - 0 = dsnt protocol version(currently 1, max 31)
+
+      if (dsntCallbackMessage.Length < 1) // pushop + version byte
+      {
+        return (false, "DSNT callback message: missing version field.");
+      }
+      var versionByte = dsntCallbackMessage[1];
+
+      var version = GetBitValue(versionByte, 0) +
+                    GetBitValue(versionByte, 1) +
+                    GetBitValue(versionByte, 2) +
+                    GetBitValue(versionByte, 3) +
+                    GetBitValue(versionByte, 4);
+      if (version == 0 || 
+          version > 31 ||
+          // bit 5 & 6 must be zero (reserved)
+          GetBitValue(versionByte, 5) != 0 ||
+          GetBitValue(versionByte, 6) != 0)
+      {
+        return (false, "DSNT callback message: invalid version field.");
+      }
+
+      bool isIPv4 = GetBitValue(versionByte, 7) == 0;
+
+      if (dsntCallbackMessage.Length < 3) 
+      {
+        return (false, "DSNT callback message: missing IP address count.");
+      }
+
+      var IPaddressCountLength = 1; // TODO: probably we won't validate this - remove?!
+      var IPaddressCount = dsntCallbackMessage[2];
+      if (IPaddressCount == 0)
+      {
+        return (false, "DSNT callback message: IP address count of 0 is not allowed.");
+      }
+      var IPaddressLength = isIPv4 ? (IPaddressCount * 4) : (IPaddressCount * 6);
+      if (dsntCallbackMessage.Length - 3 < IPaddressLength)
+      {
+        return (false, "DSNT callback message: missing/bad IP address.");
+      }
+
+      if (dsntCallbackMessage.Length < 2 + IPaddressCountLength + IPaddressLength + 1)
+      {
+        return (false, "DSNT callback message: missing input count.");
+      }
+      var inputCount = dsntCallbackMessage[2 + IPaddressCountLength + IPaddressLength];
+      if (inputCount > numOfInputs)
+      {
+        return (false, "DSNT callback message: invalid input count.");
+      }
+      if (inputCount == 0 && dsntCallbackMessage.Length > 2 + IPaddressCountLength + IPaddressLength + 1)
+      {
+        return (false, "DSNT callback message: invalid inputs.");
+      }
+      return (true, null);
+    }
+    static int GetBitValue(byte b, int bitNumber)
+    {
+      var bit = (b & (1 << bitNumber - 1));
+      return bit;
     }
 
     /// <summary>
@@ -258,31 +357,68 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     /// <summary>
     /// Check if specified transaction meets fee policy
     /// </summary>
-    /// <param name="txBytesLength">Transactions</param>
-    /// <param name="sumPrevOuputs">result of CollectPreviousOutputs. If previous outputs are not found there, the node is consulted</param>
-    /// <returns></returns>
-    public static (bool okToMine, bool okToRely) CheckFees(Transaction transaction, long txBytesLength, Money sumPrevOuputs, FeeQuote feeQuote)
+    /// <param name="Transaction">transaction</param>
+    /// <param name="DsCheck">dsCheck. Only validate dsCheck output, if true.</param>
+    /// <param name="Warnings">warnings. DsCheck warnings.</param>
+    /// <returns>Sum of new outputs and dataBytes count.</returns>
+    public static (Money sumNewOutputs, long dataBytes) CheckOutputsSumAndValidateDs(Transaction transaction, bool dsCheck, ref string[] warnings)
     {
-      // This could leave some og the bytes unparsed. In this case we would charge for bytes at the ned of 
+      // This could leave some og the bytes unparsed. In this case we would charge for bytes at the end of 
       // the stream that will not be published to the blockchain, but this is sender's problem.
 
-      Money sumNewOuputs = Money.Zero;
+      Money sumNewOutputs = Money.Zero;
       long dataBytes = 0;
+      TxOut dsntOutput = null;
       foreach (var output in transaction.Outputs)
       {
-        sumNewOuputs += output.Value;
+        sumNewOutputs += output.Value;
         if (output.Value < 0L)
         {
           throw new ExceptionWithSafeErrorMessage("Negative inputs are not allowed");
         }
-        if (IsDataOuput(output))
+
+        var scriptBytes = output.ScriptPubKey.ToBytes(@unsafe: true); // unsafe == true -> make sure we do not modify the result
+        if (IsDataOutput(scriptBytes))
         {
           dataBytes += output.ScriptPubKey.Length;
+          if (dsCheck && IsDsntOutput(scriptBytes))
+          {
+            dsntOutput = output;
+          }
         }
       }
 
+      if (dsCheck)
+      {
+        if (dsntOutput == null)
+        {
+          warnings = new string[] { "DS not enabled." };
+        }
+        else
+        {
+          var (valid, warning) = ValidateDsntCallbackMessage(dsntOutput, transaction.Inputs.Count);
+          if (!valid)
+          {
+            warnings = new string[] { warning };
+          }
+        }
+      }
 
-      long actualFee = (sumPrevOuputs - sumNewOuputs).Satoshi;
+      return (sumNewOutputs, dataBytes);
+    }
+
+    /// <summary>
+    /// Check if specified transaction meets fee policy
+    /// </summary>
+    /// <param name="txBytesLength">Transactions</param>
+    /// <param name="sumPrevOuputs">result of CollectPreviousOutputs. If previous outputs are not found there, the node is consulted</param>
+    /// <param name="sumNewOutputs">Sum of new outputs.</param>
+    /// <param name="dataBytes">DataBytes count.</param>
+    /// <param name="feeQuote">FeeQuote. Valid for this user.</param>
+    /// <returns></returns>
+    public static (bool okToMine, bool okToRely) CheckFees(long txBytesLength, Money sumPrevOuputs, Money sumNewOutputs, long dataBytes, FeeQuote feeQuote)
+    {
+      long actualFee = (sumPrevOuputs - sumNewOutputs).Satoshi;
       long normalBytes = txBytesLength - dataBytes;
 
       long feesRequiredMining = 0;
@@ -371,7 +507,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return true;
     }
 
-    public static (int failureCount, SubmitTransactionOneResponse[] responses) TransformRpcResponse(RpcSendTransactions rpcResponse, string[] allSubmitedTxIds)
+    public static (int failureCount, SubmitTransactionOneResponse[] responses) TransformRpcResponse(RpcSendTransactions rpcResponse, (string tx, string[] warnings)[] allSubmitedTxIds)
     {
 
       // Track which transaction was already processed, so that we only return one response per txid:
@@ -431,9 +567,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             {
               Txid = evicted,
               ReturnResult = ResultCodes.Failure,
-              ResultDescription =
-              NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.Evicted)
-              // This only happens if mempool is full and contains no P2P transactions (which have low priority)
+              // This only happens if mempool is full and contain no P2P transactions (which have low priority)
+              ResultDescription = NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.Evicted),
+              Warnings = allSubmitedTxIds.Single(x => x.tx == evicted).warnings,
+
             });
             failed++;
           }
@@ -451,14 +588,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             {
               Txid = known,
               ReturnResult = ResultCodes.Success,
-              ResultDescription = NodeRejectCode.ResultAlreadyKnown
+              ResultDescription = NodeRejectCode.ResultAlreadyKnown,
+              Warnings = allSubmitedTxIds.Single(x => x.tx == known).warnings
             });
           }
         }
       }
 
       // If a transaction is not present in response, then it was successfully accepted as a new transaction
-      foreach (var txId in allSubmitedTxIds)
+      foreach (var (txId, warnings) in allSubmitedTxIds)
       {
         if (!processed.ContainsKey(txId))
         {
@@ -466,6 +604,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           {
             Txid = txId,
             ReturnResult = ResultCodes.Success,
+            Warnings = warnings
           });
 
         }
@@ -580,7 +719,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
 
       var responses = new List<SubmitTransactionOneResponse>();
-      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus)>();
+
+      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, string[] warnings)>();
+
       int failureCount = 0;
 
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
@@ -661,6 +802,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         bool okToMine = false;
         bool okToRelay = false;
         PolicyQuote selectedQuote = null;
+        string[] warnings = Array.Empty<string>();
         var txStatus = await txRepository.GetTransactionStatusAsync(txId.ToBytes());
 
         if (txStatus > TxStatus.NotPresentInDb)
@@ -706,7 +848,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               // we don't have actual user or feeQuote saved for the unknownOldTxs
               // and we cannot always define feequote (valid feeQuote can be expired or sumPrevOuputs = 0)
               // so we resend it to node as with dontcheckfees
-              transactionsToSubmit.Add((txIdString, oneTx, false, true, false, null, txStatus));
+              transactionsToSubmit.Add((txIdString, oneTx, false, true, false, null, txStatus, warnings));
             }
             else
             {
@@ -718,6 +860,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 continue;
               }
               PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
+
               bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, HelperTools.ParseBytesToTransaction(oneTx.RawTx));
               if (txStatus >= TxStatus.Accepted && !appSettings.ResubmitKnownTransactions.Value)
               {
@@ -740,7 +883,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 });
                 continue;
               }
-              transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, listUnconfirmedAncestors, tx.SetPolicyQuote ? policyQuote : null, txStatus));
+              transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, listUnconfirmedAncestors, tx.SetPolicyQuote ? policyQuote : null, txStatus, warnings));
             }
             continue;
           }
@@ -773,6 +916,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           else
           {
             logger.LogDebug($"Starting with CheckFees calculation for {txIdString} and { quotes.Length} quotes.");
+
+            (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, ref warnings);
             foreach (var policyQuote in quotes)
             {
               if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
@@ -782,7 +927,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 break;
               }
               var (okToMineTmp, okToRelayTmp) =
-                CheckFees(transaction, oneTx.RawTx.LongLength, sumPrevOuputs, policyQuote);
+                CheckFees(oneTx.RawTx.LongLength, sumPrevOuputs, sumNewOutputs, dataBytes, policyQuote);
               if (GetCheckFeesValue(okToMineTmp, okToRelayTmp) > GetCheckFeesValue(okToMine, okToRelay))
               {
                 // save best combination 
@@ -862,7 +1007,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           bool dontcheckfee = okToMine;
           bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, transaction);
 
-          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, selectedQuote, txStatus));
+          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, selectedQuote, txStatus, warnings));
         }
       }
 
@@ -872,7 +1017,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       Exception submitException = null;
 
-      var saveTxsBeforeSendToNode = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus)>();
+      var saveTxsBeforeSendToNode = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, string[] warnings)>();
       if (transactionsToSubmit.Any())
       {
         if (!appSettings.DontInsertTransactions.Value && 
@@ -933,7 +1078,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           {
             Txid = x.transactionId,
             ReturnResult = ResultCodes.Failure,
-            ResultDescription = "Error while submitting transactions to the node" // do not expose detailed error message. It might contain internal IPS etc
+            ResultDescription = "Error while submitting transactions to the node", // do not expose detailed error message. It might contain internal IPS etc
+            Warnings = x.warnings
           });
 
         logger.LogError($"Error while submitting transactions to the node {submitException}");
@@ -945,8 +1091,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       else // submitted without error
       {
-        var (submitFailureCount, transformed) = TransformRpcResponse(rpcResponse,
-          transactionsToSubmit.Select(x => x.transactionId).ToArray());
+        var (submitFailureCount, transformed ) = TransformRpcResponse(rpcResponse,
+          transactionsToSubmit.Select(x => (x.transactionId, x.warnings)).ToArray());
+
         responses.AddRange(transformed);
 
         var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
@@ -1087,7 +1234,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
     private async Task<(RpcSendTransactions, Exception)> SendTransactions(
-      List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txStatus)> transactionsToSubmit,
+      List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txStatus, string[] warnings)> transactionsToSubmit,
       Faults.FaultType faultType)
     {
       return await SendRawTransactions(
@@ -1233,7 +1380,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           // update successful resubmits
           var (submitFailureCount, transformed) = TransformRpcResponse(rpcResponse,
-            txsToSubmit.Select(x => x.TxExternalId.ToString()).ToArray());
+            txsToSubmit.Select(x => (x.TxExternalId.ToString(), Array.Empty<string>())).ToArray());
           var successfullTxs = txsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.TxExternalId.ToString()));
           submitSuccessfulCount += successfullTxs.Count();
           await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateTxs, successfullTxs.Select(x => new Tx

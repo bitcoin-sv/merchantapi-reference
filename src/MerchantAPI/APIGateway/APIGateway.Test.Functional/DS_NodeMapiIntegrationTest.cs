@@ -1,7 +1,6 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
@@ -10,19 +9,13 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
-using NBitcoin.Altcoins;
-using NBitcoin.DataEncoders;
 using System;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
-using MerchantAPI.APIGateway.Domain.ViewModels;
 using System.Collections.Generic;
 using MerchantAPI.APIGateway.Domain.Models;
 
@@ -30,7 +23,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo4")]
   [TestClass]
-  public class DS_NodeMapiIntegrationTest : TestBaseWithBitcoind
+  public class DS_NodeMapiIntegrationTest : DS_NodeMapiTestBase
   {
     IHost mapiHost;
     BitcoindProcess node1;
@@ -39,8 +32,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public override void TestInitialize()
     {
       base.TestInitialize();
-
-      InsertFeeQuote();
     }
 
     [TestCleanup]
@@ -93,72 +84,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await mapiHost.WaitForShutdownAsync(cancellationToken);
     }
     #endregion
-
-    new static (string txHex, string txId) CreateNewTransaction(Coin coin, Money amount)
-    {
-      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
-      var tx = BCash.Instance.Regtest.CreateTransaction();
-
-      tx.Inputs.Add(new TxIn(coin.Outpoint));
-      tx.Outputs.Add(coin.Amount - amount, address);
-
-      var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-
-      tx.Sign(key.GetBitcoinSecret(Network.RegTest), coin);
-
-      return (tx.ToHex(), tx.GetHash().ToString());
-    }
-
-    async Task<SubmitTransactionsResponseViewModel> SubmitTransactions(string[] txHexList)
-    {
-      // Send transaction
-
-      var reqJSON = "[{\"rawtx\": \"" + string.Join("\"}, {\"rawtx\": \"", txHexList) + "\", \"dscheck\": true, \"callbackurl\": \"http://mockCallback:8321\"}]";
-      var reqContent = new StringContent(reqJSON);
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
-    }
-
-    private static Transaction CreateDS_OP_RETURN_Tx(Coin[] coins, params int[] DSprotectedInputs)
-    {
-      var address = BitcoinAddress.Create(testAddress, Network.RegTest);
-      var tx1 = BCash.Instance.Regtest.CreateTransaction();
-
-      foreach (var coin in coins)
-      {
-        tx1.Inputs.Add(new TxIn(coin.Outpoint));
-        tx1.Outputs.Add(coin.Amount - new Money(1000L), address);
-      }
-
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      // Add protocol id
-      script += Op.GetPushOp(Encoders.Hex.DecodeData("64736e74"));
-      // The following hex data '01017f0000010100' is in accordance with specs where:
-      // 1st byte (0x01) is version number
-      // 2nd byte (0x01) is number of IPv4 addresses (in this case only 1)
-      // next 4 bytes (0x7f000001) is the IP address for 127.0.0.1
-      // next byte (0x01) is the number of input ids that will be listed for checking (in this case only 1)
-      // last byte (0x00) is the input id we want to be checked (in this case it's the n=0)
-      string dsData = $"01017f000001{DSprotectedInputs.Length:D2}";
-      foreach(var input in DSprotectedInputs)
-      {
-        dsData += input.ToString("D2");
-      }
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-      var txOut = new TxOut(new Money(0L), script);
-      tx1.Outputs.Add(txOut);
-
-      var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-
-      tx1.Sign(key.GetBitcoinSecret(Network.RegTest), coins);
-
-      return tx1;
-    }
 
     /// <summary>
     /// Test requires 2 running nodes connected to each other...where 1st node also has mAPI connected and the 2nd node doesn't
