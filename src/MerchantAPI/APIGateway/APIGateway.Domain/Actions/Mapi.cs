@@ -191,7 +191,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         return (false, "DSNT callback message: IP address count of 0 is not allowed.");
       }
-      var IPaddressLength = isIPv4 ? (IPaddressCount * 4) : (IPaddressCount * 6);
+      var IPaddressLength = isIPv4 ? (IPaddressCount * 4) : (IPaddressCount * 16);
       if (dsntCallbackMessage.Length - 3 < IPaddressLength)
       {
         return (false, "DSNT callback message: missing/bad IP address.");
@@ -214,7 +214,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
     static int GetBitValue(byte b, int bitNumber)
     {
-      var bit = (b & (1 << bitNumber - 1));
+      var bit = (b & (1 << bitNumber ));
       return bit;
     }
 

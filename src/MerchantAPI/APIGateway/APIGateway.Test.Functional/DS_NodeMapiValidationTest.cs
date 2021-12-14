@@ -25,7 +25,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task SubmitTxWithDsCheckAndOP_RETURN()
+    public async Task SubmitTxWithDsCheckAndCorrectScript()
     {
       var coin = availableCoins.Dequeue();
 
@@ -39,7 +39,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task SubmitTxWithDsCheckAndOP_RETURN_MultipleAddresses()
+    public async Task SubmitTxWithDsCheckAndCorrectScript_MultipleAddresses()
     {
       var coin = availableCoins.Dequeue();
 
@@ -56,24 +56,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var coin = availableCoins.Dequeue();
       return CreateDS_Tx(new Coin[] { coin }, script);
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithCorrectScript()
-    { 
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"01017f000001{0:D2}";
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(0, payload.Txs.Single().Warnings.Length);
     }
 
     [TestMethod]
@@ -273,7 +255,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       script += OpcodeType.OP_RETURN;
       script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
 
-      string dsData = $"81037f0000017f000001{0:D2}"; // IPv6, version 1 
+      string dsData = $"81037f0000017f000001{0:D2}"; // version 1 + 1 IPv6 address: 10000001 (hex: 81)
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
 
       var tx1 = CreateDS_Tx(script);
@@ -292,7 +274,26 @@ namespace MerchantAPI.APIGateway.Test.Functional
       script += OpcodeType.OP_RETURN;
       script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
 
-      string dsData = $"81017f000001";
+      string dsData = $"01017f000001";
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
+
+      var tx1 = CreateDS_Tx(script);
+
+      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
+
+      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
+      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
+      Assert.AreEqual("DSNT callback message: missing input count.", payload.Txs.Single().Warnings.Single());
+    }
+
+    [TestMethod]
+    public async Task SubmitTxIPv6WithMissingInputCount()
+    {
+      var script = new Script(OpcodeType.OP_FALSE);
+      script += OpcodeType.OP_RETURN;
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
+
+      string dsData = $"8101{ new string('0', 31)}1";
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
 
       var tx1 = CreateDS_Tx(script);
@@ -310,8 +311,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
       script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"81017f000001{2:D2}";
+      //      string dsData = $"8101{ new string('0', 31)}1{2:D2}";
+      string dsData = $"01017f000001{2:D2}";
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
 
       var tx1 = CreateDS_Tx(script);
