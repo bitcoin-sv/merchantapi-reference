@@ -21,6 +21,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public long CallbacksReceived { get; set; }
     public long SimulatedCallbackErrors { get; set; }
     public TimeSpan ElapsedTime { get; set; }
+    public long GenerateBlockCalls { get; set; }
     public string Comment { get; set; }
 
 
@@ -38,6 +39,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       CallbacksReceived = stats.CallbacksReceived;
       SimulatedCallbackErrors = stats.SimulatedCallbackErrors;
       ElapsedTime = stats.ElapsedTime;
+      GenerateBlockCalls = stats.GenerateBlockCalls;
       Comment = comment;
     }
 

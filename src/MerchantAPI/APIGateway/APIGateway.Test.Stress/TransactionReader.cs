@@ -10,14 +10,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
   /// <summary>
   /// Thread safe file reader
   /// </summary>
-  class TransactionReader 
+  class TransactionReader
   {
     readonly object objLock = new();
 
     readonly int txIndex;
     readonly IEnumerator<string> lines;
     bool hasCurrent;
-    readonly long limit;
+    long limit;
     long returnedCount = 0;
 
     public TransactionReader(string fileName, int txIndex, long limit)
@@ -25,6 +25,11 @@ namespace MerchantAPI.APIGateway.Test.Stress
       this.txIndex = txIndex;
       lines = File.ReadLines(fileName).GetEnumerator();
       hasCurrent = lines.MoveNext();
+      this.limit = limit;
+    }
+
+    public void SetLimit(long limit)
+    {
       this.limit = limit;
     }
 

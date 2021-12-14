@@ -27,13 +27,16 @@ using CsvHelper;
 using System.Globalization;
 using CsvHelper.Configuration;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
+using Npgsql;
+using MerchantAPI.Common.Tasks;
+using Dapper;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
 
   class Program
   {
-    private const string VERSION = "1.0.0";
+    private const string VERSION = "1.0.1";
 
     static async Task SendTransactionsBatch(IEnumerable<string> transactions, HttpClient client, Stats stats, string url, string callbackUrl, string callbackToken, string callbackEncryption)
     {
@@ -85,7 +88,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         RawTx = t,
         // All other parameters are passed in query string
-        CallbackUrl = null, 
+        CallbackUrl = null,
         CallbackToken = null,
         CallbackEncryption = null,
         MerkleProof = null,
@@ -111,7 +114,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         var okItems = r.Txs.Where(t => t.ReturnResult == "success").ToArray();
 
-        stats.AddRequestTxFailures(callbackHost, errorItems.Select(x=> new uint256(x.Txid)));
+        stats.AddRequestTxFailures(callbackHost, errorItems.Select(x => new uint256(x.Txid)));
         stats.AddOkSubmited(callbackHost, okItems.Select(x => new uint256(x.Txid)));
 
         var errors = errorItems
@@ -149,8 +152,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
         throw new Exception($"Can not start bitcoind. Expected bitcoind at location: {bitcoindPath}");
       }
 
-      List<string> argumentList = new() { "-checklevel=0", "-checkblocks=0"}; // "Verifying blocks..." can take too long
-      var bitcoind = new BitcoindProcess("127.0.0.1", bitcoindPath, testDataDir, 18444, 18332, 
+      List<string> argumentList = new() { "-checklevel=0", "-checkblocks=0" }; // "Verifying blocks..." can take too long
+      var bitcoind = new BitcoindProcess("127.0.0.1", bitcoindPath, testDataDir, 18444, 18332,
         string.IsNullOrEmpty(zmqEndpointIp) ? "127.0.0.1" : zmqEndpointIp, 28333,
         new NullLoggerFactory(), httpClientFactory, emptyDataDir: false, argumentList: argumentList);
       Console.WriteLine($"Bitcoind arguments:");
@@ -188,16 +191,16 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         Console.WriteLine($"Timeout occurred when waiting for callbacks. No new callbacks received for last {timeoutMs} ms");
       }
-      
+
       // TODO: print out multiple callbacks
       if (missing.Any())
       {
         const int printUpTo = 3;
-        Console.WriteLine($"Error: Not all callback were received. Total missing {missing.Sum(x=> x.txs.Length)}");
+        Console.WriteLine($"Error: Not all callbacks were received. Total missing {missing.Sum(x => x.txs.Length)}");
         Console.WriteLine($"Printing up to {printUpTo} missing tx per host");
         foreach (var host in missing)
         {
-          Console.WriteLine($"   {host.host}  {string.Join(" ",host.txs.Take(printUpTo).Select(x=> x.ToString()).ToArray())} ");
+          Console.WriteLine($"   {host.host}  {string.Join(" ", host.txs.Take(printUpTo).Select(x => x.ToString()).ToArray())} ");
         }
       }
       else
@@ -228,10 +231,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
         {
           return config.MapiConfig.Callback?.Url;
         }
-
+      
         var uri = new UriBuilder(config.MapiConfig.Callback.Url);
-        
-        uri.Host += rnd.Next(1, config.MapiConfig.Callback.AddRandomNumberToHost.Value+1);
+
+        uri.Host += rnd.Next(1, config.MapiConfig.Callback.AddRandomNumberToHost.Value + 1);
         return uri.ToString();
       }
 
@@ -244,7 +247,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         client.DefaultRequestHeaders.Add("Authorization", config.MapiConfig.Authorization);
       }
 
-      Console.WriteLine($"*** Stress program v{ VERSION} ***");
+      Console.WriteLine($"*** Stress program v{ VERSION } ***");
 
       BitcoindProcess bitcoind = null;
       try
@@ -283,6 +286,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         // Start web server if required
         IHost webServer = null;
         var cancellationSource = new CancellationTokenSource();
+        var cancellationBlocksSource = new CancellationTokenSource();
         if (config.MapiConfig.Callback?.StartListener == true)
         {
           Console.WriteLine($"Starting web server for url {config.MapiConfig.Callback.Url}");
@@ -314,6 +318,24 @@ namespace MerchantAPI.APIGateway.Test.Stress
           }
         }
 
+        async Task GenerateBlock(CancellationToken cancellationToken, int generateBlockPeriodMs)
+        {
+          do
+          {
+            try
+            {
+              await bitcoind.RpcClient.GenerateAsync(1);
+              Interlocked.Increment(ref stats.GenerateBlockCalls);
+            }
+            catch (Exception ex)
+            {
+              Console.WriteLine("Error generating block: " + ex.Message);
+            }
+
+            await Task.Delay(generateBlockPeriodMs, cancellationToken);
+          } while (!cancellationToken.IsCancellationRequested);
+        }
+
         async Task PrintProgress(CancellationToken cancellationToken)
         {
           do
@@ -325,36 +347,80 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         }
 
+        void RunSubmitThreads()
+        {
+          var tasks = new List<Task>();
+          for (int i = 0; i < config.Threads; i++)
+          {
+            tasks.Add(Task.Run(submitThread));
+          }
+          Task.WaitAll(tasks.ToArray());
+        }
 
-        var tasks = new List<Task>();
+
+        if (config.StartGenerateBlocksAtTx > -1)
+        {
+          transactions.SetLimit(config.StartGenerateBlocksAtTx);
+        }
 
         Console.WriteLine($"Starting {config.Threads} concurrent tasks");
 
-        for (int i = 0; i < config.Threads; i++)
-        {
-          tasks.Add(Task.Run(submitThread));
-        }
-
         var progressTask = Task.Run(() => PrintProgress(cancellationSource.Token), cancellationSource.Token);
 
-        Task.WaitAll(tasks.ToArray());
+        RunSubmitThreads();
 
         stats.StopTiming(); // we are no longer submitting txs. Stop the Stopwatch that is used to calculate submission throughput
-        if (config.MapiConfig.Callback?.StartListener == true  && bitcoind != null && !string.IsNullOrEmpty(config.MapiConfig.Callback?.Url) && stats.OKSubmitted > 0)
-        {
-          Console.WriteLine("Finished sending transactions. Will generate a block to trigger callbacks");
-          await bitcoind.RpcClient.GenerateAsync(1);
 
-          await WaitForCallbacksAsync(config.MapiConfig.Callback.IdleTimeoutMS, stats); 
+        Task generateTask = null;
+        if (config.StartGenerateBlocksAtTx > -1)
+        {
+          transactions.SetLimit(config.Limit ?? long.MaxValue);
+
+          stats.ResumeTiming();
+
+          Console.WriteLine($"Starting {config.Threads} concurrent tasks again together with generate blocks");
+
+          generateTask = Task.Run(() => GenerateBlock(cancellationBlocksSource.Token, config.GenerateBlockPeriodMs), cancellationBlocksSource.Token);
+
+          RunSubmitThreads();
+
+          stats.StopTiming();
         }
+
+        // Cancel submit and generateBlock tasks
+        cancellationBlocksSource.Cancel(false);
+        try
+        {
+          if (generateTask != null)
+          {
+            generateTask.Wait();
+          }
+        }
+        catch
+        {
+        }
+
+        Console.WriteLine("Finished sending transactions.");
+
+        if (config.MapiConfig.Callback?.StartListener == true && bitcoind != null &&
+           !string.IsNullOrEmpty(config.MapiConfig.Callback?.Url) && stats.OKSubmitted > 0)
+        {
+          if (stats.GenerateBlockCalls == 0)
+          {
+            Console.WriteLine("Will generate a block to trigger callbacks");
+            await bitcoind.RpcClient.GenerateAsync(1);
+            Interlocked.Increment(ref stats.GenerateBlockCalls);
+          }
+          await WaitForCallbacksAsync(config.MapiConfig.Callback.IdleTimeoutMS, stats);
+        }
+
         // Cancel progress task
         cancellationSource.Cancel(false);
-
         try
         {
           progressTask.Wait();
         }
-        catch  
+        catch
         {
         }
 
@@ -362,7 +428,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
         {
           await webServer.StopAsync();
         }
-
         GenerateCsvRow(mAPIversion, config, stats);
       }
       finally
@@ -446,7 +511,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       string destDir = Path.Combine(testDataDir, "regtest");
       Console.WriteLine($"Copying template data from directory {templateData} into temporary directory {destDir}");
-      
+
       DirectoryCopy(templateData, destDir);
       return testDataDir;
     }
@@ -522,22 +587,41 @@ namespace MerchantAPI.APIGateway.Test.Stress
             $"Please add missing node: {hostPort} {bitcoind.RpcUser} {bitcoind.RpcPassword} with ZMQNotificationsEndpoint: 'tcp://{ (string.IsNullOrEmpty(bitcoindZmqEndpointIp) ? bitcoind.ZmqIp : bitcoindZmqEndpointIp) }:{bitcoind.ZmqPort}!'");
         }
       }
-      
+
       await Task.Delay(TimeSpan.FromSeconds(1)); // Give mAPI some time to establish ZMQ subscriptions
     }
 
     static async Task<int> ClearDb(string mapiDBConnectionString)
     {
-      await Task.Delay(0);
-      TruncateTables(mapiDBConnectionString);
+      await CleanUpTxHandler(mapiDBConnectionString);
+      NodeRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
       Console.WriteLine($"Tables truncated.");
       Console.WriteLine($"mAPI cache is out of sync, you have to restart mAPI!");
       return 0;
     }
-    static void TruncateTables(string mapiDBConnectionString)
+
+    static async Task CleanUpTxHandler(string mapiDBConnectionString, Stats stats = null)
     {
-      NodeRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
-      TxRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
+      var watch = System.Diagnostics.Stopwatch.StartNew();
+      using var connection = new NpgsqlConnection(mapiDBConnectionString);
+      RetryUtils.Exec(() => connection.Open());
+      using var transaction = await connection.BeginTransactionAsync();
+
+      var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
+        @"WITH deleted AS
+        (DELETE FROM Block WHERE blocktime < @lastUpdateBefore RETURNING *)
+        SELECT COUNT(*) FROM deleted;",
+        new { lastUpdateBefore = DateTime.MaxValue });
+
+      var txs = await transaction.Connection.ExecuteScalarAsync<int>(
+        @"WITH deleted AS 
+        (DELETE FROM Tx WHERE receivedAt < @lastUpdateBefore RETURNING *) 
+        SELECT COUNT(*) FROM deleted;",
+        new { lastUpdateBefore = DateTime.MaxValue });
+
+      await transaction.CommitAsync();
+      watch.Stop();
+      Console.WriteLine($"CleanUpTxHandler: deleted {blocks} blocks and {txs} txs, elapsed {watch.Elapsed}");
     }
 
     static async Task<int> Main(string[] args)
@@ -590,7 +674,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       return await rootCommand.InvokeAsync(args);
     }
 
-    
+
   }
 
 }
