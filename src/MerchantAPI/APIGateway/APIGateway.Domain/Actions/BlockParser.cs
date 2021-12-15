@@ -19,6 +19,7 @@ using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Exceptions;
 using System.Diagnostics;
+using Prometheus;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -36,6 +37,20 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly SemaphoreSlim semaphoreSlim = new(1, 1);
     readonly BlockParserStatus blockParserStatus;
     readonly TimeSpan rpcGetBlockTimeout;
+    
+    static readonly string metricsPrefix = "merchantapi_blockparser_";
+
+    static readonly Histogram blockParsingDuration = Metrics
+      .CreateHistogram($"{metricsPrefix}blockparsing_duration_seconds", "Histogram of time spent parsing blocks.");
+
+    static readonly Counter bestBlockHeight = Metrics
+      .CreateCounter($"{metricsPrefix}bestblockheight", "Number best block height.");
+
+    static readonly Counter blockParsed = Metrics
+      .CreateCounter($"{metricsPrefix}blockparsed_counter", "Number of parsed blocks.");
+
+    static readonly Gauge blockParsingQueue = Metrics
+      .CreateGauge($"{metricsPrefix}blockparsingqueue", "Blocks in queue for pasring.");
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
@@ -180,6 +195,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           return;
         }
 
+        //increase counter if block height is greater 
+        if ((long)bestBlockHeight.Value < blockHeader.Height)
+          bestBlockHeight.IncTo(blockHeader.Height);
+
         var dbBlock = new Block
         {
           BlockHash = blockHash.ToBytes(),
@@ -243,6 +262,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           else
           {
             blockHashesBeingParsed.Add(e.BlockHash);
+            blockParsingQueue.Inc();
           }
         }
         finally
@@ -253,13 +273,23 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
         using var cts = new CancellationTokenSource(rpcGetBlockTimeout);
         var stopwatch = Stopwatch.StartNew();
-        using var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash, cts.Token);
-        var block = HelperTools.ParseByteStreamToBlock(blockStream);
         var blockDownloadTime = stopwatch.Elapsed;
-        ulong bytes = (ulong)blockStream.TotalBytesRead;
+        NBitcoin.Block block;
+        DateTime blockDownloaded;
+        int txsFound, dsFound;
 
-        var txsFound = await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
-        var dsFound = await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
+        ulong bytes;
+        using (blockParsingDuration.NewTimer())
+        {
+          using var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash, cts.Token);
+          block = HelperTools.ParseByteStreamToBlock(blockStream);
+          bytes = (ulong)blockStream.TotalBytesRead;
+          blockDownloaded = DateTime.UtcNow;
+
+          txsFound = await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
+          dsFound = await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
+        }
+
         stopwatch.Stop();
         var blockParseTime = stopwatch.Elapsed;
 
@@ -268,6 +298,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         try
         {
           blockHashesBeingParsed.Remove(e.BlockHash);
+          blockParsingQueue.Dec();
+          blockParsed.Inc();
+
+          blockParserStatus.IncrementBlocksProcessed(queueCount, e.BlockHash, e.BlockHeight, txsFound, dsFound, bytes, block.Transactions.Count,
+            blockParsedAt, e.CreationDate, blockParseTime, blockDownloadTime);
         }
         finally
         {
@@ -282,6 +317,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         try
         {
           blockHashesBeingParsed.Remove(e.BlockHash);
+          blockParsingQueue.Dec();
         }
         finally
         {
@@ -295,6 +331,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         else
         {
           throw;
+          blockParsingQueue.Dec();
         }
       }
     }
@@ -308,6 +345,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       if (dbIsEmpty)
       {
         var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(bestBlockHash);
+
+        bestBlockHeight.IncTo(blockHeader.Height);
 
         var dbBlock = new Block
         {

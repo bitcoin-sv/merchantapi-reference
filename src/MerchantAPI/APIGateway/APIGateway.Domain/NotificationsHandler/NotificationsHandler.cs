@@ -14,6 +14,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBitcoin;
+using Prometheus;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -35,6 +36,17 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     private readonly IClock clock;
 
     readonly NotificationScheduler notificationScheduler;
+
+    static readonly string metricsPrefix = "merchantapi_notificationshandler_";
+
+    static readonly Counter successfulCallbacks = Metrics
+      .CreateCounter($"{metricsPrefix}successfulcallbacks_counter", "Number of successful callbacks.");
+
+    static readonly Counter failedCallbacks = Metrics
+      .CreateCounter($"{metricsPrefix}failedcallbacks_counter", "Number of failed callbacks.");
+
+    static readonly Histogram callbackDuration = Metrics
+      .CreateHistogram($"{metricsPrefix}callback_duration_seconds", "Histogram total duration of callbacks.");
 
     private const string CALLBACK_REASON_PLACEHOLDER = "{callbackreason}";
 
@@ -152,19 +164,25 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       {        
         var restClient = new RestClient(url, callbackToken, client);
         var notificationTimeout = new TimeSpan(0, 0, 0, 0, requestTimeout);
-        if (string.IsNullOrEmpty(callbackEncryption))
+
+        using (callbackDuration.NewTimer())
         {
-          _ = await restClient.PostJsonAsync("", payload, requestTimeout: notificationTimeout, token: stoppingToken);
+          if (string.IsNullOrEmpty(callbackEncryption))
+          {
+            _ = await restClient.PostJsonAsync("", payload, requestTimeout: notificationTimeout, token: stoppingToken);
+          }
+          else
+          {
+            _ = await restClient.PostOctetStream("", MapiEncryption.Encrypt(payload, callbackEncryption), requestTimeout: notificationTimeout, token: stoppingToken);
+          }
         }
-        else
-        {
-          _ = await restClient.PostOctetStream("", MapiEncryption.Encrypt(payload, callbackEncryption), requestTimeout: notificationTimeout, token: stoppingToken);
-        }
+        successfulCallbacks.Inc();
 
         logger.LogDebug($"Successfully sent notification to '{url}', with execution time of '{stopwatch.ElapsedMilliseconds}'ms");
       }
       catch (Exception ex)
       {
+        failedCallbacks.Inc();
         errMessage = ex.GetBaseException().Message;
         logger.LogError($"Callback failed for host {hostURI.Host}. Error: {ex.GetBaseException().Message}");
       }

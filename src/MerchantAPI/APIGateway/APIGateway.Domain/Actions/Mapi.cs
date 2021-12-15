@@ -20,6 +20,7 @@ using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Options;
+using Prometheus;
 using System.Diagnostics.CodeAnalysis;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
@@ -35,6 +36,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly ITxRepository txRepository;
     private readonly IClock clock;
     readonly AppSettings appSettings;
+
+    static readonly string metricsPrefix = "merchantapi_mapi_";
+
+    static readonly Counter txSendToNode = Metrics
+      .CreateCounter($"{metricsPrefix}txsendtonode_counter", "Number of transactions send to node.");
+    static readonly Counter txAcceptedByNode = Metrics
+      .CreateCounter($"{metricsPrefix}txsendtonode_counter", "Number of transactions accepted by node.");
+    static readonly Counter txRejectedByNode = Metrics
+      .CreateCounter($"{metricsPrefix}txsendtonode_counter", "Number of transactions rejected by node.");
 
     static class ResultCodes
     {
@@ -783,7 +793,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       Exception submitException = null;
       if (transactionsToSubmit.Any())
       {
-        // Submit all collected transactions in one call
+        //total number of transactions send to node.
+        txSendToNode.IncTo(transactionsToSubmit.Count);
+
+        // Submit all collected transactions in one call        
         try
         {
           rpcResponse = await rpcMultiClient.SendRawTransactionsAsync(
@@ -840,10 +853,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         result.Txs = responses.ToArray();
         result.FailureCount = failureCount + submitFailureCount;
 
+        //count transactions send to node, by status (accepted by node, rejected by node). 
+        var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
+        txAcceptedByNode.IncTo(successfullTxs.Count());
+        txRejectedByNode.IncTo(submitFailureCount);
 
         if (!appSettings.DontInsertTransactions.Value)
         {
-          var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
           logger.LogInformation($"Starting with InsertTxsAsync: { successfullTxs.Count() }: { string.Join("; ", successfullTxs.Select(x => x.transactionId))} (TransactionsToSubmit: { transactionsToSubmit.Count })");
           var watch = System.Diagnostics.Stopwatch.StartNew();
           await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx

@@ -13,6 +13,7 @@ using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBitcoin.Crypto;
+using Prometheus;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
@@ -30,6 +31,13 @@ namespace MerchantAPI.APIGateway.Domain.Models
     readonly IRpcClientFactory rpcClientFactory;
     readonly ILogger logger;
     readonly RpcClientSettings rpcClientSettings;
+
+    static readonly string metricsPrefix = "merchantapi_rpcmulticlient_";
+
+    static readonly Histogram GetTxOutsDuration = Metrics
+      .CreateHistogram($"{metricsPrefix}gettxouts_duration_seconds", "Histogram of time spend waiting for getutxo response from node.");
+    static readonly Histogram SendRawTxDuration = Metrics
+      .CreateHistogram($"{metricsPrefix}sendrawtx_duration_seconds", "Histogram of time spend  waitng for sendrawtransaction response from node.");
 
     public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options)
       : this(nodes, rpcClientFactory, logger, options.Value.RpcClient)
@@ -244,7 +252,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList)
     {
+      //time spend waiting for getutxo response from node.
+      using (GetTxOutsDuration.NewTimer())
+      {
       return GetFirstSucesfullAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
+    }
     }
     
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
@@ -426,9 +438,13 @@ namespace MerchantAPI.APIGateway.Domain.Models
       (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions)
     {
       var allTxs = transactions.Select(x => Hashes.DoubleSHA256(x.transaction).ToString()).ToArray();
+      RpcSendTransactions[] okResults = null;
 
-      var okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions), throwIfEmpty: true);
-
+      //time spend waitng for sendrawtransaction response from node.
+      using (SendRawTxDuration.NewTimer())
+      {
+        okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions), throwIfEmpty: true);
+      }
 
       // Extract results from nodes that successfully processed the request and merge them together:
 

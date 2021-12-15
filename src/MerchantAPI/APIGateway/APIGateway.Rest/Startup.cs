@@ -31,6 +31,7 @@ using MerchantAPI.Common.Startup;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Domain.DSAccessChecks;
 using MerchantAPI.APIGateway.Domain.Cache;
+using Prometheus;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -283,6 +284,8 @@ namespace MerchantAPI.APIGateway.Rest
       });
 
       app.UseRouting();
+      app.UseHttpMetrics();
+      app.UseMetricServer();
       app.UseCors();
 
       app.UseAuthentication();
