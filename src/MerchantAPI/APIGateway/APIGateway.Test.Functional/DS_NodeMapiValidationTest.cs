@@ -29,7 +29,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var coin = availableCoins.Dequeue();
 
-      var tx1 = CreateDS_OP_RETURN_Tx(new Coin[] { coin }, 00);
+      var tx1 = CreateDS_OP_RETURN_Tx(new Coin[] { coin }, DSprotectedInputs: 00);
+      var tx1Hex = tx1.ToHex();
+
+      var payload = await SubmitTransactions(new string[] { tx1Hex });
+
+      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
+      Assert.AreEqual(0, payload.Txs.Single().Warnings.Length);
+    }
+
+    [TestMethod]
+    public async Task SubmitTxIPv6WithDsCheckAndCorrectScript()
+    {
+      var coin = availableCoins.Dequeue();
+
+      var tx1 = CreateDS_OP_RETURN_Tx(new Coin[] { coin }, IPv4: false, DSprotectedInputs: 00);
       var tx1Hex = tx1.ToHex();
 
       var payload = await SubmitTransactions(new string[] { tx1Hex });
@@ -52,18 +66,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, payload.Txs.Single().Warnings.Length);
     }
 
-    private Transaction CreateDS_Tx(Script script)
-    {
-      var coin = availableCoins.Dequeue();
-      return CreateDS_Tx(new Coin[] { coin }, script);
-    }
-
     [TestMethod]
     public async Task SubmitTxWithoutDsCheckAndMissingOP_FALSE()
     {
-      //var script = new Script(OpcodeType.OP_FALSE);
       var script = new Script(OpcodeType.OP_RETURN);
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
 
       string dsData = $"01017f000001{0:D2}";
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
@@ -80,9 +87,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxWithMissingOP_FALSE()
     {
-      //var script = new Script(OpcodeType.OP_FALSE);
       var script = new Script(OpcodeType.OP_RETURN);
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
       
       string dsData = $"01017f000001{0:D2}";
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
@@ -93,15 +99,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
       Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DS not enabled.", payload.Txs.Single().Warnings.Single());
+      Assert.AreEqual("Missing DSNT output.", payload.Txs.Single().Warnings.Single());
     }
 
     [TestMethod]
     public async Task SubmitTxWithMissingOP_RETURN()
     {
       var script = new Script(OpcodeType.OP_FALSE);
-      //script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
 
       string dsData = $"01017f000001{0:D2}";
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
@@ -112,7 +117,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
       Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DS not enabled.", payload.Txs.Single().Warnings.Single());
+      Assert.AreEqual("Missing DSNT output.", payload.Txs.Single().Warnings.Single());
     }
 
     [TestMethod]
@@ -120,7 +125,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
-      //script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
 
       string dsData = $"01017f000001{0:D2}";
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
@@ -131,7 +135,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
       Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DS not enabled.", payload.Txs.Single().Warnings.Single());
+      Assert.AreEqual("Missing DSNT output.", payload.Txs.Single().Warnings.Single());
     }
 
     [TestMethod]
@@ -139,7 +143,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier+"01"));
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier+"01"));
 
       string dsData = $"01017f000001{0:D2}";
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
@@ -150,178 +154,26 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
       Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DS not enabled.", payload.Txs.Single().Warnings.Single());
+      Assert.AreEqual("Missing DSNT output.", payload.Txs.Single().Warnings.Single());
     }
 
     [TestMethod]
-    public async Task SubmitTxWithMissingCallbackMessage()
+    public async Task SubmitTxWithMultipleDSNTOutputs()
     {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
+      var script1 = new Script(OpcodeType.OP_FALSE);
+      script1 += OpcodeType.OP_RETURN;
+      script1 += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
+      string dsData = $"01017f000001{0:D2}";
+      script1 += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
 
-      //string dsData = $"01017f000001{0:D2}";
-      //script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
+      var coin = availableCoins.Dequeue();
+      var tx1 = CreateDS_Tx(new Coin[] { coin }, new Script[] { script1, script1 });
 
       var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
 
       Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
       Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("Missing DSNT callback message.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidProtocolVersion()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"00017f000001{0:D2}"; // version 0
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: invalid version field.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidVersionReservedBits()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"ff017f000001{0:D2}"; // ff - reserved bits in version fields should be zero, but are not
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: invalid version field.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidZeroIPAddressCount()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"01007f000001{0:D2}"; // IP address count = 0
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: IP address count of 0 is not allowed.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidIPAddressCount()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"01037f0000017f000001{0:D2}"; // IP address count = 3
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: missing/bad IP address.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidIPv6Address()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"81037f0000017f000001{0:D2}"; // version 1 + 1 IPv6 address: 10000001 (hex: 81)
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: missing/bad IP address.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithMissingInputCount()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"01017f000001";
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: missing input count.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxIPv6WithMissingInputCount()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-
-      string dsData = $"8101{ new string('0', 31)}1";
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: missing input count.", payload.Txs.Single().Warnings.Single());
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidInputCount()
-    {
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTidentifier));
-      //      string dsData = $"8101{ new string('0', 31)}1{2:D2}";
-      string dsData = $"01017f000001{2:D2}";
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var tx1 = CreateDS_Tx(script);
-
-      var payload = await SubmitTransactions(new string[] { tx1.ToHex() });
-
-      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
-      Assert.AreEqual(1, payload.Txs.Single().Warnings.Length);
-      Assert.AreEqual("DSNT callback message: invalid input count.", payload.Txs.Single().Warnings.Single());
+      Assert.AreEqual("There should only be one DSNT output in a transaction. The node only attempts to process the first DSNT output (lowest index).", payload.Txs.Single().Warnings.Single());
     }
   }
 }

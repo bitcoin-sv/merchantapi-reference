@@ -143,81 +143,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return true;
     }
 
-    static (bool valid, string warning) ValidateDsntCallbackMessage(TxOut output, int numOfInputs)
-    {
-      var ops = output.ScriptPubKey.ToOps().ToArray();
-      if (ops.Length < 4)
-      {
-        return (false, "Missing DSNT callback message.");
-      }
-      var dsntCallbackMessage = ops.Last().ToBytes();
-
-      // check version field
-      // Bit 7 = 0 for IPv4, 1 for IPv6
-      // Bit 6 = 0, reserved
-      // Bit 5 = 0, reserved
-      // Bits 4 - 0 = dsnt protocol version(currently 1, max 31)
-
-      if (dsntCallbackMessage.Length < 1) // pushop + version byte
-      {
-        return (false, "DSNT callback message: missing version field.");
-      }
-      var versionByte = dsntCallbackMessage[1];
-
-      var version = GetBitValue(versionByte, 0) +
-                    GetBitValue(versionByte, 1) +
-                    GetBitValue(versionByte, 2) +
-                    GetBitValue(versionByte, 3) +
-                    GetBitValue(versionByte, 4);
-      if (version == 0 || 
-          version > 31 ||
-          // bit 5 & 6 must be zero (reserved)
-          GetBitValue(versionByte, 5) != 0 ||
-          GetBitValue(versionByte, 6) != 0)
-      {
-        return (false, "DSNT callback message: invalid version field.");
-      }
-
-      bool isIPv4 = GetBitValue(versionByte, 7) == 0;
-
-      if (dsntCallbackMessage.Length < 3) 
-      {
-        return (false, "DSNT callback message: missing IP address count.");
-      }
-
-      var IPaddressCountLength = 1; // TODO: probably we won't validate this - remove?!
-      var IPaddressCount = dsntCallbackMessage[2];
-      if (IPaddressCount == 0)
-      {
-        return (false, "DSNT callback message: IP address count of 0 is not allowed.");
-      }
-      var IPaddressLength = isIPv4 ? (IPaddressCount * 4) : (IPaddressCount * 16);
-      if (dsntCallbackMessage.Length - 3 < IPaddressLength)
-      {
-        return (false, "DSNT callback message: missing/bad IP address.");
-      }
-
-      if (dsntCallbackMessage.Length < 2 + IPaddressCountLength + IPaddressLength + 1)
-      {
-        return (false, "DSNT callback message: missing input count.");
-      }
-      var inputCount = dsntCallbackMessage[2 + IPaddressCountLength + IPaddressLength];
-      if (inputCount > numOfInputs)
-      {
-        return (false, "DSNT callback message: invalid input count.");
-      }
-      if (inputCount == 0 && dsntCallbackMessage.Length > 2 + IPaddressCountLength + IPaddressLength + 1)
-      {
-        return (false, "DSNT callback message: invalid inputs.");
-      }
-      return (true, null);
-    }
-    static int GetBitValue(byte b, int bitNumber)
-    {
-      var bit = (b & (1 << bitNumber ));
-      return bit;
-    }
-
     /// <summary>
     /// Return description that can be safely returned to client without exposing internal details or null otherwise.
     /// </summary>
@@ -383,25 +308,21 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           dataBytes += output.ScriptPubKey.Length;
           if (dsCheck && IsDsntOutput(scriptBytes))
           {
-            dsntOutput = output;
+            if (dsntOutput == null)
+            {
+              dsntOutput = output;
+            }
+            else
+            {
+              warnings = new string[] { "There should only be one DSNT output in a transaction. The node only attempts to process the first DSNT output (lowest index)." };
+            }
           }
         }
       }
 
-      if (dsCheck)
+      if (dsCheck && dsntOutput == null)
       {
-        if (dsntOutput == null)
-        {
-          warnings = new string[] { "DS not enabled." };
-        }
-        else
-        {
-          var (valid, warning) = ValidateDsntCallbackMessage(dsntOutput, transaction.Inputs.Count);
-          if (!valid)
-          {
-            warnings = new string[] { warning };
-          }
-        }
+        warnings = new string[] { "Missing DSNT output." };
       }
 
       return (sumNewOutputs, dataBytes);
