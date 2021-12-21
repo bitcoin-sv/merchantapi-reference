@@ -155,13 +155,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     static readonly string commonTestPrefix = typeof(TestBaseWithBitcoind).Namespace + ".";
     static readonly int bitcoindInternalPathLength = "regtest/blocks/index/MANIFEST-00000".Length + 10;
 
-    public BitcoindProcess StartBitcoind(int nodeIndex, BitcoindProcess[] nodesToConnect = null)
+    public BitcoindProcess StartBitcoind(int nodeIndex, BitcoindProcess[] nodesToConnect = null, List<string> argumentList = null)
     {
 
-      return StartBitcoindWithZmq(nodeIndex, nodesToConnect);
+      return StartBitcoindWithZmq(nodeIndex, nodesToConnect, argumentList: argumentList);
     }
 
-    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost)
+    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, List<string> argumentList = null)
     {
 
       string testPerfix = TestContext.FullyQualifiedTestClassName;
@@ -181,7 +181,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         bitcoindFullPath,
         dataDirRoot,
         nodeIndex, hostIp, zmqIndex ?? nodeIndex, zmqIp, loggerFactory,
-        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect);
+        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect, argumentList);
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }

@@ -19,6 +19,8 @@ using Microsoft.Extensions.Hosting;
 using System.Collections.Generic;
 using MerchantAPI.APIGateway.Domain.Models;
 using NBitcoin.DataEncoders;
+using Serilog;
+using Serilog.Events;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -38,6 +40,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestCleanup]
     public override void TestCleanup()
     {
+      if (mapiHost != null)
+      {
+        StopMAPI().Wait();
+      }
       base.TestCleanup();
       if (mapiHost != null)
       {
@@ -48,11 +54,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     #region Setup live MAPI
-    static void ConfigureWebHostBuilder(IWebHostBuilder webBuilder, params string[] urls)
+    static void ConfigureWebHostBuilder(IWebHostBuilder webBuilder, string url, string dataDirRoot)
     {
+      var uri = new Uri(url);
+
+      var hostAndPort = uri.Scheme + "://" + uri.Host + ":" + uri.Port;
       webBuilder.UseStartup<Rest.Startup>();
-      webBuilder.UseUrls(urls);
+      webBuilder.UseUrls(hostAndPort);
+
       webBuilder.UseEnvironment("Testing");
+
       string appPath = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 
       webBuilder.ConfigureAppConfiguration(cb =>
@@ -62,6 +73,20 @@ namespace MerchantAPI.APIGateway.Test.Functional
         cb.AddJsonFile(Path.Combine(appPath, "appsettings.test.functional.development.json"), optional: true);
       });
 
+     var logger = new LoggerConfiguration()
+      .MinimumLevel.Debug()
+      .MinimumLevel.Override("Microsoft", LogEventLevel.Debug)
+      .MinimumLevel.Override("System", LogEventLevel.Debug)
+      .ReadFrom.AppSettings()
+      .WriteTo.File($"{dataDirRoot}/mapi.txt", shared: true,
+                    outputTemplate: "{Timestamp:u} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+
+      .CreateLogger();
+    webBuilder.ConfigureLogging((hostingContext, builder) =>
+    {
+      builder.AddSerilog(logger);
+    });
+
     }
 
     /// <summary>
@@ -70,18 +95,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private void StartupLiveMAPI(int DSPort=5555)
     {
       loggerTest.LogInformation("Starting up another instance of MAPI");
+      var dataDirRoot = Path.Combine(TestContext.TestRunDirectory, "mapi", TestContext.TestName);
+
       mapiHost = Host.CreateDefaultBuilder(Array.Empty<string>())
         .ConfigureWebHostDefaults(webBuilder => ConfigureWebHostBuilder(
           webBuilder,
-          $"http://[::1]:{DSPort}", $"http://127.0.0.1:{DSPort}")
-        ).Build();
+          $"http://localhost:{DSPort}",
+          dataDirRoot
+        )).Build();
 
       mapiHost.RunAsync();
     }
     private void StartupNode1AndLiveMAPI()
     {
       // startup another node and link it to the first node
-      node1 = StartBitcoind(1, new BitcoindProcess[] { node0 });
+      node1 = StartBitcoind(1, new BitcoindProcess[] { node0 }, argumentList: new() { "-debug=doublespend" });
 
       StartupLiveMAPI();
     }
@@ -287,8 +315,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("Missing DSNT callback message.", warning);
 
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -312,8 +338,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("DSNT callback message: invalid version field.", warning);
 
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -337,8 +361,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("DSNT callback message: IP address count of 0 is not allowed.", warning);
 
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -361,8 +383,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("DSNT callback message: missing/bad IP address.", warning);
 
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -384,8 +404,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(valid);
 
       await CheckDsNotifications(tx1, coin, 1, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -408,8 +426,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("DSNT callback message: missing/bad IP address.", warning);
 
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [DataRow("7f000001", "7f000002", 1)]
@@ -443,8 +459,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(valid);
 
       await CheckDsNotifications(tx1, coin, expectedDSNotifications, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -467,8 +481,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("DSNT callback message: missing input count.", warning);
 
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -491,8 +503,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("DSNT callback message: invalid input count.", warning);
 
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-
-      await StopMAPI();
     }
   }
 }
