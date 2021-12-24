@@ -286,19 +286,19 @@ CREATE TEMPORARY TABLE TxTemp (
       string cmdText = @"
 INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor)
 SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor
-FROM TxTemp "
+FROM TxTemp 
+WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId) "
 ;
       if (areUnconfirmedAncestors)
       {
         cmdText += @"
-WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId)
   AND unconfirmedAncestor = true;
 ";
       }
       else
       {
         cmdText += @"
-WHERE txPayload IS NOT NULL;
+  AND txPayload IS NOT NULL;
 ";
       }
 
@@ -306,18 +306,18 @@ WHERE txPayload IS NOT NULL;
 INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
 SELECT txInternalId, n, prevTxId, prev_n
 FROM TxTemp
+WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND Tx.txInternalId = TxTemp.txInternalId)
 ";
       if (areUnconfirmedAncestors)
       {
         cmdText += @"
-WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND Tx.txInternalId = TxTemp.txInternalId)
   AND unconfirmedAncestor = false;
 ";
       }
       else
       {
         cmdText += @"
-WHERE txPayload IS NULL;
+  AND txPayload IS NULL;
 ";
       }
       await transaction.Connection.ExecuteAsync(cmdText);

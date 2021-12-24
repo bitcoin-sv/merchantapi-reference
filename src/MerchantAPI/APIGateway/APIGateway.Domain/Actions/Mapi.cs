@@ -620,10 +620,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         Dictionary<string, object> policies = null;
         if (await txRepository.TransactionExistsAsync(txId.ToBytes()))
         {
-          AddFailureResponse(txIdString, "Transaction already known", ref responses);
+          if (appSettings.ResubmitKnownTransactions.HasValue && appSettings.ResubmitKnownTransactions.Value)
+          {
+            logger.LogInformation($"Transaction {txIdString} already known. Will resubmit to node.");
+          }
+          else
+          {
+            AddFailureResponse(txIdString, "Transaction already known", ref responses);
 
-          failureCount++;
-          continue;
+            failureCount++;
+            continue;
+          }
         }
 
         Transaction transaction = null;
