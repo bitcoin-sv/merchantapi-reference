@@ -5,12 +5,14 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -414,5 +416,37 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
       Assert.AreEqual(1, notifications.Length);
     }
+
+    [TestMethod]
+    [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
+    public async Task ResubmitKnownTransactionMultipleTimesAsync()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      var (txHex1, txId1) = CreateNewTransaction(); 
+
+      // Store tx to database before submitting it to the node
+      List<Domain.Models.Tx> txToInsert = new List<Domain.Models.Tx>();
+      txToInsert.Add(new Domain.Models.Tx()
+      {
+        TxPayload = HelperTools.HexStringToByteArray(txHex1),
+        TxExternalId = new uint256(txId1),
+        ReceivedAt = System.DateTime.UtcNow,
+        MerkleProof = false,
+        DSCheck = false,        
+      });
+      await TxRepositoryPostgres.InsertTxsAsync(txToInsert, false);
+
+      // Submit tx to node two times. First submit should succeed,
+      // second submit will receive error from node (because tx is already
+      // in mempool after first SubmitTransactionAsync call)
+      var tx1_payload1 = await SubmitTransactionAsync(txHex1);
+      var tx1_payload2 = await SubmitTransactionAsync(txHex1);
+
+      Assert.AreEqual(tx1_payload1.ReturnResult, "success");
+      Assert.AreEqual(tx1_payload2.ReturnResult, "failure");
+      Assert.AreEqual(tx1_payload2.ResultDescription, "Transaction already in the mempool");
+    }
+
   }
 }
