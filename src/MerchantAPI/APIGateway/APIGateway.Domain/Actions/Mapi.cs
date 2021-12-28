@@ -20,6 +20,7 @@ using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Options;
+using System.Diagnostics.CodeAnalysis;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -39,6 +40,19 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       public const string Success = "success";
       public const string Failure = "failure";
+    }
+
+    private class CollidedWithComparer : IEqualityComparer<CollidedWith>
+    {
+      public bool Equals(CollidedWith t1, CollidedWith t2)
+      {
+        return t1.TxId == t2.TxId;
+      }
+
+      public int GetHashCode([DisallowNull] CollidedWith t)
+      {
+        return t.TxId.GetHashCode();
+      }
     }
 
     public Mapi(IRpcMultiClient rpcMultiClient, IFeeQuoteRepository feeQuoteRepository, IBlockChainInfo blockChainInfo, IMinerId minerId, ITxRepository txRepository, ILogger<Mapi> logger, IClock clock, IOptions<AppSettings> appSettingOptions)
@@ -648,7 +662,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, new ReadOnlyDictionary<uint256, byte[]>(allTxs), rpcMultiClient);
 
           prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
-          colidedWith = prevOuts.Where(x => x.CollidedWith != null).Select(x => x.CollidedWith).ToArray();
+          colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
           logger.LogInformation($"CollectPreviousOuputs for {txIdString} returned { prevOuts.Length } prevOuts ({prevOutsErrors.Length } prevOutsErrors, {colidedWith.Length} colidedWith).");
 
           if (appSettings.CheckFeeDisabled.Value || IsConsolidationTxn(transaction, consolidationParameters, prevOuts))
