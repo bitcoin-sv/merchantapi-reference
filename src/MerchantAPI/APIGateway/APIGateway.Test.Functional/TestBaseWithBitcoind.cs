@@ -389,7 +389,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       string[] mempoolTxs;
       do
       {
-        await Task.Delay(100);
+        await Task.Delay(100, CancellationToken.None);
         mempoolTxs = await node.RpcClient.GetRawMempool(token);
       } while (!mempoolTxs.Contains(txId));
     }

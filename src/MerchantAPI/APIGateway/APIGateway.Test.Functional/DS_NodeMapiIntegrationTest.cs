@@ -165,6 +165,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       loggerTest.LogInformation($"Submiting {tx1Id} with dsCheck enabled");
       var payload = await SubmitTransactions(new string[] { tx1Hex });
+      Assert.AreEqual(0, payload.FailureCount);
 
       if (sendToNode1)
       {
