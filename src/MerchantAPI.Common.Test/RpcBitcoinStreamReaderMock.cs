@@ -13,7 +13,8 @@ namespace MerchantAPI.Common.Test
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-      return base.StreamReader.BaseStream.Read(buffer, offset, count);
+      TotalBytesRead = StreamReader.BaseStream.Length;
+      return StreamReader.BaseStream.Read(buffer, offset, count);
     }
   }
 }
