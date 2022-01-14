@@ -51,7 +51,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected async Task<List<Tx>> CreateAndInsertTxAsync(bool merkleProof, bool dsCheck, int? limit = null, string[] hashes = null)
     {
-      hashes = new string[] { Tx1Hash, Tx2Hash, Tx3Hash, Tx4Hash, Tx5Hash };
       if (hashes == null)
       {
         hashes = new string[] { Tx1Hash, Tx2Hash, Tx3Hash, Tx4Hash, Tx5Hash };

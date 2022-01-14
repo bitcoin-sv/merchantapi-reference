@@ -59,7 +59,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("Number of blocks processed: 0 (successfully parsed: 0, ignored/duplicates: 0, parsing terminated with error 0). Number of blocks remaining: 0.", status.BlockParserDescription);
     }
 
-    private void CheckBlockParserStatusFilled(BlockParserStatus status, long blocksProcessed, long blocksParsed,
+    private static void CheckBlockParserStatusFilled(BlockParserStatus status, long blocksProcessed, long blocksParsed,
       int totalTxs = 0, int totalTxsFound = 0, int totalDsFound = 0)
     {
       Assert.AreEqual(blocksProcessed, status.BlocksProcessed);

@@ -248,12 +248,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var blockReceived = DateTime.UtcNow;
         var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
         var block = HelperTools.ParseByteStreamToBlock(blockStream);
+        ulong bytes = (ulong)blockStream.TotalBytesRead;
         var blockDownloaded = DateTime.UtcNow;
 
         var txsFound = await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
         var dsFound = await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
         var blockParsedAt = DateTime.UtcNow;
-        ulong bytes = ((ulong)blockStream.Length * 2) + 1;
 
         logger.LogInformation($"Block {e.BlockHash} successfully parsed, needed { (blockParsedAt - blockReceived).TotalMilliseconds } ms.");
         await semaphoreSlim.WaitAsync();
