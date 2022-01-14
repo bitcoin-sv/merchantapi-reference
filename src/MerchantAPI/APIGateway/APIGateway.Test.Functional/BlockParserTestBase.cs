@@ -83,7 +83,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       tx.ReadWrite(bStream);
 
       var txId = tx.GetHash(int.MaxValue).ToString();
-      _ = await CreateAndInsertTxAsync(merkleProof, dsCheck, 2, new string[] { txId.ToString() });
+      _ = await CreateAndInsertTxAsync(merkleProof, dsCheck, 1, new string[] { txId.ToString() });
 
       List<Transaction> txs = new();
       for (int i = 0; i < txsCount; i++)

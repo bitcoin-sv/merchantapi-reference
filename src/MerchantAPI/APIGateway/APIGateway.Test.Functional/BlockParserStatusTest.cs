@@ -195,7 +195,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var status = await blockParser.GetBlockParserStatusAsync();
       Assert.AreEqual(2, status.BlocksProcessed);
       Assert.AreEqual(2, status.BlocksParsed);
-      Assert.AreEqual(0, status.TotalTxsFound);
+      Assert.AreEqual(1, status.TotalTxsFound);
 
       var dbRecords = (await TxRepositoryPostgres.GetTxsToSendBlockDSNotificationsAsync()).ToList();
       Assert.AreEqual(dbRecords.Count, status.TotalDsFound);
