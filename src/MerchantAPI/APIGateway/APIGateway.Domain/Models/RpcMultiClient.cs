@@ -34,10 +34,10 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     static readonly string metricsPrefix = "merchantapi_rpcmulticlient_";
 
-    static readonly Histogram GetTxOutsDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}gettxouts_duration_seconds", "Histogram of time spend waiting for getutxo response from node.");
-    static readonly Histogram SendRawTxDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}sendrawtx_duration_seconds", "Histogram of time spend  waitng for sendrawtransaction response from node.");
+    static readonly Histogram getTxOutsDuration = Metrics
+      .CreateHistogram($"{metricsPrefix}gettxouts_duration_seconds", "Histogram of time spent waiting for gettxouts response from node.");
+    static readonly Histogram sendRawTxDuration = Metrics
+      .CreateHistogram($"{metricsPrefix}sendrawtx_duration_seconds", "Histogram of time spent waitng for sendrawtransaction response from node.");
 
     public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options)
       : this(nodes, rpcClientFactory, logger, options.Value.RpcClient)
@@ -252,8 +252,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList)
     {
-      //time spend waiting for getutxo response from node.
-      using (GetTxOutsDuration.NewTimer())
+      using (getTxOutsDuration.NewTimer())
       {
       return GetFirstSucesfullAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
     }
@@ -440,8 +439,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       var allTxs = transactions.Select(x => Hashes.DoubleSHA256(x.transaction).ToString()).ToArray();
       RpcSendTransactions[] okResults = null;
 
-      //time spend waitng for sendrawtransaction response from node.
-      using (SendRawTxDuration.NewTimer())
+      using (sendRawTxDuration.NewTimer())
       {
         okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions), throwIfEmpty: true);
       }

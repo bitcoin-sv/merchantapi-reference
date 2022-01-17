@@ -42,9 +42,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     static readonly Counter txSendToNode = Metrics
       .CreateCounter($"{metricsPrefix}txsendtonode_counter", "Number of transactions send to node.");
     static readonly Counter txAcceptedByNode = Metrics
-      .CreateCounter($"{metricsPrefix}txsendtonode_counter", "Number of transactions accepted by node.");
+      .CreateCounter($"{metricsPrefix}acceptedbynode_counter", "Number of transactions accepted by node.");
     static readonly Counter txRejectedByNode = Metrics
-      .CreateCounter($"{metricsPrefix}txsendtonode_counter", "Number of transactions rejected by node.");
+      .CreateCounter($"{metricsPrefix}rejectedbynode_counter", "Number of transactions rejected by node.");
 
     static class ResultCodes
     {
@@ -794,7 +794,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       if (transactionsToSubmit.Any())
       {
         //total number of transactions send to node.
-        txSendToNode.IncTo(transactionsToSubmit.Count);
+        txSendToNode.Inc(transactionsToSubmit.Count);
 
         // Submit all collected transactions in one call        
         try
@@ -853,10 +853,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         result.Txs = responses.ToArray();
         result.FailureCount = failureCount + submitFailureCount;
 
-        //count transactions send to node, by status (accepted by node, rejected by node). 
         var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
-        txAcceptedByNode.IncTo(successfullTxs.Count());
-        txRejectedByNode.IncTo(submitFailureCount);
+        txAcceptedByNode.Inc(successfullTxs.Count());
+        txRejectedByNode.Inc(submitFailureCount);
 
         if (!appSettings.DontInsertTransactions.Value)
         {

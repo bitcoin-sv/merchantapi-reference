@@ -1,0 +1,6 @@
+datasources:
+- name: mAPI
+  access: proxy
+  type: prometheus
+  url: http://host.docker.internal:9080
+  isDefault: true
