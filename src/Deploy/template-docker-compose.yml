@@ -44,6 +44,7 @@ services:
       - AppSettings__EnableHTTP=${ENABLEHTTP}
       - AppSettings__DontParseBlocks=${DONT_PARSE_BLOCKS}
       - AppSettings__DontInsertTransactions=${DONT_INSERT_TRANSACTIONS}
+      - AppSettings__ResubmitKnownTransactions=${RESUBMIT_KNOWN_TRANSACTIONS}
       - AppSettings__Notification__NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
       - AppSettings__Notification__InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
       - AppSettings__Notification__InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}

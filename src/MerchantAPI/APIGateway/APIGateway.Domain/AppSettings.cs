@@ -108,6 +108,8 @@ namespace MerchantAPI.APIGateway.Domain
     public bool? DontParseBlocks { get; set; } = false;
 
     public bool? DontInsertTransactions { get; set; } = false;
+
+    public bool? ResubmitKnownTransactions { get; set; } = false;
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>
