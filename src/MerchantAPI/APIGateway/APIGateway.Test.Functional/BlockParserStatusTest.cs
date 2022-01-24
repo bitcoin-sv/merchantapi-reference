@@ -143,13 +143,11 @@ Number of blocks processed from queue is 0, remaining: 0.", status.BlockParserDe
       // we publish same NewBlockAvailableInDB as before
       var block2Parse = block;
       int i = 0;
-      while (i < 100)
+      while (i < 1000)
       {
         PublishBlockToEventBus(block2Parse, waitUntilEventBusIsIdle: false);
         i++;
       }
-      status = await blockParser.GetBlockParserStatusAsync();
-      Assert.IsTrue(status.BlocksQueued > 0);
       WaitUntilEventBusIsIdle();
 
       // best block must stay the same, since parsing was skipped
@@ -160,10 +158,10 @@ Number of blocks processed from queue is 0, remaining: 0.", status.BlockParserDe
 
       status = await blockParser.GetBlockParserStatusAsync();
       Assert.AreEqual(status.BlocksQueued, 0);
-      Assert.AreEqual(101, status.BlocksProcessed);
+      Assert.AreEqual(1001, status.BlocksProcessed);
       Assert.AreEqual(1, status.BlocksParsed);
-      Assert.AreEqual($@"Number of blocks successfully parsed: 1, ignored/duplicates: 100, parsing terminated with error: 0. 
-Number of blocks processed from queue is 101, remaining: 0.", status.BlockParserDescription);
+      Assert.AreEqual($@"Number of blocks successfully parsed: 1, ignored/duplicates: 1000, parsing terminated with error: 0. 
+Number of blocks processed from queue is 1001, remaining: 0.", status.BlockParserDescription);
       Assert.AreEqual(lastBlockParsedAt, status.LastBlockParsedAt);
       Assert.AreEqual((ulong)firstBlock.ToBytes().Length, status.TotalBytes);
     }

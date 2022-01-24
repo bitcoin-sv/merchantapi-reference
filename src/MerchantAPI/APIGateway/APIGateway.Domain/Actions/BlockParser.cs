@@ -239,6 +239,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }
           else
           {
+            blockParserStatus.SetBlocksQueued(queueCount + 1);
             blockHashesBeingParsed.Add(e.BlockHash);
           }
         }
@@ -291,7 +292,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         else
         {
-          logger.LogError($"Unexpected blockparser error: { ex.Message }");
+          throw;
         }
       }
     }

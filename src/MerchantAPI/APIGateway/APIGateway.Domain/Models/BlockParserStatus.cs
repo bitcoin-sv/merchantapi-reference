@@ -62,7 +62,7 @@ Number of blocks processed from queue is { BlocksProcessed }, remaining: { Block
     public void IncrementBlocksDuplicated(long queueCount)
     {
       BlocksDuplicated++;
-      BlocksQueued = queueCount;
+      SetBlocksQueued(queueCount);
     }
 
     public void IncrementBlocksProcessed(
@@ -78,7 +78,7 @@ Number of blocks processed from queue is { BlocksProcessed }, remaining: { Block
       TimeSpan blockParseTime,
       TimeSpan blockDownloadTime)
     {
-      BlocksQueued = queueCount;
+      SetBlocksQueued(queueCount);
       BlocksParsed++;
       LastBlockHash = blockhash;
       LastBlockHeight = blockHeight;
@@ -100,6 +100,11 @@ Number of blocks processed from queue is { BlocksProcessed }, remaining: { Block
     public void IncrementNumOfErrors(long queueCount)
     {
       NumOfErrors++;
+      SetBlocksQueued(queueCount);
+    }
+
+    public void SetBlocksQueued(long queueCount)
+    {
       BlocksQueued = queueCount;
     }
   }
