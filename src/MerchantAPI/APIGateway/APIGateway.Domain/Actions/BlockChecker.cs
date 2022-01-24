@@ -62,14 +62,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           var blockHashes = blocks2Parse.Select(x => new uint256(x.BlockHash).ToString());
           logger.LogWarning($"Unparsed blocks found...notifying parser to parse again. BlockHashes:'{string.Join(';', blockHashes)}'");
-          bool blockCheckerQueue = true;
           foreach (var block in blocks2Parse)
           {
             eventBus.Publish(new NewBlockAvailableInDB
             {
               BlockDBInternalId = block.BlockInternalId,
               BlockHash = new uint256(block.BlockHash).ToString(),
-              BlockCheckerQueue = blockCheckerQueue ? blockHashes.Count() : 0
+              BlockHeight = block.BlockHeight
             });
           }
         }

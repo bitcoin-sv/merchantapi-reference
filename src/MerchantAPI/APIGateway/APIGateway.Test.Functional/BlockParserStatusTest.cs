@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2021 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.Common.Json;
@@ -40,6 +41,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var status = await blockParser.GetBlockParserStatusAsync();
 
       Assert.AreEqual(0, status.BlocksProcessed);
+      Assert.AreEqual(0, status.NumOfErrors);
+      Assert.AreEqual(0, status.BlocksQueued);
+      CheckBlockParserStatusNoBlocksParsed(status);
+      Assert.AreEqual($@"Number of blocks successfully parsed: 0, ignored/duplicates: 0, parsing terminated with error: 0. 
+Number of blocks processed from queue is 0, remaining: 0.", status.BlockParserDescription);
+    }
+
+    private static void CheckBlockParserStatusNoBlocksParsed(BlockParserStatus status)
+    {
       Assert.AreEqual(0, status.BlocksParsed);
       Assert.AreEqual(0F, status.TotalBytes);
       Assert.AreEqual(0F, status.TotalTxs);
@@ -54,9 +64,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNull(status.AverageTxParseTime);
       Assert.IsNull(status.AverageBlockDownloadSpeed);
       Assert.IsNull(status.MaxParseTime);
-      Assert.AreEqual(0, status.NumOfErrors);
-      Assert.AreEqual(0, status.BlockParserQueue);
-      Assert.AreEqual("Number of blocks processed: 0 (successfully parsed: 0, ignored/duplicates: 0, parsing terminated with error 0). Number of blocks remaining: 0.", status.BlockParserDescription);
     }
 
     private static void CheckBlockParserStatusFilled(BlockParserStatus status, long blocksProcessed, long blocksParsed,
@@ -78,7 +85,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNotNull(status.AverageBlockDownloadSpeed);
       Assert.IsNotNull(status.MaxParseTime);
       Assert.AreEqual(0, status.NumOfErrors);
-      Assert.AreEqual(0, status.BlockParserQueue);
+      Assert.AreEqual(0, status.BlocksQueued);
     }
 
     [TestMethod]
@@ -135,7 +142,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // we publish same NewBlockAvailableInDB as before
       var block2Parse = block;
-      PublishBlockToEventBus(block2Parse, 1);
+      int i = 0;
+      while (i < 100)
+      {
+        PublishBlockToEventBus(block2Parse, waitUntilEventBusIsIdle: false);
+        i++;
+      }
+      status = await blockParser.GetBlockParserStatusAsync();
+      Assert.IsTrue(status.BlocksQueued > 0);
+      WaitUntilEventBusIsIdle();
 
       // best block must stay the same, since parsing was skipped
       var blockAfterRepublish = await TxRepositoryPostgres.GetBestBlockAsync();
@@ -144,11 +159,28 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(block.ParsedForDSAt, blockAfterRepublish.ParsedForDSAt);
 
       status = await blockParser.GetBlockParserStatusAsync();
-      Assert.AreEqual(2, status.BlocksProcessed);
+      Assert.AreEqual(status.BlocksQueued, 0);
+      Assert.AreEqual(101, status.BlocksProcessed);
       Assert.AreEqual(1, status.BlocksParsed);
-      Assert.AreEqual("Number of blocks processed: 2 (successfully parsed: 1, ignored/duplicates: 1, parsing terminated with error 0). Number of blocks remaining: 0.", status.BlockParserDescription);
+      Assert.AreEqual($@"Number of blocks successfully parsed: 1, ignored/duplicates: 100, parsing terminated with error: 0. 
+Number of blocks processed from queue is 101, remaining: 0.", status.BlockParserDescription);
       Assert.AreEqual(lastBlockParsedAt, status.LastBlockParsedAt);
       Assert.AreEqual((ulong)firstBlock.ToBytes().Length, status.TotalBytes);
+    }
+
+    [TestMethod]
+    public async Task BlockParserStatusTestInvalidBlock()
+    {
+      Domain.Models.Block block = new();
+      block.BlockHash = HelperTools.HexStringToByteArray("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
+
+      PublishBlockToEventBus(block);
+
+      var status = await blockParser.GetBlockParserStatusAsync();
+      Assert.AreEqual(1, status.BlocksProcessed);
+      CheckBlockParserStatusNoBlocksParsed(status);
+      Assert.AreEqual($@"Number of blocks successfully parsed: 0, ignored/duplicates: 0, parsing terminated with error: 1. 
+Number of blocks processed from queue is 1, remaining: 0.", status.BlockParserDescription);
     }
 
     [TestCategory("Manual")]
@@ -205,7 +237,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(firstBlockParseTime + status.LastBlockParseTime, status.BlocksParseTime);
       Assert.AreEqual( (firstBlockParseTime + status.LastBlockParseTime) / 2, status.AverageParseTime);
       Assert.IsTrue(firstBlockDownloadSpeed < status.AverageBlockDownloadSpeed);
-      Assert.AreEqual( (status.TotalBytes / 1000000.0) / status.BlocksDownloadTime.TotalSeconds, status.AverageBlockDownloadSpeed);
+      Assert.AreEqual( (status.TotalBytes / Const.Megabyte) / status.BlocksDownloadTime.TotalSeconds, status.AverageBlockDownloadSpeed);
     }
   }
 }

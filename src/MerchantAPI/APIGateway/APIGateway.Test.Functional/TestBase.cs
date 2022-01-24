@@ -313,16 +313,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
       WaitUntilEventBusIsIdle();
     }
 
-    protected void PublishBlockToEventBus(Domain.Models.Block block, int blockCheckerQueue = 0)
+    protected void PublishBlockToEventBus(Domain.Models.Block block, bool waitUntilEventBusIsIdle = true)
     {
       EventBus.Publish(new NewBlockAvailableInDB
       {
         BlockDBInternalId = block.BlockInternalId,
         BlockHash = new uint256(block.BlockHash).ToString(),
-        BlockCheckerQueue = blockCheckerQueue
+        BlockHeight = block.BlockHeight
       });
 
-      WaitUntilEventBusIsIdle();
+      if (waitUntilEventBusIsIdle)
+      {
+        WaitUntilEventBusIsIdle();
+      }
     }
 
 

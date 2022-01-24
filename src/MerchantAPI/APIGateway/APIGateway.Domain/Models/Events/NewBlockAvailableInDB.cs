@@ -15,6 +15,6 @@ namespace MerchantAPI.APIGateway.Domain.Models.Events
     }
     public string BlockHash { get; set; }
     public long BlockDBInternalId { get; set; }
-    public int BlockCheckerQueue { get; set; }
+    public long? BlockHeight { get; set; }
   }
 }

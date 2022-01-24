@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -179,7 +180,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public void GetHashFromBigTransaction()
     {
       var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/big_tx.txt")));
-      Assert.IsTrue(stream.Length > (1024 * 1024));
+      Assert.IsTrue(stream.Length > (Const.Megabyte));
       var bStream = new BitcoinStream(stream, false)
       {
         MaxArraySize = unchecked((int)uint.MaxValue)
@@ -212,7 +213,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // we publish same NewBlockAvailableInDB as before
       var block2Parse = block;
-      PublishBlockToEventBus(block2Parse, 1);
+      PublishBlockToEventBus(block2Parse);
 
       // best block must stay the same, since parsing was skipped
       var blockAfterRepublish = await TxRepositoryPostgres.GetBestBlockAsync();
