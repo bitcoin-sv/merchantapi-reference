@@ -52,10 +52,10 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     { 
       get 
       {
-        return $"{ AverageBlockDownloadSpeedValue ?? 0} Mb/s";
+        return $"{ averageBlockDownloadSpeedValue ?? 0} Mb/s";
       } 
     }
-    readonly double? AverageBlockDownloadSpeedValue;
+    readonly double? averageBlockDownloadSpeedValue;
     [JsonPropertyName("maxParseTime")]
     public TimeSpan? MaxParseTime { get; set; }
     [JsonPropertyName("numOfErrors")]
@@ -82,7 +82,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       LastBlockInQueueAndParseTime = blockParserStatus.LastBlockInQueueAndParseTime;
       AverageParseTime = blockParserStatus.AverageParseTime;
       AverageTxParseTime = blockParserStatus.AverageTxParseTime;
-      AverageBlockDownloadSpeedValue = blockParserStatus.AverageBlockDownloadSpeed;
+      averageBlockDownloadSpeedValue = blockParserStatus.AverageBlockDownloadSpeed;
       MaxParseTime = blockParserStatus.MaxParseTime;
       NumOfErrors = blockParserStatus.NumOfErrors;
       BlockParserQueue = blockParserStatus.BlocksQueued;

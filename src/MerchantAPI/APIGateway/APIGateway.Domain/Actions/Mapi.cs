@@ -23,7 +23,7 @@ using Microsoft.Extensions.Options;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
-  
+
   public class Mapi : IMapi
   {
     readonly IRpcMultiClient rpcMultiClient;

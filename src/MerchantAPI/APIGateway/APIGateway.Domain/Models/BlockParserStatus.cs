@@ -1,4 +1,4 @@
-﻿// Copyright(c) 2021 Bitcoin Association.
+﻿// Copyright(c) 2022 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
@@ -7,13 +7,8 @@ namespace MerchantAPI.APIGateway.Domain.Models
 {
   public class BlockParserStatus
   {
-    public long BlocksProcessed 
-    { 
-      get 
-      {
-        return BlocksParsed + BlocksDuplicated + NumOfErrors;
-      }
-    }
+    readonly object objLock = new();
+    public long BlocksProcessed => BlocksParsed + BlocksDuplicated + NumOfErrors;
     public long BlocksParsed { get; private set; }
     public long BlocksDuplicated { get; private set; }
     public ulong TotalBytes { get; private set; }
@@ -26,27 +21,10 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public TimeSpan? LastBlockInQueueAndParseTime { get; private set; }
     public TimeSpan? LastBlockParseTime { get; private set; }
     public TimeSpan BlocksParseTime { get; private set; }
-    public TimeSpan? AverageParseTime { 
-      get 
-      {
-        return BlocksParsed > 0 ? BlocksParseTime / BlocksParsed : null;
-      } 
-    }
-    public TimeSpan? AverageTxParseTime 
-    { 
-      get
-      {
-        return TotalTxs > 0 ? BlocksParseTime / TotalTxs : null;
-      }
-    }
+    public TimeSpan? AverageParseTime => BlocksParsed > 0 ? BlocksParseTime / BlocksParsed : null;
+    public TimeSpan? AverageTxParseTime => TotalTxs > 0 ? BlocksParseTime / TotalTxs : null;
     public TimeSpan BlocksDownloadTime { get; private set; }
-    public double? AverageBlockDownloadSpeed
-    {
-      get
-      {
-        return TotalBytes > 0 ? (TotalBytes / Const.Megabyte) / BlocksDownloadTime.TotalSeconds : null;
-      }
-    }
+    public double? AverageBlockDownloadSpeed => TotalBytes > 0 ? (TotalBytes / Const.Megabyte) / BlocksDownloadTime.TotalSeconds : null;
     public TimeSpan? MaxParseTime { get; private set; }
     public long NumOfErrors { get; private set; }
     public long BlocksQueued { get; private set; }
@@ -59,53 +37,60 @@ Number of blocks processed from queue is { BlocksProcessed }, remaining: { Block
       }
     }
 
-    public void IncrementBlocksDuplicated(long queueCount)
+    public void IncrementBlocksDuplicated()
     {
-      BlocksDuplicated++;
-      SetBlocksQueued(queueCount);
+      lock (objLock)
+      {
+        BlocksDuplicated++;
+      }
     }
 
     public void IncrementBlocksProcessed(
-      long queueCount,
       string blockhash,
       long? blockHeight,
       int txsFound,
       int dsFound,
       ulong bytes,
       int txsCount,
-      DateTime blockParsedAt,
       DateTime blockQueued,
       TimeSpan blockParseTime,
       TimeSpan blockDownloadTime)
     {
-      SetBlocksQueued(queueCount);
-      BlocksParsed++;
-      LastBlockHash = blockhash;
-      LastBlockHeight = blockHeight;
-      TotalTxsFound += txsFound;
-      TotalDsFound += dsFound;
-      TotalBytes += bytes;
-      TotalTxs += (ulong)txsCount;
-      LastBlockParsedAt = blockParsedAt;
-      LastBlockInQueueAndParseTime = blockParsedAt - blockQueued;
-      LastBlockParseTime = blockParseTime;
-      BlocksParseTime += blockParseTime;
-      BlocksDownloadTime += blockDownloadTime;
-      if (MaxParseTime == null || LastBlockParseTime > MaxParseTime)
+      lock (objLock)
       {
-        MaxParseTime = LastBlockParseTime;
+        BlocksParsed++;
+        LastBlockHash = blockhash;
+        LastBlockHeight = blockHeight;
+        TotalTxsFound += txsFound;
+        TotalDsFound += dsFound;
+        TotalBytes += bytes;
+        TotalTxs += (ulong)txsCount;
+        LastBlockParsedAt = DateTime.UtcNow;
+        LastBlockInQueueAndParseTime = LastBlockParsedAt - blockQueued;
+        LastBlockParseTime = blockParseTime;
+        BlocksParseTime += blockParseTime;
+        BlocksDownloadTime += blockDownloadTime;
+        if (MaxParseTime == null || LastBlockParseTime > MaxParseTime)
+        {
+          MaxParseTime = LastBlockParseTime;
+        }
       }
     }
 
-    public void IncrementNumOfErrors(long queueCount)
+    public void IncrementNumOfErrors()
     {
-      NumOfErrors++;
-      SetBlocksQueued(queueCount);
+      lock (objLock)
+      {
+        NumOfErrors++;
+      }
     }
 
     public void SetBlocksQueued(long queueCount)
     {
-      BlocksQueued = queueCount;
+      lock (objLock)
+      {
+        BlocksQueued = queueCount;
+      }
     }
   }
 }

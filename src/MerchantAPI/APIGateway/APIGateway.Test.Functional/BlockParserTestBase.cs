@@ -101,7 +101,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var firstBlockHash = firstBlock.GetHash();
 
       var tx = Transaction.Parse(Tx1Hex, Network.Main);
-      block.AddTransaction(tx);
+      block.Transactions[0] = tx;
       tx = Transaction.Parse(Tx2Hex, Network.Main);
       block.AddTransaction(tx);
       tx = Transaction.Parse(Tx3Hex, Network.Main);
@@ -126,35 +126,31 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       var rpcClient = (Mock.RpcClientMock)rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
-      var firstBlockHash = firstBlock.GetHash();
+      var (_, firstBlockHash) = await CreateAndPublishNewBlockAsync(rpcClient, null, null);
 
       var tx = Transaction.Parse(Tx1Hex, Network.Main);
-      var (forkHeight, _) = await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+      var (forkHeight, _) = await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
 
       var tx2 = Transaction.Parse(Tx2Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, null, tx2, true);
+      await CreateAndPublishNewBlockAsync(rpcClient, null, tx2, true);
 
       tx = Transaction.Parse(Tx3Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+      await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
 
       tx = Transaction.Parse(Tx4Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+      await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
 
       tx = Transaction.Parse(Tx5Hex, Network.Main);
-      var (_, blockHash) = await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+      var (_, blockHash) = await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
       PublishBlockHashToEventBus(blockHash);
 
       // Use already inserted tx2 with changing only Version so we get new TxId
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
       doubleSpendTx.Version = 2;
       doubleSpendTx.GetHash();
-      await CreateAndPublishNewBlock(rpcClient, forkHeight, doubleSpendTx);
+      await CreateAndPublishNewBlockAsync(rpcClient, forkHeight, doubleSpendTx);
 
-      return (doubleSpendTx, tx2, firstBlockHash);
+      return (doubleSpendTx, tx2, new uint256(firstBlockHash));
     }
 
 

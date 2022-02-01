@@ -11,7 +11,6 @@ using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Domain.Actions;
-using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
 using Microsoft.Extensions.Options;
 
@@ -60,9 +59,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <returns>Block parser status and description.</returns>
     [HttpGet]
     [Route("blockParser")]
-    public async Task<ActionResult<BlockParserStatusViewModelGet>> BlockParserStatus()
+    public ActionResult<BlockParserStatusViewModelGet> BlockParserStatus()
     {
-      var status = await blockParser.GetBlockParserStatusAsync();
+      var status = blockParser.GetBlockParserStatus();
       return Ok(new BlockParserStatusViewModelGet(status,
         appSettings.DontParseBlocks.Value,
         appSettings.DontInsertTransactions.Value,

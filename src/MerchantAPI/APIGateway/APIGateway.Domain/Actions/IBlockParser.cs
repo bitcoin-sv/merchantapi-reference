@@ -16,6 +16,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent e);
 
-    Task<BlockParserStatus> GetBlockParserStatusAsync();
+    BlockParserStatus GetBlockParserStatus();
   }
 }

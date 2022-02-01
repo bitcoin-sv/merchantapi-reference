@@ -441,7 +441,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       if (blocks.IsEmpty)
       {
-        throw new Exception($"No bock has been added to RpcClientMock");
+        throw new Exception($"No block has been added to RpcClientMock");
       }
 
       var bestBlock = blocks.Values.OrderByDescending(x => x.Height).First();

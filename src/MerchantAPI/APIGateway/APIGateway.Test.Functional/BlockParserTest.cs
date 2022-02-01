@@ -73,7 +73,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       do
       {
         var tx = Transaction.Parse(Tx1Hex, Network.Main);
-        (blockCount, blockHash) = await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+        (blockCount, blockHash) = await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
       }
       while (blockCount < 20);
       PublishBlockHashToEventBus(blockHash);
@@ -114,7 +114,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      var (blockCount, _) = await CreateAndPublishNewBlock(rpcClient, null, null);
+      var (blockCount, _) = await CreateAndPublishNewBlockAsync(rpcClient, null, null);
 
       NBitcoin.Block forkBlock = null;
       var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);
@@ -199,13 +199,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       var rpcClient = (Mock.RpcClientMock)rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
-
-      var tx = Transaction.Parse(Tx1Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+      await CreateAndPublishNewBlockAsync(rpcClient, null, null);
 
       Assert.AreEqual(0, (await TxRepositoryPostgres.GetUnparsedBlocksAsync()).Length);
 
@@ -233,7 +227,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var txs = await Transaction16mbList(txsCount, dsCheck: true);
 
-      (_, string blockHash) = await CreateAndPublishNewBlockWithTxs(rpcClient, null, txs.ToArray(), true, true);
+      (_, string blockHash) = await CreateAndPublishNewBlockWithTxsAsync(rpcClient, null, txs.ToArray(), true, true);
 
       var block = await TxRepositoryPostgres.GetBestBlockAsync();
       Assert.IsFalse(HelperTools.AreByteArraysEqual(block.BlockHash, new uint256(blockHash).ToBytes()));
@@ -249,7 +243,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // check if block was correctly parsed
       var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
       var parsedBlock = HelperTools.ParseByteStreamToBlock(blockStream);
-      Assert.AreEqual(txsCount + 1, parsedBlock.Transactions.Count);
+      Assert.AreEqual(txsCount, parsedBlock.Transactions.Count);
     }
   }
 }

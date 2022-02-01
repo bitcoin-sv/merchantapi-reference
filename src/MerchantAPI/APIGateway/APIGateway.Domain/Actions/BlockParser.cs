@@ -39,6 +39,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
 
+    long QueueCount => newBlockAvailableInDBSubscription.QueueCount;
+
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger, 
                        IEventBus eventBus, IOptions<AppSettings> options, IClock clock)
@@ -172,7 +174,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         // stop verifying block chain
         if (blockHeader.Height < blockCount - appSettings.MaxBlockChainLengthForFork)
         {
-          PushBlocksToEventQueueAsync();
+          PushBlocksToEventQueue();
           return;
         }
 
@@ -219,7 +221,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     private async Task ParseBlockForTransactionsAsync(NewBlockAvailableInDB e)
     {
-      var queueCount = newBlockAvailableInDBSubscription.QueueCount;
       try
       {
         await semaphoreSlim.WaitAsync();
@@ -227,19 +228,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
           {
-            blockParserStatus.IncrementBlocksDuplicated(queueCount);
+            blockParserStatus.IncrementBlocksDuplicated();
             logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skipped processing.");
             return;
           }
           else if (await txRepository.CheckIfBlockWasParsed(e.BlockDBInternalId))
           {
-            blockParserStatus.IncrementBlocksDuplicated(queueCount);
+            blockParserStatus.IncrementBlocksDuplicated();
             logger.LogInformation($"Block '{e.BlockHash}' was already parsed...skipped processing.");
             return;
           }
           else
           {
-            blockParserStatus.SetBlocksQueued(queueCount + 1);
             blockHashesBeingParsed.Add(e.BlockHash);
           }
         }
@@ -257,7 +257,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         var txsFound = await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
         var dsFound = await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
-        var blockParsedAt = DateTime.UtcNow;
         stopwatch.Stop();
         var blockParseTime = stopwatch.Elapsed;
 
@@ -266,26 +265,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         try
         {
           blockHashesBeingParsed.Remove(e.BlockHash);
-
-          blockParserStatus.IncrementBlocksProcessed(queueCount, e.BlockHash, e.BlockHeight, txsFound, dsFound, bytes, block.Transactions.Count,
-            blockParsedAt, e.CreationDate, blockParseTime, blockDownloadTime);
         }
         finally
         {
           semaphoreSlim.Release();
         }
+        blockParserStatus.IncrementBlocksProcessed(e.BlockHash, e.BlockHeight, txsFound, dsFound, bytes,
+          block.Transactions.Count, e.CreationDate, blockParseTime, blockDownloadTime);
       }
       catch (Exception ex)
       {
-        await semaphoreSlim.WaitAsync();
-        try
-        {
-          blockParserStatus.IncrementNumOfErrors(queueCount);
-        }
-        finally
-        {
-          semaphoreSlim.Release();
-        }
+        blockParserStatus.IncrementNumOfErrors();
         if (ex is BadRequestException || ex is RpcException)
         {
           logger.LogError(ex.Message);
@@ -328,7 +318,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       if (string.IsNullOrEmpty(previousBlockHash) || uint256.Zero.ToString() == previousBlockHash)
       {
         // We reached Genesis block
-        PushBlocksToEventQueueAsync();
+        PushBlocksToEventQueue();
         return;
       }
 
@@ -343,11 +333,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       else
       {
-        PushBlocksToEventQueueAsync();
+        PushBlocksToEventQueue();
       }
     }
 
-    private void PushBlocksToEventQueueAsync()
+    private void PushBlocksToEventQueue()
     {
       if (newBlockStack.Count > 0)
       {
@@ -359,17 +349,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
     }
 
-    public async Task<BlockParserStatus> GetBlockParserStatusAsync()
+    public BlockParserStatus GetBlockParserStatus()
     {
-      await semaphoreSlim.WaitAsync();
-      try
-      {
-        return blockParserStatus;
-      }
-      finally
-      {
-        semaphoreSlim.Release();
-      }
+      blockParserStatus.SetBlocksQueued(QueueCount);
+      return blockParserStatus;
     }
   }
 }
