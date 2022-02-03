@@ -10,42 +10,42 @@ namespace MerchantAPI.APIGateway.Test.Stress
 {
   public class SendConfig : IValidatableObject
   {
-    // File containing transactions to send
+    // See the readme file for more information.
     [Required]
     public string Filename { get; set; }
 
-    // Only submit up to specified number of transactions from transaction file
-    public long? Limit { get; set; }
-    // Specifies a zero based index of column that contains hex encoded transaction in 
     public int TxIndex { get; set; } = 1;
 
-    // Authorization header used when submitting transactions
-    public string Authorization { get; set; }
+    public long? Limit { get; set; }
 
-    // "URL used for submitting transactions. Example: http://localhost:5000/"
-    [Required]
-    public string MapiUrl { get; set; }
-
-    // Number of transactions submitted in one call"
     public int BatchSize { get; set; } = 100;
 
-    // Number of concurrent threads that will be used to submitting transactions.
-    // When using multiple threads, make sure that transactions in the file are not dependent on each other"
     public int Threads { get; set; } = 1;
 
-    // fill column comment in csv file
     public string CsvComment { get; set; }
 
-    public CallbackConfig Callback { get; set; }
-
+    [Required]
+    public MapiConfig MapiConfig { get; set; }
     public BitcoindConfig BitcoindConfig { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContextRoot)
     {
-      if (Callback != null)
+      if (Limit.HasValue && BatchSize > Limit)
       {
-        var validationContext = new ValidationContext(Callback, serviceProvider: null, items: null);
+        yield return new ValidationResult($"{ nameof(BatchSize) } must be smaller than { nameof(Limit) }.");
+      }
+      if (MapiConfig.MapiUrl != null)
+      {
+        if (!MapiConfig.MapiUrl.EndsWith("/"))
+        {
+          yield return new ValidationResult($"MapiUrl must end with '/'");
+        }
+      }
+      if (MapiConfig.Callback != null)
+      {
+        var validationContext = new ValidationContext(MapiConfig.Callback, serviceProvider: null, items: null);
         var validationResults = new List<ValidationResult>();
-        Validator.TryValidateObject(Callback, validationContext, validationResults, true);
+        Validator.TryValidateObject(MapiConfig.Callback, validationContext, validationResults, true);
         foreach (var x in validationResults)
         {
           yield return x;
@@ -65,28 +65,34 @@ namespace MerchantAPI.APIGateway.Test.Stress
     }
   }
 
+  public class MapiConfig
+  {
+    public string Authorization { get; set; }
+
+    [Required]
+    public string MapiUrl { get; set; }
+
+    public bool RearrangeNodes { get; set; }
+
+    public string BitcoindHost { get; set; }
+
+    public string BitcoindZmqEndpointIp { get; set; }
+
+    public CallbackConfig Callback { get; set; }
+  }
   public class CallbackConfig : IValidatableObject
   {
-    // Url that will process double spend and merkle proof notifications. When present, transactions will be submitted
-    // with MerkleProof and DsCheck set to true. Example: http://localhost:2000/callbacks
     [Required]
     public string Url { get; set; }
 
-    // When specified, a random number between 1 and  AddRandomNumberToHost will be appended to host name specified in Url when submitting each batch of transactions.
-    // This is useful for testing callbacks toward different hosts
     public int? AddRandomNumberToHost { get; set; }
 
-    // Full authorization header that mAPI should use when performing callbacks.
     public string CallbackToken { get; set; }
 
-    // Encryption parameters used when performing callbacks.
     public string CallbackEncryption { get; set; }
 
-    // Start a listener that will listen to callbacks on port specified by Url
-    // When specified, error will be reported if not all callbacks are received
     public bool StartListener { get; set; }
-
-    /// Maximum number of milliseconds that we are willing to wait for next callbacks 
+ 
     public int IdleTimeoutMS { get; set; } = 30_000;
 
     public CallbackHostConfig[] Hosts { get; set; }
@@ -147,6 +153,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
     // bitcoind with mAPI 
     [Required]
     public string MapiAdminAuthorization { get; set; }
+
+    // override default "127.0.0.1" zmqEndpoint ip
+    public string ZmqEndpointIp { get; set; }
   }
 
 

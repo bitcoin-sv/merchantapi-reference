@@ -26,13 +26,15 @@ using Microsoft.Extensions.DependencyInjection;
 using CsvHelper;
 using System.Globalization;
 using CsvHelper.Configuration;
+using MerchantAPI.APIGateway.Infrastructure.Repositories;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
 
   class Program
   {
- 
+    private const string VERSION = "1.0.0";
+
     static async Task SendTransactionsBatch(IEnumerable<string> transactions, HttpClient client, Stats stats, string url, string callbackUrl, string callbackToken, string callbackEncryption)
     {
 
@@ -126,7 +128,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     }
 
-    static async Task<BitcoindProcess> StartBitcoindWithTemplateDataAsync(string templateData, string bitcoindPath, IHttpClientFactory httpClientFactory)
+    static async Task<BitcoindProcess> StartBitcoindWithTemplateDataAsync(string templateData, string bitcoindPath, string zmqEndpointIp, IHttpClientFactory httpClientFactory)
     {
       var testDataDir = CopyTemplateData(templateData);
 
@@ -147,8 +149,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
         throw new Exception($"Can not start bitcoind. Expected bitcoind at location: {bitcoindPath}");
       }
 
-      var bitcoind = new BitcoindProcess("localhost", bitcoindPath, testDataDir, 18444, 18332, "127.0.0.1", 28333,
-        new NullLoggerFactory(), httpClientFactory, emptyDataDir: false);
+      List<string> argumentList = new() { "-checklevel=0", "-checkblocks=0"}; // "Verifying blocks..." can take too long
+      var bitcoind = new BitcoindProcess("127.0.0.1", bitcoindPath, testDataDir, 18444, 18332, 
+        string.IsNullOrEmpty(zmqEndpointIp) ? "127.0.0.1" : zmqEndpointIp, 28333,
+        new NullLoggerFactory(), httpClientFactory, emptyDataDir: false, argumentList: argumentList);
+      Console.WriteLine($"Bitcoind arguments:");
+
+      Console.WriteLine(String.Join(" ", bitcoind.ArgumentList));
 
       long blocks = (await bitcoind.RpcClient.GetBlockchainInfoAsync()).Blocks;
 
@@ -211,20 +218,20 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         var allErrors = string.Join(Environment.NewLine, validationResults.Select(x => x.ErrorMessage).ToArray());
         Console.WriteLine($"Invalid configuration {configFileName}. Errors: {allErrors}");
-        return  0;
+        return 0;
       }
 
 
       string GetDynamicCallbackUrl()
       {
-        if (config.Callback?.AddRandomNumberToHost == null)
+        if (config.MapiConfig.Callback?.AddRandomNumberToHost == null)
         {
-          return config.Callback?.Url;
+          return config.MapiConfig.Callback?.Url;
         }
 
-        var uri = new UriBuilder(config.Callback.Url);
+        var uri = new UriBuilder(config.MapiConfig.Callback.Url);
         
-        uri.Host += rnd.Next(1, config.Callback.AddRandomNumberToHost.Value+1);
+        uri.Host += rnd.Next(1, config.MapiConfig.Callback.AddRandomNumberToHost.Value+1);
         return uri.ToString();
       }
 
@@ -232,31 +239,42 @@ namespace MerchantAPI.APIGateway.Test.Stress
       var transactions = new TransactionReader(config.Filename, config.TxIndex, config.Limit ?? long.MaxValue);
 
       var client = new HttpClient();
-      if (config.Authorization != null)
+      if (config.MapiConfig.Authorization != null)
       {
-        client.DefaultRequestHeaders.Add("Authorization", config.Authorization);
+        client.DefaultRequestHeaders.Add("Authorization", config.MapiConfig.Authorization);
       }
 
+      Console.WriteLine($"*** Stress program v{ VERSION} ***");
 
       BitcoindProcess bitcoind = null;
       try
       {
-
         if (!string.IsNullOrEmpty(config.BitcoindConfig?.TemplateData))
         {
 
-          bitcoind = await StartBitcoindWithTemplateDataAsync(config.BitcoindConfig.TemplateData, config.BitcoindConfig.BitcoindPath, httpClientFactory);
-          await EnsureMapiIsConnectedToNodeAsync(config.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization, bitcoind);
+          bitcoind = await StartBitcoindWithTemplateDataAsync(config.BitcoindConfig.TemplateData, config.BitcoindConfig.BitcoindPath, config.BitcoindConfig.ZmqEndpointIp, httpClientFactory);
+          Console.WriteLine("Bitcoind started successfully.");
+
+          await EnsureMapiIsConnectedToNodeAsync(config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization, config.MapiConfig.RearrangeNodes, bitcoind, config.MapiConfig.BitcoindHost, config.MapiConfig.BitcoindZmqEndpointIp);
         }
 
-
+        string mAPIversion = "";
         try
         {
-          _ = await client.GetStringAsync(config.MapiUrl + "mapi/feeQuote"); // test call
+          // test call and get mAPI version for CSV row
+          var response = await client.GetAsync(config.MapiConfig.MapiUrl + "mapi/feeQuote");
+
+          var responseAsString = await response.Content.ReadAsStringAsync();
+          if (response.IsSuccessStatusCode)
+          {
+            var rEnvelope = HelperTools.JSONDeserialize<SignedPayloadViewModel>(responseAsString);
+            var feeQuote = HelperTools.JSONDeserialize<FeeQuoteViewModelGet>(rEnvelope.Payload);
+            mAPIversion = feeQuote.ApiVersion;
+          }
         }
         catch (Exception e)
         {
-          throw new Exception($"Can not connect to mAPI {config.MapiUrl}. Check if parameters are correct. Error {e.Message}", e);
+          throw new Exception($"Can not connect to mAPI {config.MapiConfig.MapiUrl}. Check if parameters are correct. Error {e.Message}", e);
         }
 
         var stats = new Stats();
@@ -265,10 +283,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
         // Start web server if required
         IHost webServer = null;
         var cancellationSource = new CancellationTokenSource();
-        if (config.Callback?.StartListener == true)
+        if (config.MapiConfig.Callback?.StartListener == true)
         {
-          Console.WriteLine($"Starting web server for url {config.Callback.Url}");
-          webServer = CallbackServer.Start(config.Callback.Url, cancellationSource.Token, new CallbackReceived(stats, config.Callback?.Hosts));
+          Console.WriteLine($"Starting web server for url {config.MapiConfig.Callback.Url}");
+          webServer = CallbackServer.Start(config.MapiConfig.Callback.Url, cancellationSource.Token, new CallbackReceived(stats, config.MapiConfig.Callback?.Hosts));
         }
 
 
@@ -281,18 +299,17 @@ namespace MerchantAPI.APIGateway.Test.Stress
             batch.Add(transaction);
             if (batch.Count >= batchSize)
             {
-              await SendTransactionsBatch(batch, client, stats, config.MapiUrl+ "mapi/txs", GetDynamicCallbackUrl(), config.Callback?.CallbackToken,
-                config.Callback?.CallbackEncryption);
+              await SendTransactionsBatch(batch, client, stats, config.MapiConfig.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.MapiConfig.Callback?.CallbackToken,
+                config.MapiConfig.Callback?.CallbackEncryption);
               batch.Clear();
             }
-
           }
-          // Send remaining transactions
 
+          // Send remaining transactions
           if (batch.Any())
           {
-            await SendTransactionsBatch(batch, client, stats, config.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.Callback?.CallbackToken,
-              config.Callback?.CallbackEncryption);
+            await SendTransactionsBatch(batch, client, stats, config.MapiConfig.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.MapiConfig.Callback?.CallbackToken,
+              config.MapiConfig.Callback?.CallbackEncryption);
             batch.Clear();
           }
         }
@@ -323,12 +340,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
         Task.WaitAll(tasks.ToArray());
 
         stats.StopTiming(); // we are no longer submitting txs. Stop the Stopwatch that is used to calculate submission throughput
-        if (config.Callback?.StartListener == true  && bitcoind != null && !string.IsNullOrEmpty(config.Callback?.Url) && stats.OKSubmitted > 0)
+        if (config.MapiConfig.Callback?.StartListener == true  && bitcoind != null && !string.IsNullOrEmpty(config.MapiConfig.Callback?.Url) && stats.OKSubmitted > 0)
         {
           Console.WriteLine("Finished sending transactions. Will generate a block to trigger callbacks");
           await bitcoind.RpcClient.GenerateAsync(1);
 
-          await WaitForCallbacksAsync(config.Callback.IdleTimeoutMS, stats); 
+          await WaitForCallbacksAsync(config.MapiConfig.Callback.IdleTimeoutMS, stats); 
         }
         // Cancel progress task
         cancellationSource.Cancel(false);
@@ -346,7 +363,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           await webServer.StopAsync();
         }
 
-        GenerateCsvRow(config, stats);
+        GenerateCsvRow(mAPIversion, config, stats);
       }
       finally
       {
@@ -357,9 +374,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     }
 
-    static void GenerateCsvRow(SendConfig config, Stats stats)
+    static void GenerateCsvRow(string mAPIversion, SendConfig config, Stats stats)
     {
-      StatsCsv statsCsv = new(Domain.Const.MERCHANT_API_VERSION, config.Filename, config.BatchSize, config.Threads, !string.IsNullOrEmpty(config.Callback?.Url), stats, config.CsvComment);
+      StatsCsv statsCsv = new(mAPIversion, config.Filename, config.BatchSize, config.Threads, !string.IsNullOrEmpty(config.MapiConfig.Callback?.Url), stats, config.CsvComment);
 
       string statsFile = "stats.csv";
       bool fileExists = File.Exists(statsFile);
@@ -434,60 +451,93 @@ namespace MerchantAPI.APIGateway.Test.Stress
       return testDataDir;
     }
 
-
-    static async Task EnsureMapiIsConnectedToNodeAsync(string mapiUrl, string authAdmin, BitcoindProcess bitcoind)
+    static async Task EnsureMapiIsConnectedToNodeAsync(string mapiUrl, string authAdmin, bool rearrangeNodes, BitcoindProcess bitcoind, string bitcoindHost, string bitcoindZmqEndpointIp)
     {
       var adminClient = new HttpClient();
       adminClient.DefaultRequestHeaders.Add("Api-Key", authAdmin);
       mapiUrl += "api/v1/Node";
 
       var uri = new Uri(mapiUrl);
-      var hostPort = bitcoind.Host + ":" + bitcoind.RpcPort;
+      Console.WriteLine($"Checking mAPIurl ...");
 
+      var hostPort = (bitcoindHost ?? bitcoind.Host) + ":" + bitcoind.RpcPort;
       var nodesResult = await adminClient.GetAsync(mapiUrl);
-
       if (!nodesResult.IsSuccessStatusCode)
       {
         throw new Exception(
           $"Unable to retrieve existing node {hostPort}. Error: {nodesResult.StatusCode} {await nodesResult.Content.ReadAsStringAsync()}");
       }
 
+      Console.WriteLine($"Bitcoind hostPort: { hostPort}. Checking node...");
       var nodes =
         HelperTools.JSONDeserialize<NodeViewModelGet[]>(await nodesResult.Content.ReadAsStringAsync());
-      if (nodes.Any(x => string.Compare(x.Id, hostPort, StringComparison.InvariantCultureIgnoreCase) == 0))
+      if (rearrangeNodes)
       {
-        Console.WriteLine($"Removing existing node {hostPort} from mAPI");
+        if (nodes.Any(x => string.Compare(x.Id, hostPort, StringComparison.InvariantCultureIgnoreCase) == 0))
+        {
 
-        var deleteResult = await adminClient.DeleteAsync(uri + "/" + hostPort);
-        if (!deleteResult.IsSuccessStatusCode)
+          Console.WriteLine($"Removing existing node {hostPort} from mAPI");
+
+          var deleteResult = await adminClient.DeleteAsync(uri + "/" + hostPort);
+          if (!deleteResult.IsSuccessStatusCode)
+          {
+            throw new Exception(
+              $"Unable to delete existing node {hostPort}. Error: {deleteResult.StatusCode} {await deleteResult.Content.ReadAsStringAsync()}");
+          }
+          // delete always returns noContent, so we have to check with GET
+          var getResult = await adminClient.GetAsync(uri + "/" + hostPort);
+          if (getResult.IsSuccessStatusCode)
+          {
+            throw new Exception($"mAPI cache is out of sync, you have to restart mAPI!");
+          }
+        }
+
+        Console.WriteLine($"Adding new node {hostPort} to mAPI");
+
+        var newNode = new NodeViewModelCreate
+        {
+          Id = hostPort,
+          Username = bitcoind.RpcUser,
+          Password = bitcoind.RpcPassword,
+          Remarks = "Node created by mAPI Stress Test at " + DateTime.Now,
+          ZMQNotificationsEndpoint = $"tcp://{ (string.IsNullOrEmpty(bitcoindZmqEndpointIp) ? bitcoind.ZmqIp : bitcoindZmqEndpointIp) }:{bitcoind.ZmqPort}"
+        };
+        Console.WriteLine($"ZMQNotificationsEndpointIp: { newNode.ZMQNotificationsEndpoint }");
+        var newNodeContent = new StringContent(HelperTools.JSONSerialize(newNode, true),
+          new UTF8Encoding(false), MediaTypeNames.Application.Json);
+
+        var newNodeResult = await adminClient.PostAsync(uri, newNodeContent);
+
+        if (!newNodeResult.IsSuccessStatusCode)
         {
           throw new Exception(
-            $"Unable to delete existing node {hostPort}. Error: {deleteResult.StatusCode} {await deleteResult.Content.ReadAsStringAsync()}");
+            $"Unable to create new {hostPort}. Error: {newNodeResult.StatusCode} {await newNodeResult.Content.ReadAsStringAsync()}");
         }
       }
-
-      Console.WriteLine($"Adding new node {hostPort} to mAPI");
-
-      var newNode = new NodeViewModelCreate
+      else
       {
-        Id = hostPort,
-        Username = bitcoind.RpcUser,
-        Password = bitcoind.RpcPassword,
-        Remarks = "Node created by mAPI Stress Test at " + DateTime.Now
-      };
-
-      var newNodeContent = new StringContent(HelperTools.JSONSerialize(newNode, true),
-        new UTF8Encoding(false), MediaTypeNames.Application.Json);
-
-      var newNodeResult = await adminClient.PostAsync(uri, newNodeContent);
-
-      if (!newNodeResult.IsSuccessStatusCode)
-      {
-        throw new Exception(
-          $"Unable to create new {hostPort}. Error: {newNodeResult.StatusCode} {await newNodeResult.Content.ReadAsStringAsync()}");
+        if (!nodes.Any(x => string.Compare(x.Id, hostPort, StringComparison.InvariantCultureIgnoreCase) == 0))
+        {
+          throw new Exception(
+            $"Please add missing node: {hostPort} {bitcoind.RpcUser} {bitcoind.RpcPassword} with ZMQNotificationsEndpoint: 'tcp://{ (string.IsNullOrEmpty(bitcoindZmqEndpointIp) ? bitcoind.ZmqIp : bitcoindZmqEndpointIp) }:{bitcoind.ZmqPort}!'");
+        }
       }
-
+      
       await Task.Delay(TimeSpan.FromSeconds(1)); // Give mAPI some time to establish ZMQ subscriptions
+    }
+
+    static async Task<int> ClearDb(string mapiDBConnectionString)
+    {
+      await Task.Delay(0);
+      TruncateTables(mapiDBConnectionString);
+      Console.WriteLine($"Tables truncated.");
+      Console.WriteLine($"mAPI cache is out of sync, you have to restart mAPI!");
+      return 0;
+    }
+    static void TruncateTables(string mapiDBConnectionString)
+    {
+      NodeRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
+      TxRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
     }
 
     static async Task<int> Main(string[] args)
@@ -503,25 +553,39 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         new Argument<string>(
           name: "configFileName",
-          description: "Config file containing configuration"
+          description: "Json config file containing configuration"
         )
         {
           Arity = new ArgumentArity(1,1)
         }
       };
 
-      sendCommand.Description = "Reads transactions from a file and submit it to mAPI";
+      sendCommand.Description = "Read transactions from a json file and submit it to mAPI.";
+      sendCommand.Handler = CommandHandler.Create(async (string configFileName) =>
+        await SendTransactions(configFileName, (IHttpClientFactory)host.Services.GetService(typeof(IHttpClientFactory))));
 
+      var clearDbCommand = new Command("clearDb")
+      {
+        new Argument<string>(
+          name: "mapiDBConnectionStringDDL",
+          description: "Connection string DDL, e.g.'Server=localhost;Port=54321;User Id=merchantddl; Password=merchant;Database=merchant_gateway;'"
+        )
+        {
+          Arity = new ArgumentArity(1,1)
+        }
+      };
+
+      clearDbCommand.Description = "Truncate data in all tables (except feeQuote) and stops program. If mAPI is running, restart it to reinitialize cache.";
+      clearDbCommand.Handler = CommandHandler.Create(async (string mapiDBConnectionString) =>
+        await ClearDb(mapiDBConnectionString));
 
       var rootCommand = new RootCommand
       {
-        sendCommand
+        sendCommand,
+        clearDbCommand
       };
 
       rootCommand.Description = "mAPI stress test";
-
-      sendCommand.Handler = CommandHandler.Create( async (string configFileName) =>
-        await SendTransactions(configFileName, (IHttpClientFactory)host.Services.GetService(typeof(IHttpClientFactory))));
 
       return await rootCommand.InvokeAsync(args);
     }

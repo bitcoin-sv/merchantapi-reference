@@ -1,34 +1,40 @@
 {
-  "filename": "D:\\bitcoind\\2MtoSend\\transactionsgenerate2M.2000000.0",
-  "limit": 300,
+  "filename": "D:\\stressTest\\5M800KUTXOS\\txblasterfile\\transactions5M800Ktransactions.5832000.0",
   "txIndex": 2,
-  "mapiUrl": "https://localhost:5001/",
-
-  "callback": {
-    "url": "http://localhost:8013/iscallbackUrl?123",
-    "addRandomNumberToHost": 3,
-    "callbackToken": "Bearer something",
-    "startListener": true,
-    "hosts": [
-      {
-        "hostName": "", // Default for all hosts that are not explicitly named
-        "minCallbackDelayMs": 0,
-        "maxCallbackDelayMs": 100,
-        "callbackFailurePercent": 0
-      },
-      {
-        "hostName": "localhost2", // Slow host that never returns errors
-        "minCallbackDelayMs": 500,
-        "maxCallbackDelayMs": 1500,
-        "callbackFailurePercent": 0
-      }
-    ]
+  "limit": 300,
+  "batchSize": 1000,
+  "threads": 10,
+  "csvComment": "",
+  "mapiConfig": {
+    "mapiUrl": "https://localhost:5001/",
+    "rearrangeNodes": true,
+    "bitcoindHost": "host.docker.internal",
+    "bitcoindZmqEndpointIp": "host.docker.internal",
+    "callback": {
+      "url": "http://localhost:8013/iscallbackUrl?123",
+      "addRandomNumberToHost": 3,
+      "callbackToken": "Bearer something",
+      "startListener": true,
+      "hosts": [
+        {
+          "hostName": "", // Default for all hosts that are not explicitly named
+          "minCallbackDelayMs": 0,
+          "maxCallbackDelayMs": 100,
+          "callbackFailurePercent": 0
+        },
+        {
+          "hostName": "localhost2", // Slow host that never returns errors
+          "minCallbackDelayMs": 500,
+          "maxCallbackDelayMs": 1500,
+          "callbackFailurePercent": 0
+        }
+      ]
+    }
   },
-
-  "bitcoindConfig":
-  {
+  "bitcoindConfig": {
     "bitcoindPath": "D:\\src\\crea\\merchantapi2-private\\bitcoind\\windows\\bitcoind.exe",
-    "templateData": "D:\\bitcoind\\temp\\regtest2",
-    "MapiAdminAuthorization": "66dd203a-2736-4373-9024-4a525f90f89b"
+    "templateData": "D:\\stressTest\\5M800KUTXOS\\node\\regtest",
+    "mapiAdminAuthorization": "66dd203a-2736-4373-9024-4a525f90f89b",
+    "zmqEndpointIp": "127.0.0.1"
   }
 }

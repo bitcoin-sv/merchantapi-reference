@@ -18,6 +18,9 @@ using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NBitcoin.Altcoins;
 using MerchantAPI.Common.Json;
+using MerchantAPI.APIGateway.Test.Functional.Attributes;
+using Microsoft.AspNetCore.TestHost;
+using MerchantAPI.APIGateway.Test.Functional.Server;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -54,7 +57,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public virtual void TestInitialize()
     {
-      Initialize(mockedServices: false);
+      //Retrive OverrideSettingAttribute data (setting name and value)
+      List<KeyValuePair<string, string>> overridenSettings = new();
+      var overrideSettingsAttributes = GetType().GetMethod(TestContext.TestName).GetCustomAttributes(true).Where(a => a.GetType() == typeof(OverrideSettingAttribute));
+      foreach (var attribute in overrideSettingsAttributes)
+      {
+        OverrideSettingAttribute overrideSettingsAttribute = (OverrideSettingAttribute)attribute;
+        overridenSettings.Add(new KeyValuePair<string, string>(overrideSettingsAttribute.SettingName, overrideSettingsAttribute.SettingValue.ToString()));
+      }
+
+
+      Initialize(mockedServices: false, overridenSettings);
 
       var bitcoindConfigKey = "BitcoindFullPath";
       bitcoindFullPath = Configuration[bitcoindConfigKey];
@@ -79,6 +92,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
         rpcClient0 = node0.RpcClient;
         SetupChain(rpcClient0);
       }
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     public BitcoindProcess CreateAndStartNode(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, string zmqNotificationsEndpoint = null)

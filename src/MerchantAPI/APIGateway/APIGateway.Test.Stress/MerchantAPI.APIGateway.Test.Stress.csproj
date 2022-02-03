@@ -15,4 +15,10 @@
     <ProjectReference Include="..\APIGateway.Test.Functional\MerchantAPI.APIGateway.Test.Functional.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Readme.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

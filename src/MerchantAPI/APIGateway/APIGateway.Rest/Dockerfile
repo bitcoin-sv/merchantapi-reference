@@ -13,6 +13,14 @@ COPY ["MerchantAPI/APIGateway/APIGateway.Domain/MerchantAPI.APIGateway.Domain.cs
 COPY ["MerchantAPI/APIGateway/APIGateway.Database/APIGateway.Database.csproj", "MerchantAPI/APIGateway/APIGateway.Database/"]
 
 RUN dotnet restore "MerchantAPI/APIGateway/APIGateway.Rest/MerchantAPI.APIGateway.Rest.csproj"
+
+# Install desired .NET CLI diagnostics tools
+RUN dotnet tool install --tool-path /tools dotnet-counters
+RUN dotnet tool install --tool-path /tools dotnet-dump
+RUN dotnet tool install --tool-path /tools dotnet-gcdump
+RUN dotnet tool install --tool-path /tools dotnet-stack
+RUN dotnet tool install --tool-path /tools dotnet-trace
+
 COPY . .
 WORKDIR "/src/MerchantAPI/APIGateway/APIGateway.Rest"
 RUN dotnet build "MerchantAPI.APIGateway.Rest.csproj" -c Release -o /app/build
@@ -23,6 +31,7 @@ RUN dotnet publish "MerchantAPI.APIGateway.Rest.csproj" -c Release -o /app/publi
 
 FROM base AS final
 WORKDIR /app
+COPY --from=build /tools /tools
 COPY --from=publish /app/publish .
 
 WORKDIR /
