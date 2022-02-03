@@ -16,6 +16,18 @@ namespace MerchantAPI.Common.EventBus
     protected long processingEvent;
     public bool ProcessingEvent => Interlocked.Read(ref processingEvent) > 0;
 
+    protected long queueCount;
+    public long QueueCount => Interlocked.Read(ref queueCount);
+    public void IncrementQueueCount()
+    {
+      Interlocked.Increment(ref queueCount);
+    }
+
+    protected void DecrementQueueCount()
+    {
+      Interlocked.Decrement(ref queueCount);
+    }
+
   }
 
   public class EventBusSubscription<T> : EventBusSubscription
@@ -39,7 +51,7 @@ namespace MerchantAPI.Common.EventBus
         try
         {
           var result = await ReadAsync(cancellationToken); // This can throw cancellation exception
-          
+          DecrementQueueCount();
           Interlocked.Increment(ref processingEvent);
           try
           {
