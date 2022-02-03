@@ -91,5 +91,10 @@ namespace MerchantAPI.Common.BitcoinRpc
       StreamReader.Dispose();
     }
 
+    public override void Close()
+    {
+      this.Dispose(true);
+    }
+
   }
 }
