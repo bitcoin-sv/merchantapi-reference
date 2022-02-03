@@ -139,7 +139,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       // create FileStream, so that we support bigger blocks from 2.2GB
       var fileName = @"Data/big_block.txt";
 
-      using FileStream fs = File.OpenWrite(fileName);
+      using FileStream fs = File.Create(fileName);
       using var ms = new MemoryStream();
       BitcoinStream s = new(fs, true);
       s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing

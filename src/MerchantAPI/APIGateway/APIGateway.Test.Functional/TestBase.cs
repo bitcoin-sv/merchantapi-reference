@@ -237,26 +237,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    public async Task<(long, string)> CreateAndPublishNewBlock(IRpcClient rpcClient, long? blockHeightToStartFork, Transaction transaction, bool noPublish = false)
+    public async Task<(long, string)> CreateAndPublishNewBlockAsync(IRpcClient rpcClient, long? blockHeightToStartFork, Transaction transaction, bool noPublish = false)
     {
-      return await CreateAndPublishNewBlockWithTxs(rpcClient, blockHeightToStartFork, transaction != null ? new Transaction[]{ transaction } : null, noPublish);
+      return await CreateAndPublishNewBlockWithTxsAsync(rpcClient, blockHeightToStartFork, transaction != null ? new Transaction[]{ transaction } : null, noPublish);
     }
 
-    public async Task<(long, string)> CreateAndPublishNewBlockWithTxs(IRpcClient rpcClient, long? blockHeightToStartFork, Transaction[] transactions, bool noPublish = false, bool bigBlock = false)
+    public async Task<(long, string)> CreateAndPublishNewBlockWithTxsAsync(IRpcClient rpcClient, long? blockHeightToStartFork, Transaction[] transactions, bool noPublish = false, bool bigBlock = false)
     {
       string blockHash = null;
       long blockHeight = await rpcClient.GetBlockCountAsync();
+
       if (blockHeight == 0)
       {
-      var blockStream = await rpcClient.GetBlockAsStreamAsync(await rpcClient.GetBestBlockHashAsync());
-      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
+        var blockStream = await rpcClient.GetBlockAsStreamAsync(await rpcClient.GetBestBlockHashAsync());
+        var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
         rpcClientFactoryMock.AddKnownBlock(blockHeight, firstBlock.ToBytes());
         PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+        blockHash = firstBlock.GetHash().ToString();
+        if (!noPublish)
+        {
+          PublishBlockHashToEventBus(blockHash);
+          WaitUntilEventBusIsIdle();
+        }
       }
-      PubKey pubKey = new Key().PubKey;
-
       if (transactions != null)
       {
+        PubKey pubKey = new Key().PubKey;
         NBitcoin.Block lastBlock;
         if (blockHeightToStartFork.HasValue)
         {
@@ -266,8 +272,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
         {
           lastBlock = HelperTools.ParseByteStreamToBlock(await rpcClient.GetBlockAsStreamAsync(await rpcClient.GetBestBlockHashAsync()));
         }
+
         var block = lastBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
-        foreach (var transaction in transactions)
+        block.Transactions[0] = transactions[0];
+        foreach (var transaction in transactions.Skip(1))
         {
           block.AddTransaction(transaction);
         }
@@ -291,14 +299,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
           rpcClientFactoryMock.AddKnownBlock(++blockHeight, block.ToBytes());
         }
 
-
         blockHash = block.GetHash().ToString();
         if (!noPublish)
         {
           PublishBlockHashToEventBus(block.GetHash().ToString());
         }
       }
-
       return (blockHeight, blockHash);
     }
 
@@ -311,6 +317,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       });
 
       WaitUntilEventBusIsIdle();
+    }
+
+    protected void PublishBlockToEventBus(Domain.Models.Block block, bool waitUntilEventBusIsIdle = true)
+    {
+      EventBus.Publish(new NewBlockAvailableInDB
+      {
+        BlockDBInternalId = block.BlockInternalId,
+        BlockHash = new uint256(block.BlockHash).ToString(),
+        BlockHeight = block.BlockHeight
+      });
+
+      if (waitUntilEventBusIsIdle)
+      {
+        WaitUntilEventBusIsIdle();
+      }
     }
 
 

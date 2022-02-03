@@ -144,7 +144,17 @@ namespace MerchantAPI.APIGateway.Rest
 
       services.AddTransient<IClock, Clock>();
       services.AddHostedService<NotificationService>();
-      services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
+      if (HostEnvironment.EnvironmentName != "Testing")
+      {
+        services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
+      }
+      else
+      {
+        services.AddSingleton<BlockParser>();
+        services.AddHostedService(p => p.GetService<BlockParser>());
+
+      }
+
       services.AddHostedService<InvalidTxHandler>();
       services.AddHostedService<BlockChecker>();
 

@@ -24,7 +24,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
-  
+
   public class Mapi : IMapi
   {
     readonly IRpcMultiClient rpcMultiClient;

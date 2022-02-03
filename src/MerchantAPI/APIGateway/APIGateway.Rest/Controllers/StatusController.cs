@@ -10,6 +10,9 @@ using Microsoft.AspNetCore.Mvc;
 using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Rest.Swagger;
+using MerchantAPI.APIGateway.Domain.Actions;
+using MerchantAPI.APIGateway.Domain;
+using Microsoft.Extensions.Options;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -21,14 +24,20 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   public class StatusController : ControllerBase
   {
     readonly INodes nodes;
+    readonly IBlockParser blockParser;
+    readonly AppSettings appSettings;
     readonly ZMQSubscriptionService subscriptionService;
 
     public StatusController(
       INodes nodes,
+      IBlockParser blockParser,
+      IOptions<AppSettings> options,
       ZMQSubscriptionService subscriptionService
       )
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
+      this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      appSettings = options.Value;
       this.subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
     }
 
@@ -42,6 +51,22 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     {
       var result = nodes.GetNodes();
       return Ok(result.Select(n => new ZmqStatusViewModelGet(n, subscriptionService.GetStatusForNode(n))));
+    }
+
+    /// <summary>
+    /// Get block parser status
+    /// </summary>
+    /// <returns>Block parser status and description.</returns>
+    [HttpGet]
+    [Route("blockParser")]
+    public ActionResult<BlockParserStatusViewModelGet> BlockParserStatus()
+    {
+      var status = blockParser.GetBlockParserStatus();
+      return Ok(new BlockParserStatusViewModelGet(status,
+        appSettings.DontParseBlocks.Value,
+        appSettings.DontInsertTransactions.Value,
+        appSettings.DeltaBlockHeightForDoubleSpendCheck.Value,
+        appSettings.MaxBlockChainLengthForFork.Value));
     }
   }
 }

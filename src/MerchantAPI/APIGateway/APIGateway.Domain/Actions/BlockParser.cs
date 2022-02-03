@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Exceptions;
+using System.Diagnostics;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -33,9 +34,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly IClock clock;
     readonly List<string> blockHashesBeingParsed = new();
     readonly SemaphoreSlim semaphoreSlim = new(1, 1);
+    readonly BlockParserStatus blockParserStatus;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
+
+    long QueueCount => newBlockAvailableInDBSubscription.QueueCount;
 
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger, 
@@ -46,6 +50,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       appSettings = options.Value;
+      blockParserStatus = new();
     }
 
 
@@ -74,7 +79,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
     
-    private async Task InsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
+    private async Task<int> InsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
     {
       var txsToCheck = await txRepository.GetTxsNotInCurrentBlockChainAsync(blockInternalId);
       var txIdsFromBlock = new HashSet<uint256>(block.Transactions.Select(x => x.GetHash(Const.NBitcoinMaxArraySize)));
@@ -94,9 +99,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         eventBus.Publish(notificationEvent);
       }
       await txRepository.SetBlockParsedForMerkleDateAsync(blockInternalId);
+      return txsToLinkToBlock.Length;
     }
 
-    private async Task TransactionsDSCheckAsync(NBitcoin.Block block, long blockInternalId)
+    private async Task<int> TransactionsDSCheckAsync(NBitcoin.Block block, long blockInternalId)
     {
       // Inputs are flattened along with transactionId so they can be checked for double spends.
       var allTransactionInputs = block.Transactions.SelectMany(x => x.Inputs.AsIndexedInputs(), (tx, txIn) => new 
@@ -136,6 +142,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         eventBus.Publish(notificationEvent);
       }
       await txRepository.SetBlockParsedForDoubleSpendDateAsync(blockInternalId);
+      return dsAncestorTxIds.Count() + dsTxIds.Count();
     }
 
 
@@ -198,6 +205,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           CreationDate = clock.UtcNow(),
           BlockHash = new uint256(dbBlock.BlockHash).ToString(),
           BlockDBInternalId = dbBlock.BlockInternalId,
+          BlockHeight = dbBlock.BlockHeight
         });
         _ = VerifyBlockChain(blockHeader.Previousblockhash);
       }
@@ -220,11 +228,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
           {
+            blockParserStatus.IncrementBlocksDuplicated();
             logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skipped processing.");
             return;
           }
           else if (await txRepository.CheckIfBlockWasParsed(e.BlockDBInternalId))
           {
+            blockParserStatus.IncrementBlocksDuplicated();
             logger.LogInformation($"Block '{e.BlockHash}' was already parsed...skipped processing.");
             return;
           }
@@ -239,14 +249,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
 
         logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
+        var stopwatch = Stopwatch.StartNew();
         var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
-
         var block = HelperTools.ParseByteStreamToBlock(blockStream);
+        var blockDownloadTime = stopwatch.Elapsed;
+        ulong bytes = (ulong)blockStream.TotalBytesRead;
 
-        await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
-        await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
+        var txsFound = await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
+        var dsFound = await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
+        stopwatch.Stop();
+        var blockParseTime = stopwatch.Elapsed;
 
-        logger.LogInformation($"Block {e.BlockHash} successfully parsed.");
+        logger.LogInformation($"Block {e.BlockHash} successfully parsed, needed { blockParseTime.TotalMilliseconds } ms.");
         await semaphoreSlim.WaitAsync();
         try
         {
@@ -256,14 +270,20 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           semaphoreSlim.Release();
         }
+        blockParserStatus.IncrementBlocksProcessed(e.BlockHash, e.BlockHeight, txsFound, dsFound, bytes,
+          block.Transactions.Count, e.CreationDate, blockParseTime, blockDownloadTime);
       }
-      catch (BadRequestException ex)
+      catch (Exception ex)
       {
-        logger.LogError(ex.Message);
-      }
-      catch (RpcException ex)
-      {
-        logger.LogError(ex.Message);
+        blockParserStatus.IncrementNumOfErrors();
+        if (ex is BadRequestException || ex is RpcException)
+        {
+          logger.LogError(ex.Message);
+        }
+        else
+        {
+          throw;
+        }
       }
     }
 
@@ -327,6 +347,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           eventBus.Publish(newBlockEvent);
         } while (newBlockStack.Any());
       }
+    }
+
+    public BlockParserStatus GetBlockParserStatus()
+    {
+      blockParserStatus.SetBlocksQueued(QueueCount);
+      return blockParserStatus;
     }
   }
 }
