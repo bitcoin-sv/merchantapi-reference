@@ -208,11 +208,11 @@ Number of blocks processed from queue is 1, remaining: 0.", status.BlockParserDe
 
     [TestCategory("Manual")]
     [TestMethod]
-    public async Task BlockParserStatusTestBigBlock() // block of size > 4 GB
+    public async Task BlockParserStatusTestBigBlock() // block of size 2.5 GB
     {
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
-      int txsCount = 1500;
+      int txsCount = 900;
       var txs = await Transaction16mbList(txsCount, dsCheck: true);
 
       await CreateAndPublishNewBlockAsync(RpcClient, null, null);
@@ -259,7 +259,7 @@ Number of blocks processed from queue is 1, remaining: 0.", status.BlockParserDe
       Assert.AreEqual(dbRecords.Count, status.TotalDsFound);
       Assert.AreEqual((ulong)(txsCount + firstBlockTxsCount), status.TotalTxs);
       Assert.AreEqual(1, status.LastBlockHeight);
-      Assert.AreEqual(4235299699 + firstBlockBytes, status.TotalBytes);
+      Assert.AreEqual(2541179783 + firstBlockBytes, status.TotalBytes);
       Assert.AreEqual(firstBlockParseTime + status.LastBlockParseTime, status.BlocksParseTime);
       Assert.AreEqual( (firstBlockParseTime + status.LastBlockParseTime) / 2, status.AverageParseTime);
       Assert.IsTrue(firstBlockDownloadSpeed < status.AverageBlockDownloadSpeed);
