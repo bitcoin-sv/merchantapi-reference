@@ -14,7 +14,7 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     readonly CancellationToken? token;
 
-    public int TotalBytesRead { get; private set; }
+    public long TotalBytesRead { get; protected set; }
 
 
     public RpcBitcoinStreamReader(StreamReader streamReader, CancellationToken? token) : base()
