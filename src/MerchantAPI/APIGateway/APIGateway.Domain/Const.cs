@@ -11,8 +11,6 @@ namespace MerchantAPI.APIGateway.Domain
   {
     public const string MERCHANT_API_VERSION = "1.4.0";
 
-    public const int NBitcoinMaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
-
     public readonly static string MERCHANT_API_BUILD_VERSION = GetBuildVersion();
     private static string GetBuildVersion()
     {
@@ -33,6 +31,10 @@ namespace MerchantAPI.APIGateway.Domain
       string version = mapiNodeCompatibleVersions.LastOrDefault(x => mAPIVersion.CompareTo(x.mapiVersion) >= 0).nodeVersion;
       return version;
     }
+
+    public const int NBitcoinMaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
+
+    public const long Megabyte = 1024 * 1024;
 
     public class FeeType
     {

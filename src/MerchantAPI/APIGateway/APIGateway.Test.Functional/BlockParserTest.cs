@@ -1,13 +1,12 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using MerchantAPI.APIGateway.Domain.Models.Events;
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -74,7 +73,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       do
       {
         var tx = Transaction.Parse(Tx1Hex, Network.Main);
-        (blockCount, blockHash) = await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+        (blockCount, blockHash) = await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
       }
       while (blockCount < 20);
       PublishBlockHashToEventBus(blockHash);
@@ -115,7 +114,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      var (blockCount, _) = await CreateAndPublishNewBlock(rpcClient, null, null);
+      var (blockCount, _) = await CreateAndPublishNewBlockAsync(rpcClient, null, null);
 
       NBitcoin.Block forkBlock = null;
       var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);
@@ -181,7 +180,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public void GetHashFromBigTransaction()
     {
       var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/big_tx.txt")));
-      Assert.IsTrue(stream.Length > (1024 * 1024));
+      Assert.IsTrue(stream.Length > (Const.Megabyte));
       var bStream = new BitcoinStream(stream, false)
       {
         MaxArraySize = unchecked((int)uint.MaxValue)
@@ -200,13 +199,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       var rpcClient = (Mock.RpcClientMock)rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      long blockCount = await RpcClient.GetBlockCountAsync();
-      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
-      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
-      rpcClientFactoryMock.AddKnownBlock(blockCount++, firstBlock.ToBytes());
-
-      var tx = Transaction.Parse(Tx1Hex, Network.Main);
-      await CreateAndPublishNewBlock(rpcClient, null, tx, true);
+      await CreateAndPublishNewBlockAsync(rpcClient, null, null);
 
       Assert.AreEqual(0, (await TxRepositoryPostgres.GetUnparsedBlocksAsync()).Length);
 
@@ -214,13 +207,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // we publish same NewBlockAvailableInDB as before
       var block2Parse = block;
-      EventBus.Publish(new NewBlockAvailableInDB
-      {
-        BlockDBInternalId = block2Parse.BlockInternalId,
-        BlockHash = new uint256(block2Parse.BlockHash).ToString()
-      });
-
-      WaitUntilEventBusIsIdle();
+      PublishBlockToEventBus(block2Parse);
 
       // best block must stay the same, since parsing was skipped
       var blockAfterRepublish = await TxRepositoryPostgres.GetBestBlockAsync();
@@ -233,30 +220,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [DataRow(750)] // block of size 2.1GB
     [DataRow(1500)] // block of size > 4 GB
     [TestMethod]
-    public async Task TestBigBlocks(double txsCount)
+    public async Task TestBigBlocks(int txsCount)
     {
       var node = NodeRepository.GetNodes().First();
       var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      var stream = new MemoryStream(Encoders.Hex.DecodeData(File.ReadAllText(@"Data/16mb_tx.txt")));
-      var bStream = new BitcoinStream(stream, false)
-      {
-        MaxArraySize = unchecked((int)uint.MaxValue)
-      };
-      var tx = Transaction.Create(Network.Main);
+      var txs = await Transaction16mbList(txsCount, dsCheck: true);
 
-      tx.ReadWrite(bStream);
-
-      var txId = tx.GetHash(int.MaxValue).ToString();
-      _ = await CreateAndInsertTxAsync(false, true, 2, new string[] { txId.ToString() });
-
-      List<Transaction> txs = new();
-      for (int i = 0; i < txsCount; i++)
-      {
-        txs.Add(tx);
-      }
-
-      (_, string blockHash) = await CreateAndPublishNewBlockWithTxs(rpcClient, null, txs.ToArray(), true, true);
+      (_, string blockHash) = await CreateAndPublishNewBlockWithTxsAsync(rpcClient, null, txs.ToArray(), true, true);
 
       var block = await TxRepositoryPostgres.GetBestBlockAsync();
       Assert.IsFalse(HelperTools.AreByteArraysEqual(block.BlockHash, new uint256(blockHash).ToBytes()));
@@ -272,7 +243,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // check if block was correctly parsed
       var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
       var parsedBlock = HelperTools.ParseByteStreamToBlock(blockStream);
-      Assert.AreEqual(txsCount + 1, parsedBlock.Transactions.Count);
+      Assert.AreEqual(txsCount, parsedBlock.Transactions.Count);
     }
   }
 }

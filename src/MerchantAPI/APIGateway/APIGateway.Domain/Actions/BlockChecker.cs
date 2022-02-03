@@ -67,7 +67,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             eventBus.Publish(new NewBlockAvailableInDB
             {
               BlockDBInternalId = block.BlockInternalId,
-              BlockHash = new uint256(block.BlockHash).ToString()
+              BlockHash = new uint256(block.BlockHash).ToString(),
+              BlockHeight = block.BlockHeight
             });
           }
         }

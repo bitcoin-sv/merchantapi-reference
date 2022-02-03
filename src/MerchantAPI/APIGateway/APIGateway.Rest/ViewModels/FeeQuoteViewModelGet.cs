@@ -3,7 +3,6 @@
 
 using System;
 using System.Linq;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
