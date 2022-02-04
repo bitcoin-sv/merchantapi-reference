@@ -237,6 +237,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         RpcClient = null;
         process.Dispose();
         process = null;
+        GC.SuppressFinalize(this);
       }
     }
 
