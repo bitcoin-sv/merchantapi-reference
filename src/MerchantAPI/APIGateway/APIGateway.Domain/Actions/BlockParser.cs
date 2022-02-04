@@ -250,7 +250,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
         var stopwatch = Stopwatch.StartNew();
-        var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
+        using var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
         var block = HelperTools.ParseByteStreamToBlock(blockStream);
         var blockDownloadTime = stopwatch.Elapsed;
         ulong bytes = (ulong)blockStream.TotalBytesRead;

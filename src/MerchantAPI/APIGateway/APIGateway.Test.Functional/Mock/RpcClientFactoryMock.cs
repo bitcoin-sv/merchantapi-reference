@@ -216,6 +216,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       {
         File.Delete(b.Value.StreamFilename);
       }
+      GC.Collect();
     }
   }
 }
