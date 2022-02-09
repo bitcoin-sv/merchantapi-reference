@@ -253,7 +253,7 @@ Number of blocks processed from queue is 1, remaining: 0.", status.BlockParserDe
       Assert.AreEqual(txsCount, parsedBlock.Transactions.Count);
 
       var status = blockParser.GetBlockParserStatus();
-      Assert.AreEqual(2, status.BlocksProcessed);
+      Assert.AreEqual(status.BlocksDuplicated == 0 ? 2 : 3, status.BlocksProcessed); // 3 when running on slower host
       Assert.AreEqual(2, status.BlocksParsed);
       Assert.AreEqual(1, status.TotalTxsFound);
 
