@@ -234,6 +234,20 @@ namespace MerchantAPI.Common.BitcoinRpc
     {
       return RequestAsync<int>(null, "getconnectioncount");
     }
+    public async Task<RpcListUnspent[]> ListUnspentAsync(CancellationToken? token = null, params object[] parameters)
+    {
+      return await RequestAsync<RpcListUnspent[]>(token, "listunspent", parameters);
+    }
+
+    public async Task<string> DumpPrivKeyAsync(string address, CancellationToken? token = null)
+    {
+      return await RequestAsync<string>(token, "dumpprivkey", address);
+    }
+
+    public async Task<string> GetNewAddressAsync(CancellationToken? token = null)
+    {
+      return await RequestAsync<string>(token, "getnewaddress");
+    }
 
     private async Task<T> RequestAsync<T>(CancellationToken? token, string method, params object[] parameters)
     {
@@ -443,5 +457,6 @@ namespace MerchantAPI.Common.BitcoinRpc
     {
       return Address?.ToString();
     }
+
   }
 }
