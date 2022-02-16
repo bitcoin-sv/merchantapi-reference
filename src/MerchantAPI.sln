@@ -19,6 +19,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.APIGateway.Test
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "APIGateway.Database", "MerchantAPI\APIGateway\APIGateway.Database\APIGateway.Database.csproj", "{F07CD752-4532-405E-AC27-2E0416629D7E}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MerchantAPI.APIGateway.Test.SmokeTest", "MerchantAPI\APIGateway\APIGateway.Test.SmokeTest\MerchantAPI.APIGateway.Test.SmokeTest.csproj", "{BBD3F167-B2C3-4543-9142-630EAAF3A5D5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,6 +55,10 @@ Global
 		{F07CD752-4532-405E-AC27-2E0416629D7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F07CD752-4532-405E-AC27-2E0416629D7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F07CD752-4532-405E-AC27-2E0416629D7E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BBD3F167-B2C3-4543-9142-630EAAF3A5D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BBD3F167-B2C3-4543-9142-630EAAF3A5D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BBD3F167-B2C3-4543-9142-630EAAF3A5D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BBD3F167-B2C3-4543-9142-630EAAF3A5D5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -64,6 +70,7 @@ Global
 		{18BC7475-9E84-4797-8C30-3424C2FA339B} = {E8686008-DBF1-4984-8D96-F1E222E46CC5}
 		{03AF76FF-4AC5-4E04-B946-2175B1C5B8B0} = {E8686008-DBF1-4984-8D96-F1E222E46CC5}
 		{F07CD752-4532-405E-AC27-2E0416629D7E} = {E8686008-DBF1-4984-8D96-F1E222E46CC5}
+		{BBD3F167-B2C3-4543-9142-630EAAF3A5D5} = {E8686008-DBF1-4984-8D96-F1E222E46CC5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D8EE9AE9-3E33-41C0-9C7E-A06BB6B2A6E6}
