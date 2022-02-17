@@ -47,6 +47,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     virtual public void TestCleanup()
     {
       base.Cleanup();
+      rpcClientFactoryMock.CleanupBigBlocks();
     }
 
     protected async Task<List<Tx>> CreateAndInsertTxAsync(bool merkleProof, bool dsCheck, int? limit = null, string[] hashes = null)

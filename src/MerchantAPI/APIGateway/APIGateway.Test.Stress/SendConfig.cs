@@ -22,6 +22,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public int Threads { get; set; } = 1;
 
+    public int StartGenerateBlocksAtTx { get; set; } = -1;
+
+    public int GenerateBlockPeriodMs { get; set; } = 500;
+
     public string CsvComment { get; set; }
 
     [Required]
@@ -33,6 +37,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
       if (Limit.HasValue && BatchSize > Limit)
       {
         yield return new ValidationResult($"{ nameof(BatchSize) } must be smaller than { nameof(Limit) }.");
+      }
+      if (Limit.HasValue && StartGenerateBlocksAtTx > -1 && StartGenerateBlocksAtTx > Limit)
+      {
+        yield return new ValidationResult($"GenerateBlocks will not run - { nameof(StartGenerateBlocksAtTx)} must be smaller than Limit.");
+      }
+      if (GenerateBlockPeriodMs < 0)
+      {
+        yield return new ValidationResult($"GenerateBlockPeriodMs must be positive.");
       }
       if (MapiConfig.MapiUrl != null)
       {

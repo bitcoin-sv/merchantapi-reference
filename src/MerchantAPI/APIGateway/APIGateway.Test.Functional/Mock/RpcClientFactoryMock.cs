@@ -140,7 +140,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       var fileName = @"Data/big_block.txt";
 
       using FileStream fs = File.Create(fileName);
-      using var ms = new MemoryStream();
+
       BitcoinStream s = new(fs, true);
       s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
 
@@ -210,5 +210,13 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       disconnectedNodes.Clear();
     }
 
+    public void CleanupBigBlocks()
+    {
+      foreach (var b in blocks.Where(x => !string.IsNullOrEmpty(x.Value.StreamFilename)))
+      {
+        File.Delete(b.Value.StreamFilename);
+      }
+      GC.Collect();
+    }
   }
 }

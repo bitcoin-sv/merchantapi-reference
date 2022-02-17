@@ -459,7 +459,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (txHex1, txId1) = CreateNewTransaction(); 
 
       // Store tx to database before submitting it to the node
-      List<Domain.Models.Tx> txToInsert = new List<Domain.Models.Tx>();
+      List<Domain.Models.Tx> txToInsert = new();
       txToInsert.Add(new Domain.Models.Tx()
       {
         TxPayload = HelperTools.HexStringToByteArray(txHex1),

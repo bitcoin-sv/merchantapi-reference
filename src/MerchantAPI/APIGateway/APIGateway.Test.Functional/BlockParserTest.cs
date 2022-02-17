@@ -60,7 +60,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     [TestMethod]
-    public virtual async Task TooLongForkCheck()
+    public async Task TooLongForkCheck()
     {
       Assert.AreEqual(20, AppSettings.MaxBlockChainLengthForFork);
       _ = await CreateAndInsertTxAsync(false, true, 2);
@@ -107,7 +107,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     [TestMethod]
-    public virtual async Task DoubleMerkleProofCheck()
+    public async Task DoubleMerkleProofCheck()
     {
       _ = await CreateAndInsertTxAsync(true, true, 2);
 
@@ -194,7 +194,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     [TestMethod]
-    public virtual async Task TestSkipParsing()
+    public async Task TestSkipParsing()
     {
       var node = NodeRepository.GetNodes().First();
       var rpcClient = (Mock.RpcClientMock)rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
@@ -214,36 +214,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(block.BlockInternalId, blockAfterRepublish.BlockInternalId);
       Assert.AreEqual(block.ParsedForMerkleAt, blockAfterRepublish.ParsedForMerkleAt);
       Assert.AreEqual(block.ParsedForDSAt, blockAfterRepublish.ParsedForDSAt);
-    }
-
-    [TestCategory("Manual")]
-    [DataRow(750)] // block of size 2.1GB
-    [DataRow(1500)] // block of size > 4 GB
-    [TestMethod]
-    public async Task TestBigBlocks(int txsCount)
-    {
-      var node = NodeRepository.GetNodes().First();
-      var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
-
-      var txs = await Transaction16mbList(txsCount, dsCheck: true);
-
-      (_, string blockHash) = await CreateAndPublishNewBlockWithTxsAsync(rpcClient, null, txs.ToArray(), true, true);
-
-      var block = await TxRepositoryPostgres.GetBestBlockAsync();
-      Assert.IsFalse(HelperTools.AreByteArraysEqual(block.BlockHash, new uint256(blockHash).ToBytes()));
-
-      PublishBlockHashToEventBus(blockHash);
-
-      WaitUntilEventBusIsIdle();
-
-      block = await TxRepositoryPostgres.GetBestBlockAsync();
-      Assert.IsTrue(HelperTools.AreByteArraysEqual(block.BlockHash, new uint256(blockHash).ToBytes()));
-      Assert.AreEqual(0, (await TxRepositoryPostgres.GetUnparsedBlocksAsync()).Length);
-
-      // check if block was correctly parsed
-      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
-      var parsedBlock = HelperTools.ParseByteStreamToBlock(blockStream);
-      Assert.AreEqual(txsCount, parsedBlock.Transactions.Count);
     }
   }
 }

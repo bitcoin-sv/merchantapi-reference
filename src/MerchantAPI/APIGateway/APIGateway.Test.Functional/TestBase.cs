@@ -252,7 +252,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         var blockStream = await rpcClient.GetBlockAsStreamAsync(await rpcClient.GetBestBlockHashAsync());
         var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
         rpcClientFactoryMock.AddKnownBlock(blockHeight, firstBlock.ToBytes());
-        PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+
         blockHash = firstBlock.GetHash().ToString();
         if (!noPublish)
         {

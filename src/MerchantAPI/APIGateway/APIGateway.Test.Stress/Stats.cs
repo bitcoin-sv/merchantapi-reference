@@ -172,6 +172,11 @@ namespace MerchantAPI.APIGateway.Test.Stress
       sw.Start();
     }
 
+    public void ResumeTiming()
+    {
+      sw.Start();
+    }
+
     public void StopTiming()
     {
       sw.Stop();
@@ -188,7 +193,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
       Interlocked.Increment(ref simulatedCallbackErrors);
       UpdateLastUpdateTime();
     }
-    //
 
     public void IncrementCallbackReceived(string host, uint256 txId)
     {
@@ -241,6 +245,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
     }
 
+    public long GenerateBlockCalls = 0;
 
     public int LastUpdateAgeMs
     {
@@ -255,7 +260,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public override string ToString()
     {
-      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {Throughput} Callbacks: {CallbacksReceived} SimulatedErrors: {SimulatedCallbackErrors}";
+      return $"OkSubmitted: {OKSubmitted}  RequestErrors: {RequestErrors} TxFailures:{RequestTxFailures}, Throughput: {Throughput} GenerateBlockCalls: {GenerateBlockCalls} Callbacks: {CallbacksReceived} SimulatedErrors: {SimulatedCallbackErrors}";
     }
 
   }

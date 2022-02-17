@@ -32,7 +32,9 @@ If you want to run clearDb command you must add port mapping for merchant-gatewa
 - txIndex: Specifies a zero based index of column that contains hex encoded transaction in a file (default=1).
 - limit: Only submit up to the specified number of transactions from transaction file (optional).
 - batchSize: Number of transactions submitted in one call (default=100).
-- threads: Number of concurrent threads that will be used for submitting transactions. When using multiple threads, make sure that transactions in the file are not dependent on each other (default=1).
+- threads: Number of concurrent threads that will be used to submitting transactions. When using multiple threads, make sure that transactions in the file are not dependent on each other (default=1).
+- startGenerateBlocksAtTx: Start with transactions submit and block generating when the certain number of transactions is submitted (optional).
+- generateBlockPeriodMs: Periodically call generate block on node (default=500). The number of blocks in the database can be different from generate block calls (you can filter blocks inserted to the block table by column blocktime).
 - csvComment: Fill column comment in csv file (optional).
 - mapiConfig:
   - authorization: Authorization header used when submitting transactions.
