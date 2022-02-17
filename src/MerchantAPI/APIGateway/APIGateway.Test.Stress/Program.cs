@@ -600,7 +600,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       return 0;
     }
 
-    static async Task CleanUpTxHandler(string mapiDBConnectionString, Stats stats = null)
+    static async Task CleanUpTxHandler(string mapiDBConnectionString)
     {
       var watch = System.Diagnostics.Stopwatch.StartNew();
       using var connection = new NpgsqlConnection(mapiDBConnectionString);
