@@ -956,18 +956,39 @@ AND txinput.n = @prevOutN;
       CachePrevOut(new PrevTxOutput() { TxInternalId = prevOutInternalTxId, TxExternalId = prevOutTxId, N = prevOutN });
     }
 
-    public async Task CleanUpTxAsync(DateTime lastUpdateBefore)
+    public async Task<(int blocks, long txs)> CleanUpTxAsync(DateTime lastUpdateBefore)
     {
-      using var connection = GetDbConnection();
+      return await CleanUpTxAsync(GetDbConnection(), lastUpdateBefore);
+    }
+    public static async Task<(int, long)> CleanUpTxAsync(NpgsqlConnection connection, DateTime lastUpdateBefore)
+    {
       using var transaction = await connection.BeginTransactionAsync();
 
-      await transaction.Connection.ExecuteAsync(
-        @"DELETE FROM Block WHERE blocktime < @lastUpdateBefore;", new { lastUpdateBefore });
-      
-      await transaction.Connection.ExecuteAsync(
-        @"DELETE FROM Tx WHERE receivedAt < @lastUpdateBefore;", new { lastUpdateBefore });
+      var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
+        @"WITH deleted AS
+        (DELETE FROM Block WHERE blocktime < @lastUpdateBefore RETURNING *)
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
+
+      long txs = 0;
+      int deletedTxs = 0;
+
+      do
+      {
+        deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
+        @"WITH deleted AS (
+          DELETE FROM Tx
+          WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore limit 100000))
+          RETURNING txInternalId
+        )
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
+
+        txs += deletedTxs;
+
+      } while (deletedTxs == 100000);
 
       await transaction.CommitAsync();
+
+      return new (blocks, txs);
     }
 
     public async Task<NotificationData[]> GetNotificationsForTestsAsync()

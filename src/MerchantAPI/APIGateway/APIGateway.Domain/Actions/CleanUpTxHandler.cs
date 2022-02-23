@@ -45,7 +45,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       try
       {
-         await txRepository.CleanUpTxAsync(now.AddDays(-cleanUpTxAfterDays));
+        var (blocks, txs) = await txRepository.CleanUpTxAsync(now.AddDays(-cleanUpTxAfterDays));
+        logger.LogInformation($"CleanUpTxHandler: deleted {blocks} blocks and {txs} txs.");
       }
       catch (Exception ex)
       {

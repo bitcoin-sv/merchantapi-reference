@@ -605,23 +605,11 @@ namespace MerchantAPI.APIGateway.Test.Stress
       var watch = System.Diagnostics.Stopwatch.StartNew();
       using var connection = new NpgsqlConnection(mapiDBConnectionString);
       RetryUtils.Exec(() => connection.Open());
-      using var transaction = await connection.BeginTransactionAsync();
 
-      var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS
-        (DELETE FROM Block WHERE blocktime < @lastUpdateBefore RETURNING *)
-        SELECT COUNT(*) FROM deleted;",
-        new { lastUpdateBefore = DateTime.MaxValue });
-
-      var txs = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS 
-        (DELETE FROM Tx WHERE receivedAt < @lastUpdateBefore RETURNING *) 
-        SELECT COUNT(*) FROM deleted;",
-        new { lastUpdateBefore = DateTime.MaxValue });
-
-      await transaction.CommitAsync();
+      (int blocks, long txs) cleanUpData = await TxRepositoryPostgres.CleanUpTxAsync(connection, DateTime.MaxValue);
+      
       watch.Stop();
-      Console.WriteLine($"CleanUpTxHandler: deleted {blocks} blocks and {txs} txs, elapsed {watch.Elapsed}");
+      Console.WriteLine($"CleanUpTxHandler: deleted {cleanUpData.blocks} blocks and {cleanUpData.txs} txs, elapsed {watch.Elapsed}");
     }
 
     static async Task<int> Main(string[] args)
