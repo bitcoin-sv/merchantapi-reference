@@ -336,7 +336,7 @@ namespace MerchantAPI.Common.BitcoinRpc
         paramDescription += ",...";
       }
 
-      logger.LogInformation($"Calling method '{rpcRequest.Method}({paramDescription}) on node {Address.Host}:{Address.Port} with readOnlyHeader={readOnlyHeader}");
+      logger.LogDebug($"Calling method '{rpcRequest.Method}({paramDescription}) on node {Address.Host}:{Address.Port} with readOnlyHeader={readOnlyHeader}");
       var watch = System.Diagnostics.Stopwatch.StartNew();
       var reqMessage = CreateRequestMessage(rpcRequest.GetJSON());
       using var cts = new CancellationTokenSource(RequestTimeout);
@@ -344,7 +344,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       var completionOption = readOnlyHeader ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
       var httpResponse = await HttpClient.SendAsync(reqMessage, completionOption, cts2.Token).ConfigureAwait(false);
       watch.Stop();
-      logger.LogInformation($"Execution Time '{rpcRequest.Method}({paramDescription})' on node {Address.Host}:{Address.Port} took {watch.ElapsedMilliseconds} ms");
+      logger.LogDebug($"Execution Time '{rpcRequest.Method}({paramDescription})' on node {Address.Host}:{Address.Port} took {watch.ElapsedMilliseconds} ms");
       if (!httpResponse.IsSuccessStatusCode)
       {
         var response = await GetRpcResponseAsync<string>(httpResponse);
