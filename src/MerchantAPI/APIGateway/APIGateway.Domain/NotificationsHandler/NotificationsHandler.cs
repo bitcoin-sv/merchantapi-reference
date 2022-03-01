@@ -248,6 +248,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     /// </summary>
     public async Task<bool> ProcessNotificationAsync(HttpClient client, NotificationData notification, int requestTimeout, CancellationToken stoppingToken)
     {
+      
       logger.LogDebug($"Processing notification '{notification.NotificationType}' for transaction '{new uint256(notification.TxExternalId)}' for host '{client.BaseAddress}'");
       
       try

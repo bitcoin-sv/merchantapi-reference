@@ -148,12 +148,13 @@ namespace MerchantAPI.APIGateway.Rest.Services
       if (subscription.Socket.TryReceiveFrameString(TimeSpan.FromMilliseconds(100), out string msgTopic))
       {
         var msg = subscription.Socket.ReceiveMultipartBytes();
+        
         logger.LogDebug($"Received message with topic {msgTopic}. Length: {msg.Count}");
         switch(msgTopic)
         {
           case ZMQTopic.HashBlock:
             string blockHash = HelperTools.ByteToHexString(msg[0]);
-            logger.LogInformation($"New block with hash {blockHash}.");
+            logger.LogDebug($"New block with hash {blockHash}.");
             eventBus.Publish(new NewBlockDiscoveredEvent() { CreationDate = clock.UtcNow(), BlockHash = blockHash });
             break;
           
@@ -170,8 +171,8 @@ namespace MerchantAPI.APIGateway.Rest.Services
             break;
 
           default:
-            logger.LogInformation($"Unknown message topic {msgTopic} received. Ignoring.");
-            logger.LogInformation($"Message: {Encoding.UTF8.GetString(msg[0])}");
+            logger.LogDebug($"Unknown message topic {msgTopic} received. Ignoring.");
+            logger.LogDebug($"Message: {Encoding.UTF8.GetString(msg[0])}");
             break;
         }
         subscription.LastMessageAt = clock.UtcNow(); 
