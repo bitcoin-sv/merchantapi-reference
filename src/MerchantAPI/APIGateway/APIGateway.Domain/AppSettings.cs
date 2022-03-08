@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Net;
 using MerchantAPI.Common.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -140,26 +141,23 @@ namespace MerchantAPI.APIGateway.Domain
       {
         foreach (var ipString in options.CallbackIPAddressesArray)
         {
-          string error = $"Invalid configuration -  {nameof(AppSettings.CallbackIPAddresses)}: url { ipString } is invalid.";
+          string error = $"Invalid configuration - {nameof(AppSettings.CallbackIPAddresses)}: url '{ ipString }' is invalid.";
           if (String.IsNullOrWhiteSpace(ipString))
           {
             return ValidateOptionsResult.Fail(error);
           }
-          string[] splitValues = ipString.Split('.');
-          if (splitValues.Length != 4)
+
+          _ = IPEndPoint.TryParse(ipString, out var ipPort);
+          if (ipPort == null)
           {
             return ValidateOptionsResult.Fail(error);
-          }
-          if (!splitValues.All(r => byte.TryParse(r, out byte tempForParsing)))
-          {
-            ValidateOptionsResult.Fail(error);
           }
         }
       }
       if (options.Notification == null)
       {
         return ValidateOptionsResult.Fail(
-          $"Invalid configuration -  {nameof(AppSettings.Notification)} settings must be specified.");
+          $"Invalid configuration - {nameof(AppSettings.Notification)} settings must be specified.");
       }
       else
       {
