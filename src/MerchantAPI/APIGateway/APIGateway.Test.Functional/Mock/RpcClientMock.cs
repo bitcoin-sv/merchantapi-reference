@@ -192,7 +192,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       {
         throw new Exception($"Mock block with height {blockHeight} not found");
       }
-      var block = blocks.ElementAt((int)blockHeight).Value;
+      var block = blocks.Values.FirstOrDefault(x => x.Height == blockHeight);
 
       return block.BlockData;
     }
@@ -475,6 +475,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       return ZMQTopic.RequiredZmqTopics.Select(x => new RpcActiveZmqNotification { Address = zmqAddress, Notification = x}).ToArray();
     }
+
+    /// <summary>
+    /// Note: RpcClientMock always returns empty GetRawMempool
+    /// </summary>
+    /// <param name="token"></param>
+    /// <returns></returns>
     public async Task<string[]> GetRawMempool(CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<string[]>();

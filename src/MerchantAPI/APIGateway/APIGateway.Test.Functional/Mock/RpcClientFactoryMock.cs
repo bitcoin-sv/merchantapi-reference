@@ -84,6 +84,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         BlockHash = blockHash,
         BlockHeader = block.Header
       };
+      var oldblockHash = blocks.SingleOrDefault(x => x.Value.Height == blockHeight).Key;
+      if (oldblockHash != null)
+      {
+        blocks.Remove(oldblockHash, out var value);
+      }
+
       blocks.TryAdd(blockHash, b);
     }
 
