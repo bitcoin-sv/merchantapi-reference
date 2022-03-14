@@ -64,7 +64,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<long?> GetTransactionInternalId(byte[] txId);
 
-    Task CleanUpTxAsync(DateTime fromDate);
+    Task<(int blocks, long txs)> CleanUpTxAsync(DateTime fromDate);
 
     Task<PrevTxOutput> GetPrevOutAsync(byte[] prevOutTxId, long prevOutN);
 
