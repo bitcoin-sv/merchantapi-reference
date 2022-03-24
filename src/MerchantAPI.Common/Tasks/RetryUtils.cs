@@ -49,6 +49,10 @@ namespace MerchantAPI.Common.Tasks
         }
         catch (Exception ex)
         {
+          if (ex is TaskCanceledException)
+          {
+            throw new Exception($"Failed after {(initialRetry - retry)} retries - task was cancelled", ex);
+          }
           if (retry == 0)
           {
             if (!string.IsNullOrEmpty(errorMessage))

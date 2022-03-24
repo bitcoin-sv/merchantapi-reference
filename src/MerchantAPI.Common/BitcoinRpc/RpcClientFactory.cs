@@ -22,6 +22,12 @@ namespace MerchantAPI.Common.BitcoinRpc
       return new RpcClient(CreateAddress(host, port), new System.Net.NetworkCredential(username, password), logger, httpClientFactory.CreateClient(host));
     }
 
+    public IRpcClient Create(string host, int port, string username, string password, int requestTimeoutSec, int multiRequestTimeoutSec, int numOfRetries, int waitBetweenRetriesMs)
+    {
+      return new RpcClient(CreateAddress(host, port), new System.Net.NetworkCredential(username, password), logger, httpClientFactory.CreateClient(host),
+        requestTimeoutSec, multiRequestTimeoutSec, numOfRetries, waitBetweenRetriesMs);
+    }
+
     public static  Uri CreateAddress(string host, int port)
     {
       UriBuilder builder = new()
