@@ -43,12 +43,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, status.BlocksProcessed);
       Assert.AreEqual(0, status.NumOfErrors);
       Assert.AreEqual(0, status.BlocksQueued);
-      CheckBlockParserStatusNoBlocksParsed(status);
-      Assert.AreEqual($@"Number of blocks successfully parsed: 0, ignored/duplicates: 0, parsing terminated with error: 0. 
-Number of blocks processed from queue is 0, remaining: 0.", status.BlockParserDescription);
+      CheckBlockParserStatusNoBlocksParsed(status, 0);
     }
 
-    private static void CheckBlockParserStatusNoBlocksParsed(BlockParserStatus status)
+    private static void CheckBlockParserStatusNoBlocksParsed(BlockParserStatus status, long blocksProcessed)
     {
       Assert.AreEqual(0, status.BlocksParsed);
       Assert.AreEqual(0F, status.TotalBytes);
@@ -64,10 +62,12 @@ Number of blocks processed from queue is 0, remaining: 0.", status.BlockParserDe
       Assert.IsNull(status.AverageTxParseTime);
       Assert.IsNull(status.AverageBlockDownloadSpeed);
       Assert.IsNull(status.MaxParseTime);
+      Assert.AreEqual($@"Number of blocks successfully parsed: 0, ignored/duplicates: 0, parsing terminated with error: {blocksProcessed}. 
+Number of blocks processed from queue is {blocksProcessed}, remaining: 0.", status.BlockParserDescription);
     }
 
     private static void CheckBlockParserStatusFilled(BlockParserStatus status, long blocksProcessed, long blocksParsed,
-      int totalTxs = 0, int totalTxsFound = 0, int totalDsFound = 0)
+      int totalTxs = 0, int totalTxsFound = 0, int totalDsFound = 0, int numOfErrors = 0, int blocksQueued = 0)
     {
       Assert.AreEqual(blocksProcessed, status.BlocksProcessed);
       Assert.AreEqual(blocksParsed, status.BlocksParsed);
@@ -84,8 +84,10 @@ Number of blocks processed from queue is 0, remaining: 0.", status.BlockParserDe
       Assert.IsNotNull(status.AverageTxParseTime);
       Assert.IsNotNull(status.AverageBlockDownloadSpeed);
       Assert.IsNotNull(status.MaxParseTime);
-      Assert.AreEqual(0, status.NumOfErrors);
-      Assert.AreEqual(0, status.BlocksQueued);
+      Assert.AreEqual(numOfErrors, status.NumOfErrors);
+      Assert.AreEqual(blocksQueued, status.BlocksQueued);
+      Assert.AreEqual($@"Number of blocks successfully parsed: {blocksParsed}, ignored/duplicates: {(blocksProcessed - blocksParsed - numOfErrors)}, parsing terminated with error: {numOfErrors}. 
+Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQueued}.", status.BlockParserDescription);
     }
 
     [DataRow(false, false)]
@@ -182,11 +184,7 @@ Number of blocks processed from queue is 0, remaining: 0.", status.BlockParserDe
       Assert.AreEqual(block.ParsedForDSAt, blockAfterRepublish.ParsedForDSAt);
 
       status = blockParser.GetBlockParserStatus();
-      Assert.AreEqual(status.BlocksQueued, 0);
-      Assert.AreEqual(1001, status.BlocksProcessed);
-      Assert.AreEqual(1, status.BlocksParsed);
-      Assert.AreEqual($@"Number of blocks successfully parsed: 1, ignored/duplicates: 1000, parsing terminated with error: 0. 
-Number of blocks processed from queue is 1001, remaining: 0.", status.BlockParserDescription);
+      CheckBlockParserStatusFilled(status, 1001, 1, totalTxs: 1);
       Assert.AreEqual(lastBlockParsedAt, status.LastBlockParsedAt);
       Assert.AreEqual((ulong)firstBlock.ToBytes().Length, status.TotalBytes);
     }
@@ -201,9 +199,44 @@ Number of blocks processed from queue is 1001, remaining: 0.", status.BlockParse
 
       var status = blockParser.GetBlockParserStatus();
       Assert.AreEqual(1, status.BlocksProcessed);
-      CheckBlockParserStatusNoBlocksParsed(status);
-      Assert.AreEqual($@"Number of blocks successfully parsed: 0, ignored/duplicates: 0, parsing terminated with error: 1. 
-Number of blocks processed from queue is 1, remaining: 0.", status.BlockParserDescription);
+      CheckBlockParserStatusNoBlocksParsed(status, 1);
+    }
+
+    [TestMethod]
+    public async Task BlockParserStatusTestErrorFixed()
+    {
+      // arrange
+      var blockStream = await RpcClient.GetBlockAsStreamAsync(await RpcClient.GetBestBlockHashAsync());
+      var firstBlock = HelperTools.ParseByteStreamToBlock(blockStream);
+      int blockHeight = 0;
+
+      rpcClientFactoryMock.RemoveKnownBlock(firstBlock.GetHash());
+
+      var dbBlock = new Domain.Models.Block
+      {
+        BlockHash = firstBlock.GetHash().ToBytes(),
+        BlockHeight = blockHeight,
+        BlockTime = System.DateTime.UtcNow,
+        OnActiveChain = true,
+        PrevBlockHash = firstBlock.Header.HashPrevBlock.ToBytes()
+      };
+
+      // insert block in DB (simulate successful NewBlockDiscoveredAsync)
+      var blockId = await TxRepositoryPostgres.InsertBlockAsync(dbBlock);
+      dbBlock.BlockInternalId = blockId.Value;
+
+      // act
+      PublishBlockToEventBus(dbBlock);
+
+      var status = blockParser.GetBlockParserStatus();
+      Assert.AreEqual(1, status.BlocksProcessed);
+      CheckBlockParserStatusNoBlocksParsed(status, 1);
+
+      rpcClientFactoryMock.AddKnownBlock(blockHeight, firstBlock.ToBytes());
+      PublishBlockToEventBus(dbBlock);
+
+      status = blockParser.GetBlockParserStatus();
+      CheckBlockParserStatusFilled(status, 2, 1, totalTxs: firstBlock.Transactions.Count, numOfErrors: 1);
     }
 
     [TestCategory("Manual")]
