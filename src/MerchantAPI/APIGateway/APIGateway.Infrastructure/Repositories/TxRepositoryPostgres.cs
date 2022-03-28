@@ -12,6 +12,7 @@ using MerchantAPI.Common.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -21,27 +22,18 @@ using Block = MerchantAPI.APIGateway.Domain.Models.Block;
 
 namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
-  public class TxRepositoryPostgres : ITxRepository
+  public class TxRepositoryPostgres : PostgresRepository, ITxRepository
   {
-    private readonly string connectionString;
     private readonly IClock clock;
     private readonly PrevTxOutputCache prevTxOutputCache;
     readonly ILogger<TxRepositoryPostgres> logger;
 
-    public TxRepositoryPostgres(IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache, ILogger<TxRepositoryPostgres> logger)
+    public TxRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache, ILogger<TxRepositoryPostgres> logger)
+      : base(appSettings, configuration)
     {
-      connectionString = configuration["ConnectionStrings:DBConnectionString"];
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       this.prevTxOutputCache = prevTxOutputCache ?? throw new ArgumentNullException(nameof(prevTxOutputCache));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
-
-    private NpgsqlConnection GetDbConnection()
-    {
-      var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
-
-      return connection;
     }
 
     public static void EmptyRepository(string connectionString)
@@ -55,7 +47,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     public async Task<long?> InsertBlockAsync(Block block)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -79,7 +71,7 @@ RETURNING blockInternalId;
 
     public async Task<int> InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdInsertDS = @"
@@ -97,7 +89,7 @@ ON CONFLICT (txInternalId, blockInternalId, dsTxId) DO NOTHING;";
     public async Task CheckAndInsertBlockDoubleSpendAsync(IEnumerable<TxWithInput> txWithInputsEnum, long deltaBlockHeight, long blockInternalId)
     {
       var txWithInputs = txWithInputsEnum.ToArray(); // Make sure that we do not enumerate multiple times
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdFindRootSplit = @"
@@ -177,7 +169,7 @@ WHERE t.txExternalId <> bin.txExternalId;
 
     public async Task<int> InsertMempoolDoubleSpendAsync(long txInternalId, byte[] dsTxId, byte[] dsTxPayload)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -225,7 +217,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
         return;
       }
 
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       // Reserve sequence ids so no one else can use them
       // nextval is guaranteed to return distinct and increasing values, but it is not guaranteed to do so without "holes" or "gaps"
@@ -326,7 +318,7 @@ WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND T
 
     private async Task InsertSingleTxAsync(Tx tx, bool isUnconfirmedAncestor)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -374,7 +366,7 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
 
     public async Task InsertTxBlockAsync(IList<long> txInternalIds, long blockInternalId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxBlock (txInternalId, blockInternalId) FROM STDIN (FORMAT BINARY)"))
@@ -395,7 +387,7 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
 
     public async Task UpdateDsTxPayloadAsync(byte[] dsTxId, byte[] txPayload)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -410,7 +402,7 @@ WHERE dsTxId = @dsTxId;
 
     public async Task<IEnumerable<(byte[] dsTxId, byte[] TxId)>> GetDSTxWithoutPayloadAsync(bool unconfirmedAncestors)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT t.dsTxId, tx.txexternalid txId
@@ -424,7 +416,7 @@ WHERE t.DsTxPayload IS NULL
 
     public async Task InsertBlockDoubleSpendForAncestorAsync(byte[] ancestorTxId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -455,7 +447,7 @@ WHERE r.dsCheck = true;
 
     public async Task<IEnumerable<NotificationData>> GetTxsToSendBlockDSNotificationsAsync()
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.dsTxId doubleSpendTxId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
@@ -471,7 +463,7 @@ ORDER BY callbackUrl;
 
     public async Task<NotificationData> GetTxToSendBlockDSNotificationAsync(byte[] txId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, TxBlockDoubleSpend.dsTxId doubleSpendTxId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount
@@ -486,7 +478,7 @@ WHERE sentDsNotificationAt IS NULL AND dsTxPayload IS NOT NULL AND Tx.dscheck = 
 
     public async Task<IEnumerable<NotificationData>> GetTxsToSendMempoolDSNotificationsAsync()
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT Tx.txInternalId, Tx.txExternalId, callbackUrl, callbackToken, callbackEncryption, dsTxId doubleSpendTxId, dsTxPayload payload
@@ -501,7 +493,7 @@ ORDER BY callbackUrl;
 
     public async Task<IEnumerable<NotificationData>> GetTxsToSendMerkleProofNotificationsAsync(long skip, long fetch)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount, merkleFormat
@@ -518,7 +510,7 @@ FETCH NEXT @fetch ROWS ONLY;
 
     public async Task<NotificationData> GetTxToSendMerkleProofNotificationAsync(byte[] txId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT Tx.txInternalId, Block.blockInternalId, txExternalId, block.blockhash, block.blockheight, callbackUrl, callbackToken, callbackEncryption, errorCount, merkleFormat
@@ -540,7 +532,7 @@ WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true AND txExternalId= @txI
     /// </summary>
     public async Task<IEnumerable<Tx>> GetTxsNotInCurrentBlockChainAsync(long blockInternalId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT txInternalId, txExternalId TxExternalIdBytes, merkleProof
@@ -595,7 +587,7 @@ WHERE NOT EXISTS
        
     public async Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds, bool checkDSAttempt)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT txInternalId, txExternalId TxExternalIdBytes, callbackUrl, callbackToken, callbackEncryption, txInternalId childId, n, prevTxId, prev_n, dsCheck
@@ -642,7 +634,7 @@ FROM (
 
     public async Task<Block> GetBestBlockAsync()
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT b.blockinternalid, b.blocktime, b.blockhash, b.prevblockhash, b.blockheight, b.onactivechain, b.parsedformerkleat, b.parsedfordsat
@@ -657,7 +649,7 @@ FETCH FIRST 1 ROW ONLY;
 
     public async Task<Block> GetBlockAsync(byte[] blockHash)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT b.blockinternalid, b.blocktime, b.blockhash, b.prevblockhash, b.blockheight, b.onactivechain
@@ -671,7 +663,7 @@ WHERE b.blockhash = @blockHash;
 
     public async Task<bool> TransactionExistsAsync(byte[] txId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT true
@@ -686,7 +678,7 @@ LIMIT 1;
 
     public async Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT *
@@ -721,7 +713,7 @@ LIMIT @fetch OFFSET @skip
 
     public async Task<byte[]> GetDoublespendTxPayloadAsync(string notificationType, long txInternalId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = "SELECT dsTxPayload";
       switch(notificationType)
@@ -761,7 +753,7 @@ LIMIT @fetch OFFSET @skip
 
     private async Task SetMempoolDoubleSpendSendDateAsync(long txInternalId, byte[] dsTxId, DateTime sendDate)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -775,7 +767,7 @@ WHERE txInternalId=@txInternalId AND dsTxId=@dsTxId;
 
     private async Task SetMerkleProofSendDateAsync(long txInternalId, long blockInternalId, DateTime sendDate)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -789,7 +781,7 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
 
 
     public async Task<long?> GetTransactionInternalId(byte[] txId) {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
       SELECT TxInternalId
@@ -803,7 +795,7 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
 
     public async Task SetBlockDoubleSpendSendDateAsync(long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -817,7 +809,7 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId AND dsTxId
 
     public async Task SetBlockParsedForDoubleSpendDateAsync(long blockInternalId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -831,7 +823,7 @@ WHERE blockInternalId=@blockInternalId;
 
     public async Task SetBlockParsedForMerkleDateAsync(long blockInternalId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -845,7 +837,7 @@ WHERE blockInternalId=@blockInternalId;
 
     public async Task SetNotificationErrorAsync(byte[] txId, string notificationType, string errorMessage, int errorCount)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = "UPDATE ";
@@ -877,7 +869,7 @@ WHERE txInternalId = (SELECT Tx.txInternalId FROM Tx WHERE txExternalId=@txId)
 
     public async Task MarkUncompleteNotificationsAsFailedAsync()
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
@@ -900,7 +892,7 @@ WHERE sentMerkleproofAt IS NULL;
 
     public async Task<Block[]> GetBlocksByTxIdAsync(long txInternalId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
       SELECT *
@@ -922,7 +914,7 @@ WHERE sentMerkleproofAt IS NULL;
       }
       if (foundPrevOut == null)
       {
-        using var connection = GetDbConnection();
+        using var connection = await GetDbConnectionAsync();
 
         string cmdText = @"
 SELECT tx.txInternalId, tx.txExternalId, txinput.n
@@ -958,7 +950,8 @@ AND txinput.n = @prevOutN;
 
     public async Task<(int blocks, long txs)> CleanUpTxAsync(DateTime lastUpdateBefore)
     {
-      return await CleanUpTxAsync(GetDbConnection(), lastUpdateBefore);
+      using var connection = await GetDbConnectionAsync();
+      return await CleanUpTxAsync(connection, lastUpdateBefore);
     }
     public static async Task<(int, long)> CleanUpTxAsync(NpgsqlConnection connection, DateTime lastUpdateBefore)
     {
@@ -993,7 +986,7 @@ AND txinput.n = @prevOutN;
 
     public async Task<NotificationData[]> GetNotificationsForTestsAsync()
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT txinternalid, dstxid DoubleSpendTxId, 'doubleSpendAttempt' notificationtype
@@ -1012,7 +1005,7 @@ FROM txblockdoublespend
 
     public async Task<Block[]> GetUnparsedBlocksAsync()
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
 SELECT *
@@ -1027,7 +1020,7 @@ WHERE parsedformerkleat IS NULL OR parsedfordsat IS NULL;
 
     public async Task<bool> CheckIfBlockWasParsed(long blockInternalId)
     {
-      using var connection = GetDbConnection();
+      using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"

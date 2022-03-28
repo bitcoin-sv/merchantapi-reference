@@ -10,13 +10,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Actions;
-using Microsoft.Extensions.Configuration;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.Common.Startup;
 using MerchantAPI.Common.Tasks;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.Common.BitcoinRpc.Responses;
+using Microsoft.Extensions.Options;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -31,6 +31,8 @@ namespace MerchantAPI.APIGateway.Rest
     readonly INotificationsHandler notificationsHandler;
     readonly IMinerId minerId;
     readonly IDbManager dbManager;
+    readonly RpcClientSettings rpcClientSettings;
+    readonly DbConnectionSettings dbConnectionSettings;
     bool nodesAccessible;
 
     public StartupChecker(INodeRepository nodeRepository,
@@ -40,7 +42,8 @@ namespace MerchantAPI.APIGateway.Rest
                           IBlockParser blockParser,
                           IDbManager dbManager,
                           INotificationsHandler notificationsHandler,
-                          ILogger<StartupChecker> logger)
+                          ILogger<StartupChecker> logger,
+                          IOptions<AppSettings> options)
     {
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
@@ -50,6 +53,8 @@ namespace MerchantAPI.APIGateway.Rest
       this.dbManager = dbManager ?? throw new ArgumentNullException(nameof(dbManager));
       this.minerId = minerId ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
+      rpcClientSettings = options.Value.RpcClient;
+      dbConnectionSettings = options.Value.DbConnection;
     }
 
     public async Task<bool> CheckAsync(bool testingEnvironment)
@@ -60,7 +65,7 @@ namespace MerchantAPI.APIGateway.Rest
         logger.LogInformation($"API version: {Const.MERCHANT_API_VERSION}");
         logger.LogInformation($"Build version: {Const.MERCHANT_API_BUILD_VERSION}");
 
-        RetryUtils.ExecAsync(() => TestDBConnection(), retry: 10, errorMessage: "Unable to open connection to database").Wait();
+        RetryUtils.ExecAsync(() => TestDBConnection(), retry: dbConnectionSettings.StartupTestConnectionMaxRetries.Value, errorMessage: "Unable to open connection to database").Wait();
         ExecuteCreateDb();
         if (!testingEnvironment)
         {
@@ -142,12 +147,10 @@ namespace MerchantAPI.APIGateway.Rest
 
       foreach (var node in nodes)
       {
-        var rpcClient = rpcClientFactory.Create(node.Host, node.Port, node.Username, node.Password);
-        rpcClient.RequestTimeout = TimeSpan.FromSeconds(3);
-        rpcClient.NumOfRetries = 10;
+        var rpcClient = CreateStartupRpcClient(node);
         try
         {
-          var networkInfo = await rpcClient.GetNetworkInfoAsync();
+          var networkInfo = await rpcClient.GetNetworkInfoAsync(retry: true);
 
           if (!Nodes.IsNodeVersionValid(networkInfo.Version, out string error))
           {
@@ -164,18 +167,29 @@ namespace MerchantAPI.APIGateway.Rest
       logger.LogInformation($"Nodes connectivity check complete");
     }
 
-
+    private IRpcClient CreateStartupRpcClient(Node node)
+    {
+      return rpcClientFactory.Create(
+        node.Host,
+        node.Port,
+        node.Username,
+        node.Password,
+        rpcClientSettings.RequestTimeoutSec.Value,
+        rpcClientSettings.MultiRequestTimeoutSec.Value,
+        rpcClientSettings.RpcCallsOnStartupRetries.Value,
+        rpcClientSettings.WaitBetweenRetriesMs.Value);
+    }
 
     private async Task CheckNodesZmqNotificationsAsync()
     {
       logger.LogInformation($"Checking nodes zmq notification services");
       foreach (var node in accessibleNodes)
       {
-        var rpcClient = rpcClientFactory.Create(node.Host, node.Port, node.Username, node.Password);
+        var rpcClient = CreateStartupRpcClient(node);
         RpcActiveZmqNotification[] notifications = null;
         try
         {
-          notifications = await rpcClient.ActiveZmqNotificationsAsync();
+          notifications = await rpcClient.ActiveZmqNotificationsAsync(retry: true);
           
           if (!notifications.Any() || notifications.Select(x => x.Notification).Intersect(ZMQTopic.RequiredZmqTopics).Count() != ZMQTopic.RequiredZmqTopics.Length)
           {

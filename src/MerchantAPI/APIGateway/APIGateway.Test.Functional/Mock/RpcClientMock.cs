@@ -35,10 +35,19 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
     public TimeSpan RequestTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     public int NumOfRetries { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    public TimeSpan MultiRequestTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    public int WaitBetweenRetriesMs { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
     public string zmqAddress = "tcp://127.0.0.1:28332";
 
-    public RpcClientMock(RpcCallList callList, string host, int port, string username, string password, 
+    public RpcClientMock(
+      RpcCallList callList,
+      string host,
+#pragma warning disable IDE0060 // Remove unused parameter
+      int port,
+      string username,
+      string password,
+#pragma warning restore IDE0060 // Remove unused parameter
       ConcurrentDictionary<uint256, byte[]> transactions,
       ConcurrentDictionary<uint256, BlockWithHeight> blocks,
       ConcurrentDictionary<string, object> disconnectedNodes,
@@ -318,7 +327,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return new RpcSendTransactions(); // empty response means that everything was accepted
     }
 
-    public async Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token=null)
+    public async Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token=null, bool retry = false)
     {
       var r = await SimulateCallAsync<RpcGetNetworkInfo>();
       if (r != null)
@@ -454,7 +463,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         };
     }
 
-    public async Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null)
+    public async Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null, bool retry = false)
     {
       var r = await SimulateCallAsync<RpcActiveZmqNotification[]>();
       if (r != null)

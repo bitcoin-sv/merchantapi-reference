@@ -108,6 +108,11 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       blocks.TryAdd(blockHash, b);
     }
 
+    public bool RemoveKnownBlock(uint256 blockHash)
+    {
+      return blocks.TryRemove(blockHash, out var _);
+    }
+
     /// <summary>
     /// This method has block size limitation because of the Memorystream. The maximum index in any single dimension 
     /// is 2,147,483,591(0x7FFFFFC7) for byte arrays and arrays of single byte structures, 
@@ -163,6 +168,15 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         transactions,
         blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse,
         validScriptCombinations);
+    }
+
+    /// <summary>
+    /// RpcClient settings are ignored.
+    /// </summary>
+    public virtual IRpcClient Create(string host, int port, string username, string password,
+        int requestTimeoutSec, int multiRequestTimeoutSec, int numOfRetries, int waitBetweenRetriesMs) 
+    {
+      return Create(host, port, username, password);
     }
 
     /// <summary>

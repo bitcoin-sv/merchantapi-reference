@@ -17,7 +17,9 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
     bool? supportPassingInSigningPublicKey;
     readonly object lockObj = new();
     readonly RestClient restClient;
-    public MinerIdRestClient(string minerIdUrl, string minerIdAlias, string authorization, HttpClient httpClient)
+    readonly TimeSpan requestTimeout;
+
+    public MinerIdRestClient(string minerIdUrl, string minerIdAlias, string authorization, int requestTimeoutSec, HttpClient httpClient)
     {
       if (minerIdUrl == null)
       {
@@ -29,6 +31,8 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
         throw new ArgumentNullException(nameof(minerIdAlias));
       }
 
+      requestTimeout = TimeSpan.FromSeconds(requestTimeoutSec);
+
       if (httpClient == null)
       {
         throw new ArgumentNullException(nameof(httpClient));
@@ -39,7 +43,7 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
 
     public async Task<string> GetCurrentMinerIdAsync()
     {
-      return await restClient.GetStringAsync("");
+      return await restClient.GetStringAsync("", requestTimeout: requestTimeout);
     }
 
     static string RefreseHash(string hash)
@@ -76,7 +80,7 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
       {
         try
         {
-          var result = await restClient.GetStringAsync(urlWithMinerId);
+          var result = await restClient.GetStringAsync(urlWithMinerId, requestTimeout: requestTimeout);
           lock (lockObj)
           {
             supportPassingInSigningPublicKey = true;
@@ -92,7 +96,7 @@ namespace MerchantAPI.APIGateway.Domain.ExternalServices
         }
       }
 
-      return await restClient.GetStringAsync(useMinerIdInUrl ? urlWithMinerId : urlWithoutMinerId);
+      return await restClient.GetStringAsync(useMinerIdInUrl ? urlWithMinerId : urlWithoutMinerId, requestTimeout: requestTimeout);
     }
   }
 }
