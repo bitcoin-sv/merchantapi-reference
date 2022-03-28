@@ -65,7 +65,7 @@ namespace MerchantAPI.APIGateway.Domain
     public int? StartupCommandTimeoutMinutes { get; set; }
 
     [Range(1, int.MaxValue)]
-    public int? OpenConnectionTimeoutSec { get; set; } = 60;
+    public int? OpenConnectionTimeoutSec { get; set; } = 30;
 
     [Range(1, int.MaxValue)]
     public int? OpenConnectionMaxRetries { get; set; } = 3;
@@ -117,7 +117,7 @@ namespace MerchantAPI.APIGateway.Domain
     public int? ZmqConnectionTestIntervalSec { get; set; } = 60;
 
     [Range(1, int.MaxValue)]
-    public int? ZmqConnectionRpcResponseTimeoutSeconds { get; set; } = 5;
+    public int? ZmqConnectionRpcResponseTimeoutSec { get; set; } = 5;
 
     public long? DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 

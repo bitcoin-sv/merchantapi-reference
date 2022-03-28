@@ -32,7 +32,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     private readonly INodeRepository nodeRepository;
     private readonly IRpcClientFactory bitcoindFactory;
     private readonly IClock clock;
-    private readonly int rpcResponseTimeoutSeconds;
+    private readonly int rpcResponseTimeoutSec;
 
     private readonly ConcurrentDictionary<string, ZMQSubscription> subscriptions = new();
 
@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.bitcoindFactory = bitcoindFactory ?? throw new ArgumentNullException(nameof(bitcoindFactory));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
-      rpcResponseTimeoutSeconds = appSettings.ZmqConnectionRpcResponseTimeoutSeconds.Value;
+      rpcResponseTimeoutSec = appSettings.ZmqConnectionRpcResponseTimeoutSec.Value;
     }
 
 
@@ -485,7 +485,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         node.Port,
         node.Username,
         node.Password,
-        rpcResponseTimeoutSeconds,
+        rpcResponseTimeoutSec,
         appSettings.RpcClient.MultiRequestTimeoutSec.Value,
         appSettings.RpcClient.RpcCallsOnStartupRetries.Value,
         appSettings.RpcClient.WaitBetweenRetriesMs.Value);
