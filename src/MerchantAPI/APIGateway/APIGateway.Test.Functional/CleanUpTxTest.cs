@@ -105,7 +105,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task<long> CheckTxPresentInDbAsync(string txHash, bool blockPresent = true)
     {
-      var txInternalId = await TxRepositoryPostgres.GetTransactionInternalId(new uint256(txHash).ToBytes());
+      var txInternalId = await TxRepositoryPostgres.GetTransactionInternalIdAsync(new uint256(txHash).ToBytes());
       Assert.IsNotNull(txInternalId);
       var blocks = (await TxRepositoryPostgres.GetBlocksByTxIdAsync(txInternalId.Value));
       Assert.IsTrue(blockPresent ? blocks.Any() : !blocks.Any());
@@ -115,7 +115,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private async Task CheckTxNotPresentInDbAsync(string txHash, long txInternalId)
     {
       // tx and block are main tables - the other tables reference these two and have 'delete cascade constraint' declared  
-      var txDeletedInternalId = await TxRepositoryPostgres.GetTransactionInternalId(new uint256(txHash).ToBytes());
+      var txDeletedInternalId = await TxRepositoryPostgres.GetTransactionInternalIdAsync(new uint256(txHash).ToBytes());
       Assert.IsNull(txDeletedInternalId);
       var block = (await TxRepositoryPostgres.GetBlocksByTxIdAsync(txInternalId)).FirstOrDefault();
       Assert.IsNull(block);

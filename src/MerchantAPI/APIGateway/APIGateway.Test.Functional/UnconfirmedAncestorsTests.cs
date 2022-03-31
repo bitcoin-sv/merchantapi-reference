@@ -126,7 +126,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
 
       // Check that first tx is in database
-      long? txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalId((new uint256(txId1)).ToBytes());
+      long? txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
       Assert.IsTrue(txInternalId1.HasValue);
       Assert.AreNotEqual(0, txInternalId1.Value);
     }

@@ -24,14 +24,12 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
   public class TxRepositoryPostgres : PostgresRepository, ITxRepository
   {
-    private readonly IClock clock;
     private readonly PrevTxOutputCache prevTxOutputCache;
     readonly ILogger<TxRepositoryPostgres> logger;
 
     public TxRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache, ILogger<TxRepositoryPostgres> logger)
-      : base(appSettings, configuration)
+      : base(appSettings, configuration, clock)
     {
-      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       this.prevTxOutputCache = prevTxOutputCache ?? throw new ArgumentNullException(nameof(prevTxOutputCache));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -780,7 +778,7 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
     }
 
 
-    public async Task<long?> GetTransactionInternalId(byte[] txId) {
+    public async Task<long?> GetTransactionInternalIdAsync(byte[] txId) {
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
@@ -1018,7 +1016,7 @@ WHERE parsedformerkleat IS NULL OR parsedfordsat IS NULL;
       return blocks;
     }
 
-    public async Task<bool> CheckIfBlockWasParsed(long blockInternalId)
+    public async Task<bool> CheckIfBlockWasParsedAsync(long blockInternalId)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();

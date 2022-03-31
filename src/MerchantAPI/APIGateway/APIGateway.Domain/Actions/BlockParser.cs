@@ -234,7 +234,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skipped processing.");
             return;
           }
-          else if (await txRepository.CheckIfBlockWasParsed(e.BlockDBInternalId))
+          else if (await txRepository.CheckIfBlockWasParsedAsync(e.BlockDBInternalId))
           {
             blockParserStatus.IncrementBlocksDuplicated();
             logger.LogInformation($"Block '{e.BlockHash}' was already parsed...skipped processing.");

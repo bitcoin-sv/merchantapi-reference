@@ -21,15 +21,13 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
   public class FeeQuoteRepositoryPostgres : PostgresRepository, IFeeQuoteRepository
   {
     private readonly double quoteExpiryMinutes;
-    private readonly IClock clock;
     // cache contains valid and future feeQuotes, so that mAPI calls get results faster
     private static readonly Dictionary<(string Identity, string IdentityProvider), List<FeeQuote>> cache = new();
 
     public FeeQuoteRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
-           : base(appSettings, configuration)
+           : base(appSettings, configuration, clock)
     {
       this.quoteExpiryMinutes = appSettings.Value.QuoteExpiryMinutes.Value;
-      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     private void EnsureCache()

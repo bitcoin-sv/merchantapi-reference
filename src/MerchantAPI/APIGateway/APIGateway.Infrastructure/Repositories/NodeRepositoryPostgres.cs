@@ -20,14 +20,11 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
   public class NodeRepositoryPostgres : PostgresRepository, INodeRepository
   {
-
     private static readonly Dictionary<string, Node> cache = new();
-    private readonly IClock clock;
 
     public NodeRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
-      : base(appSettings, configuration)
+      : base(appSettings, configuration, clock)
     {
-      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     private void EnsureCache()
