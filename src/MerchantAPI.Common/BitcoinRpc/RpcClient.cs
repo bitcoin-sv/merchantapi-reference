@@ -415,8 +415,6 @@ namespace MerchantAPI.Common.BitcoinRpc
       char[] character = new char[1];
       do
       {
-        token?.ThrowIfCancellationRequested();
-
         Memory<char> memory = new(character, 0, 1);
         await streamReader.ReadBlockAsync(memory, token ?? default);
 
