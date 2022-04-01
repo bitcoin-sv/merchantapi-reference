@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Mime;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -24,10 +25,10 @@ namespace MerchantAPI.Common.BitcoinRpc
     readonly NetworkCredential Credentials;
     readonly ILogger<RpcClient> logger;
 
-    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(100);
-    public int NumOfRetries { get; set; } = 50;
-
-    private static readonly Lazy<HttpClient> SharedHttpClient = new(() => new HttpClient() { Timeout = Timeout.InfiniteTimeSpan }); // intended to be instantiated once : ref docs.microsoft.com
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(200);
+    public TimeSpan MultiRequestTimeout { get; set; } = TimeSpan.FromSeconds(20);
+    public int NumOfRetries { get; set; } = 10;
+    public int WaitBetweenRetriesMs { get; set; } = 100;
 
     public HttpClient HttpClient { get; set; }
 
@@ -37,6 +38,16 @@ namespace MerchantAPI.Common.BitcoinRpc
       Credentials = credentials;
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       HttpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+    }
+
+    public RpcClient(Uri address, NetworkCredential credentials, ILogger<RpcClient> logger, HttpClient httpClient,
+      int requestTimeoutSec, int multiRequestTimeoutSec, int numOfRetries, int waitBetweenRetriesMs)
+      : this(address, credentials, logger, httpClient)
+    {
+      RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSec);
+      MultiRequestTimeout = TimeSpan.FromSeconds(multiRequestTimeoutSec);
+      NumOfRetries = numOfRetries;
+      WaitBetweenRetriesMs = waitBetweenRetriesMs;
     }
 
     public async Task<long> GetBlockCountAsync(CancellationToken? token = null)
@@ -171,14 +182,28 @@ namespace MerchantAPI.Common.BitcoinRpc
       );
     }
 
-    public Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null)
+    public async Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null, bool retry = false)
     {
-      return RequestAsync<RpcActiveZmqNotification[]>(token, "activezmqnotifications", null);
+      if (retry)
+      {
+        return await RequestAsyncWithRetry<RpcActiveZmqNotification[]>(token, "activezmqnotifications");
+      }
+      else
+      {
+        return await RequestAsync<RpcActiveZmqNotification[]>(token, "activezmqnotifications", null);
+      }
     }
 
-    public Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token = null)
+    public async Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token = null, bool retry = true)
     {
-      return RequestAsync<RpcGetNetworkInfo>(token, "getnetworkinfo", null);
+      if (retry)
+      {
+        return await RequestAsyncWithRetry<RpcGetNetworkInfo>(token, "getnetworkinfo");
+      }
+      else
+      {
+        return await RequestAsync<RpcGetNetworkInfo>(token, "getnetworkinfo", null);
+      }
     }
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
@@ -246,9 +271,6 @@ namespace MerchantAPI.Common.BitcoinRpc
       return rpcResponse.Result;
     }
 
-
-    private const int waitBetweenRetriesMs = 100;
-
     private async Task<T> RequestAsyncWithRetry<T>(CancellationToken? token, string method, int? retryCount = null, params object[] parameters)
     {
       int retriesLeft = retryCount ?? NumOfRetries;
@@ -264,12 +286,12 @@ namespace MerchantAPI.Common.BitcoinRpc
           RpcResponse<T> rpcResponse;
           if (method == "getblock" && (int)parameters[1] == 0)
           {
-            object response = await MakeRequestReturnStreamAsync(token, new RpcRequest(1, method, parameters));
+            object response = await MakeRequestReturnStreamAsync(token, new RpcRequest(1, method, parameters), MultiRequestTimeout);
             return (T)response;
           }
           else
           {
-            rpcResponse = await MakeRequestAsync<T>(token, new RpcRequest(1, method, parameters));
+            rpcResponse = await MakeRequestAsync<T>(token, new RpcRequest(1, method, parameters), MultiRequestTimeout);
           }
           return rpcResponse.Result;
         }
@@ -292,29 +314,29 @@ namespace MerchantAPI.Common.BitcoinRpc
         }
         if (token.HasValue)
         {
-          await Task.Delay(waitBetweenRetriesMs, token.Value);
+          await Task.Delay(WaitBetweenRetriesMs, token.Value);
         }
         else
         {
-          await Task.Delay(waitBetweenRetriesMs);
+          await Task.Delay(WaitBetweenRetriesMs);
         }
 
       } while (retriesLeft > 0);
 
       // Should not happen since we exit when retriesLeft == 0
-      throw new Exception("Internal error RequestAsyncWithRetry  reached the end");
+      throw new Exception("Internal error RequestAsyncWithRetry reached the end");
 
     }
 
-    private async Task<RpcResponse<T>> MakeRequestAsync<T>(CancellationToken? token, RpcRequest rpcRequest)
+    private async Task<RpcResponse<T>> MakeRequestAsync<T>(CancellationToken? token, RpcRequest rpcRequest, TimeSpan? requestTimeout = null)
     {
-      using var httpResponse = await MakeHttpRequestAsync(token, rpcRequest, false);
+      using var httpResponse = await MakeHttpRequestAsync(token, rpcRequest, false, requestTimeout);
       return await GetRpcResponseAsync<T>(httpResponse);
     }
 
-    private async Task<RpcBitcoinStreamReader> MakeRequestReturnStreamAsync(CancellationToken? token, RpcRequest rpcRequest)
+    private async Task<RpcBitcoinStreamReader> MakeRequestReturnStreamAsync(CancellationToken? token, RpcRequest rpcRequest, TimeSpan? requestTimeout = null)
     {
-      var httpResponse = await MakeHttpRequestAsync(token, rpcRequest, true);
+      var httpResponse = await MakeHttpRequestAsync(token, rpcRequest, true, requestTimeout);
       return await GetRpcResponseAsStreamAsync(httpResponse, token);
     }
 
@@ -328,7 +350,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       return reqMessage;
     }
 
-    private async Task<HttpResponseMessage> MakeHttpRequestAsync(CancellationToken? token, RpcRequest rpcRequest, bool readOnlyHeader)
+    private async Task<HttpResponseMessage> MakeHttpRequestAsync(CancellationToken? token, RpcRequest rpcRequest, bool readOnlyHeader, TimeSpan? requestTimeout)
     {
       string paramDescription = rpcRequest.Parameters?.FirstOrDefault()?.ToString() ?? "";
       if (rpcRequest.Parameters?.Count > 1)
@@ -339,7 +361,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       logger.LogInformation($"Calling method '{rpcRequest.Method}({paramDescription}) on node {Address.Host}:{Address.Port} with readOnlyHeader={readOnlyHeader}");
       var watch = System.Diagnostics.Stopwatch.StartNew();
       var reqMessage = CreateRequestMessage(rpcRequest.GetJSON());
-      using var cts = new CancellationTokenSource(RequestTimeout);
+      using var cts = new CancellationTokenSource(requestTimeout ?? RequestTimeout);
       using var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, token ?? CancellationToken.None);
       var completionOption = readOnlyHeader ? HttpCompletionOption.ResponseHeadersRead : HttpCompletionOption.ResponseContentRead;
       var httpResponse = await HttpClient.SendAsync(reqMessage, completionOption, cts2.Token).ConfigureAwait(false);
@@ -357,9 +379,9 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     private async Task<RpcResponse<T>> GetRpcResponseAsync<T>(HttpResponseMessage responseMessage)
     {
-      string json = await responseMessage.Content.ReadAsStringAsync();
+      string response = await responseMessage.Content.ReadAsStringAsync();
 
-      if (string.IsNullOrEmpty(json))
+      if (string.IsNullOrEmpty(response))
       {
         return new RpcResponse<T>
         {
@@ -370,9 +392,14 @@ namespace MerchantAPI.Common.BitcoinRpc
           }
         };
       }
+      if (responseMessage.Content.Headers.ContentType.MediaType != MediaTypeNames.Application.Json)
+      {
+        throw new RpcException($"Error when executing bitcoin RPC method Response code {responseMessage.StatusCode} with type {responseMessage.Content.Headers.ContentType.MediaType} instead of JSON was returned.",
+          Address.AbsoluteUri, new Exception($"Invalid response '{ response }'"));
+      }
       try
       {
-        return JsonSerializer.Deserialize<RpcResponse<T>>(json);
+        return JsonSerializer.Deserialize<RpcResponse<T>>(response);
       }
       catch (JsonException ex)
       {
@@ -388,9 +415,9 @@ namespace MerchantAPI.Common.BitcoinRpc
       char[] character = new char[1];
       do
       {
-        token?.ThrowIfCancellationRequested();
+        Memory<char> memory = new(character, 0, 1);
+        await streamReader.ReadBlockAsync(memory, token ?? default);
 
-        await streamReader.ReadBlockAsync(character, 0, 1);
         if (!validChars.Contains(character[0]))
         {
           throw new RpcException($"Error when executing bitcoin RPC method. RPC response contains invalid JSON.", Address.AbsoluteUri, null);
@@ -406,6 +433,7 @@ namespace MerchantAPI.Common.BitcoinRpc
     {
       var responseStream = await responseMessage.Content.ReadAsStreamAsync();
       var strReader = new StreamReader(responseStream);
+
       // Bucket to hold data that is present between quotation marks, used to find field names
       StringBuilder bucket = new();
       do

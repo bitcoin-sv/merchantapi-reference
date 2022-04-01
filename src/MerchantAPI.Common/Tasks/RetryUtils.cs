@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.Common.Exceptions;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -49,11 +50,17 @@ namespace MerchantAPI.Common.Tasks
         }
         catch (Exception ex)
         {
+          if (ex is TaskCanceledException)
+          {
+            throw new RetryException((initialRetry - retry), ex);
+          }
           if (retry == 0)
           {
             if (!string.IsNullOrEmpty(errorMessage))
-              throw new Exception(errorMessage, ex);
-            throw new Exception($"Failed after {initialRetry} retries", ex);
+            {
+              throw new RetryException(initialRetry, errorMessage, ex);
+            }
+            throw new RetryException(initialRetry, ex);
           }
         }
         Thread.Sleep(sleepTimeBetweenRetries);

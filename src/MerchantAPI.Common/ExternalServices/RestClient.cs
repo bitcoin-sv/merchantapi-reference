@@ -2,8 +2,6 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
-using System.Diagnostics;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
