@@ -125,7 +125,7 @@ namespace MerchantAPI.APIGateway.Rest
           else if (appSettings.MinerIdServer != null && !string.IsNullOrEmpty(appSettings.MinerIdServer.Url))
           {
             return new MinerIdRestClient(appSettings.MinerIdServer.Url, appSettings.MinerIdServer.Alias, appSettings.MinerIdServer.Authentication, 
-              httpClientFactory.CreateClient("minerIdClient"));
+              appSettings.MinerIdServer.RequestTimeoutSec.Value, httpClientFactory.CreateClient("minerIdClient"));
           }
           throw new Exception($"Invalid configuration - either {nameof(appSettings.MinerIdServer)} or {nameof(appSettings.WifPrivateKey)} are required.");
         }

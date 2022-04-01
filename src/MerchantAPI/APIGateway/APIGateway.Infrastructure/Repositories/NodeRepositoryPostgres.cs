@@ -2,31 +2,29 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using Dapper;
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Tasks;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using NBitcoin;
 using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
-  public class NodeRepositoryPostgres : INodeRepository
+  public class NodeRepositoryPostgres : PostgresRepository, INodeRepository
   {
-
-    private readonly string connectionString;
     private static readonly Dictionary<string, Node> cache = new();
-    private readonly IClock clock;
 
-
-    public NodeRepositoryPostgres(IConfiguration configuration, IClock clock)
+    public NodeRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
+      : base(appSettings, configuration, clock)
     {
-      connectionString = configuration["ConnectionStrings:DBConnectionString"];
-      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     private void EnsureCache()
@@ -35,7 +33,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       {
         if (!cache.Any())
         {
-          foreach (var node in GetNodesDb())
+          foreach (var node in GetNodesDbAsync().Result)
           {
             cache.Add(GetCacheKey(node.ToExternalId()), node);
           }
@@ -70,8 +68,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     private Node CreateNodeDb(Node node)
     {
-      using var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
+      using var connection = GetDbConnectionAsync().Result;
       using var transaction = connection.BeginTransaction();
 
       string insertOrUpdate =
@@ -128,8 +125,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     private (Node, bool) UpdateNodeDb(Node node)
     {
-      using var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
+      using var connection = GetDbConnectionAsync().Result;
       using var transaction = connection.BeginTransaction();
       string update =
       "UPDATE Node " +
@@ -162,8 +158,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     private (Node, bool) UpdateNodeErrorDb(Node node)
     {
-      using var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
+      using var connection = GetDbConnectionAsync().Result;
       using var transaction = connection.BeginTransaction();
       string update =
       "UPDATE Node " +
@@ -225,8 +220,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     {
       var (host, port) = Node.SplitHostAndPort(hostAndPort);
 
-      using var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
+      using var connection = GetDbConnectionAsync().Result;
       using var transaction = connection.BeginTransaction();
       string cmd = "DELETE FROM Node WHERE host = @host AND  port = @port;";
       var result = connection.Execute(cmd,
@@ -250,14 +244,13 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
         return cache.Values.ToArray();
       }
     }
-    private IEnumerable<Node> GetNodesDb()
+
+    private async Task<Node[]> GetNodesDbAsync()
     {
-      using var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
-      using var transaction = connection.BeginTransaction();
+      using var connection = await GetDbConnectionAsync();
       string cmdText =
         @"SELECT nodeId as id, host, port, username, password, remarks, zmqnotificationsendpoint, nodeStatus as status, lastError, lastErrorAt FROM node ORDER by host, port";
-      return connection.Query<Node>(cmdText, null, transaction);
+      return (await connection.QueryAsync<Node>(cmdText)).ToArray();
     }
 
     public static void EmptyRepository(string connectionString)

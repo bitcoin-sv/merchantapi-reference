@@ -1,11 +1,14 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using nChain.CreateDB;
 using nChain.CreateDB.DB;
 using nChain.CreateDB.Tools;
+using Npgsql;
 using System;
 using System.IO;
 
@@ -21,23 +24,43 @@ namespace MerchantAPI.APIGateway.Rest.Database
     private readonly CreateDB mapiDbNoMaster;
     private readonly CreateDB mapiDbUpgradeV12;
 
-    public MerchantAPIDbManager(ILogger<CreateDB> logger, IConfiguration configuration)
+    public MerchantAPIDbManager(ILogger<CreateDB> logger, IConfiguration configuration, IOptions<AppSettings> options)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
+      var dbConnectionStringDDL = configuration["ConnectionStrings:DBConnectionStringDDL"];
+      var dbConnectionStringMaster = configuration["ConnectionStrings:DBConnectionStringMaster"];
+
+      var startupCommandTimeoutMinutes = options.Value.DbConnection.StartupCommandTimeoutMinutes;
+      if (startupCommandTimeoutMinutes != null)
+      {
+        var connectionStringBuilder = new NpgsqlConnectionStringBuilder
+        {
+          ConnectionString = dbConnectionStringDDL
+        };
+        connectionStringBuilder.CommandTimeout = startupCommandTimeoutMinutes.Value * 60;
+        dbConnectionStringDDL = connectionStringBuilder.ToString();
+        connectionStringBuilder = new NpgsqlConnectionStringBuilder
+        {
+          ConnectionString = dbConnectionStringMaster
+        };
+        connectionStringBuilder.CommandTimeout = startupCommandTimeoutMinutes.Value * 60;
+        dbConnectionStringMaster = connectionStringBuilder.ToString();
+      }
+
       mapiDb = new CreateDB(logger, DB_MAPI, RDBMS.Postgres,
-        configuration["ConnectionStrings:DBConnectionStringDDL"],
-        configuration["ConnectionStrings:DBConnectionStringMaster"]
+        dbConnectionStringDDL,
+        dbConnectionStringMaster
       );
 
       mapiDbNoMaster = new CreateDB(logger, DB_MAPI, RDBMS.Postgres,
-        configuration["ConnectionStrings:DBConnectionStringDDL"]
+        dbConnectionStringDDL
       );
 
       var root = GetScriptsRootForUpgradeFromV12();
       mapiDbUpgradeV12 = new CreateDB(logger, DB_MAPI, RDBMS.Postgres,
-        configuration["ConnectionStrings:DBConnectionStringMaster"],
-        configuration["ConnectionStrings:DBConnectionStringMaster"],
+        dbConnectionStringMaster,
+        dbConnectionStringMaster,
         root
       );
     }

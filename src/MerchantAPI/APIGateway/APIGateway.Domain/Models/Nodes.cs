@@ -9,6 +9,7 @@ using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,13 +26,15 @@ namespace MerchantAPI.APIGateway.Domain.Models
     readonly ILogger<Nodes> logger;
     readonly IClock clock;
     readonly IZMQEndpointChecker ZMQEndpointChecker;
+    readonly RpcClientSettings rpcClientSettings;
 
     public Nodes(INodeRepository nodeRepository,
       IEventBus eventBus,
       IRpcClientFactory bitcoindFactory,
       ILogger<Nodes> logger,
       IClock clock,
-      IZMQEndpointChecker ZMQEndpointChecker
+      IZMQEndpointChecker ZMQEndpointChecker,
+      IOptions<AppSettings> options
       )
     {
       this.bitcoindFactory = bitcoindFactory ?? throw new ArgumentNullException(nameof(bitcoindFactory));
@@ -40,16 +43,25 @@ namespace MerchantAPI.APIGateway.Domain.Models
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       this.ZMQEndpointChecker = ZMQEndpointChecker ?? throw new ArgumentNullException(nameof(ZMQEndpointChecker));
+      rpcClientSettings = options.Value.RpcClient;
     }
 
     private async Task ValidateNode(Node node, bool isUpdate = false)
     {
       // Try to connect to node
-      var bitcoind = bitcoindFactory.Create(node.Host, node.Port, node.Username, node.Password);
+      var bitcoind = bitcoindFactory.Create(
+        node.Host,
+        node.Port,
+        node.Username,
+        node.Password,
+        rpcClientSettings.RequestTimeoutSec.Value,
+        rpcClientSettings.MultiRequestTimeoutSec.Value,
+        rpcClientSettings.NumOfRetries.Value,
+        rpcClientSettings.WaitBetweenRetriesMs.Value);
       try
       {
         // try to call some method to test if connectivity parameters are correct
-        var networkInfo = await bitcoind.GetNetworkInfoAsync();
+        var networkInfo = await bitcoind.GetNetworkInfoAsync(retry: true);
 
         if (!Nodes.IsNodeVersionValid(networkInfo.Version, out string versionError))
         {
@@ -64,7 +76,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       RpcActiveZmqNotification[] notifications;
       try
       {
-        notifications = await bitcoind.ActiveZmqNotificationsAsync();
+        notifications = await bitcoind.ActiveZmqNotificationsAsync(retry: true);
       }
       catch (Exception ex)
       {

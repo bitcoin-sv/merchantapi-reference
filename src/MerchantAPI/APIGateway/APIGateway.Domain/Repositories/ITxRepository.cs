@@ -62,7 +62,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<byte[]> GetDoublespendTxPayloadAsync(string notificationType, long txInternalId);
 
-    Task<long?> GetTransactionInternalId(byte[] txId);
+    Task<long?> GetTransactionInternalIdAsync(byte[] txId);
 
     Task<(int blocks, long txs)> CleanUpTxAsync(DateTime fromDate);
 
@@ -72,6 +72,6 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     
     Task<Block[]> GetUnparsedBlocksAsync();
 
-    Task<bool> CheckIfBlockWasParsed(long blockInternalId);
+    Task<bool> CheckIfBlockWasParsedAsync(long blockInternalId);
   }
 }

@@ -32,6 +32,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     private readonly INodeRepository nodeRepository;
     private readonly IRpcClientFactory bitcoindFactory;
     private readonly IClock clock;
+    private readonly int rpcResponseTimeoutSec;
 
     private readonly ConcurrentDictionary<string, ZMQSubscription> subscriptions = new();
 
@@ -42,8 +43,6 @@ namespace MerchantAPI.APIGateway.Rest.Services
     private EventBusSubscription<NodeAddedEvent> nodeAddedSubscription;
     private EventBusSubscription<NodeDeletedEvent> nodeDeletedSubscription;
 
-    private const int RPC_RESPONSE_TIMEOUT_SECONDS = 5;
-
     public ZMQSubscriptionService(ILogger<ZMQSubscriptionService> logger,
       IOptionsMonitor<AppSettings> options,
       INodeRepository nodeRepository,
@@ -52,10 +51,11 @@ namespace MerchantAPI.APIGateway.Rest.Services
       IClock clock)
       : base(logger, eventBus)
     {
-      this.appSettings = options.CurrentValue ?? throw new ArgumentNullException(nameof(options));
+      appSettings = options.CurrentValue ?? throw new ArgumentNullException(nameof(options));
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.bitcoindFactory = bitcoindFactory ?? throw new ArgumentNullException(nameof(bitcoindFactory));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+      rpcResponseTimeoutSec = appSettings.ZmqConnectionRpcResponseTimeoutSec.Value;
     }
 
 
@@ -198,9 +198,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
           var node = nodes.FirstOrDefault(n => n.Id == nodeId);
           if (node == null)
             continue;
-
-          var bitcoind = bitcoindFactory.Create(node.Host, node.Port, node.Username, node.Password);
-          bitcoind.RequestTimeout = TimeSpan.FromSeconds(RPC_RESPONSE_TIMEOUT_SECONDS); 
+          var bitcoind = CreateZMQSubscriptionRpcClient(node);
           try
           {
             // Call activezmqnotifications rpc method just to check that node is still responding.
@@ -245,12 +243,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       foreach (var failedSubscription in failedSubscriptionsLocal)
       {
         // Try to connect to node to get list of available events
-        var bitcoind = bitcoindFactory.Create(
-          failedSubscription.Node.Host, 
-          failedSubscription.Node.Port, 
-          failedSubscription.Node.Username, 
-          failedSubscription.Node.Password);
-        bitcoind.RequestTimeout = TimeSpan.FromSeconds(RPC_RESPONSE_TIMEOUT_SECONDS);
+        var bitcoind = CreateZMQSubscriptionRpcClient(failedSubscription.Node);
         try
         {
           // Call activezmqnotifications rpc method to check that node responds
@@ -295,8 +288,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       foreach (var node in nodesAddedLocal)
       {
         // Try to connect to node to get list of available events
-        var bitcoind = bitcoindFactory.Create(node.Host, node.Port, node.Username, node.Password);
-        bitcoind.RequestTimeout = TimeSpan.FromSeconds(RPC_RESPONSE_TIMEOUT_SECONDS);
+        var bitcoind = CreateZMQSubscriptionRpcClient(node);
         try
         {
           // Call activezmqnotifications rpc method
@@ -484,6 +476,19 @@ namespace MerchantAPI.APIGateway.Rest.Services
       {
         subscriptions.TryAdd(address, new ZMQSubscription(nodeId, address, clock.UtcNow(), topic));
       }
+    }
+
+    private IRpcClient CreateZMQSubscriptionRpcClient(Node node)
+    {
+      return bitcoindFactory.Create(
+        node.Host,
+        node.Port,
+        node.Username,
+        node.Password,
+        rpcResponseTimeoutSec,
+        appSettings.RpcClient.MultiRequestTimeoutSec.Value,
+        appSettings.RpcClient.RpcCallsOnStartupRetries.Value,
+        appSettings.RpcClient.WaitBetweenRetriesMs.Value);
     }
   }
 

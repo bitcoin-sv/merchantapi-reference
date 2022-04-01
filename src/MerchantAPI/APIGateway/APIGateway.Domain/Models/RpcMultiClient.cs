@@ -5,11 +5,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NBitcoin.Crypto;
 
 namespace MerchantAPI.APIGateway.Domain.Models
@@ -26,13 +28,20 @@ namespace MerchantAPI.APIGateway.Domain.Models
   {
     readonly INodes nodes;
     readonly IRpcClientFactory rpcClientFactory;
-    private readonly ILogger logger;
+    readonly ILogger logger;
+    readonly RpcClientSettings rpcClientSettings;
 
-    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger)
+    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options)
+      : this(nodes, rpcClientFactory, logger, options.Value.RpcClient)
+    {
+    }
+
+    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, RpcClientSettings rpcClientSettings)
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.logger = logger;
+      this.rpcClientSettings = rpcClientSettings;
     }
 
     static void ShuffleArray<T>(T[] array)
@@ -50,7 +59,15 @@ namespace MerchantAPI.APIGateway.Domain.Models
     IRpcClient[] GetRpcClients()
     {
       var result = nodes.GetNodes().Select(
-        n => rpcClientFactory.Create(n.Host, n.Port, n.Username, n.Password)).ToArray();
+        n => rpcClientFactory.Create(
+          n.Host,
+          n.Port,
+          n.Username,
+          n.Password,
+          rpcClientSettings.RequestTimeoutSec.Value,
+          rpcClientSettings.MultiRequestTimeoutSec.Value,
+          rpcClientSettings.NumOfRetries.Value,
+          rpcClientSettings.WaitBetweenRetriesMs.Value)).ToArray();
 
       if (!result.Any())
       {
@@ -204,9 +221,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return GetFirstSucesfullAsync(x => x.GetMerkleProof2Async(blockHash, txId));
     }
 
-    public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash)
+    public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash));
+      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash, token));
     }
 
     public Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash)
@@ -222,7 +239,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcGetNetworkInfo> GetAnyNetworkInfoAsync()
     {
-      return GetFirstSucesfullAsync(c => c.GetNetworkInfoAsync());
+      return GetFirstSucesfullAsync(c => c.GetNetworkInfoAsync(retry: false));
     }
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList)

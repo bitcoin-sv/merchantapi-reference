@@ -124,7 +124,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent(
 
         merkleProof || dsCheck ?
-          $"{{ \"rawtx\": \"{txHexSingleOrMultiple}\", \"merkleProof\": {merkleProof.ToString().ToLower()}, \"merkleFormat\": \"{merkleFormat}\", \"dsCheck\": {dsCheck.ToString().ToLower()}, \"callbackUrl\" : \"{Callback.Url}\"}}"
+          $"{{ \"rawtx\": \"{txHexSingleOrMultiple}\", \"merkleProof\": {merkleProof.ToString().ToLower()}, \"merkleFormat\": \"{merkleFormat}\", \"dsCheck\": {dsCheck.ToString().ToLower()}, \"callbackUrl\" : \"{Common.Test.CallbackFunctionalTests.Url}\"}}"
           :
           $"{{ \"rawtx\": \"{txHexSingleOrMultiple}\" }}"
         );

@@ -290,7 +290,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         if (config.MapiConfig.Callback?.StartListener == true)
         {
           Console.WriteLine($"Starting web server for url {config.MapiConfig.Callback.Url}");
-          webServer = CallbackServer.Start(config.MapiConfig.Callback.Url, cancellationSource.Token, new CallbackReceived(stats, config.MapiConfig.Callback?.Hosts));
+          webServer = CallbackServer.Start(config.MapiConfig.Callback.Url, new CallbackReceived(stats, config.MapiConfig.Callback?.Hosts), cancellationSource.Token);
         }
 
 

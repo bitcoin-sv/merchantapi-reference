@@ -19,6 +19,9 @@ namespace MerchantAPI.APIGateway.Domain
     public string Authentication { get; set; }
     [Required]
     public string Alias { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? RequestTimeoutSec { get; set; } = 100;
   }
 
   public class Notification
@@ -54,6 +57,44 @@ namespace MerchantAPI.APIGateway.Domain
     public int? FastHostResponseTimeoutMS { get; set; }
   }
 
+  public class DbConnectionSettings
+  {
+    [Range(1, int.MaxValue)]
+    public int? StartupTestConnectionMaxRetries { get; set; } = 10;
+    [Range(1, int.MaxValue)]
+    public int? StartupCommandTimeoutMinutes { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? OpenConnectionTimeoutSec { get; set; } = 30;
+
+    [Range(1, int.MaxValue)]
+    public int? OpenConnectionMaxRetries { get; set; } = 3;
+
+  }
+
+  public class RpcClientSettings
+  {
+    [Range(1, int.MaxValue)]
+    public int? RequestTimeoutSec { get; set; } = 60;
+
+    [Range(1, int.MaxValue)]
+    public int? MultiRequestTimeoutSec { get; set; } = 20;
+
+    [Range(1, int.MaxValue)]
+    public int? NumOfRetries { get; set; } = 3;
+
+    [Range(1, int.MaxValue)]
+    public int? WaitBetweenRetriesMs { get; set; } = 100;
+
+    [Range(1, int.MaxValue)]
+    public int? RpcCallsOnStartupRetries { get; set; } = 3;
+
+    [Range(1, int.MaxValue)]
+    public int? RpcGetBlockTimeoutMinutes { get; set; } = 10;
+
+    [Range(1, int.MaxValue)]
+    public int? RpcGetRawMempoolTimeoutMinutes { get; set; } = 2;
+  }
   public class AppSettings : CommonAppSettings
   {
     [Range(1, double.MaxValue)]
@@ -74,7 +115,10 @@ namespace MerchantAPI.APIGateway.Domain
 
     [Range(1, int.MaxValue)]
     public int? ZmqConnectionTestIntervalSec { get; set; } = 60;
- 
+
+    [Range(1, int.MaxValue)]
+    public int? ZmqConnectionRpcResponseTimeoutSec { get; set; } = 5;
+
     public long? DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 
     [Range(1, int.MaxValue)]
@@ -101,6 +145,9 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(1, int.MaxValue)]
     public int DSScriptValidationTimeoutSec { get; set; }
     public Notification Notification { get; set; }
+
+    public DbConnectionSettings DbConnection { get; set; }
+    public RpcClientSettings RpcClient { get; set; }
 
     public bool? CheckFeeDisabled { get; set; } = false;
 
@@ -164,6 +211,34 @@ namespace MerchantAPI.APIGateway.Domain
         var validationResults = new List<ValidationResult>();
         var validationContext = new ValidationContext(options.Notification, serviceProvider: null, items: null);
         if (!Validator.TryValidateObject(options.Notification, validationContext, validationResults, true))
+        {
+          return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
+        }
+      }
+      if (options.RpcClient == null)
+      {
+        // all default values
+        options.RpcClient = new RpcClientSettings();
+      }
+      else
+      {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(options.RpcClient, serviceProvider: null, items: null);
+        if (!Validator.TryValidateObject(options.RpcClient, validationContext, validationResults, true))
+        {
+          return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
+        }
+      }
+      if (options.DbConnection == null)
+      {
+        // all default values
+        options.DbConnection = new DbConnectionSettings();
+      }
+      else
+      {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(options.DbConnection, serviceProvider: null, items: null);
+        if (!Validator.TryValidateObject(options.DbConnection, validationContext, validationResults, true))
         {
           return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
         }

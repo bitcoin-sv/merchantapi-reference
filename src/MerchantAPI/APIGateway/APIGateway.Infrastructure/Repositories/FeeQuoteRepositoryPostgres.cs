@@ -18,19 +18,16 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
-  public class FeeQuoteRepositoryPostgres : IFeeQuoteRepository
+  public class FeeQuoteRepositoryPostgres : PostgresRepository, IFeeQuoteRepository
   {
     private readonly double quoteExpiryMinutes;
-    private readonly string connectionString;
-    private readonly IClock clock;
     // cache contains valid and future feeQuotes, so that mAPI calls get results faster
     private static readonly Dictionary<(string Identity, string IdentityProvider), List<FeeQuote>> cache = new();
 
     public FeeQuoteRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
+           : base(appSettings, configuration, clock)
     {
       this.quoteExpiryMinutes = appSettings.Value.QuoteExpiryMinutes.Value;
-      this.connectionString = configuration["ConnectionStrings:DBConnectionString"];
-      this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
     private void EnsureCache()
@@ -225,8 +222,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     private IEnumerable<FeeQuote> GetFeeQuotesDb(string cmdText, object parameters=null)
     {
-      using var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
+      using var connection = GetDbConnectionAsync().Result;
       var all = new Dictionary<long, FeeQuote>();
       var allFees = new Dictionary<long, List<Fee>>();
       connection.Query<FeeQuote, Fee, FeeAmount, FeeQuote>(cmdText,
@@ -278,17 +274,15 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       {
         return null;
       }
-      using var connection = new NpgsqlConnection(connectionString);
-      RetryUtils.Exec(() => connection.Open());
-
-      using NpgsqlTransaction transaction = connection.BeginTransaction();
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
 
       string insertFeeQuote =
             "INSERT INTO FeeQuote (createdat, validfrom, identity, identityprovider, policies) " +
             "VALUES(@createdat, @validFrom, @identity, @identityprovider, @policies) " +
             "RETURNING *;";
 
-      var feeQuoteRes = (await connection.QueryAsync<FeeQuote>(insertFeeQuote,
+      var feeQuoteRes = (await connection.QuerySingleAsync<FeeQuote>(insertFeeQuote,
           new
           {
             createdat = feeQuote.CreatedAt,
@@ -297,7 +291,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
             identityprovider = feeQuote.IdentityProvider,
             policies = feeQuote.Policies
           })
-        ).Single();
+        );
 
       if (feeQuoteRes == null)
         return null;
@@ -310,39 +304,39 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
         "VALUES(@feeQuote, @feeType) " +
         "RETURNING *;";
 
-        var feeRes = connection.Query<Fee>(insertFee,
+        var feeRes = await connection.QuerySingleAsync<Fee>(insertFee,
             new
             {
               feeQuote = feeQuoteRes.Id,
               feeType = fee.FeeType,
-            }).Single();
+            });
 
         string insertFeeAmount =
         "INSERT INTO FeeAmount (fee, satoshis, bytes, feeAmountType) " +
         "VALUES(@fee, @satoshis, @bytes, @feeAmountType) " +
         "RETURNING *;";
 
-        var feeAmountMiningFeeRes = connection.Query<FeeAmount>(insertFeeAmount,
+        var feeAmountMiningFeeRes = await connection.QuerySingleAsync<FeeAmount>(insertFeeAmount,
             new
             {
               fee = feeRes.Id,
               satoshis = fee.MiningFee.Satoshis,
               bytes = fee.MiningFee.Bytes,
               feeAmountType = Const.AmountType.MiningFee
-            }).Single();
-        var feeAmountRelayFeeRes = connection.Query<FeeAmount>(insertFeeAmount,
+            });
+        var feeAmountRelayFeeRes = await connection.QuerySingleAsync<FeeAmount>(insertFeeAmount,
             new
             {
               fee = feeRes.Id,
               satoshis = fee.RelayFee.Satoshis,
               bytes = fee.RelayFee.Bytes,
               feeAmountType = Const.AmountType.RelayFee
-            }).Single();
+            });
 
         feeRes.MiningFee = feeAmountMiningFeeRes;
         feeRes.RelayFee = feeAmountRelayFeeRes;
         feeResArr.Add(feeRes);
-          
+         
       }
 
       transaction.Commit();
@@ -368,8 +362,6 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
         cache.Clear();
       }
     }
-
-
 
   }
 }

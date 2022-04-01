@@ -6,11 +6,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -80,6 +82,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   public class RpcMultiClientUnitTests
   {
     RpcClientFactoryMock rpcClientFactoryMock;
+    RpcClientSettings rpcClientSettings;
     readonly string txC1Hex = TestBase.txC1Hex;
     readonly string txC1Hash = TestBase.txC1Hash;
 
@@ -106,6 +109,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       rpcClientFactoryMock = new RpcClientFactoryMock();
       rpcClientFactoryMock.AddKnownBlock(0, HelperTools.HexStringToByteArray(TestBase.genesisBlock));
+      rpcClientSettings = new RpcClientSettings();
     }
 
     [TestMethod]
@@ -130,7 +134,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         }
       );
 
-      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance, rpcClientSettings);
 
       Assert.AreEqual("oldest", (await c.GetWorstBlockchainInfoAsync()).BestBlockHash);
     }
@@ -153,7 +157,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         MaxConsolidationInputScriptSize = 10000
       });
 
-      var c = new RpcMultiClient(new MockNodes(5), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+      var c = new RpcMultiClient(new MockNodes(5), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance, rpcClientSettings);
 
       for (int i = 0; i < 10; i++)
       {
@@ -171,7 +175,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ("umockNode1:sendrawtransactions", node1Response));
 
 
-      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance, rpcClientSettings);
 
       var r = c.SendRawTransactionsAsync(
         txsHex.Select( x => 
@@ -187,7 +191,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         ("umockNode1:getrawtransaction", node1Response));
 
 
-      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance);
+      var c = new RpcMultiClient(new MockNodes(2), rpcClientFactoryMock, NullLogger<RpcMultiClient>.Instance, rpcClientSettings);
 
       return await c.GetRawTransactionAsync(txId);
     }

@@ -35,6 +35,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly List<string> blockHashesBeingParsed = new();
     readonly SemaphoreSlim semaphoreSlim = new(1, 1);
     readonly BlockParserStatus blockParserStatus;
+    readonly TimeSpan rpcGetBlockTimeout;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
@@ -49,8 +50,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
-      appSettings = options.Value;
       blockParserStatus = new();
+      appSettings = options.Value;
+      rpcGetBlockTimeout = TimeSpan.FromMinutes(options.Value.RpcClient.RpcGetBlockTimeoutMinutes.Value);
     }
 
 
@@ -232,7 +234,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             logger.LogDebug($"Block '{e.BlockHash}' is already being parsed...skipped processing.");
             return;
           }
-          else if (await txRepository.CheckIfBlockWasParsed(e.BlockDBInternalId))
+          else if (await txRepository.CheckIfBlockWasParsedAsync(e.BlockDBInternalId))
           {
             blockParserStatus.IncrementBlocksDuplicated();
             logger.LogInformation($"Block '{e.BlockHash}' was already parsed...skipped processing.");
@@ -249,8 +251,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
 
         logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
+        using var cts = new CancellationTokenSource(rpcGetBlockTimeout);
         var stopwatch = Stopwatch.StartNew();
-        using var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash);
+        using var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash, cts.Token);
         var block = HelperTools.ParseByteStreamToBlock(blockStream);
         var blockDownloadTime = stopwatch.Elapsed;
         ulong bytes = (ulong)blockStream.TotalBytesRead;
@@ -275,6 +278,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       catch (Exception ex)
       {
+        await semaphoreSlim.WaitAsync();
+        try
+        {
+          blockHashesBeingParsed.Remove(e.BlockHash);
+        }
+        finally
+        {
+          semaphoreSlim.Release();
+        }
         blockParserStatus.IncrementNumOfErrors();
         if (ex is BadRequestException || ex is RpcException)
         {
