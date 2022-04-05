@@ -74,12 +74,11 @@ namespace MerchantAPI.APIGateway.Rest
         options.AddScheme(ApiKeyAuthenticationOptions.DefaultScheme, a => a.HandlerType = typeof(ApiKeyAuthenticationHandler<AppSettings>));
       });
 
-
       services.AddControllers().AddJsonOptions(options => { options.JsonSerializerOptions.WriteIndented = true; });
 
       services.AddSingleton<IEventBus, InMemoryEventBus>();
 
-      services.AddTransient<IFeeQuoteRepository, FeeQuoteRepositoryPostgres>(); 
+      services.AddTransient<IFeeQuoteRepository, FeeQuoteRepositoryPostgres>();
 
       services.AddTransient<INodes, Nodes>();
       services.AddTransient<IZMQEndpointChecker, ZMQEndpointChecker>();
@@ -89,7 +88,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<IRpcClientFactory, RpcClientFactory>();
       services.AddTransient<IRpcMultiClient, RpcMultiClient>();
       services.AddSingleton<INotificationServiceHttpClientFactory, NotificationServiceHttpClientFactoryDefault>();
-      services.AddHttpClient(NotificationServiceHttpClientFactoryDefault.ClientName) 
+      services.AddHttpClient(NotificationServiceHttpClientFactoryDefault.ClientName)
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
         {
           UseCookies =
@@ -114,22 +113,23 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddScoped<CheckHostActionFilter>();
       services.AddScoped<HttpsRequiredAttribute>();
 
-      services.AddSingleton<IMinerId>(s =>
-        {
-          var appSettings = s.GetService<IOptions<AppSettings>>().Value;
-          var httpClientFactory = s.GetRequiredService<IHttpClientFactory>();
+      var appSettings = Configuration.GetSection("AppSettings").Get<AppSettings>();
 
-          if (!string.IsNullOrWhiteSpace(appSettings.WifPrivateKey))
-          {
-            return new MinerIdFromWif(appSettings.WifPrivateKey);
-          }
-          else if (appSettings.MinerIdServer != null && !string.IsNullOrEmpty(appSettings.MinerIdServer.Url))
-          {
-            return new MinerIdRestClient(appSettings.MinerIdServer.Url, appSettings.MinerIdServer.Alias, appSettings.MinerIdServer.Authentication, 
-              appSettings.MinerIdServer.RequestTimeoutSec.Value, httpClientFactory.CreateClient("minerIdClient"));
-          }
-          throw new Exception($"Invalid configuration - either {nameof(appSettings.MinerIdServer)} or {nameof(appSettings.WifPrivateKey)} are required.");
+      services.AddSingleton<IMinerId>(s =>
+      {
+        var httpClientFactory = s.GetRequiredService<IHttpClientFactory>();
+
+        if (!string.IsNullOrWhiteSpace(appSettings.WifPrivateKey))
+        {
+          return new MinerIdFromWif(appSettings.WifPrivateKey);
         }
+        else if (appSettings.MinerIdServer != null && !string.IsNullOrEmpty(appSettings.MinerIdServer.Url))
+        {
+          return new MinerIdRestClient(appSettings.MinerIdServer.Url, appSettings.MinerIdServer.Alias, appSettings.MinerIdServer.Authentication,
+            appSettings.MinerIdServer.RequestTimeoutSec.Value, httpClientFactory.CreateClient("minerIdClient"));
+        }
+        throw new Exception($"Invalid configuration - either {nameof(appSettings.MinerIdServer)} or {nameof(appSettings.WifPrivateKey)} are required.");
+      }
       );
 
       if (HostEnvironment.EnvironmentName != "Testing")
@@ -141,22 +141,12 @@ namespace MerchantAPI.APIGateway.Rest
       else
       {
         // We register clock as singleton, so that we can set time in individual tests
-        
+
       }
 
       services.AddTransient<IClock, Clock>();
       services.AddHostedService<NotificationService>();
-      if (HostEnvironment.EnvironmentName != "Testing")
-      {
-        services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
-      }
-      else
-      {
-        services.AddSingleton<BlockParser>();
-        services.AddHostedService(p => p.GetService<BlockParser>());
-
-      }
-
+      services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
       services.AddHostedService<InvalidTxHandler>();
       services.AddHostedService<BlockChecker>();
 
@@ -169,13 +159,13 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddSingleton<IdentityProviderStore>();
       services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
-          {
-            options.RefreshOnIssuerKeyNotFound = false;
-            // We validate audience and issuer through IdentityProviders
-            options.TokenValidationParameters.ValidateAudience = false;
-            options.TokenValidationParameters.ValidateIssuer = false;
-            // The rest of the options are configured in ConfigureJwtBearerOptions
-          }
+        {
+          options.RefreshOnIssuerKeyNotFound = false;
+          // We validate audience and issuer through IdentityProviders
+          options.TokenValidationParameters.ValidateAudience = false;
+          options.TokenValidationParameters.ValidateIssuer = false;
+          // The rest of the options are configured in ConfigureJwtBearerOptions
+        }
         );
 
       services.AddCors(options =>
@@ -191,6 +181,7 @@ namespace MerchantAPI.APIGateway.Rest
       {
         c.SwaggerDoc(SwaggerGroup.API, new OpenApiInfo { Title = "Merchant API", Version = Const.MERCHANT_API_VERSION });
         c.SwaggerDoc(SwaggerGroup.Admin, new OpenApiInfo { Title = "Merchant API Admin", Version = Const.MERCHANT_API_VERSION });
+
         c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
 
         // Add MAPI authorization options
@@ -291,7 +282,7 @@ namespace MerchantAPI.APIGateway.Rest
 
       app.UseAuthentication();
       app.UseAuthorization();
-      
+
       app.UseEndpoints(endpoints =>
       {
         endpoints.MapControllers();
