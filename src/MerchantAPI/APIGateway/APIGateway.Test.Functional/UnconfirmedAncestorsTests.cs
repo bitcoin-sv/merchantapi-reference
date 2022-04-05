@@ -29,6 +29,7 @@ using NBitcoin.Altcoins;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+  [TestCategory("TestCategoryNo2")]
   [TestClass]
   public class UnconfirmedAncestorsTestss : MapiWithBitcoindTestBase
   {

@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+  [TestCategory("TestCategoryNo1")]
   [TestClass]
   public class NodeRest : CommonRestMethodsBase<NodeViewModelGet, NodeViewModelCreate, AppSettings> 
   {
