@@ -5,7 +5,6 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Test.Clock;
@@ -21,12 +20,13 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Text.Json;
 using MerchantAPI.Common.Json;
+using MerchantAPI.APIGateway.Domain.Models;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo1")]
   [TestClass]
-  public class FeeQuoteRest : CommonRestMethodsBase<FeeQuoteConfigViewModelGet, FeeQuoteViewModelCreate, AppSettings> 
+  public class FeeQuoteRest : CommonRestMethodsBase<FeeQuoteConfigViewModelGet, FeeQuoteViewModelCreate, AppSettings>
   {
     public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
     public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
@@ -34,7 +34,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
-        return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     public FeeQuoteRepositoryPostgres FeeQuoteRepository { get; private set; }
@@ -46,7 +46,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
 
       FeeQuoteRepository = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryPostgres;
-      FeeQuoteRepositoryMock.quoteExpiryMinutes = 10;
     }
 
     [TestCleanup]
@@ -203,7 +202,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(postPoliciesJsonString, getPoliciesJsonString);
       }
 
-      for (int i=0; i<post.Fees.Length; i++)
+      for (int i = 0; i < post.Fees.Length; i++)
       {
         var postFee = post.Fees[i].ToDomainObject();
         var getFee = get.Fees.Single(x => x.FeeType == postFee.FeeType);
@@ -229,7 +228,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         return url;
       }
-      url = (!url.Contains("?")) ? url += "?" : url += "&"; 
+      url = (!url.Contains("?")) ? url += "?" : url += "&";
       List<string> userParams = new();
       if (userAndIssuer.Identity != null)
       {
@@ -242,7 +241,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return url + String.Join("&", userParams);
     }
 
-    public string UrlForCurrentFeeQuoteKey(UserAndIssuer userAndIssuer, bool anonymous=false)
+    public string UrlForCurrentFeeQuoteKey(UserAndIssuer userAndIssuer, bool anonymous = false)
     {
       string url = GetBaseUrl() + $"?current=true";
       if (anonymous)
@@ -389,7 +388,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public override async Task Put() 
+    public override async Task Put()
     {
       var entryPost = GetItemToCreate();
       var entryPostKey = ExtractPostKey(entryPost);
@@ -448,7 +447,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
 
       // Try to create it again - it will not fail, because createdAt differs
-      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created); 
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
     }
 
     [TestMethod]
@@ -569,7 +568,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null)+$"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(2, getEntries.Length);
 
         // check GET for identity+anonymous
@@ -588,7 +587,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task TestFeeQuotesCurrentAndValidDifferentCreatedAt()
     {
       // arrange
-      var validFrom = new DateTime(2020, 9, 16, 6, (int)FeeQuoteRepositoryMock.quoteExpiryMinutes, 0);
+      var validFrom = new DateTime(2020, 9, 16, 6, (int)AppSettings.QuoteExpiryMinutes, 0);
       using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, 0, 0)))
       {
         var entryPost = GetItemToCreate();
@@ -596,7 +595,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         entryPost.ValidFrom = validFrom;
         await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
       }
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes * 0.8), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 0.8), 0)))
       {
         var entryPost = GetItemToCreate();
         entryPost.Id = 2;
@@ -605,7 +604,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       // act
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes * 0.5), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 0.5), 0)))
       {
         // check GET for anonymous
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
@@ -615,7 +614,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(0, getEntries.Length);
       }
 
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes * 1.2), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 1.2), 0)))
       {
         // check GET for anonymous
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
@@ -625,7 +624,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(2, getEntries.Single().Id);
       }
 
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes*2.1), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 2.1), 0)))
       {
         // check GET for anonymous
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
@@ -654,7 +653,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (entryResponsePost, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
 
       // act
-      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes*2)))
+      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(AppSettings.QuoteExpiryMinutes.Value * 2)))
       {
         // check GET for identity
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(MockedIdentity), HttpStatusCode.OK);
@@ -691,7 +690,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (entryResponsePost, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
 
       // act
-      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(-FeeQuoteRepositoryMock.quoteExpiryMinutes)))
+      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(-AppSettings.QuoteExpiryMinutes.Value)))
       {
         // check GET for identity & identityProvider
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlWithIdentity(GetBaseUrl(), MockedIdentity), HttpStatusCode.OK);
@@ -755,14 +754,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var entries = GetItemsToCreate();
 
 
-      entries.Last().ValidFrom = entries.First().ValidFrom.Value.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes/2);
+      entries.Last().ValidFrom = entries.First().ValidFrom.Value.AddMinutes(AppSettings.QuoteExpiryMinutes.Value / 2);
       foreach (var entry in entries)
       {
         // Create new one using POST
         await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entry, HttpStatusCode.Created);
       }
 
-      using (MockedClock.NowIs(tNow.AddMinutes(-FeeQuoteRepositoryMock.quoteExpiryMinutes)))
+      using (MockedClock.NowIs(tNow.AddMinutes(-AppSettings.QuoteExpiryMinutes.Value)))
       {
         // Should return no results - no feeQuote is yet valid
         var getEntriesInPast = await Get<FeeQuoteConfigViewModelGet[]>(Client,
@@ -779,7 +778,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entries[0], getEntries[0]);
       }
 
-      using (MockedClock.NowIs(tNow.AddMinutes((FeeQuoteRepositoryMock.quoteExpiryMinutes / 2) + 1)))
+      using (MockedClock.NowIs(tNow.AddMinutes((AppSettings.QuoteExpiryMinutes.Value / 2) + 1)))
       {
         // We should be able to retrieve both:
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client,
@@ -787,7 +786,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(2, getEntries.Length);
       }
 
-      using (MockedClock.NowIs(entries.Last().ValidFrom.Value.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes*2)))
+      using (MockedClock.NowIs(entries.Last().ValidFrom.Value.AddMinutes(AppSettings.QuoteExpiryMinutes.Value * 2)))
       {
         // We should be able to retrieve second:
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client,
@@ -850,10 +849,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client,
-                     UrlForCurrentFeeQuoteKey(new UserAndIssuer() { 
-                       Identity = entryPostWithIdentity2.Identity, 
+                     UrlForCurrentFeeQuoteKey(new UserAndIssuer()
+                     {
+                       Identity = entryPostWithIdentity2.Identity,
                        IdentityProvider = entryPostWithIdentity2.IdentityProvider
-                     }), HttpStatusCode.OK); 
+                     }), HttpStatusCode.OK);
         CheckWasCreatedFrom(entryPostWithIdentity2, getEntries.Single());
       }
     }
@@ -906,6 +906,5 @@ namespace MerchantAPI.APIGateway.Test.Functional
       domain.Policies = "{\"skipScriptFlags\":" + jsonValue + "}";
       _ = new FeeQuoteViewModelCreate(domain);
     }
-
   }
 }

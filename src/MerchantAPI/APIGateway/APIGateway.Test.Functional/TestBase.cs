@@ -141,7 +141,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       rpcClientFactoryMock = server.Services.GetRequiredService<IRpcClientFactory>() as RpcClientFactoryMock;
       feeQuoteRepositoryMock = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryMock;
-      FeeQuoteRepositoryMock.quoteExpiryMinutes = quoteExpiryMinutes;
+      if (feeQuoteRepositoryMock != null)
+      {
+        feeQuoteRepositoryMock.QuoteExpiryMinutes = quoteExpiryMinutes;
+      }
 
       if (rpcClientFactoryMock != null)
       {

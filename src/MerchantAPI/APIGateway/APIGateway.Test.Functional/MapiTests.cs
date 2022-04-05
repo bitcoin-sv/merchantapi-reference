@@ -109,7 +109,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
       await AssertIsOKAsync(payload);
 
-      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes + 1)))
+      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(feeQuoteRepositoryMock.QuoteExpiryMinutes + 1)))
       {
         // should return same
         response = await Get<SignedPayloadViewModel>(
@@ -624,7 +624,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
-      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes)))
+      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(feeQuoteRepositoryMock.QuoteExpiryMinutes)))
       {
         feeQuotes = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null);
         Assert.AreEqual(1, feeQuotes.Count()); // should return current
