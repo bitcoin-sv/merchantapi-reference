@@ -74,4 +74,21 @@ namespace MerchantAPI.APIGateway.Domain
     public static readonly string[] ValidFormats = { TSC };
   }
 
+  public static class TxStatus
+  {
+    public const int NotPresentInDb = -100;
+
+    // only for authenticated users
+    public const int NodeRejected = -2;
+    public const int SentToNode = -1; // if MRI fails after sendrawtxs - user should retry
+
+    // all users
+    public const int UnknownOldTx = 0; // old txs - most of them are on blockchain (they have policyQuoteId unknown)
+    public const int Mempool = 1;
+    public const int MissingInputsMaxRetriesReached = 2;
+    public const int Blockchain = 3;
+
+    public static readonly int[] MapiSuccessTxStatuses =
+      { UnknownOldTx ,Mempool, MissingInputsMaxRetriesReached, Blockchain };
+  }
 }

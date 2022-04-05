@@ -54,14 +54,14 @@ VALUES (@blockTime, @blockHash, @prevBlockHash, @blockHeight, @onActiveChain)
 ON CONFLICT (blockHash) DO NOTHING
 RETURNING blockInternalId;
 ";
-      var blockInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new 
-        { 
-          blockTime = block.BlockTime, 
-          blockHash = block.BlockHash,
-          prevBlockHash = block.PrevBlockHash, 
-          blockHeight = block.BlockHeight, 
-          onActiveChain = block.OnActiveChain
-        });
+      var blockInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new
+      {
+        blockTime = block.BlockTime,
+        blockHash = block.BlockHash,
+        prevBlockHash = block.PrevBlockHash,
+        blockHeight = block.BlockHeight,
+        onActiveChain = block.OnActiveChain
+      });
       await transaction.CommitAsync();
 
       return blockInternalId;
@@ -183,8 +183,8 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
     }
 
     private static void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
-                                 string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck, 
-                                 long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor)
+                                 string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck,
+                                 long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor, int txstatus, DateTime submittedAt, long? policyQuoteId, bool okToMine, bool setPolicyQuote)
     {
       txImporter.StartRow();
 
@@ -202,6 +202,11 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
       txImporter.Write((object)prevTxId ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bytea);
       txImporter.Write((object)prevN ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bigint);
       txImporter.Write((object)unconfirmedAncestor ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
+      txImporter.Write(txstatus, NpgsqlTypes.NpgsqlDbType.Smallint);
+      txImporter.Write(submittedAt, NpgsqlTypes.NpgsqlDbType.Timestamp);
+      txImporter.Write((object)policyQuoteId ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bigint);
+      txImporter.Write(okToMine, NpgsqlTypes.NpgsqlDbType.Boolean);
+      txImporter.Write(setPolicyQuote, NpgsqlTypes.NpgsqlDbType.Boolean);
     }
 
     public async Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors)
@@ -231,7 +236,7 @@ FROM generate_series(1, @transactionsCount)
       string cmdTempTable = @"
 CREATE TEMPORARY TABLE TxTemp (
 		txInternalId    BIGINT			NOT NULL,
-		txExternalId    BYTEA			NOT NULL,
+		txExternalId    BYTEA,
 		txPayload			  BYTEA,
 		receivedAt			TIMESTAMP,
 		callbackUrl			VARCHAR(1024),    
@@ -243,26 +248,31 @@ CREATE TEMPORARY TABLE TxTemp (
 		n					      BIGINT,
 		prevTxId			  BYTEA,
 		prev_n				  BIGINT,
-    unconfirmedAncestor BOOLEAN
+    unconfirmedAncestor BOOLEAN,
+    txstatus SMALLINT,
+    submittedAt TIMESTAMP,
+    policyQuoteId BIGINT,
+    okToMine BOOLEAN,
+    setPolicyQuote BOOLEAN
 ) ON COMMIT DROP;
 ";
       await transaction.Connection.ExecuteAsync(cmdTempTable);
 
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, 
-                                                                                      merkleProof, merkleFormat, dsCheck, n, prevTxId, prev_n, unconfirmedAncestor) FROM STDIN (FORMAT BINARY)"))
+                                                                                      merkleProof, merkleFormat, dsCheck, n, prevTxId, prev_n, unconfirmedAncestor, txstatus, submittedAt, policyQuoteId, okToMine, setPolicyQuote) FROM STDIN (FORMAT BINARY)"))
       {
         for (int txIndex = 0; txIndex < transactions.Count; txIndex++)
         {
           var tx = transactions[txIndex];
-          var txInternalId = internalIds[txIndex];
+          var txInternalId = tx.UpdateTx ? tx.TxInternalId : internalIds[txIndex];
           AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
-                          tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
-          if (tx.DSCheck || areUnconfirmedAncestors)
+                          tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors, tx.TxStatus, tx.SubmittedAt, tx.PolicyQuoteId, tx.OkToMine, tx.SetPolicyQuote);
+          if (tx.TxStatus >= TxStatus.Mempool && (tx.DSCheck || areUnconfirmedAncestors))
           {
             int n = 0;
             foreach (var txIn in tx.TxIn)
             {
-              AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
+              AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false, tx.TxStatus, tx.SubmittedAt, null, false, false);
               CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
               n++;
             }
@@ -274,8 +284,8 @@ CREATE TEMPORARY TABLE TxTemp (
 
 
       string cmdText = @"
-INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor)
-SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor
+INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
+SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote
 FROM TxTemp 
 WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId) "
 ;
@@ -320,8 +330,8 @@ WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND T
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
-INSERT INTO Tx(txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor)
-VALUES (@txExternalId, @txPayload, @receivedAt, @callbackUrl, @callbackToken, @callbackEncryption, @merkleProof, @merkleFormat, @dsCheck, @unconfirmedAncestor)
+INSERT INTO Tx(txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
+VALUES (@txExternalId, @txPayload, @receivedAt, @callbackUrl, @callbackToken, @callbackEncryption, @merkleProof, @merkleFormat, @dsCheck, @unconfirmedAncestor, @submittedAt, @txstatus, @policyQuoteId, @okToMine, @setPolicyQuote)
 ON CONFLICT (txExternalId) DO NOTHING
 RETURNING txInternalId;
 ";
@@ -336,7 +346,12 @@ RETURNING txInternalId;
         merkleProof = tx.MerkleProof,
         merkleFormat = tx.MerkleFormat,
         dsCheck = tx.DSCheck,
-        unconfirmedAncestor = isUnconfirmedAncestor
+        unconfirmedAncestor = isUnconfirmedAncestor,
+        txstatus = tx.TxStatus,
+        submittedAt = tx.SubmittedAt,
+        policyQuoteId = tx.PolicyQuoteId,
+        okToMine = tx.OkToMine,
+        setPolicyQuote = tx.SetPolicyQuote
       });
 
       if (txInternalId > 0 && tx.DSCheck)
@@ -369,7 +384,7 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
 
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxBlock (txInternalId, blockInternalId) FROM STDIN (FORMAT BINARY)"))
       {
-        foreach(var txId in txInternalIds)
+        foreach (var txId in txInternalIds)
         {
           txImporter.StartRow();
 
@@ -409,7 +424,7 @@ INNER JOIN Tx ON t.txinternalid = tx.txinternalid
 WHERE t.DsTxPayload IS NULL
   AND Tx.UnconfirmedAncestor = @unconfirmedAncestors;
 ";
-      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText, new { unconfirmedAncestors } );
+      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText, new { unconfirmedAncestors });
     }
 
     public async Task InsertBlockDoubleSpendForAncestorAsync(byte[] ancestorTxId)
@@ -503,7 +518,7 @@ OFFSET @skip ROWS
 FETCH NEXT @fetch ROWS ONLY;
 ";
 
-      return await connection.QueryAsync<NotificationData>(cmdText, new { skip, fetch} );
+      return await connection.QueryAsync<NotificationData>(cmdText, new { skip, fetch });
     }
 
     public async Task<NotificationData> GetTxToSendMerkleProofNotificationAsync(byte[] txId)
@@ -568,10 +583,10 @@ WHERE NOT EXISTS
     {
       var distinctItems = new HashSet<TxWithInput>(txWithInputs.Distinct().ToArray());
       HashSet<Tx> txSet = new(distinctItems.Select(x =>
-                                                               {
-                                                                  return new Tx(x);
-                                                               }), new TxComparer());
-      txWithInputs.ExceptWith(txSet.Select(x => new TxWithInput { TxExternalId = x.TxExternalId, N = x.TxIn.Single().N}));
+      {
+        return new Tx(x);
+      }), new TxComparer());
+      txWithInputs.ExceptWith(txSet.Select(x => new TxWithInput { TxExternalId = x.TxExternalId, N = x.TxIn.Single().N }));
       foreach (var tx in txWithInputs)
       {
         if (txSet.TryGetValue(new Tx(tx), out var txFromSet))
@@ -582,7 +597,7 @@ WHERE NOT EXISTS
       return txSet.ToList();
 
     }
-       
+
     public async Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds, bool checkDSAttempt)
     {
       using var connection = await GetDbConnectionAsync();
@@ -670,7 +685,7 @@ WHERE tx.txexternalid = @txId
 LIMIT 1;
 ";
 
-      var foundTx = await connection.ExecuteScalarAsync<bool>(cmdText, new { txId } );
+      var foundTx = await connection.ExecuteScalarAsync<bool>(cmdText, new { txId });
       return foundTx;
     }
 
@@ -714,7 +729,7 @@ LIMIT @fetch OFFSET @skip
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = "SELECT dsTxPayload";
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           cmdText += " FROM TxBlockDoublespend ";
@@ -735,7 +750,7 @@ LIMIT @fetch OFFSET @skip
 
     public async Task SetNotificationSendDateAsync(string notificationType, long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
     {
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           await SetBlockDoubleSpendSendDateAsync(txInternalId, blockInternalId, dsTxId, sendDate);
@@ -778,7 +793,8 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
     }
 
 
-    public async Task<long?> GetTransactionInternalIdAsync(byte[] txId) {
+    public async Task<long?> GetTransactionInternalIdAsync(byte[] txId)
+    {
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
@@ -840,7 +856,7 @@ WHERE blockInternalId=@blockInternalId;
 
       string cmdText = "UPDATE ";
 
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           cmdText += "TxBlockDoublespend ";
@@ -884,7 +900,7 @@ SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=0
 WHERE sentMerkleproofAt IS NULL;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { errorMessage="Unprocessed notification from last run", lastErrorAt = clock.UtcNow() });
+      await connection.ExecuteAsync(cmdText, new { errorMessage = "Unprocessed notification from last run", lastErrorAt = clock.UtcNow() });
       await transaction.CommitAsync();
     }
 
@@ -907,7 +923,7 @@ WHERE sentMerkleproofAt IS NULL;
     {
       PrevTxOutput foundPrevOut;
       lock (prevTxOutputCache)
-      {        
+      {
         prevTxOutputCache.Cache.TryGetValue($"{HelperTools.ByteToHexString(prevOutTxId)}_{prevOutN}", out foundPrevOut);
       }
       if (foundPrevOut == null)
@@ -979,7 +995,7 @@ AND txinput.n = @prevOutN;
 
       await transaction.CommitAsync();
 
-      return new (blocks, txs);
+      return new(blocks, txs);
     }
 
     public async Task<NotificationData[]> GetNotificationsForTestsAsync()

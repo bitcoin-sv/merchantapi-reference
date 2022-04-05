@@ -6,12 +6,13 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
   public class Tx
   {
-    public Tx() 
+    public Tx()
     {
       TxIn = new List<TxInput>();
     }
@@ -33,7 +34,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public uint256 TxExternalId { get; set; }
 
-    public byte[] TxExternalIdBytes 
+    public byte[] TxExternalIdBytes
     {
       get => TxExternalId.ToBytes();
       set
@@ -57,6 +58,32 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public string MerkleFormat { get; set; }
 
     public bool DSCheck { get; set; }
+
+    public DateTime SubmittedAt { get; set; }
+
+    public int TxStatus { get; set; }
+
+    public bool UpdateTx { get; set; }
+
+    public long? PolicyQuoteId { get; set; }
+
+    public bool OkToMine { get; set; }
+
+    public bool SetPolicyQuote { get; set; }
+
+    public string Identity { get; set; }
+
+    public string IdentityProvider { get; set; }
+
+    public string Policies { get; set; }
+
+    public Dictionary<string, object> PoliciesDict
+    {
+      get
+      {
+        return Policies != null ? JsonSerializer.Deserialize<Dictionary<string, object>>(Policies) : null;
+      }
+    }
 
     public IList<TxInput> TxIn { get; set; }
 
