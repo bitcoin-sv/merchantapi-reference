@@ -29,7 +29,7 @@ using CsvHelper.Configuration;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using Npgsql;
 using MerchantAPI.Common.Tasks;
-using Dapper;
+using System.Diagnostics;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
@@ -602,14 +602,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     static async Task CleanUpTxHandler(string mapiDBConnectionString)
     {
-      var watch = System.Diagnostics.Stopwatch.StartNew();
+      var watch = Stopwatch.StartNew();
       using var connection = new NpgsqlConnection(mapiDBConnectionString);
       RetryUtils.Exec(() => connection.Open());
 
-      (int blocks, long txs) cleanUpData = await TxRepositoryPostgres.CleanUpTxAsync(connection, DateTime.MaxValue);
-      
+      (int blocks, long txs, int mempoolTxs) = await TxRepositoryPostgres.CleanUpTxAsync(connection, DateTime.MaxValue, DateTime.MaxValue, null);
+
       watch.Stop();
-      Console.WriteLine($"CleanUpTxHandler: deleted {cleanUpData.blocks} blocks and {cleanUpData.txs} txs, elapsed {watch.Elapsed}");
+      Console.WriteLine($"CleanUpTxHandler: deleted {blocks} blocks, {txs} txs, {mempoolTxs} mempool txs. Elapsed: {watch.Elapsed}.");
     }
 
     static async Task<int> Main(string[] args)

@@ -57,14 +57,18 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<Block> GetBlockAsync(byte[] blockHash);
 
     Task<bool> TransactionExistsAsync(byte[] txId);
-    
+
+    Task<int> GetTransactionStatusAsync(byte[] txId);
+
+    Task UpdateTxStatus(IList<long> txInternalIds, int txstatus);
+
     Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch);
 
     Task<byte[]> GetDoublespendTxPayloadAsync(string notificationType, long txInternalId);
 
     Task<long?> GetTransactionInternalIdAsync(byte[] txId);
 
-    Task<(int blocks, long txs)> CleanUpTxAsync(DateTime fromDate);
+    Task<(int blocks, long txs, int mempoolTxs)> CleanUpTxAsync(DateTime fromDate, DateTime mempoolExpiredDate);
 
     Task<PrevTxOutput> GetPrevOutAsync(byte[] prevOutTxId, long prevOutN);
 

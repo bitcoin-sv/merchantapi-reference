@@ -25,8 +25,6 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using NBitcoin.Altcoins;
 using MerchantAPI.Common.Authentication;
-using System.IO;
-using NBitcoin.Crypto;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -194,7 +192,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public Tx CreateNewTx(string txHash, string txHex, bool merkleProof, string merkleFormat, bool dsCheck)
+    public static Tx CreateNewTx(string txHash, string txHex, bool merkleProof, string merkleFormat, bool dsCheck, int txstatus = TxStatus.Mempool, long policyQuoteId = 1, bool setPolicyQuote = true)
     {
       var tx = new Tx
       {
@@ -203,7 +201,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
         MerkleFormat = merkleFormat,
         ReceivedAt = MockedClock.UtcNow,
         TxExternalId = new uint256(txHash),
-        TxPayload = HelperTools.HexStringToByteArray(txHex)
+        TxPayload = HelperTools.HexStringToByteArray(txHex),
+        TxStatus = txstatus,
+        SubmittedAt = MockedClock.UtcNow,
+        PolicyQuoteId = txstatus == TxStatus.UnknownOldTx ? null : policyQuoteId,
+        OkToMine = txstatus != TxStatus.UnknownOldTx,
+        SetPolicyQuote = txstatus != TxStatus.UnknownOldTx && setPolicyQuote
+        // on db upgrade - tx have UnknownOldTx status, policyQuoteId and okToMine are null, setPolicyQuote = false
       };
       var transaction = HelperTools.ParseBytesToTransaction(tx.TxPayload);
       tx.TxIn = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput

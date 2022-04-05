@@ -23,6 +23,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   {
     readonly int cancellationTimeout = 30000; // 30 seconds
     int cleanUpTxAfterDays;
+    int cleanUpTxAfterMempoolExpiredDays;
     CleanUpTxWithPauseHandlerForTest cleanUpTxService;
 
     [TestInitialize]
@@ -32,6 +33,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       cleanUpTxService = server.Services.GetRequiredService<CleanUpTxWithPauseHandlerForTest>();
       cleanUpTxAfterDays = AppSettings.CleanUpTxAfterDays.Value;
+      cleanUpTxAfterMempoolExpiredDays = AppSettings.CleanUpTxAfterMempoolExpiredDays.Value;
     }
 
     [TestCleanup]
@@ -168,23 +170,48 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
-
+    [DataRow(TxStatus.NodeRejected)]
+    [DataRow(TxStatus.SentToNode)]
+    [DataRow(TxStatus.UnknownOldTx)]
+    [DataRow(TxStatus.Mempool)]
+    [DataRow(TxStatus.Blockchain)]
+    [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
     [TestMethod]
-    public async Task TxWithoutBlockCheckCleanUp()
+    public async Task TxWithoutBlockCheckCleanUp(int txStatus)
     {
       //arrange
       cleanUpTxService.Pause();
       var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
-      (List<Tx> txList, _) = await CreateAndInsertTxWithMempoolAsync(addBlocks: false);
+
+      var txList = await CreateAndInsertTxAsync(false, false, txStatus: txStatus);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterDays)))
       {
         await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
 
-        // check if everything in db was cleared
-        await CheckTxListNotPresentInDbAsync(txList);
+        if (txStatus == TxStatus.Mempool)
+        {
+          await CheckTxListPresentInDbAsync(txList, false);
+        }
+        else
+        {
+          await CheckTxListNotPresentInDbAsync(txList);
+        }
+
+        cleanUpTxService.Pause();
       }
 
+      // we clean up txs with mempool status later
+      if (txStatus == TxStatus.Mempool)
+      {
+        using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))
+        {
+          await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
+
+          // check if everything in db was cleared
+          await CheckTxListNotPresentInDbAsync(txList);
+        }
+      }
     }
 
     [TestMethod]
@@ -266,7 +293,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-
     [TestMethod]
     public async Task DoubleSpendMempoolCheckCleanUp()
     {
@@ -279,8 +305,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
       List<byte[]> dsTxId = new()
       {
-          doubleSpendTx.GetHash().ToBytes()
-        };
+        doubleSpendTx.GetHash().ToBytes()
+      };
       var txsWithDSCheck = (await TxRepositoryPostgres.GetTxsForDSCheckAsync(dsTxId, true)).ToArray();
 
       var txPayload = HelperTools.HexStringToByteArray(tx2Hex);
@@ -290,6 +316,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           dsTx.TxInternalId,
           dsTx.TxExternalIdBytes,
           txPayload);
+        Assert.AreEqual(TxStatus.Blockchain, await TxRepositoryPostgres.GetTransactionStatusAsync(dsTx.TxExternalIdBytes));
       }
       var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToList();
       Assert.AreEqual(1, doubleSpends.Count);
@@ -310,8 +337,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
         await CheckBlockNotPresentInDb(firstBlockHash);
         await CheckTxListNotPresentInDbAsync(txList);
       }
-
     }
-
   }
 }

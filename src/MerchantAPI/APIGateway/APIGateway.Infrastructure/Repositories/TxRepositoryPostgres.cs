@@ -13,6 +13,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NBitcoin;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -689,6 +690,35 @@ LIMIT 1;
       return foundTx;
     }
 
+    public async Task<int> GetTransactionStatusAsync(byte[] txId)
+    {
+      using var connection = await GetDbConnectionAsync();
+
+      string cmdText = @"
+SELECT txstatus
+FROM tx
+WHERE tx.txexternalid = @txId
+LIMIT 1;
+";
+
+      var txstatus = await connection.ExecuteScalarAsync<int?>(cmdText, new { txId });
+      return txstatus == null ? TxStatus.NotPresentInDb : txstatus.Value;
+    }
+
+    public async Task UpdateTxStatus(IList<long> txInternalIds, int txstatus)
+    {
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+UPDATE Tx SET txStatus=@txstatus
+WHERE txInternalId = ANY(@txInternalIds);
+";
+
+      await connection.ExecuteAsync(cmdText, new { txstatus, txInternalIds });
+      await transaction.CommitAsync();
+    }
+
     public async Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch)
     {
       using var connection = await GetDbConnectionAsync();
@@ -962,12 +992,13 @@ AND txinput.n = @prevOutN;
       CachePrevOut(new PrevTxOutput() { TxInternalId = prevOutInternalTxId, TxExternalId = prevOutTxId, N = prevOutN });
     }
 
-    public async Task<(int blocks, long txs)> CleanUpTxAsync(DateTime lastUpdateBefore)
+    public async Task<(int blocks, long txs, int mempoolTxs)> CleanUpTxAsync(DateTime lastUpdateBefore, DateTime mempoolExpiredDate)
     {
       using var connection = await GetDbConnectionAsync();
-      return await CleanUpTxAsync(connection, lastUpdateBefore);
+      return await CleanUpTxAsync(connection, lastUpdateBefore, mempoolExpiredDate, logger);
     }
-    public static async Task<(int, long)> CleanUpTxAsync(NpgsqlConnection connection, DateTime lastUpdateBefore)
+
+    public static async Task<(int blocks, long txs, int mempoolTxs)> CleanUpTxAsync(NpgsqlConnection connection, DateTime lastUpdateBefore, DateTime mempoolExpiredDate, ILogger<TxRepositoryPostgres> logger = null)
     {
       using var transaction = await connection.BeginTransactionAsync();
 
@@ -984,18 +1015,33 @@ AND txinput.n = @prevOutN;
         deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
         @"WITH deleted AS (
           DELETE FROM Tx
-          WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore limit 100000))
+          WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore AND txstatus <> @txstatus limit 100000))
           RETURNING txInternalId
         )
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Mempool });
 
         txs += deletedTxs;
 
       } while (deletedTxs == 100000);
 
+      var mempoolTxs = (await transaction.Connection.QueryAsync<byte[]>(
+         @"WITH deleted AS 
+          (DELETE FROM Tx
+          WHERE receivedAt < @mempoolExpiredDate AND txstatus = @txstatus RETURNING txExternalId)
+          SELECT * FROM deleted;",
+        new { lastUpdateBefore, mempoolExpiredDate, txstatus = TxStatus.Mempool })).ToArray();
+
+      // deleted txs with mempool status should be exceptional
+      // (with stress program we should avoid logging, since there can be too much of them)
+      if (logger != null && mempoolTxs.Length > 0)
+      {
+        logger.LogInformation(
+  $"CleanUpTxAsync: deleted { mempoolTxs.Length } mempool transactions: { string.Join("; ", mempoolTxs.Take(1000).Select(x => new uint256(x).ToString()))}");
+      }
+
       await transaction.CommitAsync();
 
-      return new(blocks, txs);
+      return new(blocks, txs, mempoolTxs.Length);
     }
 
     public async Task<NotificationData[]> GetNotificationsForTestsAsync()

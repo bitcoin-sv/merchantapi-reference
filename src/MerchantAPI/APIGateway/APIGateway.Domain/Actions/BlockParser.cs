@@ -95,7 +95,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       _ = newBlockAvailableInDBSubscription.ProcessEventsAsync(stoppingToken, logger, ParseBlockForTransactionsAsync);
     }
 
-    
+
     private async Task<int> InsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
     {
       var txsToCheck = await txRepository.GetTxsNotInCurrentBlockChainAsync(blockInternalId);
@@ -108,14 +108,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       foreach (var transactionForMerkleProofCheck in txsToLinkToBlock.Where(x => x.MerkleProof).ToArray())
       {
         var notificationEvent = new NewNotificationEvent()
-                                {
-                                  CreationDate = clock.UtcNow(),
-                                  NotificationType = CallbackReason.MerkleProof,
-                                  TransactionId = transactionForMerkleProofCheck.TxExternalIdBytes
-                                };
+        {
+          CreationDate = clock.UtcNow(),
+          NotificationType = CallbackReason.MerkleProof,
+          TransactionId = transactionForMerkleProofCheck.TxExternalIdBytes
+        };
         eventBus.Publish(notificationEvent);
       }
+      await txRepository.UpdateTxStatus(txsToLinkToBlock.Select(x => x.TxInternalId).ToArray(), TxStatus.Blockchain);
       await txRepository.SetBlockParsedForMerkleDateAsync(blockInternalId);
+
       return txsToLinkToBlock.Length;
     }
 
