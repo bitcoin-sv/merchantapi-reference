@@ -53,6 +53,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
       string cmdText = @"
+UPDATE Block SET onActiveChain=false WHERE blockHeight=@blockHeight AND blockhash <> @blockHash;
 INSERT INTO Block (blockTime, blockHash, prevBlockHash, blockHeight, onActiveChain)
 VALUES (@blockTime, @blockHash, @prevBlockHash, @blockHeight, @onActiveChain)
 ON CONFLICT (blockHash) DO NOTHING
@@ -70,6 +71,28 @@ RETURNING blockInternalId;
       await transaction.CommitAsync();
 
       return blockInternalId;
+    }
+
+    public async Task<bool> SetOnActiveChainBlockAsync(long blockHeight, byte[] blockHash)
+    {
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+WITH updated as
+(UPDATE Block SET onActiveChain=false WHERE blockHeight=@blockHeight AND blockhash <> @blockHash RETURNING blockinternalid),
+ updated2 as
+(UPDATE Block SET onActiveChain=true WHERE blockHeight=@blockHeight AND blockhash= @blockHash AND onActiveChain=false RETURNING blockinternalid)
+SELECT 1 from updated LEFT JOIN updated2 on updated.blockinternalid = updated2.blockinternalid
+";
+
+      var updated = await connection.ExecuteScalarAsync<int?>(cmdText, new
+      {
+        blockHeight,
+        blockHash
+      });
+      await transaction.CommitAsync();
+      return updated == 1;
     }
 
     public async Task<int> InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload)
@@ -800,92 +823,6 @@ LIMIT 1;
 
       var txstatus = await connection.ExecuteScalarAsync<int?>(cmdText, new { txId });
       return txstatus == null ? TxStatus.NotPresentInDb : txstatus.Value;
-    }
-
-    public async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs)
-    {
-      using var connection = await GetDbConnectionAsync();
-      using var transaction = await connection.BeginTransactionAsync();
-
-      string cmdTempTable = @"
-      CREATE TEMPORARY TABLE MempoolTx (
-          txExternalId    BYTEA   NOT NULL
-      ) ON COMMIT DROP;
-      ";
-      await transaction.Connection.ExecuteAsync(cmdTempTable);
-
-      using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY MempoolTx (txExternalId) FROM STDIN (FORMAT BINARY)"))
-      {
-        foreach (var tx in mempoolTxs)
-        {
-          txImporter.StartRow();
-          txImporter.Write((new uint256(tx)).ToBytes(), NpgsqlTypes.NpgsqlDbType.Bytea);
-        }
-        await txImporter.CompleteAsync();
-      }
-
-      await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
-
-      string cmdText = @"
-WITH resubmitTxs as
-((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
-FROM tx
-JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
-WHERE txstatus = @txstatusmempool)
-UNION ALL
-(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
- FROM Tx
- INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
- INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
- JOIN FeeQuote feeQuote ON feeQuote.id = policyQuoteId
- WHERE txstatus > @txstatus
- AND Block.OnActiveChain = false))
-SELECT * from resubmitTxs
-LEFT JOIN MempoolTx m ON resubmitTxs.TxExternalIdBytes = m.txExternalId
-WHERE m.txExternalId IS NULL
-ORDER BY resubmitTxs.txInternalId
-";
-
-//      string cmdText = @"
-//WITH mempoolTxsDb as
-//(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policy
-//FROM tx
-//JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
-//LEFT JOIN MempoolTx m ON tx.txExternalId = m.txExternalId
-//WHERE txstatus = @txstatusmempool
-//AND m.txExternalId IS NULL),
-//notOnactiveChain as
-//(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policy
-// FROM Tx
-//JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
-// LEFT JOIN MempoolTx mt ON tx.txExternalId = mt.txExternalId
-// INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
-// INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
-// WHERE txstatus = @txstatus
-// AND Block.OnActiveChain = false
-// AND mt.txExternalId IS NULL)
-//SELECT * from mempoolTxsDb
-//LEFT JOIN notOnactiveChain on mempoolTxsDb.txInternalId = notOnactiveChain.txInternalId
-//ORDER BY mempoolTxsDb.txInternalId;
-//";
-      //      string cmdText = @"
-      //SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, feequote.policies, tx.okToMine, tx.setpolicyquote
-      //FROM tx
-      //JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
-      //LEFT JOIN MempoolTxs m ON tx.txExternalId = m.txExternalId
-      //WHERE txstatus = @txstatus
-      //AND submittedAt < @mempoolTxsResubmittedAt
-      //AND m.txExternalId IS NULL
-      //ORDER BY txInternalId;
-      //";
-
-      var txs = await connection.QueryAsync<Tx>(cmdText, new { txstatusmempool = TxStatus.Mempool, txstatus = TxStatus.MissingInputsMaxRetriesReached });
-
-      await transaction.CommitAsync();
-
-      return txs.ToArray();
-
-
     }
 
     public async Task UpdateTxStatus(IList<long> txInternalIds, int txstatus)

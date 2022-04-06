@@ -214,7 +214,7 @@ namespace MerchantAPI.APIGateway.Rest
     {
       if (nodesAccessible)
       {
-        await blockParser.InitializeDB();
+        await blockParser.InitializeDBAsync();
       }
     }
 

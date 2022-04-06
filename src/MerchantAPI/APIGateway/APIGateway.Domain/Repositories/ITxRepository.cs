@@ -14,6 +14,8 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<long?> InsertOrUpdateBlockAsync(Block block);
 
+    Task<bool> SetOnActiveChainBlockAsync(long blockHeight, byte[] blockHash);
+
     Task InsertTxBlockAsync(IList<long> txInternalId, long blockInternalId);
 
     Task CheckAndInsertBlockDoubleSpendAsync(IEnumerable<TxWithInput> txWithInputs, long deltaBlockHeight, long blockInternalId);
@@ -59,8 +61,6 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<Tx> GetTransactionAsync(byte[] txId);
 
     Task<int> GetTransactionStatusAsync(byte[] txId);
-
-    Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs);
 
     Task UpdateTxStatus(IList<long> txInternalIds, int txstatus);
 

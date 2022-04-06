@@ -52,7 +52,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         return Conflict(problemDetail);
       }
       // if this node is first being added on empty DB it will insert bestblockhash
-      await blockParser.InitializeDB();
+      await blockParser.InitializeDBAsync();
 
       return CreatedAtAction(nameof(Get),
         new { id = created.ToExternalId() },

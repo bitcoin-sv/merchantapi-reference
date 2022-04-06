@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -59,6 +60,40 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(doubleSpendTx.GetHash(), tx2.GetHash());
     }
 
+    private async Task CheckOnActiveChain(uint256[] blockHashes, bool expectedOnActiveChain)
+    {
+      foreach (var blockHash in blockHashes)
+      {
+        var blockInDb = await TxRepositoryPostgres.GetBlockAsync(blockHash.ToBytes());
+        Assert.AreEqual(expectedOnActiveChain, blockInDb.OnActiveChain);
+      }
+    }
+
+    private uint256[] CreateForkAsync(string txHex, Block nextBlock, int chainLength, int firstBlockHeight = 1, long amount = 50)
+    {
+      var pubKey = new Key().PubKey;
+      int blockCount = 0;
+      List<uint256> forkBlockHashes = new();
+      // Setup 2nd chain 'chainLength' blocks long
+      do
+      {
+        var tx = Transaction.Parse(txHex, Network.Main);
+        var prevBlockHash = nextBlock.GetHash();
+        nextBlock = nextBlock.CreateNextBlockWithCoinbase(pubKey, new Money(amount, MoneyUnit.MilliBTC), new ConsensusFactory());
+        nextBlock.Header.HashPrevBlock = prevBlockHash;
+        nextBlock.AddTransaction(tx);
+        nextBlock.Check();
+        rpcClientFactoryMock.AddKnownBlock(blockCount + firstBlockHeight, nextBlock.ToBytes());
+
+        forkBlockHashes.Add(nextBlock.GetHash());
+        blockCount++;
+      }
+      while (blockCount < chainLength);
+      //var forkLastBlockhash = await rpcClient.GetBestBlockHashAsync();
+      PublishBlockHashToEventBus(forkBlockHashes.Last().ToString());
+
+      return forkBlockHashes.ToArray();
+    }
 
     [TestMethod]
     public async Task TooLongForkCheck()
@@ -71,41 +106,92 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       long blockCount;
       string blockHash;
+      List<uint256> blockHashes = new();
       do
       {
         var tx = Transaction.Parse(Tx1Hex, Network.Main);
         (blockCount, blockHash) = await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
+        blockHashes.Add(new uint256(blockHash));
       }
       while (blockCount < 20);
       PublishBlockHashToEventBus(blockHash);
 
-      uint256 forkBlockHeight8Hash = uint256.Zero;
-      uint256 forkBlockHeight9Hash = uint256.Zero;
-      var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(1), Network.Main);
-      var pubKey = new Key().PubKey;
-      blockCount = 1;
-      // Setup 2nd chain 30 blocks long that will not be downloaded completely (blockHeight=9 will be saved, blockheight=8 must not be saved)
-      do
-      {
-        var tx = Transaction.Parse(Tx2Hex, Network.Main);
-        var prevBlockHash = nextBlock.GetHash();
-        nextBlock = nextBlock.CreateNextBlockWithCoinbase(pubKey, new Money(50, MoneyUnit.MilliBTC), new ConsensusFactory());
-        nextBlock.Header.HashPrevBlock = prevBlockHash;
-        nextBlock.AddTransaction(tx);
-        nextBlock.Check();
-        rpcClientFactoryMock.AddKnownBlock(blockCount, nextBlock.ToBytes());
+      var blockInDb = await TxRepositoryPostgres.GetBlockAsync(new uint256(blockHash).ToBytes());
+      Assert.AreEqual(20, blockInDb.BlockHeight);
+      await CheckOnActiveChain(blockHashes.ToArray(), true);
 
-        if (blockCount == 9) forkBlockHeight9Hash = nextBlock.GetHash();
-        if (blockCount == 8) forkBlockHeight8Hash = nextBlock.GetHash();
-        blockCount++;
-      }
-      while (blockCount < 30);
-      PublishBlockHashToEventBus(await rpcClient.GetBestBlockHashAsync());
+      // Setup 2nd chain 30 blocks long that will not be downloaded completely
+      // (blockHeight=10 will be saved, blockheight=9 must not be saved)
+      int splitHeight = 1;
+      var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(splitHeight), Network.Main);
+      uint256[] forkBlockHashes = CreateForkAsync(Tx2Hex, nextBlock, 30);
+      blockInDb = await TxRepositoryPostgres.GetBlockAsync(forkBlockHashes.Last().ToBytes());
+      Assert.AreEqual(30, blockInDb.BlockHeight);
 
-      Assert.IsNotNull(await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight9Hash.ToBytes()));
-      Assert.IsNull(await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight8Hash.ToBytes()));
+      int firstForkBlockSaved = 9;
+      uint256 forkBlockHeight10Hash = forkBlockHashes[firstForkBlockSaved];
+      blockInDb = await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight10Hash.ToBytes());
+      Assert.IsNotNull(blockInDb);
+      Assert.AreEqual(10, blockInDb.BlockHeight);
+      uint256 forkBlockHeight9Hash = forkBlockHashes[firstForkBlockSaved - 1];
+      Assert.IsNull(await TxRepositoryPostgres.GetBlockAsync(forkBlockHeight9Hash.ToBytes()));
+
+      await CheckOnActiveChain(forkBlockHashes.Skip(firstForkBlockSaved).ToArray(), true);
+      // blocks stay with onActiveChain = true because of MaxBlockChainLengthForFork
+      await CheckOnActiveChain(blockHashes.Take(firstForkBlockSaved).ToArray(), true);
+      await CheckOnActiveChain(blockHashes.Skip(firstForkBlockSaved).ToArray(), false);
     }
 
+    [TestMethod]
+    public async Task DoubleReorgCheck()
+    {
+      // block 0
+      // blockHashes: blocks with height 1 and 2
+      // forkBlockHashes - fork from block 1: blocks 1A, 2A, 3A
+      // forkBlockHashes - fork from block 2: blocks 1, 2, 3B, 4B
+      _ = await CreateAndInsertTxAsync(false, true, 3);
+
+      var node = NodeRepository.GetNodes().First();
+      var rpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+
+      long blockCount;
+      string blockHash;
+      List<uint256> blockHashes = new();
+      do
+      {
+        var tx = Transaction.Parse(Tx1Hex, Network.Main);
+        (blockCount, blockHash) = await CreateAndPublishNewBlockAsync(rpcClient, null, tx, true);
+        blockHashes.Add(new uint256(blockHash));
+      }
+      while (blockCount < 2);
+      PublishBlockHashToEventBus(blockHash);
+
+      var blockInDb = await TxRepositoryPostgres.GetBlockAsync(new uint256(blockHash).ToBytes());
+      Assert.AreEqual(2, blockInDb.BlockHeight);
+      await CheckOnActiveChain(blockHashes.ToArray(), true);
+      var nextBlockOrigin = Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(2), Network.Main);
+
+      int splitHeight = 1;
+      var nextBlock = Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(splitHeight), Network.Main);
+      uint256[] forkBlockHashes = CreateForkAsync(Tx2Hex, nextBlock, 3, firstBlockHeight: splitHeight + 1, 30);
+
+      blockInDb = await TxRepositoryPostgres.GetBestBlockAsync();
+      Assert.AreEqual(4, blockInDb.BlockHeight); // splitHeight(1) + 3 = 4
+      await CheckOnActiveChain(forkBlockHashes.ToArray(), true);
+      await CheckOnActiveChain(blockHashes.Take(splitHeight).ToArray(), true);
+      await CheckOnActiveChain(blockHashes.Skip(splitHeight).ToArray(), false);
+
+      uint256[] forkOriginBlockHashes = CreateForkAsync(Tx3Hex, nextBlockOrigin, 3, firstBlockHeight: 3);
+      // add again original two blocks to rpcClientFactoryMock
+      rpcClientFactoryMock.AddKnownBlock(splitHeight, nextBlock.ToBytes());
+      rpcClientFactoryMock.AddKnownBlock(2, nextBlockOrigin.ToBytes());
+
+      blockInDb = await TxRepositoryPostgres.GetBestBlockAsync();
+      Assert.AreEqual(5, blockInDb.BlockHeight); // splitHeight(2) + 3 = 5
+      await CheckOnActiveChain(forkOriginBlockHashes.ToArray(), true);
+      await CheckOnActiveChain(forkBlockHashes.ToArray(), false);
+      await CheckOnActiveChain(blockHashes.ToArray(), true);
+    }
 
     [TestMethod]
     public async Task DoubleMerkleProofCheck()

@@ -136,7 +136,7 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQu
       var status = blockParser.GetBlockParserStatus();
       CheckBlockParserStatusFilled(status, 1, 1, totalTxs: 1, totalTxsFound: 0, totalDsFound: 0);
 
-      var txList = await CreateAndInsertTxAsync(false, true);
+      var txList = await CreateAndInsertTxAsync(false, true); 
       Assert.AreEqual(5, txList.Count);
 
       await InsertDoubleSpend(); // 5 txs + 1 DS (each in its own block)
@@ -223,7 +223,7 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQu
       };
 
       // insert block in DB (simulate successful NewBlockDiscoveredAsync)
-      var blockId = await TxRepositoryPostgres.InsertBlockAsync(dbBlock);
+      var blockId = await TxRepositoryPostgres.InsertOrUpdateBlockAsync(dbBlock);
       dbBlock.BlockInternalId = blockId.Value;
 
       // act
@@ -297,9 +297,9 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQu
       Assert.AreEqual(1, status.LastBlockHeight);
       Assert.AreEqual((ulong)blockBytes + firstBlockBytes, status.TotalBytes);
       Assert.AreEqual(firstBlockParseTime + status.LastBlockParseTime, status.BlocksParseTime);
-      Assert.AreEqual((firstBlockParseTime + status.LastBlockParseTime) / 2, status.AverageParseTime);
+      Assert.AreEqual( (firstBlockParseTime + status.LastBlockParseTime) / 2, status.AverageParseTime);
       Assert.IsTrue(firstBlockDownloadSpeed < status.AverageBlockDownloadSpeed);
-      Assert.AreEqual((status.TotalBytes / (double)Const.Megabyte) / status.BlocksDownloadTime.TotalSeconds, status.AverageBlockDownloadSpeed);
+      Assert.AreEqual( (status.TotalBytes / (double)Const.Megabyte) / status.BlocksDownloadTime.TotalSeconds, status.AverageBlockDownloadSpeed);
     }
   }
 }

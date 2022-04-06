@@ -50,7 +50,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       .CreateCounter($"{metricsPrefix}blockparsed_counter", "Number of blocks parsed.");
 
     static readonly Gauge blockParsingQueue = Metrics
-      .CreateGauge($"{metricsPrefix}blockparsingqueue", "Blocks in queue for pasring.");
+      .CreateGauge($"{metricsPrefix}blockparsingqueue", "Blocks in queue for parsing.");
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
@@ -58,7 +58,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     long QueueCount => newBlockAvailableInDBSubscription.QueueCount;
 
 
-    public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger, 
+    public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger,
                        IEventBus eventBus, IOptions<AppSettings> options, IClock clock)
     : base(logger, eventBus)
     {
@@ -73,7 +73,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     protected override Task ProcessMissedEvents()
     {
-      return Task.CompletedTask; 
+      return Task.CompletedTask;
     }
 
 
@@ -124,16 +124,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     private async Task<int> TransactionsDSCheckAsync(NBitcoin.Block block, long blockInternalId)
     {
       // Inputs are flattened along with transactionId so they can be checked for double spends.
-      var allTransactionInputs = block.Transactions.SelectMany(x => x.Inputs.AsIndexedInputs(), (tx, txIn) => new 
-                                                                    { 
-                                                                      TxId = tx.GetHash(Const.NBitcoinMaxArraySize).ToBytes(),
-                                                                      TxInput = txIn
-                                                                    }).Select(x => new TxWithInput
-                                                                    {
-                                                                      TxExternalIdBytes = x.TxId,
-                                                                      PrevTxId = x.TxInput.PrevOut.Hash.ToBytes(),
-                                                                      Prev_N = x.TxInput.PrevOut.N
-                                                                    });
+      var allTransactionInputs = block.Transactions.SelectMany(x => x.Inputs.AsIndexedInputs(), (tx, txIn) => new
+      {
+        TxId = tx.GetHash(Const.NBitcoinMaxArraySize).ToBytes(),
+        TxInput = txIn
+      }).Select(x => new TxWithInput
+      {
+        TxExternalIdBytes = x.TxId,
+        PrevTxId = x.TxInput.PrevOut.Hash.ToBytes(),
+        Prev_N = x.TxInput.PrevOut.N
+      });
 
       // Insert raw data and let the database queries find double spends
       await txRepository.CheckAndInsertBlockDoubleSpendAsync(allTransactionInputs, appSettings.DeltaBlockHeightForDoubleSpendCheck.Value, blockInternalId);
@@ -148,22 +148,21 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       // If any new double spend records were generated we need to update them with transaction payload
       // and trigger notification events
       var dsTxIds = await txRepository.GetDSTxWithoutPayloadAsync(false);
-      foreach(var (dsTxId, TxId) in dsTxIds)
+      foreach (var (dsTxId, TxId) in dsTxIds)
       {
         var payload = block.Transactions.Single(x => x.GetHash(Const.NBitcoinMaxArraySize) == new uint256(dsTxId)).ToBytes();
         await txRepository.UpdateDsTxPayloadAsync(dsTxId, payload);
         var notificationEvent = new NewNotificationEvent()
         {
-                                  CreationDate = clock.UtcNow(),
-                                  NotificationType = CallbackReason.DoubleSpend,
-                                  TransactionId = TxId
+          CreationDate = clock.UtcNow(),
+          NotificationType = CallbackReason.DoubleSpend,
+          TransactionId = TxId
         };
         eventBus.Publish(notificationEvent);
       }
       await txRepository.SetBlockParsedForDoubleSpendDateAsync(blockInternalId);
       return dsAncestorTxIds.Count() + dsTxIds.Count();
     }
-
 
     public async Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent e)
     {
@@ -181,26 +180,44 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var blockInDb = await txRepository.GetBlockAsync(blockHash.ToBytes());
         if (blockInDb != null)
         {
-          logger.LogDebug($"Block '{e.BlockHash}' already received and stored to DB.");
+          if (blockInDb.OnActiveChain)
+          {
+            logger.LogDebug($"Block '{e.BlockHash}' already received and stored to DB with onActiveChain.");
+            PushBlocksToEventQueue();
+          }
+          else
+          {
+            logger.LogDebug($"Block '{e.BlockHash}' already received and stored to DB, updating onActiveChain.");
+            await txRepository.SetOnActiveChainBlockAsync(blockInDb.BlockHeight.Value, blockHash.ToBytes());
+            await VerifyBlockChainAsync(new uint256(blockInDb.PrevBlockHash).ToString());
+          }
           return;
         }
 
-        logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database.");
         var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(e.BlockHash);
         var blockCount = (await rpcMultiClient.GetBestBlockchainInfoAsync()).Blocks;
 
         // If received block that is too far from the best tip, we don't save the block anymore and 
-        // stop verifying block chain
+        // stop verifying block chain, but we have to update onActiveChain of old blocks
         if (blockHeader.Height < blockCount - appSettings.MaxBlockChainLengthForFork)
         {
+          logger.LogInformation($"Block parser got a new block {e.BlockHash} that is too far from the best tip.");
+          // we expect that MaxBlockChainLengthForFork is in sync with CleanUpTxAfterDays 
+          // and big enough to catch fork (for now biggest fork was around 100 length)
+          // we could also set onActiveChain and trigger NewBlockDiscoveredAsync for every block to the min height in db
+          // (or break out before if block already is onActiveChain)
           PushBlocksToEventQueue();
           return;
         }
 
+        logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database.");
+
         //increase counter if block height is greater 
         if ((long)bestBlockHeight.Value < blockHeader.Height)
+        {
           bestBlockHeight.IncTo(blockHeader.Height);
-
+        }
+    
         var dbBlock = new Block
         {
           BlockHash = blockHash.ToBytes(),
@@ -211,7 +228,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         };
 
         // Insert block in DB and add the event to block stack for later processing
-        var blockId = await txRepository.InsertBlockAsync(dbBlock);
+        var blockId = await txRepository.InsertOrUpdateBlockAsync(dbBlock);
 
         if (blockId.HasValue)
         {
@@ -230,13 +247,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           BlockDBInternalId = dbBlock.BlockInternalId,
           BlockHeight = dbBlock.BlockHeight
         });
-        _ = VerifyBlockChain(blockHeader.Previousblockhash);
+
+        await VerifyBlockChainAsync(blockHeader.Previousblockhash);
       }
-      catch(BadRequestException ex)
+      catch (BadRequestException ex)
       {
         logger.LogError(ex.Message);
       }
-      catch(RpcException ex)
+      catch (RpcException ex)
       {
         logger.LogError(ex.Message);
       }
@@ -329,7 +347,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
     }
 
-    public async Task InitializeDB()
+    public async Task InitializeDBAsync()
     {
       var dbIsEmpty = await txRepository.GetBestBlockAsync() == null;
 
@@ -348,14 +366,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           PrevBlockHash = blockHeader.Previousblockhash == null ? uint256.Zero.ToBytes() : new uint256(blockHeader.Previousblockhash).ToBytes()
         };
 
-        await txRepository.InsertBlockAsync(dbBlock);
+        await txRepository.InsertOrUpdateBlockAsync(dbBlock);
       }
     }
 
     // On each inserted block we check if we have previous block hash
     // If previous block hash doesn't exist it means we either have few missing blocks or we got
     // a block from a fork and we need to fill the gap with missing blocks
-    private async Task VerifyBlockChain(string previousBlockHash)
+    private async Task VerifyBlockChainAsync(string previousBlockHash)
     {
       if (string.IsNullOrEmpty(previousBlockHash) || uint256.Zero.ToString() == previousBlockHash)
       {
@@ -365,7 +383,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
 
       var block = await txRepository.GetBlockAsync(new uint256(previousBlockHash).ToBytes());
-      if (block == null)
+      if (block == null || !block.OnActiveChain)
       {
         await NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent()
         {

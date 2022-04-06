@@ -12,7 +12,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     /// <summary>
     /// Check if database is empty and insert first block
     /// </summary>
-    Task InitializeDB();
+    Task InitializeDBAsync();
 
     Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent e);
 
