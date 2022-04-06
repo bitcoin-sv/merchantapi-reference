@@ -58,7 +58,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
     { 
       get 
       {
-        return $"{ averageBlockDownloadSpeedValue ?? 0} Mb/s";
+        return $"{ (averageBlockDownloadSpeedValue ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture) } Mb/s";
       } 
     }
     readonly double? averageBlockDownloadSpeedValue;
