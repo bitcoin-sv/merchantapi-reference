@@ -35,10 +35,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     virtual public void TestInitialize()
     {
       base.Initialize(mockedServices: true);
-      var mockNode = new Node(0, "mockNode0", 0, "mockuserName", "mockPassword", "This is a mock node",
-        null, (int)NodeStatus.Connected, null, null);
 
-      _ = Nodes.CreateNodeAsync(mockNode).Result;
+      AddMockNode(0);
 
       var node = NodeRepository.GetNodes().First();
       RpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
@@ -68,7 +66,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         txList.Add(CreateNewTx(hashes[i], hexes[i], merkleProof, null, dsCheck, txStatus));
       }
 
-      await TxRepositoryPostgres.InsertTxsAsync(txList, false);
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
 
       return txList;
     }

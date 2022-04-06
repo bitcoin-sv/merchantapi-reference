@@ -25,6 +25,10 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using NBitcoin.Altcoins;
 using MerchantAPI.Common.Authentication;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Mime;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -113,7 +117,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
     public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
     public string DbConnectionStringDDL { get { return Configuration["ConnectionStrings:DBConnectionStringDDL"]; } }
-
     public override string GetBaseUrl()
     {
       throw new NotImplementedException();
@@ -122,6 +125,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public override void Initialize(bool mockedServices = false, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
       base.Initialize(mockedServices, overridenSettings);
+
       // setup repositories
       NodeRepository = server.Services.GetRequiredService<INodeRepository>() as NodeRepositoryPostgres;
       TxRepositoryPostgres = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryPostgres;
@@ -164,9 +168,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
-      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString);
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
+    protected void AddMockNode(int nodeNumber)
+    {
+      var mockNode = new Node(0, "mockNode" + nodeNumber, 0, "mockuserName", "mockPassword", "This is a mock node #" + nodeNumber,
+        null, (int)NodeStatus.Connected, null, null);
+
+      _ = Nodes.CreateNodeAsync(mockNode).Result;
+    }
 
     public void WaitUntilEventBusIsIdle()
     {
@@ -206,7 +217,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         SubmittedAt = MockedClock.UtcNow,
         PolicyQuoteId = txstatus == TxStatus.UnknownOldTx ? null : policyQuoteId,
         OkToMine = txstatus != TxStatus.UnknownOldTx,
-        SetPolicyQuote = txstatus != TxStatus.UnknownOldTx && setPolicyQuote
+        SetPolicyQuote = txstatus == TxStatus.UnknownOldTx ? false: setPolicyQuote
         // on db upgrade - tx have UnknownOldTx status, policyQuoteId and okToMine are null, setPolicyQuote = false
       };
       var transaction = HelperTools.ParseBytesToTransaction(tx.TxPayload);
@@ -390,19 +401,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    protected void SetPoliciesForCurrentFeeQuote(string policiesJsonString, UserAndIssuer userAndIssuer = null)
+    protected void SetPoliciesForCurrentFeeQuote(string policiesJsonString, UserAndIssuer userAndIssuer = null, bool emptyFeeQuoteRepo = true)
     {
       var feeQuote = FeeQuoteRepository.GetCurrentFeeQuoteByIdentity(userAndIssuer);
-      FeeQuoteRepositoryPostgres.EmptyRepository(DbConnectionStringDDL);
+      if (emptyFeeQuoteRepo)
+      {
+        // ensure that new feeQuote is taken immediately
+        FeeQuoteRepositoryPostgres.EmptyRepository(DbConnectionStringDDL);
+      }
 
       feeQuote.Policies = policiesJsonString;
+      feeQuote.CreatedAt = MockedClock.UtcNow;
+      feeQuote.ValidFrom = feeQuote.CreatedAt;
 
-      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(-1)))
+      if (FeeQuoteRepository.InsertFeeQuoteAsync(feeQuote).Result == null)
       {
-        if (FeeQuoteRepository.InsertFeeQuoteAsync(feeQuote).Result == null)
-        {
-          throw new Exception("Can not insert test fee quote with policies.");
-        }
+        throw new Exception("Can not insert test fee quote with policies.");
       }
     }
 
@@ -508,5 +522,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       loggerTest.LogInformation($"The following wait for event completed successfully: {description}");
     }
 
+    protected async Task AssertTxStatus(string txHash, int expectedTxStatus)
+    {
+      var txStatus = await TxRepositoryPostgres.GetTransactionStatusAsync(new uint256(txHash).ToBytes());
+      Assert.AreEqual(expectedTxStatus, txStatus);
+    }
+
+    protected StringContent GetJsonRequestContent(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "", string customCallbackUrl = "")
+    {
+      var reqContent = new StringContent(
+          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": {merkleProof.ToString().ToLower()}" +
+          $", \"merkleFormat\": \"{merkleFormat}\", \"dsCheck\": {dsCheck.ToString().ToLower()}, " +
+          $"\"callbackUrl\" : \"{ (string.IsNullOrEmpty(customCallbackUrl) ? CallbackFunctionalTests.Url : customCallbackUrl)}\"}}"
+        );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+      return reqContent;
+    }
   }
 }

@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.Test.Clock;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using System;
@@ -81,16 +82,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return (tx1.ToHex(), tx1.GetHash().ToString());
     }
 
-    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "")
+    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "", HttpStatusCode expectedHttpStatusCode = HttpStatusCode.OK)
     {
-
       // Send transaction
-      var reqContent = GetRequestContent(txHex, merkleProof, dsCheck, merkleFormat);
+      var reqContent = GetJsonRequestContent(txHex, merkleProof, dsCheck, merkleFormat);
 
       var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedHttpStatusCode);
 
-      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      return response.response?.ExtractPayload<SubmitTransactionResponseViewModel>();
     }
 
     public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = false)
@@ -119,25 +119,47 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
 
-    StringContent GetRequestContent(string txHexSingleOrMultiple, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "")
-    {
-      var reqContent = new StringContent(
-
-        merkleProof || dsCheck ?
-          $"{{ \"rawtx\": \"{txHexSingleOrMultiple}\", \"merkleProof\": {merkleProof.ToString().ToLower()}, \"merkleFormat\": \"{merkleFormat}\", \"dsCheck\": {dsCheck.ToString().ToLower()}, \"callbackUrl\" : \"{Common.Test.CallbackFunctionalTests.Url}\"}}"
-          :
-          $"{{ \"rawtx\": \"{txHexSingleOrMultiple}\" }}"
-        );
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-      return reqContent;
-    }
-
     protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId)
     {
       var response = await Get<SignedPayloadViewModel>(
         Client, MapiServer.ApiMapiQueryTransactionStatus + txId, HttpStatusCode.OK);
 
       return response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
+    }
+
+    protected async Task AssertQueryTxAsync(
+      QueryTransactionStatusResponseViewModel response,
+      string expectedTxId,
+      string expectedResult = "success",
+      string expectedDescription = null,
+      long? confirmations = null,
+      int txStatus = TxStatus.Mempool)
+    {
+      Assert.AreEqual("1.4.0", response.ApiVersion);
+      Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
+      Assert.AreEqual(expectedTxId, response.Txid);
+      Assert.AreEqual(expectedResult, response.ReturnResult);
+      Assert.AreEqual(expectedDescription, response.ResultDescription);
+
+      Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
+      Assert.AreEqual(confirmations, response.Confirmations);
+
+      if (expectedResult == "success")
+      {
+        if (confirmations != null)
+        {
+          var blockChainInfo = await BlockChainInfo.GetInfoAsync();
+          Assert.AreEqual(blockChainInfo.BestBlockHeight, response.BlockHeight);
+          Assert.AreEqual(blockChainInfo.BestBlockHash, response.BlockHash);
+        }
+
+        Assert.AreEqual(0, response.TxSecondMempoolExpiry);
+        await AssertTxStatus(response.Txid, txStatus);
+      }
+      else
+      {
+        await AssertTxStatus(response.Txid, TxStatus.NotPresentInDb);
+      }
     }
   }
 }

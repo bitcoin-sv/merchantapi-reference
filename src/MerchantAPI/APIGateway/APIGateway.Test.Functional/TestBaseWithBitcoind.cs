@@ -250,7 +250,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public async Task<uint256> GenerateBlockAndWaitForItTobeInsertedInDBAsync()
+    public async Task<uint256> GenerateBlockAndWaitForItToBeInsertedInDBAsync()
     {
 
       WaitUntilEventBusIsIdle(); // make sure that all old events (such activating ZMQ subscriptions) are processed
@@ -273,7 +273,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions,
+    public async Task<(NBitcoin.Block newBlock, string submitResult)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions,
       bool throwOnError = true, string parentBlockHash = null)
     {
       if (string.IsNullOrEmpty(parentBlockHash))
@@ -287,7 +287,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return await MineNextBlockAsync(transactions, throwOnError, parentBlock, parentBlockHeight);
     }
 
-    public async Task<(NBitcoin.Block, string)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions, bool throwOnError, NBitcoin.Block parentBlock, long parentBlockHeight)
+    public async Task<(NBitcoin.Block newBlock, string submitResult)> MineNextBlockAsync(IEnumerable<NBitcoin.Transaction> transactions, bool throwOnError, NBitcoin.Block parentBlock, long parentBlockHeight)
     {
       var newBlock = parentBlock.CreateNextBlockWithCoinbase(new Key().PubKey, parentBlockHeight, NBitcoin.Altcoins.BCash.Instance.Regtest.Consensus.ConsensusFactory);
       newBlock.Transactions.AddRange(transactions);

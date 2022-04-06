@@ -5,14 +5,12 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -48,7 +46,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payload = await SubmitTransactionAsync(txHex);
 
-      Assert.AreEqual(payload.ReturnResult, "success");
+      Assert.AreEqual("success", payload.ReturnResult);
 
       // Try to fetch tx from the node
       var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(txId);
@@ -57,7 +55,26 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task SubmitSameTransactioMultipleTimesAsync()
+    public async Task SubmitTransactionWithNegativeOutput()
+    {
+      var tx = CreateNewTransactionTx();
+      tx.Outputs.First().Value = -1L;
+      var txHex = tx.ToHex();
+      var txId = tx.GetHash().ToString();
+
+      var payload = await SubmitTransactionAsync(txHex);
+
+      Assert.AreEqual("failure", payload.ReturnResult);
+      Assert.AreEqual("Negative inputs are not allowed", payload.ResultDescription);
+
+      using CancellationTokenSource cts = new(cancellationTimeout);
+      var tx_result = await Assert.ThrowsExceptionAsync<RpcException>(
+        () => node0.RpcClient.SendRawTransactionAsync(tx.ToBytes(), true, false, cts.Token));
+      Assert.AreEqual("16: bad-txns-vout-negative", tx_result.Message);
+    }
+
+    [TestMethod]
+    public async Task SubmitSameTransactionMultipleTimesAsync()
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -68,35 +85,34 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx1_payload1 = await SubmitTransactionAsync(txHex1);
       var tx1_payload2 = await SubmitTransactionAsync(txHex1);
 
-      Assert.AreEqual(tx1_payload1.ReturnResult, "success");
-      Assert.AreEqual(tx1_payload2.ReturnResult, "failure");
-      Assert.AreEqual(tx1_payload2.ResultDescription, "Transaction already known");
+      Assert.AreEqual("success", tx1_payload1.ReturnResult);
+      Assert.AreEqual("success", tx1_payload2.ReturnResult);
+      Assert.AreEqual("Already known", tx1_payload2.ResultDescription);
 
       var tx2_payload1 = await SubmitTransactionAsync(txHex2);
-      Assert.AreEqual(tx2_payload1.ReturnResult, "success");
+      Assert.AreEqual("success", tx2_payload1.ReturnResult);
       var tx2_result2 = await Assert.ThrowsExceptionAsync<RpcException>(
-        () => node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false, cts.Token), 
-        "Transaction already in the mempool");
+        () => node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false, cts.Token));
+      Assert.AreEqual("Transaction already in the mempool", tx2_result2.Message);
 
       var tx3_result1 = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex3), true, false, cts.Token);
       var tx3_payload2 = await SubmitTransactionAsync(txHex3);
 
-      Assert.AreEqual(tx3_result1, txId3);
-      Assert.AreEqual(tx3_payload2.ReturnResult, "failure");
-      Assert.AreEqual(tx3_payload2.ResultDescription, "Transaction already in the mempool");
+      Assert.AreEqual(txId3, tx3_result1);
+      Assert.AreEqual("success", tx3_payload2.ReturnResult);
 
       // Mine block and than resend all 3 transactions using mAPI
-      var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
+      var generatedBlock = await GenerateBlockAndWaitForItToBeInsertedInDBAsync();
       var tx1_payload3 = await SubmitTransactionAsync(txHex1);
       var tx2_payload3 = await SubmitTransactionAsync(txHex2);
       var tx3_payload3 = await SubmitTransactionAsync(txHex3);
 
-      Assert.AreEqual(tx1_payload3.ReturnResult, "failure");
-      Assert.AreEqual(tx1_payload3.ResultDescription, "Transaction already known");
-      Assert.AreEqual(tx2_payload3.ReturnResult, "failure");
-      Assert.AreEqual(tx2_payload3.ResultDescription, "Transaction already known");
-      Assert.AreEqual(tx3_payload3.ReturnResult, "failure");
-      Assert.AreEqual(tx3_payload3.ResultDescription, "Missing inputs");
+      Assert.AreEqual("success", tx1_payload3.ReturnResult);
+      Assert.AreEqual("Already known", tx1_payload3.ResultDescription);
+      Assert.AreEqual("success", tx2_payload3.ReturnResult);
+      Assert.AreEqual("Already known", tx2_payload3.ResultDescription);
+      Assert.AreEqual("success", tx3_payload3.ReturnResult);
+      Assert.AreEqual("Already known", tx3_payload3.ResultDescription);
       Assert.IsNull(tx3_payload3.ConflictedWith);
     }
 
@@ -131,7 +147,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payload = await SubmitTransactionAsync(txHex, merkleProof: true);
 
-      Assert.AreEqual(payload.ReturnResult, "success");
+      Assert.AreEqual("success", payload.ReturnResult);
 
       // Try to fetch tx from the node
       var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(txId);
@@ -142,7 +158,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var notificationEventSubscription = EventBus.Subscribe<NewNotificationEvent>();
       // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
       // with troubleshooting:
-      var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
+      var generatedBlock = await GenerateBlockAndWaitForItToBeInsertedInDBAsync();
       loggerTest.LogInformation($"Generated block {generatedBlock} should contain our transaction");
 
       await WaitForEventBusEventAsync(notificationEventSubscription,
@@ -160,7 +176,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(CallbackReason.MerkleProof, callback.CallbackReason);
       Assert.AreEqual(new uint256(txId), new uint256(callback.CallbackTxId));
       Assert.AreEqual(new uint256(txId), new uint256(callback.CallbackPayload.TxOrId));
-      Assert.IsTrue(callback.CallbackPayload.Target.NumTx >0, "A block header contained in merkle proof should have at least 1 tx. This indicates a problem in serialization code.");
+      Assert.IsTrue(callback.CallbackPayload.Target.NumTx > 0, "A block header contained in merkle proof should have at least 1 tx. This indicates a problem in serialization code.");
 
     }
 
@@ -171,7 +187,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payload = await SubmitTransactionAsync(txHex, merkleProof: true, merkleFormat: MerkleFormat.TSC);
 
-      Assert.AreEqual(payload.ReturnResult, "success");
+      Assert.AreEqual("success", payload.ReturnResult);
 
       // Try to fetch tx from the node
       var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(txId);
@@ -182,7 +198,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var notificationEventSubscription = EventBus.Subscribe<NewNotificationEvent>();
       // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
       // with troubleshooting:
-      var generatedBlock = await GenerateBlockAndWaitForItTobeInsertedInDBAsync();
+      var generatedBlock = await GenerateBlockAndWaitForItToBeInsertedInDBAsync();
       loggerTest.LogInformation($"Generated block {generatedBlock} should contain our transaction");
 
       await WaitForEventBusEventAsync(notificationEventSubscription,
@@ -213,7 +229,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var (txHex, _) = CreateNewTransaction();
 
-      var payload = await SubmitTransactionAsync(txHex, merkleProof: true, merkleFormat: "WRONG") ;
+      var payload = await SubmitTransactionAsync(txHex, merkleProof: true, merkleFormat: "WRONG");
 
       Assert.AreEqual("failure", payload.ReturnResult);
 
@@ -240,7 +256,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var payload = await QueryTransactionStatus(txC1Hash);
 
-      Assert.AreEqual("failure", payload.ReturnResult); 
+      await AssertQueryTxAsync(payload, txC1Hash, "failure",
+        "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.");
     }
 
     [TestMethod]
@@ -249,25 +266,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var (txHex, txHash) = CreateNewTransaction();
 
-
       var payloadSubmit = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
 
-
       var q1 = await QueryTransactionStatus(txHash);
 
-      Assert.AreEqual(txHash, q1.Txid);
-      Assert.AreEqual("success", q1.ReturnResult);
-      Assert.AreEqual(null, q1.Confirmations);
+      await AssertQueryTxAsync(q1, txHash, "success", confirmations: null);
 
       _ = await rpcClient0.GenerateAsync(1);
 
       var q2 = await QueryTransactionStatus(txHash);
 
-      Assert.AreEqual("success", q2.ReturnResult);
-      Assert.AreEqual(1, q2.Confirmations);
-
+      await AssertQueryTxAsync(q2, txHash, "success", confirmations: 1);
     }
 
 
@@ -296,7 +307,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // now stop the second node
       StopBitcoind(node2);
-      
+
       // Query again.  The second node is unreachable, so it will be ignored
       var q3 = await QueryTransactionStatus(txHash);
       Assert.AreEqual("success", q3.ReturnResult);
@@ -331,7 +342,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       using CancellationTokenSource cts = new(cancellationTimeout);
 
       // Create two transactions that use same 10 inputs
-      int numOfOutputs = 10;      
+      int numOfOutputs = 10;
       Coin[] coins = new Coin[numOfOutputs];
       for (int i = 0; i < numOfOutputs; i++)
       {
@@ -378,8 +389,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Send second and third transaction using MAPI
-      var payload = await SubmitTransactionsAsync(new string[]{ txHex2, txHex3});
-      
+      var payload = await SubmitTransactionsAsync(new string[] { txHex2, txHex3 });
+
       // Should have one failure
       Assert.AreEqual(1, payload.FailureCount);
 
@@ -438,49 +449,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         await Task.Delay(100);
       } while ((await node1.RpcClient.GetConnectionCountAsync()) == 0);
-      
+
       // We are sleeping here for a second to make sure that after the nodes were reconnected
       // there wasn't any additional notification sent because of node1
       await Task.Delay(1000);
 
       var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
-      foreach(var notification in notifications)
+      foreach (var notification in notifications)
       {
         loggerTest.LogInformation($"NotificationType: {notification.NotificationType}; TxId: {notification.TxInternalId}");
       }
       Assert.AreEqual(1, notifications.Length);
     }
-
-    [TestMethod]
-    [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
-    public async Task ResubmitKnownTransactionMultipleTimesAsync()
-    {
-      using CancellationTokenSource cts = new(cancellationTimeout);
-
-      var (txHex1, txId1) = CreateNewTransaction(); 
-
-      // Store tx to database before submitting it to the node
-      List<Domain.Models.Tx> txToInsert = new();
-      txToInsert.Add(new Domain.Models.Tx()
-      {
-        TxPayload = HelperTools.HexStringToByteArray(txHex1),
-        TxExternalId = new uint256(txId1),
-        ReceivedAt = System.DateTime.UtcNow,
-        MerkleProof = false,
-        DSCheck = false,        
-      });
-      await TxRepositoryPostgres.InsertTxsAsync(txToInsert, false);
-
-      // Submit tx to node two times. First submit should succeed,
-      // second submit will receive error from node (because tx is already
-      // in mempool after first SubmitTransactionAsync call)
-      var tx1_payload1 = await SubmitTransactionAsync(txHex1);
-      var tx1_payload2 = await SubmitTransactionAsync(txHex1);
-
-      Assert.AreEqual(tx1_payload1.ReturnResult, "success");
-      Assert.AreEqual(tx1_payload2.ReturnResult, "failure");
-      Assert.AreEqual(tx1_payload2.ResultDescription, "Transaction already in the mempool");
-    }
-
   }
 }

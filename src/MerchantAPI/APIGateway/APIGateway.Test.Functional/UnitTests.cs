@@ -50,7 +50,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CreateNewTx(tx1.GetHash().ToString(), tx1.ToHex(), false, null, true),
         CreateNewTx(tx2.GetHash().ToString(), tx2.ToHex(), false, null, true)
       };
-      await TxRepositoryPostgres.InsertTxsAsync(txList, false);
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
 
       var txs = await TxRepositoryPostgres.GetTxsForDSCheckAsync(new List<byte[]> { tx1.GetHash().ToBytes(), tx2.GetHash().ToBytes() }, true);
 
