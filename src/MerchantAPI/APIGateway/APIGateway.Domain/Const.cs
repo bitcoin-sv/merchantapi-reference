@@ -116,6 +116,8 @@ namespace MerchantAPI.APIGateway.Domain
       CombineRejectCodeAndReason(MempoolFull, "non-final-pool-full")
     };
 
+    public const string MapiRetryMempoolError = "Mempool error, retry again later.";
+
     public static readonly HashSet<string> MapiMissingInputs = new()
     {
       CombineRejectCodeAndReason(Invalid, "missing-inputs"),
@@ -127,7 +129,6 @@ namespace MerchantAPI.APIGateway.Domain
     {
       return ($"{ (rejectCode.HasValue ? rejectCode.ToString() : "") } { rejectReason ?? ""}").Trim();
     }
-
   }
 
   public static class Faults

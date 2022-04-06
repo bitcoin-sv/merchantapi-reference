@@ -22,6 +22,8 @@ using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Options;
 using Prometheus;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using MerchantAPI.APIGateway.Domain.Models.Faults;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -36,6 +38,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly ITxRepository txRepository;
     private readonly IClock clock;
     readonly AppSettings appSettings;
+    protected readonly IFaultManager faultManager;
+    protected readonly IFaultInjection faultInjection;
 
     static readonly string metricsPrefix = "merchantapi_mapi_";
 
@@ -65,7 +69,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
     }
 
-    public Mapi(IRpcMultiClient rpcMultiClient, IFeeQuoteRepository feeQuoteRepository, IBlockChainInfo blockChainInfo, IMinerId minerId, ITxRepository txRepository, ILogger<Mapi> logger, IClock clock, IOptions<AppSettings> appSettingOptions)
+    public Mapi(
+      IRpcMultiClient rpcMultiClient,
+      IFeeQuoteRepository feeQuoteRepository,
+      IBlockChainInfo blockChainInfo,
+      IMinerId minerId,
+      ITxRepository txRepository,
+      ILogger<Mapi> logger,
+      IClock clock,
+      IOptions<AppSettings> appSettingOptions,
+      IFaultManager faultManager,
+      IFaultInjection faultInjection)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
@@ -74,10 +88,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
-
-      this.appSettings = appSettingOptions.Value;
+      appSettings = appSettingOptions.Value;
+      this.faultManager = faultManager ?? throw new ArgumentNullException(nameof(faultManager));
+      this.faultInjection = faultInjection ?? throw new ArgumentNullException(nameof(faultInjection));
     }
-
 
 
     public static bool TryParseTransaction(byte[] transaction, out Transaction result)
@@ -107,17 +121,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
     /// <summary>
-    /// Appends source to dest. Duplicates are ignored
-    /// </summary>
-    static void AppendToDictionary<K, V>(Dictionary<K, V> source, Dictionary<K, V> dest)
-    {
-      foreach (var kv in source)
-      {
-        dest.TryAdd(kv.Key, kv.Value);
-      }
-    }
-
-    /// <summary>
     /// Return description that can be safely returned to client without exposing internal details or null otherwise.
     /// </summary>
     /// <param name="exception"></param>
@@ -141,12 +144,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     ///   sum of al outputs being spent
     ///   array of all outputs sorted in the same order as tx.inputs
     /// </returns>
-    public static  async Task<(Money sumPrevOuputs, PrevOut[] prevOuts)> CollectPreviousOuputs(Transaction tx,
+    public static async Task<(Money sumPrevOuputs, PrevOut[] prevOuts)> CollectPreviousOuputs(Transaction tx,
       IReadOnlyDictionary<uint256, byte[]> additionalTxs, IRpcMultiClient rpcMultiClient)
     {
       var parentTransactionsFromBatch = new Dictionary<uint256, Transaction>();
       var prevOutsNotInBatch = new List<OutPoint>(tx.Inputs.Count);
-      
+
       foreach (var input in tx.Inputs)
       {
         var prevOut = input.PrevOut;
@@ -156,7 +159,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
 
         // First try to find the output in batch of transactions  we are submitting
-        if (additionalTxs!= null &&   additionalTxs.TryGetValue(prevOut.Hash, out var txRaw))
+        if (additionalTxs != null && additionalTxs.TryGetValue(prevOut.Hash, out var txRaw))
         {
 
           if (TryParseTransaction(txRaw, out var t))
@@ -177,7 +180,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       // Fetch missing outputs from node
       if (prevOutsNotInBatch.Any())
       {
-        var missing = prevOutsNotInBatch.Select(x => (txId: x.Hash.ToString(), N: (long) x.N)).ToArray();
+        var missing = prevOutsNotInBatch.Select(x => (txId: x.Hash.ToString(), N: (long)x.N)).ToArray();
         var prevOutsFromNodeResult = await rpcMultiClient.GetTxOutsAsync(missing, getTxOutFields);
 
         if (missing.Length != prevOutsFromNodeResult.TxOuts.Length)
@@ -208,10 +211,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           // we have found the input in input batch
           var outputs = txFromBatch.Outputs;
 
-          
+
           if (outPoint.N > outputs.Count - 1)
           {
-            prevOut =  new PrevOut
+            prevOut = new PrevOut
             {
               Error = "Missing inputs - invalid output index"
             };
@@ -306,16 +309,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
     // NOTE: we do retrieve scriptPubKey from getUtxos - we do not need it and it might be large
-    static readonly string[] getTxOutFields =  { "scriptPubKeyLen", "value", "isStandard", "confirmations" };
+    static readonly string[] getTxOutFields = { "scriptPubKeyLen", "value", "isStandard", "confirmations" };
+
     public static bool IsConsolidationTxn(Transaction transaction, ConsolidationTxParameters consolidationParameters, PrevOut[] prevOuts)
     {
-    
+
       // The consolidation factor zero disables free consolidation txns
       if (consolidationParameters.MinConsolidationFactor == 0)
       {
         return false;
       }
-      
+
       if (transaction.IsCoinBase)
       {
         return false;
@@ -330,7 +334,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       long sumScriptPubKeySizesTxInputs = 0;
 
       // combine input with corresponding output it is spending
-      var pairsInOut = transaction.Inputs.Zip(prevOuts, 
+      var pairsInOut = transaction.Inputs.Zip(prevOuts,
         (i, o) =>
           new
           {
@@ -368,6 +372,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return true;
     }
 
+    private static void AddAlreadyKnownTxResponse(List<SubmitTransactionOneResponse> responses, string txId)
+    {
+      responses.Add(new SubmitTransactionOneResponse
+      {
+        Txid = txId,
+        ReturnResult = ResultCodes.Success,
+        ResultDescription ="Already known"
+      });
+    }
+
     public static (int failureCount, SubmitTransactionOneResponse[] responses) TransformRpcResponse(RpcSendTransactions rpcResponse, string[] allSubmitedTxIds)
     {
 
@@ -375,30 +389,39 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var processed = new Dictionary<string, object>(StringComparer.InvariantCulture);
 
       int failed = 0;
-      var respones = new List<SubmitTransactionOneResponse>();
+      var responses = new List<SubmitTransactionOneResponse>();
       if (rpcResponse.Invalid != null)
       {
         foreach (var invalid in rpcResponse.Invalid)
         {
           if (processed.TryAdd(invalid.Txid, null))
           {
-            respones.Add(new SubmitTransactionOneResponse
+            // ignore RejectCodes - should we add duplicate for resubmit?
+            if (invalid.RejectCode.HasValue && NodeRejectCode.MapiSuccessCodes.Contains(invalid.RejectCode.Value))
             {
-              Txid = invalid.Txid,
-              ReturnResult = ResultCodes.Failure,
-              ResultDescription =
-                (invalid.RejectCode + " " + invalid.RejectReason).Trim(),
+              AddAlreadyKnownTxResponse(responses, invalid.Txid);
+            }
+            else
+            {
+              var rejectCodeAndReason = NodeRejectCode.CombineRejectCodeAndReason(invalid.RejectCode.Value, invalid.RejectReason);
+              responses.Add(new SubmitTransactionOneResponse
+              {
+                Txid = invalid.Txid,
+                ReturnResult = ResultCodes.Failure,
+                ResultDescription =
+                 NodeRejectCode.MapiRetryCodesAndReasons.Contains(rejectCodeAndReason) ? NodeRejectCode.MapiRetryMempoolError : rejectCodeAndReason,
+                ConflictedWith = invalid.CollidedWith?.Select(t =>
+                  new SubmitTransactionConflictedTxResponse
+                  {
+                    Txid = t.Txid,
+                    Size = t.Size,
+                    Hex = t.Hex
+                  }
+                ).ToArray()
+              });
 
-              ConflictedWith = invalid.CollidedWith?.Select(t => 
-                new SubmitTransactionConflictedTxResponse { 
-                  Txid = t.Txid,
-                  Size = t.Size,
-                  Hex = t.Hex
-                }
-              ).ToArray()
-            });
-
-            failed++;
+              failed++;
+            }
           }
         }
       }
@@ -409,12 +432,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           if (processed.TryAdd(evicted, null))
           {
-            respones.Add(new SubmitTransactionOneResponse
+            responses.Add(new SubmitTransactionOneResponse
             {
               Txid = evicted,
               ReturnResult = ResultCodes.Failure,
               ResultDescription =
-                "evicted" // This only happens if mempool is full and contain no P2P transactions (which have low priority)
+                 NodeRejectCode.MapiRetryMempoolError // This only happens if mempool is full and contain no P2P transactions (which have low priority)
             });
             failed++;
           }
@@ -428,13 +451,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           if (processed.TryAdd(known, null))
           {
-            respones.Add(new SubmitTransactionOneResponse
-            {
-              Txid = known,
-              ReturnResult = ResultCodes.Success,
-              ResultDescription =
-                "Already known"
-            });
+            AddAlreadyKnownTxResponse(responses, known);
           }
         }
       }
@@ -444,7 +461,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         if (!processed.ContainsKey(txId))
         {
-          respones.Add(new SubmitTransactionOneResponse
+          responses.Add(new SubmitTransactionOneResponse
           {
             Txid = txId,
             ReturnResult = ResultCodes.Success,
@@ -453,7 +470,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
       }
 
-      return (failed, respones.ToArray());
+      return (failed, responses.ToArray());
     }
 
 
@@ -461,7 +478,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       var currentMinerId = await minerId.GetCurrentMinerIdAsync();
 
-      var (result, allTheSame, exception)= await rpcMultiClient.GetRawTransactionAsync(id);
+      var (result, allTheSame, exception) = await rpcMultiClient.GetRawTransactionAsync(id);
 
       if (exception != null && result == null) // only report errors none of the nodes return result or if we got RpcExcpetion (such as as transaction not found)
       {
@@ -477,7 +494,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       // report mixed errors if we got  mixed result or if we got some successful results and some RpcException.
       // Ordinary exception might indicate connectivity problems, so we skip them
-      if (!allTheSame || (exception as AggregateException)?.GetBaseException() is RpcException) 
+      if (!allTheSame || (exception as AggregateException)?.GetBaseException() is RpcException)
       {
         return new QueryTransactionStatusResponse
         {
@@ -498,15 +515,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         BlockHash = result.Blockhash,
         BlockHeight = result.Blockheight,
         Confirmations = result.Confirmations,
-        MinerID = currentMinerId
-        //TxSecondMempoolExpiry 
+        MinerID = currentMinerId,
+        //TxSecondMempoolExpiry
       };
 
 
     }
     public async Task<SubmitTransactionResponse> SubmitTransactionAsync(SubmitTransaction request, UserAndIssuer user)
     {
-      var responseMulti = await SubmitTransactionsAsync(new [] {request}, user);
+      var responseMulti = await SubmitTransactionsAsync(new[] { request }, user);
       if (responseMulti.Txs.Length != 1)
       {
         throw new Exception("Internal error. Expected exactly 1 transaction in response but got {responseMulti.Txs.Length}");
@@ -562,13 +579,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
 
       var responses = new List<SubmitTransactionOneResponse>();
-      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)>();
+      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus)>();
       int failureCount = 0;
 
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
+      HashSet<string> txsToUpdate = new();
       foreach (var oneTx in request)
       {
-        if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x ==  oneTx.MerkleFormat))
+        if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
         {
           AddFailureResponse(null, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
 
@@ -641,18 +659,61 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         allTxs.Add(txId, oneTx.RawTx);
         bool okToMine = false;
         bool okToRelay = false;
-        Dictionary<string, object> policies = null;
-        if (await txRepository.TransactionExistsAsync(txId.ToBytes()))
-        {
-          if (appSettings.ResubmitKnownTransactions.HasValue && appSettings.ResubmitKnownTransactions.Value)
-          {
-            logger.LogInformation($"Transaction {txIdString} already known. Will resubmit to node.");
-          }
-          else
-          {
-            AddFailureResponse(txIdString, "Transaction already known", ref responses);
+        PolicyQuote selectedQuote = null;
+        var txStatus = await txRepository.GetTransactionStatusAsync(txId.ToBytes()); // todo: which call is faster - to db or ParseBytesToTransaction - move this?
 
-            failureCount++;
+        if (txStatus > TxStatus.NotPresentInDb)
+        {
+          txsToUpdate.Add(txIdString);
+          // if txstatus NotInDb or NodeRejected, proceed with regular feeQuote calculation
+          if (txStatus != TxStatus.NodeRejected)
+          {
+            // for other skip feeQuote calculation
+            if (txStatus == TxStatus.SentToNode)
+            {
+              logger.LogInformation($"Transaction {txIdString} marked as SentToNode. Will resubmit to node.");
+            }
+            else if (appSettings.ResubmitKnownTransactions.Value)
+            {
+              logger.LogInformation($"Transaction {txIdString} already known (txstatus={ txStatus }. Will resubmit to node.");
+            }
+            else
+            {
+              AddAlreadyKnownTxResponse(responses, txIdString);
+              continue;
+            }
+
+            var tx = await txRepository.GetTransactionAsync(txId.ToBytes());
+            if (oneTx.CallbackUrl != tx.CallbackUrl ||
+                oneTx.MerkleProof != tx.MerkleProof ||
+                oneTx.DsCheck != tx.DSCheck
+               )
+            {
+              AddFailureResponse(txIdString, "Transaction already submitted with different parameters.", ref responses);
+
+              failureCount++;
+              continue;
+            }
+
+            if (txStatus == TxStatus.UnknownOldTx)
+            {
+              // we don't have user or feeQuote saved for the unknownOldTxs
+              // and we cannot always define feequote (valid feeQuote can be expired or sumPrevOuputs = 0)
+              // so we resend it to node as with dontcheckfees
+              transactionsToSubmit.Add((txIdString, oneTx, false, true, false, null, txStatus));
+            }
+            else
+            {
+              if (user?.Identity != tx.Identity || user?.IdentityProvider != tx.IdentityProvider)
+              {
+                AddFailureResponse(txIdString, "Transaction already submitted with different parameters.", ref responses);
+
+                failureCount++;
+                continue;
+              }
+              PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
+              transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, false, tx.SetPolicyQuote ? policyQuote : null, txStatus));
+            }
             continue;
           }
         }
@@ -684,24 +745,24 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           else
           {
             logger.LogDebug($"Starting with CheckFees calculation for {txIdString} and { quotes.Length} quotes.");
-            foreach (var feeQuote in quotes)
+            foreach (var policyQuote in quotes)
             {
-              if (IsConsolidationTxn(transaction, feeQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
+              if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
               {
                 logger.LogInformation($"{txIdString}: IsConsolidationTxn");
-                (okToMine, okToRelay, policies) = (true, true, feeQuote.PoliciesDict);
+                (okToMine, okToRelay, selectedQuote) = (true, true, policyQuote);
                 break;
               }
               var (okToMineTmp, okToRelayTmp) =
-                CheckFees(transaction, oneTx.RawTx.LongLength, sumPrevOuputs, feeQuote);
+                CheckFees(transaction, oneTx.RawTx.LongLength, sumPrevOuputs, policyQuote);
               if (GetCheckFeesValue(okToMineTmp, okToRelayTmp) > GetCheckFeesValue(okToMine, okToRelay))
               {
                 // save best combination 
-                (okToMine, okToRelay, policies) = (okToMineTmp, okToRelayTmp, feeQuote.PoliciesDict);
+                (okToMine, okToRelay, selectedQuote) = (okToMineTmp, okToRelayTmp, policyQuote);
               }
             }
-            logger.LogInformation($"Finished with CheckFees calculation for {txIdString} and { quotes.Length} quotes: { (okToMine, okToRelay, policies == null ? "" : string.Join(";", policies.Select(x => x.Key + "=" + x.Value)))}.");
-
+            logger.LogInformation($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
+              $"{(okToMine, okToRelay, selectedQuote?.PoliciesDict == null ? "" : string.Join(";", selectedQuote.PoliciesDict.Select(x => x.Key + "=" + x.Value)))}.");
           }
         }
         catch (Exception ex)
@@ -709,7 +770,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           exception = ex;
         }
 
-        if (exception != null || colidedWith.Any() || transaction == null || prevOutsErrors.Any()) 
+        if (exception != null || colidedWith.Any() || transaction == null || prevOutsErrors.Any())
         {
 
           var oneResponse = new SubmitTransactionOneResponse
@@ -726,37 +787,41 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               }).ToArray()
           };
 
-          if (transaction is null)
+          if (oneResponse.ConflictedWith != null && oneResponse.ConflictedWith.Any(c => c.Txid == oneResponse.Txid))
           {
-            oneResponse.ResultDescription = "Can not parse transaction";
+            // Transaction already in the mempool
+            // should result in "success known"
+            (okToMine, okToRelay) = (true, true);
           }
-          else if (exception is ExceptionWithSafeErrorMessage)
+          else
           {
-            oneResponse.ResultDescription = exception.Message;
-          }
-          else if (exception != null)
-          {
-            oneResponse.ResultDescription = "Error fetching inputs";
-          }
-          else if (oneResponse.ConflictedWith != null && oneResponse.ConflictedWith.Any(c => c.Txid == oneResponse.Txid))
-          {
-            oneResponse.ResultDescription = "Transaction already in the mempool";
-            oneResponse.ConflictedWith = null;
-          }
-          else 
-          {
-            // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
-            oneResponse.ResultDescription = "Missing inputs"; 
-          }
-          logger.LogError($"Can not calculate fee for {txIdString}. Error: {oneResponse.ResultDescription} Exception: {exception?.ToString() ?? ""}"); 
-          
+            if (transaction is null)
+            {
+              oneResponse.ResultDescription = "Can not parse transaction";
+            }
+            else if (exception is ExceptionWithSafeErrorMessage)
+            {
+              oneResponse.ResultDescription = exception.Message;
+            }
+            else if (exception != null)
+            {
+              oneResponse.ResultDescription = "Error fetching inputs";
+            }
+            else
+            {
+              // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
+              oneResponse.ResultDescription = "Missing inputs";
+            }
+            logger.LogError($"Can not calculate fee for {txIdString}. Error: {oneResponse.ResultDescription} Exception: {exception?.ToString() ?? ""}");
 
-          responses.Add(oneResponse);
-          failureCount++;
-          continue;
+
+            responses.Add(oneResponse);
+            failureCount++;
+            continue;
+          }
         }
 
-        // Transactions  was successfully analyzed
+        // Transaction was successfully analyzed
         if (!okToMine && !okToRelay)
         {
           AddFailureResponse(txIdString, "Not enough fees", ref responses);
@@ -767,14 +832,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           bool allowHighFees = false;
           bool dontcheckfee = okToMine;
-          bool listUnconfirmedAncestors = false; 
-          
-          oneTx.TransactionInputs = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput 
-                                                                                    { 
-                                                                                      N = x.Index, 
-                                                                                      PrevN = x.PrevOut.N, 
-                                                                                      PrevTxId = x.PrevOut.Hash.ToBytes() 
-                                                                                    }).ToList();
+          bool listUnconfirmedAncestors = false;
+
+          oneTx.TransactionInputs = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput
+          {
+            N = x.Index,
+            PrevN = x.PrevOut.N,
+            PrevTxId = x.PrevOut.Hash.ToBytes()
+          }).ToList();
           if (oneTx.DsCheck)
           {
             foreach (TxInput txInput in oneTx.TransactionInputs)
@@ -787,7 +852,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               }
             }
           }
-          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, policies));
+          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, selectedQuote, txStatus));
         }
       }
 
@@ -797,22 +862,40 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       Exception submitException = null;
       if (transactionsToSubmit.Any())
-      {
-        //total number of transactions send to node.
-        txSendToNode.Inc(transactionsToSubmit.Count);
+      {       
+        if (!appSettings.DontInsertTransactions.Value && 
+            user != null &&
+            transactionsToSubmit.Any(x => x.txstatus < TxStatus.SentToNode)
+            )
+        {
+          var saveTxsBeforeSendToNode = transactionsToSubmit.Where(x => x.txstatus < TxStatus.SentToNode).ToList();
+          var insertedTxs = (await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiBeforeSendToNode,
+            saveTxsBeforeSendToNode.Select(x => new Tx
+          {
+            CallbackToken = x.transaction.CallbackToken,
+            CallbackUrl = x.transaction.CallbackUrl,
+            CallbackEncryption = x.transaction.CallbackEncryption,
+            DSCheck = x.transaction.DsCheck,
+            MerkleProof = x.transaction.MerkleProof,
+            MerkleFormat = x.transaction.MerkleFormat,
+            TxExternalId = new uint256(x.transactionId),
+            TxPayload = x.transaction.RawTx,
+            ReceivedAt = clock.UtcNow(),
+            TxIn = x.transaction.TransactionInputs,
+            TxStatus = TxStatus.SentToNode,
+            UpdateTx = txsToUpdate.Contains(x.transactionId),
+            PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
+            Policies = x.policyQuote?.Policies,
+            OkToMine = x.dontCheckFees,
+            SetPolicyQuote = x.policyQuote != null
+          }).ToList(), false, false, false)).Select(x => new uint256(x)).ToList();
+          insertedTxs.ForEach(x => txsToUpdate.Add(x.ToString()));
+        }
 
-        // Submit all collected transactions in one call        
-        try
-        {
-          rpcResponse = await rpcMultiClient.SendRawTransactionsAsync(
-            transactionsToSubmit.Select(x => (x.transaction.RawTx, x.allowhighfees, x.dontCheckFees, x.listUnconfirmedAncestors, x.config))
-              .ToArray());
-        }
-        catch (Exception ex)
-        {
-          submitException = ex;
-          rpcResponse = null;
-        }
+         txSendToNode.Inc(transactionsToSubmit.Count);
+
+        // Submit all collected transactions in one call 
+        (rpcResponse, submitException) = await SendTransactions(transactionsToSubmit, Faults.FaultType.SimulateSendTxsMapi);
       }
       else
       {
@@ -830,10 +913,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         CurrentHighestBlockHeight = info.BestBlockHeight,
         // TxSecondMempoolExpiry
         // Remaining of the fields are initialized bellow
-        
+
       };
 
-      if (submitException != null) 
+      if (submitException != null)
       {
         var unableToSubmit = transactionsToSubmit.Select(x =>
           new SubmitTransactionOneResponse
@@ -852,7 +935,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       else // submitted without error
       {
-        var (submitFailureCount, transformed ) = TransformRpcResponse(rpcResponse,
+        var (submitFailureCount, transformed) = TransformRpcResponse(rpcResponse,
           transactionsToSubmit.Select(x => x.transactionId).ToArray());
         responses.AddRange(transformed);
         result.Txs = responses.ToArray();
@@ -864,9 +947,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         if (!appSettings.DontInsertTransactions.Value)
         {
-          logger.LogInformation($"Starting with InsertTxsAsync: { successfullTxs.Count() }: { string.Join("; ", successfullTxs.Select(x => x.transactionId))} (TransactionsToSubmit: { transactionsToSubmit.Count })");
+          logger.LogInformation($"Starting with InsertOrUpdateTxsAsync: { successfullTxs.Count() }: { string.Join("; ", successfullTxs.Select(x => x.transactionId))} (TransactionsToSubmit: { transactionsToSubmit.Count })");
+
           var watch = System.Diagnostics.Stopwatch.StartNew();
-          await txRepository.InsertTxsAsync(successfullTxs.Select(x => new Tx
+          await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiAfterSendToNode, successfullTxs.Select(x => new Tx
           {
             CallbackToken = x.transaction.CallbackToken,
             CallbackUrl = x.transaction.CallbackUrl,
@@ -877,8 +961,19 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             TxExternalId = new uint256(x.transactionId),
             TxPayload = x.transaction.RawTx,
             ReceivedAt = clock.UtcNow(),
-            TxIn = x.transaction.TransactionInputs
+            TxIn = x.transaction.TransactionInputs,
+            SubmittedAt = clock.UtcNow(),
+            TxStatus = x.txstatus < TxStatus.UnknownOldTx ? TxStatus.Mempool : x.txstatus,
+            UpdateTx = txsToUpdate.Contains(x.transactionId),
+            PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
+            Policies = x.policyQuote?.Policies,
+            OkToMine = x.dontCheckFees,
+            SetPolicyQuote = x.policyQuote != null
           }).ToList(), false);
+          // if transaction is sent in parallel in two batches, only the first processed tx is saved
+          // maybe we could:
+          // 1) add on conflict do nothing and return inserted + updated, return failure for missing
+          // 2) or select all in batch in db + recheck here if the provided parameters match and return failure ...
 
           long unconfirmedAncestorsCount = 0;
           if (rpcResponse.Unconfirmed != null)
@@ -894,11 +989,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 {
                   PrevTxId = (new uint256(i.Txid)).ToBytes(),
                   PrevN = i.Vout
-                }).ToList()
+                }).ToList(),
+                TxStatus = TxStatus.Mempool
               })
               );
             }
-            await txRepository.InsertTxsAsync(unconfirmedAncestors, true);
+            // unconfirmedAncestors are only inserted, not updated
+            await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiUnconfirmedAncestors, unconfirmedAncestors, true);
             unconfirmedAncestorsCount = unconfirmedAncestors.Count;
           }
           watch.Stop();
@@ -907,7 +1004,72 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         return result;
       }
+    }
 
+    private async Task<(RpcSendTransactions, Exception)> SendTransactions(
+      List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txStatus)> transactionsToSubmit,
+      Faults.FaultType faultType)
+    {
+      return await SendRawTransactions(
+         transactionsToSubmit.Select(x => (x.transaction.RawTx, x.allowhighfees, x.dontCheckFees, x.listUnconfirmedAncestors, x.policyQuote?.PoliciesDict))
+            .ToArray(), faultType);
+    }
+
+    public virtual async Task<(RpcSendTransactions, Exception)> SendRawTransactions(
+        (byte[] transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions, Faults.FaultType faultType)
+    {
+      RpcSendTransactions rpcResponse;
+      Exception submitException = null;
+
+      // Submit all collected transactions in one call
+      try
+      {       
+        var simulateSendTxsResponse = await faultInjection.SimulateSendTxsResponseAsync(faultType);
+        if (simulateSendTxsResponse != null)
+        {
+          submitException = new("Node returned error.");
+          switch (simulateSendTxsResponse)
+          {
+            case Faults.SimulateSendTxsResponse.NodeFailsWhenSendRawTxs:
+              return (null, submitException);
+            case Faults.SimulateSendTxsResponse.NodeReturnsNonStandard:
+              return (
+                IFaultMapi.CreateRpcInvalidResponse(transactions.Select(x => x.transaction).ToArray(),
+                                        NodeRejectCode.MapiRetryCodesAndReasons[0]),
+                null);
+            case Faults.SimulateSendTxsResponse.NodeReturnsInsufficientFee:
+              return (
+                IFaultMapi.CreateRpcInvalidResponse(transactions.Select(x => x.transaction).ToArray(),
+                                        NodeRejectCode.MapiRetryCodesAndReasons[1]),
+                null);
+            case Faults.SimulateSendTxsResponse.NodeReturnsMempoolFull:
+              return (
+                IFaultMapi.CreateRpcInvalidResponse(transactions.Select(x => x.transaction).ToArray(),
+                                        NodeRejectCode.MapiRetryCodesAndReasons[2]),
+                null);
+            case Faults.SimulateSendTxsResponse.NodeReturnsMempoolFullNonFinal:
+              return (
+                IFaultMapi.CreateRpcInvalidResponse(transactions.Select(x => x.transaction).ToArray(),
+                                        NodeRejectCode.MapiRetryCodesAndReasons[3]),
+                null);
+            case Faults.SimulateSendTxsResponse.NodeReturnsEvicted:
+              return (IFaultMapi.CreateRpcEvictedResponse(transactions.Select(x => x.transaction).ToArray()), null);
+            case Faults.SimulateSendTxsResponse.NodeFailsAfterSendRawTxs:
+              // returns success but txs are immediately lost from mempool
+              return (new RpcSendTransactions(), null);
+            default:
+              throw new Exception("Invalid SimulateSendTxsResponse.");
+          }
+        }
+
+        rpcResponse = await rpcMultiClient.SendRawTransactionsAsync(transactions);
+      }
+      catch (Exception ex)
+      {
+        submitException = ex;
+        rpcResponse = null;
+      }
+      return (rpcResponse, submitException);
     }
   }
 }

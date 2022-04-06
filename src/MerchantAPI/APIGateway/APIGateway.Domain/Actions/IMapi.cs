@@ -8,7 +8,7 @@ using MerchantAPI.Common.Authentication;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
-  public interface IMapi 
+  public interface IMapi : IFaultMapi
   {
     Task<SubmitTransactionResponse> SubmitTransactionAsync(SubmitTransaction request, UserAndIssuer user);
     Task<SubmitTransactionsResponse> SubmitTransactionsAsync(IEnumerable<SubmitTransaction> request, UserAndIssuer user);

@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Domain.Repositories
 {
-  public interface ITxRepository
+  public interface ITxRepository : IFaultTxRepository
   {
-    Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors);
+    Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool resubmit = false);
 
-    Task<long?> InsertBlockAsync(Block block);
+    Task<long?> InsertOrUpdateBlockAsync(Block block);
 
     Task InsertTxBlockAsync(IList<long> txInternalId, long blockInternalId);
 
@@ -56,9 +56,11 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     
     Task<Block> GetBlockAsync(byte[] blockHash);
 
-    Task<bool> TransactionExistsAsync(byte[] txId);
+    Task<Tx> GetTransactionAsync(byte[] txId);
 
     Task<int> GetTransactionStatusAsync(byte[] txId);
+
+    Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs);
 
     Task UpdateTxStatus(IList<long> txInternalIds, int txstatus);
 
