@@ -20,8 +20,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
   public static class InvalidTxRejectionCodes
   {
-    public const int TxMempoolConflict = 258;
-    public const int TxDoubleSpendDetected = 18;
+    public const int TxMempoolConflict = NodeRejectCode.Conflict;
+    public const int TxDoubleSpendDetected = NodeRejectCode.Duplicate;
   }
 
   public class InvalidTxHandler : BackgroundServiceWithSubscriptions<InvalidTxHandler>

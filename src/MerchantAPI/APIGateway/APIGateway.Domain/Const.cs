@@ -91,4 +91,80 @@ namespace MerchantAPI.APIGateway.Domain
     public static readonly int[] MapiSuccessTxStatuses =
       { UnknownOldTx ,Mempool, MissingInputsMaxRetriesReached, Blockchain };
   }
+
+  public static class NodeRejectCode
+  {
+    public const int Invalid = 16;
+    public const int Duplicate = 18;
+    public const int SoftConsensusFreeze = 19;
+    public const int NonStandard = 64;
+    public const int InsufficientFee = 66;
+    public const int HighFee = 256;
+    public const int AlreadyKnown = 257;
+    public const int Conflict = 258;
+    public const int MempoolFull = 259;
+
+    public static readonly int[] MapiSuccessCodes = { AlreadyKnown };
+
+    public static readonly (int code, string reason) MempoolFullCodeAndReason = (InsufficientFee, "mempool full");
+
+    public static readonly List<string> MapiRetryCodesAndReasons = new()
+    {
+      CombineRejectCodeAndReason(NonStandard, "too-long-mempool-chain"),
+      CombineRejectCodeAndReason(InsufficientFee, "mempool min fee not met"),
+      CombineRejectCodeAndReason(MempoolFullCodeAndReason.code, MempoolFullCodeAndReason.reason),
+      CombineRejectCodeAndReason(MempoolFull, "non-final-pool-full")
+    };
+
+    public static readonly HashSet<string> MapiMissingInputs = new()
+    {
+      CombineRejectCodeAndReason(Invalid, "missing-inputs"),
+      CombineRejectCodeAndReason(Conflict, "txn-mempool-conflict"),
+      CombineRejectCodeAndReason(Duplicate, "txn-double-spend-detected")
+    };
+
+    public static string CombineRejectCodeAndReason(int? rejectCode, string rejectReason)
+    {
+      return ($"{ (rejectCode.HasValue ? rejectCode.ToString() : "") } { rejectReason ?? ""}").Trim();
+    }
+
+  }
+
+  public static class Faults
+  {
+    public enum FaultType
+    {
+      DbBeforeSavingUncommittedState,
+      DbAfterSavingUncommittedState,
+      SimulateSendTxsMapi,
+      SimulateSendTxsMempoolChecker
+    }
+
+    public enum DbFaultMethod
+    {
+      Exception,
+      ProcessExit
+    }
+
+    public enum DbFaultComponent
+    {
+      MapiBeforeSendToNode,
+      MapiAfterSendToNode,
+      MapiUnconfirmedAncestors,
+      MempoolCheckerUpdateTxs,
+      MempoolCheckerUpdateMissingInputs,
+    }
+
+    public enum SimulateSendTxsResponse
+    {
+      NodeFailsWhenSendRawTxs,
+      NodeReturnsNonStandard,
+      NodeReturnsInsufficientFee,
+      NodeReturnsMempoolFull,
+      NodeReturnsMempoolFullNonFinal,
+      NodeReturnsEvicted,
+      NodeFailsAfterSendRawTxs
+      // MapiFailsAfterSendRawTxs - is triggered with dbFaultComponent
+    }
+  }
 }
