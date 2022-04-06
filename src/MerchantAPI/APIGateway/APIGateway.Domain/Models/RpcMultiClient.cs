@@ -86,7 +86,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     }
 
-    async Task<T> GetFirstSucesfullAsync<T>(Func<IRpcClient, Task<T>> call)
+    async Task<T> GetFirstSuccessfulAsync<T>(Func<IRpcClient, Task<T>> call)
     {
       Exception lastError = null;
       var rpcClients = GetRpcClients();
@@ -160,7 +160,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     ///  error - first error 
     /// JsonSerializer is used to check of responses are the same
     /// </summary>
-    async Task<(T firstOkResult, bool allOkTheSame, Exception firstError)> GetAllSucesfullCheckTheSame<T>(Func<IRpcClient, Task<T>> call)
+    async Task<(T firstOkResult, bool allOkTheSame, Exception firstError)> GetAllSuccessfulCheckTheSame<T>(Func<IRpcClient, Task<T>> call)
     {
       var tasks = await GetAll(call);
 
@@ -192,7 +192,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<byte[]> GetRawTransactionAsBytesAsync(string txId)
     {
-      return GetFirstSucesfullAsync(c => c.GetRawTransactionAsBytesAsync(txId));
+      return GetFirstSuccessfulAsync(c => c.GetRawTransactionAsBytesAsync(txId));
     }
     public async Task<RpcGetBlockchainInfo> GetBestBlockchainInfoAsync()
     {
@@ -221,48 +221,48 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcGetMerkleProof> GetMerkleProofAsync(string txId, string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetMerkleProofAsync(txId, blockHash));
+      return GetFirstSuccessfulAsync(x => x.GetMerkleProofAsync(txId, blockHash));
     }
 
     public Task<RpcGetMerkleProof2> GetMerkleProof2Async(string blockHash, string txId)
     {
-      return GetFirstSucesfullAsync(x => x.GetMerkleProof2Async(blockHash, txId));
+      return GetFirstSuccessfulAsync(x => x.GetMerkleProof2Async(blockHash, txId));
     }
 
     public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash, token));
+      return GetFirstSuccessfulAsync(x => x.GetBlockAsStreamAsync(blockHash, token));
     }
 
     public Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockHeaderAsync(blockHash));
+      return GetFirstSuccessfulAsync(x => x.GetBlockHeaderAsync(blockHash));
     }
 
 
     public Task<(RpcGetRawTransaction firstOkResult, bool allOkTheSame, Exception firstError)> GetRawTransactionAsync(string id)
     {
-      return GetAllSucesfullCheckTheSame(c => c.GetRawTransactionAsync(id));
+      return GetAllSuccessfulCheckTheSame(c => c.GetRawTransactionAsync(id));
     }
 
     public Task<RpcGetNetworkInfo> GetAnyNetworkInfoAsync()
     {
-      return GetFirstSucesfullAsync(c => c.GetNetworkInfoAsync(retry: false));
+      return GetFirstSuccessfulAsync(c => c.GetNetworkInfoAsync(retry: false));
     }
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList)
     {
       using (getTxOutsDuration.NewTimer())
       {
-      return GetFirstSucesfullAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
-    }
+        return GetFirstSuccessfulAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
+      }
     }
     
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
                                         int totalTimeoutSec,
                                         IEnumerable<(string Tx, int N)> dsTx)
     {
-      return GetFirstSucesfullAsync(c => c.VerifyScriptAsync(stopOnFirstInvalid, totalTimeoutSec, dsTx));
+      return GetFirstSuccessfulAsync(c => c.VerifyScriptAsync(stopOnFirstInvalid, totalTimeoutSec, dsTx));
     }
 
     enum GroupType
@@ -272,6 +272,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       Evicted,
       Invalid,
       MixedResult,
+      // order is important - when doing changes check ChooseNewValue
     }
 
     class ResponseCollidedTransaction
@@ -319,7 +320,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
             invalid.Txid, 
             new ResponseTransactionType
             {
-              Type = GroupType.Invalid, 
+              Type = invalid.RejectCode.HasValue && NodeRejectCode.MapiSuccessCodes.Contains(invalid.RejectCode.Value) ? GroupType.Known : GroupType.Invalid, 
               RejectCode = invalid.RejectCode, 
               RejectReason = invalid.RejectReason,
               CollidedWith = invalid.CollidedWith?.Select(t => 
@@ -399,14 +400,19 @@ namespace MerchantAPI.APIGateway.Domain.Models
       ResponseTransactionType oldValue,
       ResponseTransactionType newValue)
     {
-
       if (newValue.Type != oldValue.Type)
       {
+        var maxType = newValue.Type > oldValue.Type ? newValue : oldValue;
+        if (maxType.Type < GroupType.Invalid)
+        {
+          // GroupType: OK < Known < Evicted < Invalid < MixedResult
+          // user should resubmit evicted txs (and lost mempool txs)
+          return maxType;
+        }
         return new ResponseTransactionType { Type = GroupType.MixedResult, RejectCode = null, RejectReason = "Mixed results" };
       }
 
-      return oldValue; // In case of different error messages we still treat the result as Error (not mixed)
-
+      return oldValue; // In case of different error messages we treat the result as Error (not mixed)
     }
 
 
