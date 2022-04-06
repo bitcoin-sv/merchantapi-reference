@@ -31,6 +31,8 @@ using MerchantAPI.Common.Startup;
 using MerchantAPI.APIGateway.Rest.Database;
 using MerchantAPI.APIGateway.Domain.DSAccessChecks;
 using MerchantAPI.APIGateway.Domain.Cache;
+using MerchantAPI.APIGateway.Domain.Models.Faults;
+using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Prometheus;
 
 namespace MerchantAPI.APIGateway.Rest
@@ -144,9 +146,28 @@ namespace MerchantAPI.APIGateway.Rest
 
       }
 
+      if (appSettings.EnableFaultInjection.Value)
+      {
+        var faultManager = new FaultManager();
+        services.AddSingleton<IFaultManager>(faultManager);
+        services.AddSingleton<IFaultInjection>(faultManager);
+      }
+      else
+      {
+        var faultManager = new FaultManagerDisabled();
+        services.AddSingleton<IFaultManager>(faultManager);
+        services.AddSingleton<IFaultInjection>(faultManager);
+        services.AddTransient<IActionModelConvention, FaultControllerVisibility>();
+        services.AddMvcCore(options =>
+        {
+          options.Conventions.Add(new FaultControllerVisibility());
+        });
+      }
+
       services.AddTransient<IClock, Clock>();
       services.AddHostedService<NotificationService>();
       services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
+
       services.AddHostedService<InvalidTxHandler>();
       services.AddHostedService<BlockChecker>();
 
