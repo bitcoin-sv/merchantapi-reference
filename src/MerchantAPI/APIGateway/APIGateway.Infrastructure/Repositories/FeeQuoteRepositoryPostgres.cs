@@ -75,20 +75,19 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     public FeeQuote GetFeeQuoteById(long feeQuoteId)
     {
-      return GetFeeQuoteById(feeQuoteId, false);
+      return GetFeeQuoteById(feeQuoteId, null);
     }
 
-    public FeeQuote GetFeeQuoteById(long feeQuoteId, bool orderByFeeAmountDesc)
+    public FeeQuote GetFeeQuoteById(long feeQuoteId, bool? orderByFeeAmountDesc)
     {
-      string selectFeeQuote = @"
+      string selectFeeQuote = $@"
               SELECT * FROM FeeQuote feeQuote
-              JOIN Fee fee ON feeQuote.id=fee.feeQuote " +
-              (!orderByFeeAmountDesc ?
-                  "JOIN FeeAmount feeAmount ON fee.id=feeAmount.fee" :
-                  "JOIN (SELECT * FROM FeeAmount ORDER BY feeAmount.id DESC) feeAmount ON fee.id=feeAmount.fee "
-              ) +
-              " WHERE feeQuote.id = @id;";
-
+              JOIN Fee fee ON feeQuote.id=fee.feeQuote 
+              JOIN FeeAmount feeAmount ON fee.id=feeAmount.fee 
+              WHERE feeQuote.id = @id
+              { (!orderByFeeAmountDesc.HasValue ? "" :
+              $"ORDER BY feeAmount.id { (orderByFeeAmountDesc.Value ? "DESC" : "ASC") }") }
+              ;";
       return GetFeeQuotesDb(selectFeeQuote, new { id = feeQuoteId }).SingleOrDefault();
     }
 

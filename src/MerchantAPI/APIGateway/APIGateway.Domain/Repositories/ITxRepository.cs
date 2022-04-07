@@ -81,5 +81,9 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<Block[]> GetUnparsedBlocksAsync();
 
     Task<bool> CheckIfBlockWasParsedAsync(long blockInternalId);
+
+    Task<Tx[]> GetTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes);
+
+    Task<int> DeleteTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes);
   }
 }

@@ -129,13 +129,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
           payloadSubmit = await SubmitTransactionAsync(txHex);
           Assert.AreEqual("failure", payloadSubmit.ReturnResult);
 
-          /*
+
           var feequote = FeeQuoteRepository.GetFeeQuoteById(1);
           int deleted = await TxRepositoryPostgres.DeleteTxsWithFeeQuotesAsync(new FeeQuote[] { feequote });
           Assert.AreEqual(1, deleted);
           // resubmit with new (fixed) policy
           payloadSubmit = await SubmitTransactionAsync(txHex);
-          Assert.AreEqual("success", payloadSubmit.ReturnResult);*/
+          Assert.AreEqual("success", payloadSubmit.ReturnResult);
         }
       }
     }

@@ -663,7 +663,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         bool okToMine = false;
         bool okToRelay = false;
         PolicyQuote selectedQuote = null;
-        var txStatus = await txRepository.GetTransactionStatusAsync(txId.ToBytes()); // todo: which call is faster - to db or ParseBytesToTransaction - move this?
+        var txStatus = await txRepository.GetTransactionStatusAsync(txId.ToBytes());
 
         if (txStatus > TxStatus.NotPresentInDb)
         {

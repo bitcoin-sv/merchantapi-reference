@@ -1271,5 +1271,53 @@ WHERE blockInternalId=@blockInternalId AND (parsedForMerkleAt IS NOT NULL OR par
 ";
       return await connection.QuerySingleAsync<bool>(cmdText, new { blockInternalId });
     }
+
+    public async Task<Tx[]> GetTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes)
+    {
+      if (!feeQuotes.Any())
+      {
+        return Array.Empty<Tx>();
+      }
+      var feeQuotesIds = feeQuotes.Select(x => x.Id).ToArray();
+      using var connection = await GetDbConnectionAsync();
+
+      string cmdText = @"
+SELECT txInternalId, txExternalId TxExternalIdBytes, policyQuoteId
+FROM Tx WHERE TxStatus = @txstatus AND PolicyQuoteId = ANY(@feeQuotesIds);";
+
+
+      var txs = await connection.QueryAsync<Tx>(cmdText, new
+      {
+        txstatus = TxStatus.SentToNode,
+        feeQuotesIds
+      });
+
+      return txs.ToArray();
+    }
+
+    public async Task<int> DeleteTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes)
+    {
+      if (!feeQuotes.Any())
+      {
+        return 0;
+      }
+      var feeQuotesIds = feeQuotes.Select(x => x.Id).ToArray();
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+WITH deleted AS
+(DELETE FROM Tx WHERE TxStatus = @txstatus AND PolicyQuoteId = ANY(@feeQuotesIds) RETURNING *)
+SELECT count(*) FROM deleted;
+";
+
+      var txsCount = await connection.ExecuteScalarAsync<int>(cmdText, new
+      {
+        txstatus = TxStatus.SentToNode,
+        feeQuotesIds = feeQuotesIds
+      });
+      await transaction.CommitAsync();
+      return txsCount;
+    }
   }
 }
