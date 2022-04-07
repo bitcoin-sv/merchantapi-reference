@@ -247,7 +247,9 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
     {
       bool returnInsertedTransactions = !resubmit && !areUnconfirmedAncestors && !insertTxInputs;
       if (transactions.Count == 0)
-        return null;
+      {
+        return Array.Empty<byte[]>();
+      }
 
       if (transactions.Count == 1)
       {
@@ -340,9 +342,14 @@ WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId AND T
         cmdText = @$"
 UPDATE Tx
 SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, dsCheck = TxTemp.dsCheck, unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus, policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote
-FROM TxTemp WHERE EXISTS 
-(Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND 
-(Tx.txStatus < { TxStatus.Mempool } OR Tx.policyQuoteId = TxTemp.PolicyQuoteId));"
+FROM TxTemp 
+WHERE Tx.txExternalId = TxTemp.txExternalId AND 
+Tx.txStatus < { TxStatus.Mempool };
+UPDATE Tx
+SET submittedAt = TxTemp.submittedAt
+FROM TxTemp 
+WHERE Tx.txExternalId = TxTemp.txExternalId AND 
+Tx.txStatus >= { TxStatus.Mempool };"
 ;
         cmdText += @"
 INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
@@ -851,12 +858,12 @@ LIMIT 1;
 
       string cmdText = @"
 WITH resubmitTxs as
-((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
+((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
 FROM tx
 JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
 WHERE txstatus = @txstatusmempool)
 UNION ALL
-(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
+(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
  FROM Tx
  INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
  INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid

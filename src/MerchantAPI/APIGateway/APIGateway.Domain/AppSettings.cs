@@ -173,7 +173,7 @@ namespace MerchantAPI.APIGateway.Domain
 
     public bool? ResubmitKnownTransactions { get; set; } = false;
 
-    public bool? EnableFaultInjection { get; set; } = true;
+    public bool? EnableFaultInjection { get; set; } = false;
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>

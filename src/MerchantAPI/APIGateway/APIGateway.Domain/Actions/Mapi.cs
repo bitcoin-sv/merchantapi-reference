@@ -381,7 +381,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         Txid = txId,
         ReturnResult = ResultCodes.Success,
-        ResultDescription ="Already known"
+        ResultDescription = "Already known"
       });
     }
 
@@ -843,7 +843,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             PrevN = x.PrevOut.N,
             PrevTxId = x.PrevOut.Hash.ToBytes()
           }).ToList();
-          if (oneTx.DsCheck)
+          if (oneTx.DsCheck && txStatus < TxStatus.UnknownOldTx)
           {
             foreach (TxInput txInput in oneTx.TransactionInputs)
             {
@@ -864,34 +864,34 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       RpcSendTransactions rpcResponse;
 
       Exception submitException = null;
+
+      var saveTxsBeforeSendToNode = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus)>();
       if (transactionsToSubmit.Any())
-      {       
-        if (!appSettings.DontInsertTransactions.Value && 
-            user != null &&
-            transactionsToSubmit.Any(x => x.txstatus < TxStatus.SentToNode)
-            )
+      {
+        if (!appSettings.DontInsertTransactions.Value &&
+            user != null)
         {
-          var saveTxsBeforeSendToNode = transactionsToSubmit.Where(x => x.txstatus < TxStatus.SentToNode).ToList();
+          saveTxsBeforeSendToNode = transactionsToSubmit.Where(x => x.txstatus < TxStatus.SentToNode).ToList();
           var insertedTxs = (await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiBeforeSendToNode,
             saveTxsBeforeSendToNode.Select(x => new Tx
-          {
-            CallbackToken = x.transaction.CallbackToken,
-            CallbackUrl = x.transaction.CallbackUrl,
-            CallbackEncryption = x.transaction.CallbackEncryption,
-            DSCheck = x.transaction.DsCheck,
-            MerkleProof = x.transaction.MerkleProof,
-            MerkleFormat = x.transaction.MerkleFormat,
-            TxExternalId = new uint256(x.transactionId),
-            TxPayload = x.transaction.RawTx,
-            ReceivedAt = clock.UtcNow(),
-            TxIn = x.transaction.TransactionInputs,
-            TxStatus = TxStatus.SentToNode,
-            UpdateTx = txsToUpdate.Contains(x.transactionId),
-            PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
-            Policies = x.policyQuote?.Policies,
-            OkToMine = x.dontCheckFees,
-            SetPolicyQuote = x.policyQuote != null
-          }).ToList(), false, false, false)).Select(x => new uint256(x)).ToList();
+            {
+              CallbackToken = x.transaction.CallbackToken,
+              CallbackUrl = x.transaction.CallbackUrl,
+              CallbackEncryption = x.transaction.CallbackEncryption,
+              DSCheck = x.transaction.DsCheck,
+              MerkleProof = x.transaction.MerkleProof,
+              MerkleFormat = x.transaction.MerkleFormat,
+              TxExternalId = new uint256(x.transactionId),
+              TxPayload = x.transaction.RawTx,
+              ReceivedAt = clock.UtcNow(),
+              TxIn = x.transaction.TransactionInputs,
+              TxStatus = TxStatus.SentToNode,
+              UpdateTx = txsToUpdate.Contains(x.transactionId),
+              PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
+              Policies = x.policyQuote?.Policies,
+              OkToMine = x.dontCheckFees,
+              SetPolicyQuote = x.policyQuote != null
+            }).ToList(), false, false, false)).Select(x => new uint256(x)).ToList();
           insertedTxs.ForEach(x => txsToUpdate.Add(x.ToString()));
         }
 
@@ -1026,7 +1026,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       // Submit all collected transactions in one call
       try
-      {       
+      {
         var simulateSendTxsResponse = await faultInjection.SimulateSendTxsResponseAsync(faultType);
         if (simulateSendTxsResponse != null)
         {
