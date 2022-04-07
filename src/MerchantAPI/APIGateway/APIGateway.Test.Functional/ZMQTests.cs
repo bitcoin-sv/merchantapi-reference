@@ -6,11 +6,9 @@ using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
-using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -25,20 +23,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo2")]
   [TestClass]
-  public class ZMQTests : MapiWithBitcoindTestBase
+  public class ZMQTests : ZMQTestBase
   {
-    public ZMQSubscriptionService zmqService;
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
-      zmqService = server.Services.GetRequiredService<ZMQSubscriptionService>();
-      ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
-      InsertFeeQuote();
-
-      // Wait until all events are processed to avoid race conditions - we need to  finish subscribing to ZMQ before checking for any received notifications
-      WaitUntilEventBusIsIdle(); 
     }
 
     [TestCleanup]
@@ -370,30 +361,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // New block discovered event should be fired
       var secondNewBlockArrivedSubscription = await newBlockDiscoveredSubscription.ReadAsync(cts.Token);
       Assert.AreEqual(blockHash[0], secondNewBlockArrivedSubscription.BlockHash);
-    }
-
-    private async Task RegisterNodesWithServiceAndWait(CancellationToken cancellationToken)
-    {
-      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
-
-      // Register nodes with service
-      RegisterNodesWithService(cancellationToken);
-
-      // Wait for subscription event so we can make sure that service is listening to node
-      _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
-
-      // Unsubscribe from event bus
-      EventBus.TryUnsubscribe(subscribedToZMQSubscription);
-    }
-
-    private void RegisterNodesWithService(CancellationToken cancellationToken)
-    {
-      // Register all nodes with service
-      var nodes = this.NodeRepository.GetNodes();
-      foreach (var node in nodes)
-      {
-        EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
-      }
     }
 
     [TestMethod]
