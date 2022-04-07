@@ -167,7 +167,8 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddTransient<IClock, Clock>();
       services.AddHostedService<NotificationService>();
       services.AddHostedService(p => (BlockParser)p.GetRequiredService<IBlockParser>());
-
+      services.AddSingleton<IMempoolChecker, MempoolChecker>();
+      services.AddHostedService(p => (MempoolChecker)p.GetRequiredService<IMempoolChecker>());
       services.AddHostedService<InvalidTxHandler>();
       services.AddHostedService<BlockChecker>();
 

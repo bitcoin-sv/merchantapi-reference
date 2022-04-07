@@ -825,6 +825,57 @@ LIMIT 1;
       return txstatus == null ? TxStatus.NotPresentInDb : txstatus.Value;
     }
 
+    public async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs)
+    {
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdTempTable = @"
+      CREATE TEMPORARY TABLE MempoolTx (
+          txExternalId    BYTEA   NOT NULL
+      ) ON COMMIT DROP;
+      ";
+      await transaction.Connection.ExecuteAsync(cmdTempTable);
+
+      using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY MempoolTx (txExternalId) FROM STDIN (FORMAT BINARY)"))
+      {
+        foreach (var tx in mempoolTxs)
+        {
+          txImporter.StartRow();
+          txImporter.Write((new uint256(tx)).ToBytes(), NpgsqlTypes.NpgsqlDbType.Bytea);
+        }
+        await txImporter.CompleteAsync();
+      }
+
+      await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
+
+      string cmdText = @"
+WITH resubmitTxs as
+((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
+FROM tx
+JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
+WHERE txstatus = @txstatusmempool)
+UNION ALL
+(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
+ FROM Tx
+ INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
+ INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
+ JOIN FeeQuote feeQuote ON feeQuote.id = policyQuoteId
+ WHERE txstatus > @txstatus
+ AND Block.OnActiveChain = false))
+SELECT * from resubmitTxs
+LEFT JOIN MempoolTx m ON resubmitTxs.TxExternalIdBytes = m.txExternalId
+WHERE m.txExternalId IS NULL
+ORDER BY resubmitTxs.txInternalId
+";
+
+      var txs = await connection.QueryAsync<Tx>(cmdText, new { txstatusmempool = TxStatus.Mempool, txstatus = TxStatus.MissingInputsMaxRetriesReached });
+
+      await transaction.CommitAsync();
+
+      return txs.ToArray();
+    }
+
     public async Task UpdateTxStatus(IList<long> txInternalIds, int txstatus)
     {
       using var connection = await GetDbConnectionAsync();

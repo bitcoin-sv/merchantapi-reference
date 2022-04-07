@@ -62,6 +62,8 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<int> GetTransactionStatusAsync(byte[] txId);
 
+    Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs);
+
     Task UpdateTxStatus(IList<long> txInternalIds, int txstatus);
 
     Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch);

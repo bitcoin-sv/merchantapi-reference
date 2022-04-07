@@ -265,6 +265,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return GetFirstSuccessfulAsync(c => c.VerifyScriptAsync(stopOnFirstInvalid, totalTimeoutSec, dsTx));
     }
 
+    public Task<string[]> GetRawMempool(CancellationToken? token = null)
+    {
+      return GetFirstSuccessfulAsync(x => x.GetRawMempool(token));
+    }
+
     enum GroupType
     {
       OK,

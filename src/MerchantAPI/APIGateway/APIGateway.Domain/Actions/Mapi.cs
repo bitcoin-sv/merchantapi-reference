@@ -50,6 +50,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     static readonly Counter txRejectedByNode = Metrics
       .CreateCounter($"{metricsPrefix}rejectedbynode_counter", "Number of transactions rejected by node.");
 
+    readonly object lockObj = new();
+    public bool ResubmitInProcess { get; private set; }
+
     static class ResultCodes
     {
       public const string Success = "success";
@@ -1070,6 +1073,116 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         rpcResponse = null;
       }
       return (rpcResponse, submitException);
+    }
+
+
+    public virtual async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactions(int batchSize = 1000)
+    {
+      lock (lockObj)
+      {
+        if (ResubmitInProcess)
+        {
+          logger.LogDebug($"Resubmit already in process.");
+          return (false, null);
+        }
+        ResubmitInProcess = true;
+      }
+
+      var mempoolTxs = Array.Empty<string>();
+      try
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
+        mempoolTxs = await rpcMultiClient.GetRawMempool();
+      }
+      catch (Exception ex)
+      {
+        logger.LogWarning($"Error when calling GetRawMempool: {ex.Message}");
+      }
+      logger.LogDebug($"{ mempoolTxs.Length } txs in mempool.");
+
+      var txs = await txRepository.GetMissingTransactionsAsync(mempoolTxs);
+      // split processing into smaller batches
+      int nBatches = (int)Math.Ceiling((double)txs.Length / batchSize);
+      int submitSuccessfulCount = 0;
+      List<long> txsWithMissingInputs = new();
+      int n = 0;
+
+      while (n < nBatches)
+      {
+        var txsToSubmit = txs.Skip(n * batchSize).Take(batchSize).ToArray();
+        (byte[] transaction, bool allowhighfees, bool dontCheckFee, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions;
+        // we allow certain errors - check with prevOut, do not submit this
+        if (appSettings.MempoolCheckerMissingInputsRetries.Value == 0)
+        {
+          // maybe we could also simplify and limit MempoolCheckerMissingInputsRetries to min = 1
+          IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
+          foreach (var tx in txsToSubmit)
+          {
+            allTxs.Add(tx.TxExternalId, tx.TxPayload);
+            var transaction = HelperTools.ParseBytesToTransaction(tx.TxPayload);
+            try
+            {
+              var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, new ReadOnlyDictionary<uint256, byte[]>(allTxs), rpcMultiClient);
+
+              var prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
+              var colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
+              if (colidedWith.Any() || prevOutsErrors.Any())
+              {
+                txsWithMissingInputs.Add(tx.TxInternalId);
+              }
+            }
+            catch (Exception ex)
+            {
+              logger.LogDebug($"ResubmitMissingTransactions: Error fetching inputs ({ ex.Message })");
+            }
+          }
+          transactions = txsToSubmit.Where(x => !txsWithMissingInputs.Contains(x.TxInternalId)).Select(x => (x.TxPayload, false, x.OkToMine, false, x.PoliciesDict)).ToArray();
+        }
+        else
+        {
+          transactions = txsToSubmit.Select(x => (x.TxPayload, false, x.OkToMine, false, x.PoliciesDict)).ToArray();
+        }
+
+        var (rpcResponse, submitException) = await SendRawTransactions(transactions, Faults.FaultType.SimulateSendTxsMempoolChecker);
+        if (submitException != null)
+        {
+          logger.LogError($"Error while resubmitting transactions: {submitException}");
+        }
+        else
+        {
+          // update successful resubmits
+          var (submitFailureCount, transformed) = TransformRpcResponse(rpcResponse,
+            txsToSubmit.Select(x => x.TxExternalId.ToString()).ToArray());
+          var successfullTxs = txsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.TxExternalId.ToString()));
+          submitSuccessfulCount += successfullTxs.Count();
+          await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateTxs, successfullTxs.Select(x => new Tx
+          {
+            // on resubmit we only update submittedAt and txStatus
+            TxInternalId = x.TxInternalId,
+            TxExternalId = x.TxExternalId,
+            SubmittedAt = clock.UtcNow(),
+            TxStatus = x.TxStatus,
+            PolicyQuoteId = x.PolicyQuoteId,
+            UpdateTx = true
+          }).ToList());
+
+          // we allow certain errors
+          txsWithMissingInputs.AddRange(txsToSubmit.Where(x => transformed.Any(
+            y => y.ReturnResult == ResultCodes.Failure && NodeRejectCode.MapiMissingInputs.Contains(y.ResultDescription) && y.Txid == x.TxExternalId.ToString())
+          ).Select(x => x.TxInternalId));
+        }
+        n++;
+      }
+
+      lock (lockObj)
+      {
+        ResubmitInProcess = false;
+      }
+
+      int failures = txs.Length - submitSuccessfulCount - txsWithMissingInputs.Count;
+      logger.LogInformation($"ResubmitMempoolTransactions: resubmitted { txs.Length } txs = successful: { submitSuccessfulCount}, failures: { failures }, missing inputs: { txsWithMissingInputs.Count }).");
+
+      return (failures == 0, txsWithMissingInputs);
     }
   }
 }

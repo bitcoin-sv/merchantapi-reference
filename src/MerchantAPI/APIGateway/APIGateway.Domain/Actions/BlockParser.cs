@@ -33,6 +33,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly ITxRepository txRepository;
     readonly IRpcMultiClient rpcMultiClient;
     readonly IClock clock;
+    readonly IMapi mapi;
     readonly List<string> blockHashesBeingParsed = new();
     readonly SemaphoreSlim semaphoreSlim = new(1, 1);
     readonly BlockParserStatus blockParserStatus;
@@ -59,12 +60,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger,
-                       IEventBus eventBus, IOptions<AppSettings> options, IClock clock)
+                       IEventBus eventBus, IOptions<AppSettings> options, IClock clock, IMapi mapi)
     : base(logger, eventBus)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+      this.mapi = mapi ?? throw new ArgumentNullException(nameof(mapi));
       blockParserStatus = new();
       appSettings = options.Value;
       rpcGetBlockTimeout = TimeSpan.FromMinutes(options.Value.RpcClient.RpcGetBlockTimeoutMinutes.Value);
@@ -164,6 +166,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return dsAncestorTxIds.Count() + dsTxIds.Count();
     }
 
+    private async Task WaitTillResubmitInProcess()
+    {
+      while (mapi.ResubmitInProcess)
+      {
+        await Task.Delay(100);
+      }
+    }
+
     public async Task NewBlockDiscoveredAsync(NewBlockDiscoveredEvent e)
     {
       try
@@ -173,6 +183,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           logger.LogInformation($"Block parsing is disabled. Won't store block header information for block '{e.BlockHash}' into database");
           return;
         }
+
+        await WaitTillResubmitInProcess();
 
         var blockHash = new uint256(e.BlockHash);
 
@@ -264,6 +276,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       try
       {
+        await WaitTillResubmitInProcess();
+
         await semaphoreSlim.WaitAsync();
         try
         {
