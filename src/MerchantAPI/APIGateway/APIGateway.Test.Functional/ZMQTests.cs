@@ -45,7 +45,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var zmqUnsubscribedSubscription = EventBus.Subscribe<ZMQUnsubscribedEvent>();
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Delete one node and check that event is fired
@@ -61,7 +61,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe new block events
@@ -82,7 +82,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
@@ -276,7 +276,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe zmq subscribe, unsubscribe and new block events
@@ -382,7 +382,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       WaitUntilEventBusIsIdle();
@@ -405,7 +405,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var subscribedToZMQFailed = EventBus.Subscribe<ZMQFailedEvent>();
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       WaitUntilEventBusIsIdle();

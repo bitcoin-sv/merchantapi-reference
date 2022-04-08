@@ -3,108 +3,35 @@
 
 using System;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
-using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Domain.ViewModels;
-using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
-using NBitcoin.Altcoins;
 
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo2")]
   [TestClass]
-  public class UnconfirmedAncestorsTestss : MapiWithBitcoindTestBase
+  public class UnconfirmedAncestorsTests : ZMQTestBase
   {
-    public ZMQSubscriptionService zmqService;
-    private ITxRepository txRepository;
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
-      zmqService = server.Services.GetRequiredService<ZMQSubscriptionService>();
-      txRepository = server.Services.GetRequiredService<ITxRepository>();
-
-      ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
-      InsertFeeQuote();
-
-      // Wait until all events are processed to avoid race conditions - we need to  finish subscribing to ZMQ before checking for any received notifications
-      WaitUntilEventBusIsIdle();
     }
 
     [TestCleanup]
     public override void TestCleanup()
     {
       base.TestCleanup();
-    }
-
-    private async Task RegisterNodesWithServiceAndWaitAsync(CancellationToken cancellationToken)
-    {
-      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
-
-      // Register nodes with service
-      RegisterNodesWithService();
-
-      // Wait for subscription event so we can make sure that service is listening to node
-      _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
-
-      // Unsubscribe from event bus
-      EventBus.TryUnsubscribe(subscribedToZMQSubscription);
-    }
-
-    private void RegisterNodesWithService()
-    {
-      // Register all nodes with service
-      var nodes = this.NodeRepository.GetNodes();
-      foreach (var node in nodes)
-      {
-        EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
-      }
-    }
-
-    private async Task<(string, string, int)> CreateUnconfirmedAncestorChainAsync(string txHex1, string txId1, int length, int sendToMAPIRate, bool sendLastToMAPI = false, CancellationToken? cancellationToken = null)
-    {
-      var curTxHex = txHex1;
-      var curTxId = txId1;
-      var mapiTxCount = 0;
-      for (int i = 0; i < length; i++)
-      {
-        Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
-        var curTxCoin = new Coin(curTx, 0);
-        (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
-
-        // Submit every sendToMAPIRate tx to mapi with dsCheck
-        if ((sendToMAPIRate != 0 && i % sendToMAPIRate == 0) || (sendLastToMAPI && i == length - 1))
-        {
-          var payload = await SubmitTransactionAsync(curTxHex, true, true);
-          Assert.AreEqual(payload.ReturnResult, "success");
-          mapiTxCount++;
-        }
-        else
-        {
-          _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(curTxHex), true, false, cancellationToken);
-        }
-      }
-
-      return (curTxHex, curTxId, mapiTxCount);
     }
    
     [TestMethod]
@@ -160,7 +87,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
       foreach(var txInput in curTx.Inputs)
       {        
-        var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
+        var prevOut = await TxRepositoryPostgres.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
         Assert.IsNotNull(prevOut);
         Assert.AreEqual(new uint256(prevOut.TxExternalId).ToString(), lastTxId);
       }
@@ -198,7 +125,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
       foreach (var txInput in curTx.Inputs)
       {
-        var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
+        var prevOut = await TxRepositoryPostgres.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
         Assert.IsNull(prevOut);
       }
 

@@ -60,7 +60,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
 
       var mempoolTxs = await RpcMultiClient.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
@@ -265,7 +265,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
 
       // Subscribe new block events
       var newBlockDiscoveredSubscription = EventBus.Subscribe<NewBlockDiscoveredEvent>();
@@ -497,7 +497,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
 
       // Subscribe removedFromMempool events
       var removedFromMempoolSubscription = EventBus.Subscribe<RemovedFromMempoolEvent>();

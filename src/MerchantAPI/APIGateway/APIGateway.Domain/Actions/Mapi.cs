@@ -1000,6 +1000,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             // unconfirmedAncestors are only inserted, not updated
             await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiUnconfirmedAncestors, unconfirmedAncestors, true);
             unconfirmedAncestorsCount = unconfirmedAncestors.Count;
+            // for now we don't combine two InsertOrUpdateTxsAsync into one,
+            // but this can lead to lost UnconfirmedAncestors (test 'SubmitWithUnconfirmedParentsAsync')
           }
           watch.Stop();
           logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } found unconfirmedAncestors { unconfirmedAncestorsCount } took {watch.ElapsedMilliseconds} ms.");

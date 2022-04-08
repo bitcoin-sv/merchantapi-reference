@@ -318,5 +318,37 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertTxStatus(txId1, TxStatus.NotPresentInDb);
     }
+
+    [TestMethod]
+    public async Task SubmitWithUnconfirmedParentsAsync()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      // Create and submit first transaction
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
+
+      mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, Faults.DbFaultComponent.MapiUnconfirmedAncestors);
+
+      // Create chain based on first transaction with last transaction being submited to mAPI
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token, System.Net.HttpStatusCode.InternalServerError);
+
+      // Check that first tx is in database
+      long? txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
+      Assert.IsNull(txInternalId1);
+
+      mapiMock.ClearMode();
+
+      var payload = await SubmitTransactionAsync(lastTxHex, true, true);
+      Assert.AreEqual(payload.ReturnResult, "success");
+      long? lastTxInternalId1= await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(lastTxId)).ToBytes());
+      Assert.IsTrue(lastTxInternalId1.HasValue);
+      Assert.AreNotEqual(0, lastTxInternalId1.Value);
+
+      // since txLast was saved, tx1 is not resubmited
+      txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
+      Assert.IsNull(txInternalId1);
+    }
   }
 }

@@ -32,12 +32,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.TestCleanup();
     }
-    protected async Task RegisterNodesWithServiceAndWait(CancellationToken cancellationToken)
+
+    protected async Task RegisterNodesWithServiceAndWaitAsync(CancellationToken cancellationToken)
     {
       var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
 
       // Register nodes with service
-      RegisterNodesWithService(cancellationToken);
+      RegisterNodesWithService();
 
       // Wait for subscription event so we can make sure that service is listening to node
       _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
@@ -46,7 +47,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       EventBus.TryUnsubscribe(subscribedToZMQSubscription);
     }
 
-    private void RegisterNodesWithService(CancellationToken cancellationToken)
+    private void RegisterNodesWithService()
     {
       // Register all nodes with service
       var nodes = this.NodeRepository.GetNodes();

@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test.Clock;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -15,6 +16,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -160,6 +162,38 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         await AssertTxStatus(response.Txid, TxStatus.NotPresentInDb);
       }
+    }
+
+
+    protected async Task<(string, string, int)> CreateUnconfirmedAncestorChainAsync(
+      string txHex1, string txId1, int length, int sendToMAPIRate, bool sendLastToMAPI = false, CancellationToken? cancellationToken = null, HttpStatusCode expectedCode = HttpStatusCode.OK)
+    {
+      var curTxHex = txHex1;
+      var curTxId = txId1;
+      var mapiTxCount = 0;
+      for (int i = 0; i < length; i++)
+      {
+        Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
+        var curTxCoin = new Coin(curTx, 0);
+        (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
+
+        // Submit every sendToMAPIRate tx to mapi with dsCheck
+        if ((sendToMAPIRate != 0 && i % sendToMAPIRate == 0) || (sendLastToMAPI && i == length - 1))
+        {
+          var payload = await SubmitTransactionAsync(curTxHex, true, true, expectedHttpStatusCode: expectedCode);
+          if (expectedCode == HttpStatusCode.OK)
+          {
+            Assert.AreEqual(payload.ReturnResult, "success");
+          }
+          mapiTxCount++;
+        }
+        else
+        {
+          _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(curTxHex), true, false, cancellationToken);
+        }
+      }
+
+      return (curTxHex, curTxId, mapiTxCount);
     }
   }
 }
