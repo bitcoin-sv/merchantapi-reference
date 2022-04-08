@@ -868,7 +868,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var saveTxsBeforeSendToNode = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus)>();
       if (transactionsToSubmit.Any())
       {
-        if (!appSettings.DontInsertTransactions.Value &&
+        if (!appSettings.DontInsertTransactions.Value && 
             user != null)
         {
           saveTxsBeforeSendToNode = transactionsToSubmit.Where(x => x.txstatus < TxStatus.SentToNode).ToList();
@@ -1003,6 +1003,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }
           watch.Stop();
           logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } found unconfirmedAncestors { unconfirmedAncestorsCount } took {watch.ElapsedMilliseconds} ms.");
+
+          if (saveTxsBeforeSendToNode.Any())
+          {
+            var rejectedTxs = saveTxsBeforeSendToNode.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Failure && y.Txid == x.transactionId));
+            await txRepository.UpdateTxStatus(rejectedTxs.Select(x => new uint256(x.transactionId).ToBytes()).ToArray(), TxStatus.NodeRejected);
+          }
         }
 
         return result;

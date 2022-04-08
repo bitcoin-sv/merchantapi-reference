@@ -356,6 +356,7 @@ INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, c
 SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote
 FROM TxTemp WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId) "
 ;
+
         if (areUnconfirmedAncestors)
         {
           cmdText += @"
@@ -883,17 +884,17 @@ ORDER BY resubmitTxs.txInternalId
       return txs.ToArray();
     }
 
-    public async Task UpdateTxStatus(IList<long> txInternalIds, int txstatus)
+    public async Task UpdateTxStatus(IList<byte[]> txExternalIds, int txstatus)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText = @"
 UPDATE Tx SET txStatus=@txstatus
-WHERE txInternalId = ANY(@txInternalIds);
+WHERE txExternalId = ANY(@txExternalIds);
 ";
 
-      await connection.ExecuteAsync(cmdText, new { txstatus, txInternalIds });
+      await connection.ExecuteAsync(cmdText, new { txstatus, txExternalIds });
       await transaction.CommitAsync();
     }
 

@@ -65,6 +65,27 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await AssertTxStatus(txHash, TxStatus.Mempool);
     }
 
+    [TestMethod]
+    public async Task SubmitSingleTxAndCheckNodeRejectedStatus()
+    {
+      // Create transaction and submit it to the node
+      var (txHex, txHash) = CreateNewTransaction();
+      SetPoliciesForCurrentFeeQuote("{\"invalidpolicy\": 0 }");
+
+      var payloadSubmit = await SubmitTransactionAsync(txHex);
+      Assert.AreEqual("failure", payloadSubmit.ReturnResult);
+      await AssertTxStatus(txHash, TxStatus.NotPresentInDb);
+
+      (txHex, txHash) = CreateNewTransaction();
+      InsertFeeQuote(MockedIdentity);
+      SetPoliciesForCurrentFeeQuote("{\"invalidpolicy\": 0 }", MockedIdentity);
+      RestAuthentication = MockedIdentityBearerAuthentication;
+      payloadSubmit = await SubmitTransactionAsync(txHex);
+      Assert.AreEqual("failure", payloadSubmit.ReturnResult);
+      // status is set only for authenticated user
+      await AssertTxStatus(txHash, TxStatus.NodeRejected);
+    }
+
     [DataRow(3)]
     [TestMethod]
     public async Task SubmitTransactionsDifferentUsers(int nTxs)
@@ -277,9 +298,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(txId1, tx1_result1);
 
       // Store tx to database before submitting it to the mAPI
-      List<Domain.Models.Tx> txToInsert = new()
+      List<Tx> txToInsert = new()
       {
-        new Domain.Models.Tx()
+        new Tx()
         {
           TxPayload = HelperTools.HexStringToByteArray(txHex1),
           TxExternalId = new uint256(txId1),

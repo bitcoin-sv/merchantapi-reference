@@ -117,7 +117,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         };
         eventBus.Publish(notificationEvent);
       }
-      await txRepository.UpdateTxStatus(txsToLinkToBlock.Select(x => x.TxInternalId).ToArray(), TxStatus.Blockchain);
+      await txRepository.UpdateTxStatus(txsToLinkToBlock.Select(x => x.TxExternalIdBytes).ToArray(), TxStatus.Blockchain);
       await txRepository.SetBlockParsedForMerkleDateAsync(blockInternalId);
 
       return txsToLinkToBlock.Length;
