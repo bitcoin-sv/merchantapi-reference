@@ -16,7 +16,17 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
       throw new Exception(Message);
     }
 
+    public FaultTrigger GetFaultById(string id)
+    {
+      throw new Exception(Message);
+    }
+
     public void Add(FaultTrigger fault)
+    {
+      throw new Exception(Message);
+    }
+
+    public void Update(FaultTrigger fault)
     {
       throw new Exception(Message);
     }
@@ -30,6 +40,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
     {
       throw new Exception(Message);
     }
+
     public Task FailBeforeSavingUncommittedStateAsync(DbFaultComponent? component)
     {
       return Task.CompletedTask;
@@ -42,7 +53,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public Task<SimulateSendTxsResponse?> SimulateSendTxsResponseAsync(FaultType? faultType)
     {
-      return null;
+      return Task.FromResult((SimulateSendTxsResponse?)null);
     }
   }
 }

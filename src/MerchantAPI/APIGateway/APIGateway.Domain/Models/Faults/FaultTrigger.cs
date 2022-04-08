@@ -11,9 +11,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public FaultType Type { get; set; }
 
-    public DbFaultComponent DbFaultComponent { get; set; }
+    public DbFaultComponent? DbFaultComponent { get; set; }
 
-    public SimulateSendTxsResponse SimulateSendTxsResponse { get; set; }
+    public SimulateSendTxsResponse? SimulateSendTxsResponse { get; set; }
 
     public string Name { get; set; }
 
@@ -21,6 +21,6 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public int FaultProbability { get; set; } = 100;
 
-    public DbFaultMethod? FaultMethod { get; set; } = Domain.Faults.DbFaultMethod.Exception;
+    public DbFaultMethod? DbFaultMethod { get; set; } = Domain.Faults.DbFaultMethod.Exception;
   }
 }

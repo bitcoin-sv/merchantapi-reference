@@ -3,7 +3,6 @@
 
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using System.Text.Json.Serialization;
-using static MerchantAPI.APIGateway.Domain.Faults;
 
 namespace MerchantAPI.APIGateway.Rest.ViewModels.Faults
 {
@@ -13,13 +12,16 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels.Faults
     public string Id { get; set; }
 
     [JsonPropertyName("type")]
-    public FaultType Type { get; set; }
+    public string Type { get; set; }
 
     [JsonPropertyName("dbFaultComponent")]
-    public DbFaultComponent DbFaultComponent { get; set; }
+    public string DbFaultComponent { get; set; }
+
+    [JsonPropertyName("faultMethod")]
+    public string DbFaultMethod { get; set; }
 
     [JsonPropertyName("simulateSendTxsResponse")]
-    public SimulateSendTxsResponse SimulateSendTxsResponse { get; set; }
+    public string SimulateSendTxsResponse { get; set; }
 
     [JsonPropertyName("name")]
     public string Name { get; set; }
@@ -28,21 +30,22 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels.Faults
     public int? FaultDelayMs { get; set; }
 
     [JsonPropertyName("faultProbability")]
-    public int FaultProbability { get; set; } = 100;
+    public int FaultProbability { get; set; }
 
-    [JsonPropertyName("faultMethod")]
-    public DbFaultMethod? FaultMethod { get; set; } = Domain.Faults.DbFaultMethod.Exception;
+    public FaultTriggerViewModelGet()
+    {
+    }
 
     public FaultTriggerViewModelGet(FaultTrigger faultTrigger)
     {
       Id = faultTrigger.Id;
-      Type = faultTrigger.Type;
-      DbFaultComponent = faultTrigger.DbFaultComponent;
-      SimulateSendTxsResponse = faultTrigger.SimulateSendTxsResponse;
+      Type = faultTrigger.Type.ToString();
+      DbFaultComponent = faultTrigger.DbFaultComponent?.ToString();
+      SimulateSendTxsResponse = faultTrigger.SimulateSendTxsResponse?.ToString();
       Name = faultTrigger.Name;
       FaultDelayMs = faultTrigger.FaultDelayMs;
       FaultProbability = faultTrigger.FaultProbability;
-      FaultMethod = faultTrigger.FaultMethod;
+      DbFaultMethod = faultTrigger.DbFaultMethod?.ToString();
     }
   }
 }

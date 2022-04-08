@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Rest.ViewModels.Faults;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
@@ -19,6 +20,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -509,12 +511,40 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
       VerifySignature(response);
 
-      Assert.AreEqual(1, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
+      Assert.AreEqual(1, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count());
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       // Check if all fields are set
       await AssertIsOKAsync(payload, txZeroFeeHash);
+    }
+
+    [TestMethod]
+    [OverrideSetting("AppSettings:EnableFaultInjection", false)]
+    public async Task PostWithDisabledFaultInjection()
+    {
+      var entryPost = new FaultTriggerViewModelCreate()
+      {
+        Id = "1a",
+        Type = Faults.FaultType.DbBeforeSavingUncommittedState.ToString(),
+        DbFaultComponent = Faults.DbFaultComponent.MapiAfterSendToNode.ToString(),
+        FaultProbability = 100,
+        DbFaultMethod = Faults.DbFaultMethod.Exception.ToString()
+      };
+      var reqContent = new StringContent(
+        JsonSerializer.Serialize(entryPost)
+      );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+      ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
+      RestAuthentication = null;
+
+      // fault endpoints must be unresponsive
+      await Post<FaultTriggerViewModelGet>(MapiServer.TestFaultUrl, Client, reqContent, HttpStatusCode.InternalServerError);
+
+      await Get<FaultTriggerViewModelGet[]>(Client, MapiServer.TestFaultUrl, HttpStatusCode.InternalServerError);
+
+      // submit works normally
+      await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
     }
   }
 }

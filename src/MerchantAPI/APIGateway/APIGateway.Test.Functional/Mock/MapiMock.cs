@@ -65,7 +65,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       FaultTrigger trigger = new();
       trigger.Type = faultType;
       trigger.DbFaultComponent = faultComponent;
-      trigger.FaultMethod = faultMethod;
+      trigger.DbFaultMethod = faultMethod;
 
       faultManager.Add(trigger);
     }

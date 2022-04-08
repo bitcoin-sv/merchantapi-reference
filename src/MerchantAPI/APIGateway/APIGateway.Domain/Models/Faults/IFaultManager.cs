@@ -8,7 +8,9 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
   public interface IFaultManager
   {
     public List<FaultTrigger> GetList();
+    public FaultTrigger GetFaultById(string id);
     public void Add(FaultTrigger fault);
+    public void Update(FaultTrigger fault);
     public void Clear();
     void Remove(string id);
   }

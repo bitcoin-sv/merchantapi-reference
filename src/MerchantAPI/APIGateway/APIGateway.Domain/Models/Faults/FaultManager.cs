@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using static MerchantAPI.APIGateway.Domain.Faults;
 
@@ -21,6 +22,14 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
       }
     }
 
+    public FaultTrigger GetFaultById(string id)
+    {
+      lock (faultLock)
+      {
+        return faults.SingleOrDefault(x => IdsEqual(x.Id, id));
+      }
+    }
+
     public void Add(FaultTrigger fault)
     {
       if (fault.Id == null)
@@ -34,19 +43,36 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
       }
     }
 
+    private static bool IdsEqual(string id1, string id2)
+    {
+      return id1.Equals(id2, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Update(FaultTrigger fault)
+    {
+      if (fault.Id != null)
+      {
+        var oldFault = faults.Single(x => IdsEqual(x.Id, fault.Id));
+        lock (faultLock)
+        {
+          faults[faults.IndexOf(oldFault)] = fault;
+        }
+      }
+    }
+
     public void Clear()
     {
       lock (faultLock)
       {
         faults.Clear();
       }
-
     }
+
     public void Remove(string id)
     {
       lock (faultLock)
       {
-        faults.RemoveAll(x => x.Id == id);
+        faults.RemoveAll(x => IdsEqual(x.Id, id));
       }
     }
 
@@ -91,6 +117,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
           if (chance <= rule.FaultProbability)
           {
             fault = rule;
+            break;
           }
         }
       }
@@ -103,15 +130,15 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
       {
         await Task.Delay(fault.FaultDelayMs.Value);
       }
-      switch (fault.FaultMethod)
+      switch (fault.DbFaultMethod)
       {
         case DbFaultMethod.Exception:
-          throw new FaultException("fault " + fault.Name + " id " + fault.Id);
+          throw new FaultException($"Fault { fault.Name ?? "(no name)" } id { fault.Id }");
         case DbFaultMethod.ProcessExit:
           Environment.Exit(99);
-          throw new FaultException("exit fault " + fault.Name + " id " + fault.Id);
+          throw new FaultException($"Exit fault { fault.Name ?? "(no name)" } id { fault.Id }");
         default:
-          throw new NotImplementedException("faultMethod " + fault.FaultMethod);
+          throw new NotImplementedException($"FaultMethod { fault.DbFaultMethod }");
       }
     }
 
