@@ -8,6 +8,7 @@ using System.Linq;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+  [TestCategory("TestCategoryNo1")]
   [TestClass]
   public class AppSettingsTest : TestBase
   {

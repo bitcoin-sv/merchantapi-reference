@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
-
+  [TestCategory("TestCategoryNo1")]
   [TestClass]
   public class EncryptionTest
   {
