@@ -249,6 +249,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         else
         {
           logger.LogDebug($"Block '{e.BlockHash}' not inserted into DB, because it's already present in DB.");
+          // check onActiveChain
+          await VerifyBlockChainAsync(new uint256(dbBlock.PrevBlockHash).ToString());
           return;
         }
 

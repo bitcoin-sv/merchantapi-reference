@@ -460,6 +460,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         loggerTest.LogInformation($"NotificationType: {notification.NotificationType}; TxId: {notification.TxInternalId}");
       }
       Assert.AreEqual(1, notifications.Length);
+      Assert.IsNotNull(notifications.Single().DoubleSpendTxId);
     }
   }
 }

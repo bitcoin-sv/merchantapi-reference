@@ -60,7 +60,7 @@ ON CONFLICT (blockHash) DO NOTHING
 RETURNING blockInternalId;
 ";
 
-      var blockInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new
+      var blockInternalId = await connection.ExecuteScalarAsync<long?>(cmdText, new
       {
         blockTime = block.BlockTime,
         blockHash = block.BlockHash,
@@ -506,6 +506,7 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
     {
       await InsertOrUpdateTxsAsync(faultComponent, transactions, false, false, resubmit: true);
     }
+
     public async Task InsertTxBlockAsync(IList<long> txInternalIds, long blockInternalId)
     {
       using var connection = await GetDbConnectionAsync();
