@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+  [TestCategory("TestCategoryNo1")]
   [TestClass]
   public class MapiResilienceTest : MapiTestBase
   {

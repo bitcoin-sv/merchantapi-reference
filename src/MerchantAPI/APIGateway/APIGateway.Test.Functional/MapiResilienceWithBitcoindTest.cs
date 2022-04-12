@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+  [TestCategory("TestCategoryNo3")]
   [TestClass]
   public class MapiResilienceWithBitcoindTest : MapiWithBitcoindTestBase
   {

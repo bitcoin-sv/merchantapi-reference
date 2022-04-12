@@ -27,7 +27,7 @@ using System.Collections.Generic;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
-  [TestCategory("TestCategoryNo3")]
+  [TestCategory("TestCategoryNo4")]
   [TestClass]
   public class DS_NodeMapiIntegrationTest : TestBaseWithBitcoind
   {

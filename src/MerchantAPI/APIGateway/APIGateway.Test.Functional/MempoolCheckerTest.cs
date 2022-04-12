@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+  [TestCategory("TestCategoryNo4")]
   [TestClass]
   public class MempoolCheckerTest: MapiTestBase
   {
