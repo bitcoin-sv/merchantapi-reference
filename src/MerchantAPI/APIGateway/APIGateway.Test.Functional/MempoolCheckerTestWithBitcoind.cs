@@ -54,12 +54,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task GetRawMempoolTwoNodes()
+    public async Task GetRawMempoolMultipleNodes()
     {
       // startup another node and link it to the first node
       var node1 = StartBitcoind(1, new BitcoindProcess[] { node0 });
 
       using CancellationTokenSource cts = new(cancellationTimeout);
+
+      await SyncNodesBlocksAsync(cts.Token, node0, node1);
 
       await RegisterNodesWithServiceAndWaitAsync(cts.Token);
 
@@ -77,7 +79,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await WaitForTxToBeAcceptedToMempool(node0, txId2, cts.Token);
 
-      // Both transactions should be in mempool
+      // both transactions should be in mempool
       mempoolTxs = await node0.RpcClient.GetRawMempool();
       Assert.AreEqual(2, mempoolTxs.Length);
       Assert.IsTrue(mempoolTxs.Contains(txId1));
@@ -85,7 +87,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual(0, Callback.Calls.Length);
 
+      // check if new node syncs mempool on startup
+      var node2 = StartBitcoind(2, new BitcoindProcess[] { node0 });
+      await SyncNodesBlocksAsync(cts.Token, node0, node2);
+
+      // send succeeds, because txHex2 is not in the node2's mempool
+      _ = await node2.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false, cts.Token);
+
+      mempoolTxs = await node2.RpcClient.GetRawMempool();
+      Assert.AreEqual(txId2, mempoolTxs.Single());
+
       StopBitcoind(node1);
+      StopBitcoind(node2);
     }
 
     [TestMethod]
@@ -118,6 +131,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(txHash, (await rpcClient0.GetRawMempool()).Single());
       txResubmitted = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txHash).ToBytes());
       Assert.IsTrue(tx.SubmittedAt < txResubmitted.SubmittedAt);
+      await AssertTxStatus(txHash, TxStatus.Mempool);
     }
 
     [TestMethod]
@@ -156,7 +170,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
       Assert.IsTrue(success);
       var txResubmitted = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId).ToBytes());
-      Assert.IsTrue(txResubmitted.SubmittedAt > txInDb.SubmittedAt);
+      Assert.IsTrue(txResubmitted.SubmittedAt.Ticks > txInDb.SubmittedAt.Ticks);
     }
 
     [TestMethod]
@@ -458,15 +472,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
         await mempoolChecker.CheckMempoolAndResubmitTxs(0);
         retries--;
       }
+      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions();
+      Assert.IsTrue(success);
+      Assert.AreEqual(0, txsWithMissingInputs.Count);
+
       txAInDb = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txIdA).ToBytes());
       Assert.AreEqual(TxStatus.MissingInputsMaxRetriesReached, txAInDb.TxStatus);
       if (!resubmitted)
       {
         Assert.AreEqual(txAInDb.ReceivedAt.Ticks, txAInDb.SubmittedAt.Ticks, 10);
       }
-      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions();
-      Assert.IsTrue(success);
-      Assert.AreEqual(0, txsWithMissingInputs.Count);
     }
 
     private async Task<(string txIdA, string TxIdB, NBitcoin.Block lastBlock)> TwoTxsFromSameCoinOnDifferentChainsAB(string parentBlockHash, bool dsCheck = false)
@@ -525,8 +540,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var notification = (await TxRepositoryPostgres.GetNotificationsForTestsAsync()).Single();
       Assert.AreEqual(CallbackReason.DoubleSpend, notification.NotificationType);
-      var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       var success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
       Assert.IsTrue(success);
@@ -535,8 +550,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // new events should not be fired
       var notificationAfterResubmit = (await TxRepositoryPostgres.GetNotificationsForTestsAsync()).Single();
       Assert.AreEqual(notification.TxInternalId, notificationAfterResubmit.TxInternalId);
-      calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(2, mempoolTxs.Length);

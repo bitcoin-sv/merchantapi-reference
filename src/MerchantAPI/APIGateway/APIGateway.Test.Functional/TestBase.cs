@@ -184,6 +184,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
       EventBus.WaitForIdle();
       loggerTest.LogInformation("Waiting for the EventBus to become idle completed");
     }
+
+    public async Task CheckCallbacksAsync(int nCalls, CancellationToken token)
+    {
+      WaitUntilEventBusIsIdle();
+
+      while (!token.IsCancellationRequested)
+      {
+        if (Callback.Calls.Length == nCalls)
+        {
+          return;
+        }
+        await Task.Delay(100, token);
+      }
+
+    }
+
     public static void RepeatUntilException(Action action, int timeOutSeconds = 10)
     {
       var start = DateTime.UtcNow;

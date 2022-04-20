@@ -275,7 +275,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    private void AssertSubmitTxFailedBecauseOfDifferentParams((SignedPayloadViewModel response, HttpResponseMessage httpResponse) response)
+    private static void AssertSubmitTxFailedBecauseOfDifferentParams((SignedPayloadViewModel response, HttpResponseMessage httpResponse) response)
     {
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();

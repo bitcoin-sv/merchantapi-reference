@@ -143,6 +143,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionAndWaitForProof()
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       var (txHex, txId) = CreateNewTransaction();
 
       var payload = await SubmitTransactionAsync(txHex, merkleProof: true);
@@ -166,10 +168,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
         (evt) => evt.NotificationType == CallbackReason.MerkleProof
                  && new uint256(evt.TransactionId) == new uint256(txId)
       );
-      WaitUntilEventBusIsIdle();
 
       // Check if callback was received
-      Assert.AreEqual(1, Callback.Calls.Length);
+      await CheckCallbacksAsync(1, cts.Token);
 
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(Callback.Calls[0].request)
         .ExtractPayload<CallbackNotificationMerkeProofViewModel>();

@@ -119,11 +119,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, invalidTxEvent.Message.CollidedWith.Length);
       Assert.AreEqual(txId1, invalidTxEvent.Message.CollidedWith[0].TxId);
 
-      WaitUntilEventBusIsIdle();
+      await CheckCallbacksAsync(1, cts.Token);
 
       // Check if callback was received
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -144,6 +143,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchMempoolAndBlockDoubleSpendMessages()
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       var txs = await CatchInMempoolDoubleSpendZMQMessage();
       
       var tx1 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txs.Item1));
@@ -156,10 +157,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Tx should no longer be in mempool
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(2, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(2, calls.Length);
       var callbackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[1].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
       Assert.AreEqual(CallbackReason.DoubleSpend, callbackDS.CallbackReason);
@@ -171,6 +172,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchDoubleSpendOfMempoolTxByBlockTx()
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
       var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
@@ -199,11 +202,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Tx should no longer be in mempool
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
-
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -216,6 +218,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchDoubleSpendOfBlockTxByBlockTx()
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
       var (txHex1, _) = CreateNewTransaction(coin, new Money(1000L));
@@ -239,10 +243,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
       loggerTest.LogInformation($"Block b1 {b1Hash} was mined containing tx1 {tx1.GetHash()}");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[0].request);
       var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
@@ -260,11 +264,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if b3 was accepted
       var currentBestBlock = await rpcClient0.GetBestBlockHashAsync();
       Assert.AreEqual(b3.GetHash().ToString(), currentBestBlock , "b3 was not activated");
-      WaitUntilEventBusIsIdle();
 
+      await CheckCallbacksAsync(2, cts.Token);
 
       calls = Callback.Calls;
-      Assert.AreEqual(2, calls.Length);
       signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[1].request);
       var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);

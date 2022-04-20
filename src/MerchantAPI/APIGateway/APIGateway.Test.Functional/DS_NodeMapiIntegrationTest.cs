@@ -172,6 +172,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // startup another node and link it to the first node
       node1 = StartBitcoind(1, new BitcoindProcess[] { node0 });
 
+      await SyncNodesBlocksAsync(cts.Token, node0, node1);
+
       StartupLiveMAPI();
       var coin = availableCoins.Dequeue();
 

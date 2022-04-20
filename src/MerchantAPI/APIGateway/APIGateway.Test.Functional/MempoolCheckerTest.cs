@@ -71,13 +71,5 @@ namespace MerchantAPI.APIGateway.Test.Functional
       bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
       Assert.IsTrue(success);
     }
-
-    private async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxToMapi(string txHex, HttpStatusCode expectedStatusCode)
-    {
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedStatusCode);
-    }
   }
 }

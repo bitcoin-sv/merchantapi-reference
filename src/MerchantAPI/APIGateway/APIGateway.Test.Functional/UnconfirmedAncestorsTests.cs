@@ -168,12 +168,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // InvalidTx event should be fired
       var invalidTxEvent = await invalidTxDetectedSubscription.ReadAsync(cts.Token);
       Assert.AreEqual(InvalidTxRejectionCodes.TxMempoolConflict, invalidTxEvent.Message.RejectionCode);
-      
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       // Check if callback was received 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -219,11 +218,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var invalidTxEvent = await invalidTxDetectedSubscription.ReadAsync(cts.Token);
       Assert.AreEqual(InvalidTxRejectionCodes.TxMempoolConflict, invalidTxEvent.Message.RejectionCode);
 
-      WaitUntilEventBusIsIdle();
+      await CheckCallbacksAsync(mapiCount, cts.Token);
 
-      // Check if correct number of callbacks was received
       var calls = Callback.Calls;
-      Assert.AreEqual(mapiCount, calls.Length);
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -259,10 +256,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Mine a new block containing mAPI transaction and its whole unconfirmed ancestor chain 
       var b1Hash = (await rpcClient0.GenerateAsync(1)).Single();
 
-      WaitUntilEventBusIsIdle();
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[0].request);
       var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
@@ -277,10 +273,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if b3 was accepted
       var currentBestBlock = await rpcClient0.GetBestBlockHashAsync();
       Assert.AreEqual(b3.GetHash().ToString(), currentBestBlock, "b3 was not activated");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(2, cts.Token);
 
       calls = Callback.Calls;
-      Assert.AreEqual(2, calls.Length);
       signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[1].request);
       var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);
@@ -325,11 +321,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Tx should no longer be in mempool
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
-
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
