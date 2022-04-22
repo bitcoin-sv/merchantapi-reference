@@ -412,7 +412,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 Txid = invalid.Txid,
                 ReturnResult = ResultCodes.Failure,
                 ResultDescription =
-                 NodeRejectCode.MapiRetryCodesAndReasons.Contains(rejectCodeAndReason) ? NodeRejectCode.MapiRetryMempoolError : rejectCodeAndReason,
+                 NodeRejectCode.MapiRetryCodesAndReasons.Contains(rejectCodeAndReason) ? 
+                 NodeRejectCode.MapiRetryMempoolErrorWithDetails(rejectCodeAndReason) : rejectCodeAndReason,
                 ConflictedWith = invalid.CollidedWith?.Select(t =>
                   new SubmitTransactionConflictedTxResponse
                   {
@@ -440,7 +441,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               Txid = evicted,
               ReturnResult = ResultCodes.Failure,
               ResultDescription =
-                 NodeRejectCode.MapiRetryMempoolError // This only happens if mempool is full and contain no P2P transactions (which have low priority)
+              NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.Evicted)
+              // This only happens if mempool is full and contains no P2P transactions (which have low priority)
             });
             failed++;
           }

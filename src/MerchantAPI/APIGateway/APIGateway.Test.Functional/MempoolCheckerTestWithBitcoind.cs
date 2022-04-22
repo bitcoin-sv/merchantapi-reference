@@ -180,7 +180,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeReturnsMempoolFull);
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
-      Assert.AreEqual(NodeRejectCode.MapiRetryMempoolError, payloadSubmit.ResultDescription);
+      Assert.AreEqual(
+        NodeRejectCode.MapiRetryMempoolErrorWithDetails(
+          NodeRejectCode.MapiRetryCodesAndReasons[(int)Faults.SimulateSendTxsResponse.NodeReturnsMempoolFull - 1]),
+        payloadSubmit.ResultDescription);
 
       // not in mempool, because inserted directly into DB
       var txList = new List<Tx>

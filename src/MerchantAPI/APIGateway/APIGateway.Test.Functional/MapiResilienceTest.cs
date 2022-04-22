@@ -335,7 +335,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
-      await AssertIsOKAsync(payload, txC3Hash, "failure", NodeRejectCode.MapiRetryMempoolError);
+      await AssertIsOKAsync(payload, txC3Hash, "failure", 
+        NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]));
 
       await SubmitTxModeNormal(txC3Hex, txC3Hash);
     }
@@ -357,8 +358,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await ValidateHeaderSubmitTransactionsAsync(payload);
       Assert.IsTrue(payload.Txs.All(x => x.ReturnResult == "failure"));
       Assert.AreEqual("Not enough fees", payload.Txs[0].ResultDescription);
-      Assert.AreEqual(NodeRejectCode.MapiRetryMempoolError, payload.Txs[1].ResultDescription);
-      Assert.AreEqual(NodeRejectCode.MapiRetryMempoolError, payload.Txs[2].ResultDescription);
+      var error = NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]);
+      Assert.AreEqual(error, payload.Txs[1].ResultDescription);
+      Assert.AreEqual(error, payload.Txs[2].ResultDescription);
     }
 
     [DataRow(false, false)]

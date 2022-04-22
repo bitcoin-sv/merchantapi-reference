@@ -108,15 +108,23 @@ namespace MerchantAPI.APIGateway.Domain
 
     public static readonly (int code, string reason) MempoolFullCodeAndReason = (InsufficientFee, "mempool full");
 
+    public static readonly string Evicted = "evicted";
+
     public static readonly List<string> MapiRetryCodesAndReasons = new()
     {
       CombineRejectCodeAndReason(NonStandard, "too-long-mempool-chain"),
       CombineRejectCodeAndReason(InsufficientFee, "mempool min fee not met"),
       CombineRejectCodeAndReason(MempoolFullCodeAndReason.code, MempoolFullCodeAndReason.reason),
-      CombineRejectCodeAndReason(MempoolFull, "non-final-pool-full")
+      CombineRejectCodeAndReason(MempoolFull, "non-final-pool-full"),
+      Evicted
     };
 
     public const string MapiRetryMempoolError = "Mempool error, retry again later.";
+
+    public static string MapiRetryMempoolErrorWithDetails(string rejectCodeAndReason)
+    {
+      return $"{ MapiRetryMempoolError } (details: {rejectCodeAndReason})";
+    } 
 
     public static readonly HashSet<string> MapiMissingInputs = new()
     {
