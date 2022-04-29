@@ -63,7 +63,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       mapiMock.ClearMode();
       payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
-      await AssertTxStatus(txHash, TxStatus.Mempool);
+      await AssertTxStatus(txHash, TxStatus.Accepted);
     }
 
     [TestMethod]

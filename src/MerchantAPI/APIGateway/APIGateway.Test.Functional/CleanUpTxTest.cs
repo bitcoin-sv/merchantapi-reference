@@ -175,8 +175,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [DataRow(TxStatus.NodeRejected)]
     [DataRow(TxStatus.SentToNode)]
     [DataRow(TxStatus.UnknownOldTx)]
-    [DataRow(TxStatus.Mempool)]
-    [DataRow(TxStatus.Blockchain)]
+    [DataRow(TxStatus.Accepted)]
     [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
     [TestMethod]
     public async Task TxWithoutBlockCheckCleanUp(int txStatus)
@@ -191,7 +190,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
 
-        if (txStatus == TxStatus.Mempool)
+        if (txStatus == TxStatus.Accepted)
         {
           await CheckTxListPresentInDbAsync(txList, false);
         }
@@ -204,7 +203,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       // we clean up txs with mempool status later
-      if (txStatus == TxStatus.Mempool)
+      if (txStatus == TxStatus.Accepted)
       {
         using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))
         {
@@ -325,7 +324,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           dsTx.TxInternalId,
           dsTx.TxExternalIdBytes,
           txPayload);
-        Assert.AreEqual(TxStatus.Blockchain, await TxRepositoryPostgres.GetTransactionStatusAsync(dsTx.TxExternalIdBytes));
+        Assert.AreEqual(TxStatus.Accepted, await TxRepositoryPostgres.GetTransactionStatusAsync(dsTx.TxExternalIdBytes));
       }
       var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToList();
       Assert.AreEqual(1, doubleSpends.Count);

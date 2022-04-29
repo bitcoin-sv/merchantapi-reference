@@ -7,7 +7,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 {
   public interface IMempoolChecker
   {
-    Task<bool> CheckMempoolAndResubmitTxs(int isBlockParserIdleMs);
+    Task<bool> CheckMempoolAndResubmitTxsAsync(int blockParserQueuedMax);
 
     bool ExecuteCheckMempoolAndResubmitTxs { get; }
   }

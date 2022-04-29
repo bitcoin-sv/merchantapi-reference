@@ -956,7 +956,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         // txC2 is specific (CheckFeeDisabled or ConsolidationTx)
         TestBase.CreateNewTx(TestBase.txC2Hash, TestBase.txC2Hex, false, null, true, TxStatus.SentToNode, policyQuoteId: policyQuote2.Id, setPolicyQuote: false),
         // txC3 cannot be deleted by admin, because of the txstatus Mempool
-        TestBase.CreateNewTx(TestBase.txC3Hash, TestBase.txC3Hex, false, null, true, TxStatus.Mempool, policyQuoteId: policyQuote.Id),
+        TestBase.CreateNewTx(TestBase.txC3Hash, TestBase.txC3Hex, false, null, true, TxStatus.Accepted, policyQuoteId: policyQuote.Id),
       };
       await TxRepository.InsertOrUpdateTxsAsync(txList, false);
     }

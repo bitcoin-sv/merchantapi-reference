@@ -19,6 +19,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
   public class MempoolChecker : BackgroundService, IMempoolChecker
   {
     readonly ILogger<MempoolChecker> logger;
+    readonly IRpcMultiClient rpcMultiClient;
     readonly IBlockChainInfo blockChainInfo;
     readonly IMapi mapi;
     readonly IBlockParser blockParser;
@@ -26,15 +27,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly IClock clock;
     readonly AppSettings appSettings;
 
-    string lastRefreshAtBlockHash;
     bool success;
     static Dictionary<long, int> txsRetries = new();
+    readonly object lockObj = new();
+    public bool ResubmitInProcess { get; private set; }
 
     public bool ExecuteCheckMempoolAndResubmitTxs => !appSettings.DontParseBlocks.Value && appSettings.MempoolCheckerEnabled.Value;
 
-    public MempoolChecker(ILogger<MempoolChecker> logger, IBlockChainInfo blockChainInfo, IMapi mapi, IBlockParser blockParser, ITxRepository txRepository, IClock clock, IOptions<AppSettings> options)
+    public MempoolChecker(ILogger<MempoolChecker> logger, IRpcMultiClient rpcMultiClient, IBlockChainInfo blockChainInfo, IMapi mapi, IBlockParser blockParser, ITxRepository txRepository, IClock clock, IOptions<AppSettings> options)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+      this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.blockChainInfo = blockChainInfo ?? throw new ArgumentNullException(nameof(blockChainInfo));
       this.mapi = mapi ?? throw new ArgumentNullException(nameof(mapi));
       this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
@@ -64,47 +67,113 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         return;
       }
 
+      await WaitForFirstBlockAsync(stoppingToken);
+
       while (!stoppingToken.IsCancellationRequested)
       {
         try
         {
-          success = await CheckMempoolAndResubmitTxs(10000);
+          success = await CheckMempoolAndResubmitTxsAsync(appSettings.MempoolCheckerBlockParserQueuedMax.Value);
         }
         catch (Exception ex)
         {
-          logger.LogInformation("CheckMempool failed: " + ex.Message);
+          logger.LogWarning("CheckMempoolAndResubmitTxs failed: " + ex.Message);
+          success = false;
         }
-        await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerIntervalSec.Value), stoppingToken);
+
+        if (success)
+        {
+          await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerIntervalSec.Value), stoppingToken);
+        }
+        else
+        {
+          await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerUnsuccessfulIntervalSec.Value), stoppingToken);
+        }
       }
     }
 
-    public async Task<bool> CheckMempoolAndResubmitTxs(int isBlockParserIdleMs)
+    private async Task WaitForFirstBlockAsync(CancellationToken stoppingToken)
     {
-      var info = await blockChainInfo.GetInfoAsync();
-      if (info.BestBlockHash != lastRefreshAtBlockHash || !success)
+      bool dbIsEmpty;
+      bool firstBlockParsed = false;
+      do
       {
-        // wait for a while, if queue is idle then resubmit
-        await Task.Delay(isBlockParserIdleMs);
+        dbIsEmpty = await txRepository.GetBestBlockAsync() == null;
+        if (!dbIsEmpty)
+        {
+          firstBlockParsed = blockParser.GetBlockParserStatus().BlocksParsed > 0;
+        }
+        await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerUnsuccessfulIntervalSec.Value), stoppingToken);
+      } while (dbIsEmpty && !firstBlockParsed);
+    }
+
+    public async Task<bool> CheckMempoolAndResubmitTxsAsync(int blockParserQueuedMax)
+    {
+      // We cannot resubmit only when bestBlockHash is different from last run and blockParser is idle.
+      // We can gain/lose mempool txs when block (new fork) is generated, 
+      // when maxmempool limit is hit,
+      // it can also happen that node suddenly loses all mempool txs
+      // - in this last scenario resubmit can take a long time and we should not wait too long...
+      try
+      {
+        var blocks2Parse = await txRepository.GetUnparsedBlocksAsync();
+        if (blocks2Parse.Length > blockParserQueuedMax)
+        {
+          // if we resubmit tx that is actually on active chain (but not yet fixed in our db) it is not a problem, 
+          // but we don't want to have too much redundant resubmits
+          logger.LogInformation($"blocks2Parse.Length { blocks2Parse.Length } > blockParserQueuedMax{ blockParserQueuedMax }.");
+          return false;
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+
+        lock (lockObj)
+        {
+          if (ResubmitInProcess)
+          {
+            logger.LogInformation($"Resubmit already in process.");
+            return false;
+          }
+          ResubmitInProcess = true;
+        }
+
+        var info = await blockChainInfo.GetInfoAsync();
         var blockparserStatus = blockParser.GetBlockParserStatus();
+        bool isBlockParserIdle = true;
         if (blockparserStatus.BlocksQueued > 0 || blockparserStatus.LastBlockHash != info.BestBlockHash)
         {
-          return true;
+          logger.LogDebug("MempoolChecker: blockparsing is processing blocks.");
+          isBlockParserIdle = false;
         }
-        logger.LogDebug("CheckMempool: blockparser's eventbus looks idle, starting with resubmit...");
-        var stopwatch = Stopwatch.StartNew();
-        lastRefreshAtBlockHash = blockparserStatus.LastBlockHash;
 
-        var (success, txsWithMissingInputs) = await mapi.ResubmitMissingTransactions();
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
+        var mempoolCalledAt = clock.UtcNow();
+        var mempoolTxs = await rpcMultiClient.GetRawMempool();
+        logger.LogInformation($"{ mempoolTxs.Length } txs in mempool.");
+
+        var (success, txsWithMissingInputs) = await mapi.ResubmitMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
         if (txsWithMissingInputs != null)
         {
           await ArrangeTxsWithMissingInputs(txsWithMissingInputs);
         }
 
-        logger.LogDebug($"CheckMempool: resubmit finished with '{ nameof(success) }'={ success }, took { stopwatch.ElapsedMilliseconds } ms.");
+        lock (lockObj)
+        {
+          ResubmitInProcess = false;
+        }
 
-        return success;
+        logger.LogInformation($"MempoolChecker: resubmit finished with '{ nameof(success) }'={ success }, '{ nameof(isBlockParserIdle) }'={ isBlockParserIdle }, took { stopwatch.ElapsedMilliseconds } ms.");
+
+        return success && isBlockParserIdle;
       }
-      return true;
+      catch (Exception)
+      {
+        lock (lockObj)
+        {
+          ResubmitInProcess = false;
+        }
+        throw;
+      }
     }
 
     private async Task ArrangeTxsWithMissingInputs(List<long> txsWithMissingInputs)
@@ -120,8 +189,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         TxInternalId = x.Key,
         SubmittedAt = clock.UtcNow(),
-        TxStatus = TxStatus.MissingInputsMaxRetriesReached,
-        UpdateTx = true
+        TxStatus = TxStatus.MissingInputsMaxRetriesReached
       }).ToList());
       txsWithMax.ForEach(x => txsRetriesIncremented.Remove(x.Key));
       txsRetries = txsRetriesIncremented;

@@ -67,7 +67,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // typical flow for successful submit
       if (expectedResult == "success")
       {
-        await AssertIsOKAsync(response, expectedTxId, TxStatus.Mempool, expectedResult, expectedDescription);
+        await AssertIsOKAsync(response, expectedTxId, TxStatus.Accepted, expectedResult, expectedDescription);
       }
       else
       {
@@ -123,12 +123,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(txC3Hash, response.Txs[1].Txid);
       Assert.AreEqual("success", response.Txs[1].ReturnResult);
       Assert.AreEqual("", response.Txs[1].ResultDescription);
-      await AssertTxStatus(txC3Hash, TxStatus.Mempool);
+      await AssertTxStatus(txC3Hash, TxStatus.Accepted);
 
       Assert.AreEqual(tx2Hash, response.Txs[2].Txid);
       Assert.AreEqual("success", response.Txs[2].ReturnResult);
       Assert.AreEqual("", response.Txs[2].ResultDescription);
-      await AssertTxStatus(tx2Hash, TxStatus.Mempool);
+      await AssertTxStatus(tx2Hash, TxStatus.Accepted);
     }
 
     protected async Task AssertQueryTxAsync(QueryTransactionStatusResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
@@ -147,7 +147,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       if (expectedResult == "success")
       {
-        await AssertTxStatus(response.Txid, TxStatus.Mempool);
+        await AssertTxStatus(response.Txid, TxStatus.Accepted);
       }
       else
       {

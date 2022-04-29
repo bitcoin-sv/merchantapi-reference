@@ -22,7 +22,6 @@ using MerchantAPI.Common.Exceptions;
 using Microsoft.Extensions.Options;
 using Prometheus;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
@@ -36,7 +35,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly IMinerId minerId;
     readonly ILogger<Mapi> logger;
     readonly ITxRepository txRepository;
-    private readonly IClock clock;
+    protected readonly IClock clock;
     readonly AppSettings appSettings;
     protected readonly IFaultManager faultManager;
     protected readonly IFaultInjection faultInjection;
@@ -49,9 +48,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       .CreateCounter($"{metricsPrefix}acceptedbynode_counter", "Number of transactions accepted by node.");
     static readonly Counter txRejectedByNode = Metrics
       .CreateCounter($"{metricsPrefix}rejectedbynode_counter", "Number of transactions rejected by node.");
-
-    readonly object lockObj = new();
-    public bool ResubmitInProcess { get; private set; }
 
     static class ResultCodes
     {
@@ -479,7 +475,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
 
-    public async Task<QueryTransactionStatusResponse> QueryTransaction(string id)
+    public async Task<QueryTransactionStatusResponse> QueryTransactionAsync(string id)
     {
       var currentMinerId = await minerId.GetCurrentMinerIdAsync();
 
@@ -968,7 +964,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             ReceivedAt = clock.UtcNow(),
             TxIn = x.transaction.TransactionInputs,
             SubmittedAt = clock.UtcNow(),
-            TxStatus = x.txstatus < TxStatus.UnknownOldTx ? TxStatus.Mempool : x.txstatus,
+            TxStatus = x.txstatus < TxStatus.UnknownOldTx ? TxStatus.Accepted : x.txstatus,
             UpdateTx = txsToUpdate.Contains(x.transactionId),
             PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
             Policies = x.policyQuote?.Policies,
@@ -995,7 +991,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                   PrevTxId = (new uint256(i.Txid)).ToBytes(),
                   PrevN = i.Vout
                 }).ToList(),
-                TxStatus = TxStatus.Mempool
+                TxStatus = TxStatus.Accepted
               })
               );
             }
@@ -1086,37 +1082,19 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
 
-    public virtual async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactions(int batchSize = 1000)
+    public virtual async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 1000)
     {
-      lock (lockObj)
-      {
-        if (ResubmitInProcess)
-        {
-          logger.LogDebug($"Resubmit already in process.");
-          return (false, null);
-        }
-        ResubmitInProcess = true;
-      }
+      var txs = await txRepository.GetMissingTransactionsAsync(mempoolTxs, resubmittedAt);
 
-      var mempoolTxs = Array.Empty<string>();
-      try
-      {
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
-        mempoolTxs = await rpcMultiClient.GetRawMempool();
-      }
-      catch (Exception ex)
-      {
-        logger.LogWarning($"Error when calling GetRawMempool: {ex.Message}");
-      }
-      logger.LogDebug($"{ mempoolTxs.Length } txs in mempool.");
-
-      var txs = await txRepository.GetMissingTransactionsAsync(mempoolTxs);
       // split processing into smaller batches
       int nBatches = (int)Math.Ceiling((double)txs.Length / batchSize);
       int submitSuccessfulCount = 0;
       List<long> txsWithMissingInputs = new();
       int n = 0;
+      logger.LogInformation($"ResubmitMissingTransactions: missing { txs.Length } -> nBatches: {nBatches}, batchsize: {batchSize}");
 
+      // we have to submit all txs in order
+      // if node accepted tx2 before tx1, tx1 can be resubmitted successfully in the next resubmit round
       while (n < nBatches)
       {
         var txsToSubmit = txs.Skip(n * batchSize).Take(batchSize).ToArray();
@@ -1184,13 +1162,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         n++;
       }
 
-      lock (lockObj)
-      {
-        ResubmitInProcess = false;
-      }
-
       int failures = txs.Length - submitSuccessfulCount - txsWithMissingInputs.Count;
-      logger.LogInformation($"ResubmitMempoolTransactions: resubmitted { txs.Length } txs = successful: { submitSuccessfulCount}, failures: { failures }, missing inputs: { txsWithMissingInputs.Count }).");
+      logger.LogWarning($"ResubmitMempoolTransactions: resubmitted { txs.Length } txs = successful: { submitSuccessfulCount}, failures: { failures }, missing inputs: { txsWithMissingInputs.Count }).");
 
       return (failures == 0, txsWithMissingInputs);
     }

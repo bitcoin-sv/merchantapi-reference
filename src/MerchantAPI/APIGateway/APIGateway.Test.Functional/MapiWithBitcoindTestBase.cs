@@ -135,7 +135,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       string expectedResult = "success",
       string expectedDescription = null,
       long? confirmations = null,
-      int txStatus = TxStatus.Mempool)
+      int txStatus = TxStatus.Accepted)
     {
       Assert.AreEqual("1.4.0", response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);

@@ -84,12 +84,11 @@ namespace MerchantAPI.APIGateway.Domain
 
     // all users
     public const int UnknownOldTx = 0; // old txs - most of them are on blockchain (they have policyQuoteId unknown)
-    public const int Mempool = 1;
+    public const int Accepted = 1; // mempool or blockchain
     public const int MissingInputsMaxRetriesReached = 2;
-    public const int Blockchain = 3;
 
     public static readonly int[] MapiSuccessTxStatuses =
-      { UnknownOldTx ,Mempool, MissingInputsMaxRetriesReached, Blockchain };
+      { UnknownOldTx ,Accepted, MissingInputsMaxRetriesReached };
   }
 
   public static class NodeRejectCode

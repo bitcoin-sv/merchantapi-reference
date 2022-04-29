@@ -219,7 +219,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public static Tx CreateNewTx(string txHash, string txHex, bool merkleProof, string merkleFormat, bool dsCheck, int txstatus = TxStatus.Mempool, long policyQuoteId = 1, bool setPolicyQuote = true)
+    public static Tx CreateNewTx(string txHash, string txHex, bool merkleProof, string merkleFormat, bool dsCheck, int txstatus = TxStatus.Accepted, long policyQuoteId = 1, bool setPolicyQuote = true)
     {
       var tx = new Tx
       {

@@ -184,7 +184,7 @@ FROM tx t
 INNER JOIN TxInput tin ON tin.txInternalId = t.txInternalId 
 INNER JOIN BlockTxsWithInputs bin ON tin.prev_n = bin.prev_n and tin.prevTxId = bin.prevTxId
 WHERE t.txExternalId <> bin.txExternalId
-ON CONFLICT (txInternalId, blockInternalId, dsTxId) DO NOTHING;
+ON CONFLICT (txInternalId, blockInternalId, dsTxId) DO NOTHING
 ";
 
         await transaction.Connection.ExecuteAsync(cmdInsertDS);
@@ -254,7 +254,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 
       if (transactions.Count == 1)
       {
-        var success = await InsertOrUpdateSingleTxAsync(faultComponent, transactions.Single(), areUnconfirmedAncestors, resubmit);
+        var success = await InsertOrUpdateSingleTxAsync(faultComponent, transactions.Single(), areUnconfirmedAncestors, insertTxInputs, resubmit);
         if (returnInsertedTransactions && success)
         {
           var successfulTx = new byte[1][];
@@ -311,7 +311,7 @@ CREATE TEMPORARY TABLE TxTemp (
           var txInternalId = tx.UpdateTx ? tx.TxInternalId : internalIds[txIndex];
           AddToTxImporter(txImporter, txInternalId, resubmit ? null : tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
                           tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors, tx.TxStatus, tx.SubmittedAt, tx.PolicyQuoteId, tx.OkToMine, tx.SetPolicyQuote);
-          if (tx.TxStatus >= TxStatus.Mempool && (tx.DSCheck || areUnconfirmedAncestors))
+          if (tx.TxStatus >= TxStatus.Accepted && (tx.DSCheck || areUnconfirmedAncestors))
           {
             int n = 0;
             foreach (var txIn in tx.TxIn)
@@ -333,24 +333,27 @@ CREATE TEMPORARY TABLE TxTemp (
       {
         cmdText = @"
 UPDATE Tx
-SET submittedAt = TxTemp.submittedAt, txStatus = TxTemp.txStatus
+SET submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus
 FROM TxTemp
-WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId AND Tx.policyQuoteId = TxTemp.policyQuoteId) "
+WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId) "
   ; // we also compare policyQuoteId, so each user can only update his own txs
       }
       else
       {
+        // tx has old txstatus, txTemp has new value
+        // when tx has successful status, we should only change submittedAt and txStatus
         cmdText = @$"
+UPDATE Tx
+SET submittedAt = TxTemp.submittedAt, txStatus = TxTemp.txStatus
+FROM TxTemp 
+WHERE Tx.txExternalId = TxTemp.txExternalId AND 
+Tx.txStatus >= { TxStatus.UnknownOldTx };
 UPDATE Tx
 SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, dsCheck = TxTemp.dsCheck, unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus, policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote
 FROM TxTemp 
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
-Tx.txStatus < { TxStatus.Mempool };
-UPDATE Tx
-SET submittedAt = TxTemp.submittedAt
-FROM TxTemp 
-WHERE Tx.txExternalId = TxTemp.txExternalId AND 
-Tx.txStatus >= { TxStatus.Mempool };"
+Tx.txStatus < { TxStatus.UnknownOldTx };
+"
 ;
         cmdText += @"
 INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
@@ -380,7 +383,7 @@ RETURNING txExternalId;
 INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
 SELECT txInternalId, n, prevTxId, prev_n
 FROM TxTemp
-WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND Tx.txInternalId = TxTemp.txInternalId)
+WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId)
 ";
         if (areUnconfirmedAncestors)
         {
@@ -414,7 +417,7 @@ WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND T
       return inserted;
     }
 
-    private async Task<bool> InsertOrUpdateSingleTxAsync(Faults.DbFaultComponent? faultComponent, Tx tx, bool isUnconfirmedAncestor, bool resubmit = false)
+    private async Task<bool> InsertOrUpdateSingleTxAsync(Faults.DbFaultComponent? faultComponent, Tx tx, bool insertTxInputs, bool isUnconfirmedAncestor, bool resubmit = false)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
@@ -424,7 +427,7 @@ WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND T
       {
         cmdText = @"
 UPDATE Tx
-SET submittedAt = @submittedAt, txStatus = @txstatus
+SET submittedAt = @submittedAt, txstatus = @txstatus
 WHERE txInternalId = @txInternalId "
   ;
         await transaction.Connection.ExecuteAsync(cmdText, new
@@ -449,8 +452,12 @@ RETURNING txInternalId;
       {
         cmdText = @$"
 UPDATE Tx
-SET txPayload = @txPayload, callbackUrl = @callbackUrl, callbackToken = @callbackToken, callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, dsCheck = @dsCheck, unconfirmedAncestor = @unconfirmedAncestor, submittedAt = @submittedAt, txstatus = @txstatus, policyQuoteId = @policyQuoteId, okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
-WHERE txExternalId = @txExternalId AND (Tx.txStatus < { TxStatus.Mempool } OR Tx.policyQuoteId = @policyQuoteId)
+SET txPayload = @txPayload, callbackUrl = @callbackUrl, callbackToken = @callbackToken, callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, dsCheck = @dsCheck, unconfirmedAncestor = @unconfirmedAncestor, policyQuoteId = @policyQuoteId, okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
+WHERE Tx.txExternalId = @txExternalId AND 
+Tx.txStatus < { TxStatus.UnknownOldTx };
+UPDATE Tx
+SET submittedAt = @submittedAt, txStatus = @txStatus
+WHERE txExternalId = @txExternalId
 RETURNING txInternalId;
 ";
       }
@@ -473,7 +480,7 @@ RETURNING txInternalId;
         setPolicyQuote = tx.SetPolicyQuote
       });
 
-      if (tx.TxStatus >= TxStatus.Mempool && txInternalId > 0 && tx.DSCheck)
+      if (tx.TxStatus == TxStatus.Accepted && txInternalId > 0 && tx.DSCheck)
       {
         int n = 0;
         foreach (var txIn in tx.TxIn)
@@ -681,7 +688,7 @@ WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true AND txExternalId= @txI
       string cmdText = @"
 SELECT txInternalId, txExternalId TxExternalIdBytes, merkleProof
 FROM Tx
-WHERE txstatus=ANY(@txstatuses) AND NOT EXISTS
+WHERE txstatus=@txstatus AND NOT EXISTS
 (
   WITH RECURSIVE ancestorBlocks AS 
   (
@@ -701,7 +708,7 @@ WHERE txstatus=ANY(@txstatuses) AND NOT EXISTS
   WHERE txblock.txInternalId=Tx.txInternalId
 );";
 
-      return await connection.QueryAsync<Tx>(cmdText, new { txstatuses = new int[] { TxStatus.Mempool, TxStatus.Blockchain }, blockInternalId });
+      return await connection.QueryAsync<Tx>(cmdText, new { txstatus = TxStatus.Accepted, blockInternalId });
     }
 
     /// <summary>
@@ -835,7 +842,7 @@ LIMIT 1;
       return txstatus == null ? TxStatus.NotPresentInDb : txstatus.Value;
     }
 
-    public async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs)
+    public async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
@@ -859,27 +866,28 @@ LIMIT 1;
 
       await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
 
+      var resubmittedBefore = resubmittedAt ?? clock.UtcNow();
       string cmdText = @"
 WITH resubmitTxs as
 ((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
 FROM tx
 JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
-WHERE txstatus = @txstatusmempool)
-UNION ALL
+WHERE txstatus = @txstatus AND submittedAt < @resubmittedBefore)
+EXCEPT
 (SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
  FROM Tx
  INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
  INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
  JOIN FeeQuote feeQuote ON feeQuote.id = policyQuoteId
- WHERE txstatus > @txstatus
- AND Block.OnActiveChain = false))
+ WHERE txstatus = @txstatus AND submittedAt < @resubmittedBefore
+ AND Block.OnActiveChain = true))
 SELECT * from resubmitTxs
 LEFT JOIN MempoolTx m ON resubmitTxs.TxExternalIdBytes = m.txExternalId
 WHERE m.txExternalId IS NULL
 ORDER BY resubmitTxs.txInternalId
 ";
 
-      var txs = await connection.QueryAsync<Tx>(cmdText, new { txstatusmempool = TxStatus.Mempool, txstatus = TxStatus.MissingInputsMaxRetriesReached });
+      var txs = await connection.QueryAsync<Tx>(cmdText, new { txstatus = TxStatus.Accepted, resubmittedBefore });
 
       await transaction.CommitAsync();
 
@@ -1202,14 +1210,14 @@ AND txinput.n = @prevOutN;
            limit 100000))
           RETURNING txInternalId
         )
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Blockchain });
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Accepted });
 
         txs += deletedTxs;
 
       } while (deletedTxs == 100000);
 
       var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS
+      @"WITH deleted AS
         (DELETE FROM Block WHERE 
           (Block.OnActiveChain = true AND blocktime < @lastUpdateBefore)
           OR
@@ -1226,7 +1234,7 @@ AND txinput.n = @prevOutN;
           WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore AND txstatus <> @txstatus limit 100000))
           RETURNING txInternalId
         )
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Blockchain });
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Accepted });
 
         txs += deletedTxs;
 
@@ -1237,7 +1245,7 @@ AND txinput.n = @prevOutN;
           (DELETE FROM Tx
           WHERE receivedAt < @mempoolExpiredDate AND txstatus = @txstatus RETURNING txExternalId)
           SELECT * FROM deleted;",
-        new { lastUpdateBefore, mempoolExpiredDate, txstatus = TxStatus.Mempool })).ToArray();
+        new { lastUpdateBefore, mempoolExpiredDate, txstatus = TxStatus.Accepted })).ToArray();
 
       // deleted txs with mempool status should be exceptional
       // (with stress program we should avoid logging, since there can be too much of them)

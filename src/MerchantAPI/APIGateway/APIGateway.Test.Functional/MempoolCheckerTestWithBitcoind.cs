@@ -110,14 +110,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
-      await AssertTxStatus(txHash, TxStatus.Mempool);
+      await AssertTxStatus(txHash, TxStatus.Accepted);
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
       var tx = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs)).Single();
 
       // check mempool fails because of mode
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeFailsWhenSendRawTxs, Faults.FaultType.SimulateSendTxsMempoolChecker);
-      bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsFalse(success);
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
@@ -126,12 +126,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // check mempool should succeed
       mapiMock.ClearMode();
-      success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsTrue(success);
       Assert.AreEqual(txHash, (await rpcClient0.GetRawMempool()).Single());
       txResubmitted = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txHash).ToBytes());
       Assert.IsTrue(tx.SubmittedAt < txResubmitted.SubmittedAt);
-      await AssertTxStatus(txHash, TxStatus.Mempool);
+      await AssertTxStatus(txHash, TxStatus.Accepted);
     }
 
     [TestMethod]
@@ -167,7 +167,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var txInDb = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId).ToBytes());
       // known txs are resubmitted successfully
-      bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsTrue(success);
       var txResubmitted = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId).ToBytes());
       Assert.IsTrue(txResubmitted.SubmittedAt.Ticks > txInDb.SubmittedAt.Ticks);
@@ -197,11 +197,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       WaitUntilEventBusIsIdle();
       
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeReturnsMempoolFull, Faults.FaultType.SimulateSendTxsMempoolChecker);
-      bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsFalse(success);
       // resubmitted even if no block
       mapiMock.ClearMode();
-      success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsTrue(success);
     }
 
@@ -232,10 +232,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
         var mempoolTx = await rpcClient0.GetRawMempool();
         Assert.AreEqual(0, mempoolTx.Length);
+
         var tx = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTx)).Single();
         Assert.AreEqual(policies, tx.Policies);
         // check mempool with saved policies should succeed 
-        bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+        bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
         Assert.IsTrue(success);
         var txResubmitted = await TxRepositoryPostgres.GetTransactionAsync(tx.TxExternalId.ToBytes());
         Assert.IsTrue(tx.SubmittedAt < txResubmitted.SubmittedAt);
@@ -266,7 +267,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, mempoolTxs.Length);
       Assert.AreEqual(110, (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs)).Length);
 
-      bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(110, (await rpcClient0.GetRawMempool()).Length);
       Assert.AreEqual(0, (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs)).Length);
@@ -316,7 +317,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var txs = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs));
       Assert.AreEqual(0, txs.Length);
 
-      await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       var tx2db = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId2).ToBytes());
       Assert.IsNull(tx2db);
     }
@@ -349,12 +350,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.IsFalse((await TxRepositoryPostgres.GetBlockAsync(forkBlock.GetHash().ToBytes())).OnActiveChain);
       var q = await QueryTransactionStatus(txIdA);
-      await AssertQueryTxAsync(q, txIdA, "success", confirmations: null, txStatus: TxStatus.Blockchain);
+      await AssertQueryTxAsync(q, txIdA, "success", confirmations: null, txStatus: TxStatus.Accepted);
 
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(1, mempoolTxs.Length);
       Assert.IsTrue(mempoolTxs.Contains(txIdA));
-      await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       // since txA si present in mempool, nothing is resubmitted
       var txToResubmit = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs);
       Assert.AreEqual(0, txToResubmit.Length);
@@ -367,7 +368,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.IsTrue((await TxRepositoryPostgres.GetBlockAsync(forkBlock.GetHash().ToBytes())).OnActiveChain);
       q = await QueryTransactionStatus(txIdB1);
-      await AssertQueryTxAsync(q, txIdB1, "success", confirmations: null, txStatus: TxStatus.Blockchain);
+      await AssertQueryTxAsync(q, txIdB1, "success", confirmations: null, txStatus: TxStatus.Accepted);
 
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(2, mempoolTxs.Length);
@@ -427,7 +428,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual("Missing inputs", ex.Message);
       }
       // we resubmit ordered by id - child txs before tx0, batch = 1: only tx0 is resubmitted
-      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(1);
+      var mempoolTxs = await rpcClient0.GetRawMempool();
+      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs, 1);
       Assert.IsTrue(success);
       foreach (var tx in txList.SkipLast(1))
       {
@@ -436,7 +438,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       // to submit all other txs, resubmitMissingTransactions must be called twice
-      (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(1);
+      mempoolTxs = await rpcClient0.GetRawMempool();
+      (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs, 1);
       Assert.IsTrue(success);
       Assert.AreEqual(0, txsWithMissingInputs.Count);
     }
@@ -469,13 +472,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       while (retries > -1)
       {
         txAInDb = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txIdA).ToBytes());
-        Assert.AreEqual(TxStatus.Blockchain, txAInDb.TxStatus);
+        Assert.AreEqual(TxStatus.Accepted, txAInDb.TxStatus);
         (newBlock, _) = await CreateTransactionAndMineBlock(newBlock.GetHash().ToString());
         WaitUntilEventBusIsIdle();
-        await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+        await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
         retries--;
       }
-      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions();
+      var mempoolTxs = await rpcClient0.GetRawMempool();
+      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs);
       Assert.IsTrue(success);
       Assert.AreEqual(0, txsWithMissingInputs.Count);
 
@@ -504,7 +508,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
 
-      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions();
+      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs);
       Assert.IsTrue(success);
       var txInternalId = await TxRepositoryPostgres.GetTransactionInternalIdAsync(new uint256(txA.GetHash()).ToBytes());
       Assert.AreEqual(txInternalId, txsWithMissingInputs.Single());
@@ -539,14 +543,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(txIdA, collisionInBlockEvent.Message.TxId);
 
       var txAInDb = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txIdA).ToBytes());
-      Assert.AreEqual(TxStatus.Blockchain, txAInDb.TxStatus);
+      Assert.AreEqual(TxStatus.Accepted, txAInDb.TxStatus);
 
       var notification = (await TxRepositoryPostgres.GetNotificationsForTestsAsync()).Single();
       Assert.AreEqual(CallbackReason.DoubleSpend, notification.NotificationType);
 
       await CheckCallbacksAsync(1, cts.Token);
 
-      var success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      var success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsTrue(success);
       WaitUntilEventBusIsIdle();
 

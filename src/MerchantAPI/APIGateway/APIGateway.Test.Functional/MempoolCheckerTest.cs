@@ -2,15 +2,9 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
-using MerchantAPI.APIGateway.Test.Functional.Server;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
 using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -52,6 +46,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [OverrideSetting("AppSettings:DontParseBlocks", true)]
     public async Task CheckConfigDontParseBlocks()
     {
+      // if we don't parse blocks then we don't have onActiveChain info
       var info = await BlockChainInfo.GetInfoAsync();
       Assert.IsNotNull(info.BestBlockHash);
       var blockParser = server.Services.GetRequiredService<IBlockParser>();
@@ -68,7 +63,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs);
       Assert.AreEqual(0, txs.Length);
 
-      bool success = await mempoolChecker.CheckMempoolAndResubmitTxs(0);
+      bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsTrue(success);
     }
   }

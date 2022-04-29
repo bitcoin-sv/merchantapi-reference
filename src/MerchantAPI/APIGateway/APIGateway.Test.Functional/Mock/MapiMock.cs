@@ -82,9 +82,14 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return await base.SendRawTransactions(transactions, faultType);
     }
 
-    public override async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactions(int batchSize=100)
+    public async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactions(string[] mempoolTxs, int batchSize = 100)
     {
-      return await base.ResubmitMissingTransactions(batchSize);
+      return await base.ResubmitMissingTransactionsAsync(mempoolTxs, null, batchSize);
+    }
+
+    public override async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 100)
+    {
+      return await base.ResubmitMissingTransactionsAsync(mempoolTxs, resubmittedAt, batchSize);
     }
   }
 }

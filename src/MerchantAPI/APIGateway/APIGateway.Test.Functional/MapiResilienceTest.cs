@@ -134,7 +134,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.IsNull(response.response);
 
-      await AssertTxStatus(txC3Hash, TxStatus.Mempool);
+      await AssertTxStatus(txC3Hash, TxStatus.Accepted);
 
       await SubmitTxModeNormal(txC3Hex, txC3Hash, expectedDescription: "Already known");
     }
@@ -205,11 +205,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
       await ValidateHeaderSubmitTransactionsAsync(payload);
 
-      await AssertTxStatus(txC3Hash, TxStatus.Mempool);
-      await AssertTxStatus(tx2Hash, TxStatus.Mempool);
+      await AssertTxStatus(txC3Hash, TxStatus.Accepted);
+      await AssertTxStatus(tx2Hash, TxStatus.Accepted);
       if (authenticated)
       {
-        await AssertTxStatus(txZeroFeeHash, TxStatus.Mempool);
+        await AssertTxStatus(txZeroFeeHash, TxStatus.Accepted);
       }
       else
       {
@@ -220,8 +220,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [DataRow(TxStatus.NodeRejected)]
     [DataRow(TxStatus.SentToNode)]
     [DataRow(TxStatus.UnknownOldTx)]
-    [DataRow(TxStatus.Mempool)]
-    [DataRow(TxStatus.Blockchain)]
+    [DataRow(TxStatus.Accepted)]
     [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
     [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
     [TestMethod]
@@ -252,7 +251,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual("success", payload.ReturnResult);
 
         var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
-        Assert.AreEqual(TxStatus.Mempool, tx.TxStatus);
+        Assert.AreEqual(TxStatus.Accepted, tx.TxStatus);
         Assert.AreEqual(true, tx.DSCheck);
         Assert.AreEqual(true, tx.MerkleProof);
         Assert.IsNotNull(tx.CallbackUrl);
@@ -314,7 +313,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("success", payload.ReturnResult);
 
       var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
-      Assert.AreEqual(TxStatus.Mempool, tx.TxStatus);
+      Assert.AreEqual(TxStatus.Accepted, tx.TxStatus);
       Assert.AreEqual(2, tx.PolicyQuoteId);
       Assert.AreEqual(true, tx.DSCheck);
       Assert.AreEqual(true, tx.MerkleProof);
@@ -436,7 +435,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           ReceivedAt = DateTime.UtcNow,
           MerkleProof = false,
           DSCheck = false,
-          TxStatus = TxStatus.Mempool,
+          TxStatus = TxStatus.Accepted,
           PolicyQuoteId = policyQuoteId,
           UpdateTx = bearerAuthentication && inserted.Length > 0
         }

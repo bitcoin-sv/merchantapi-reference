@@ -197,7 +197,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       var result =
         new QueryTransactionStatusResponseViewModel(
-          await mapi.QueryTransaction(id));
+          await mapi.QueryTransactionAsync(id));
 
       return await SignIfRequiredAsync(result, result.MinerId);
     }
