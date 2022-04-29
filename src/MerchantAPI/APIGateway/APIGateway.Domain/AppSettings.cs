@@ -135,8 +135,14 @@ namespace MerchantAPI.APIGateway.Domain
 
     public bool? MempoolCheckerEnabled { get; set; } = true;
 
-    [Range(1, int.MaxValue)]
+    [Range(10, int.MaxValue)]
     public int? MempoolCheckerIntervalSec { get; set; } = 60;
+
+    [Range(1, int.MaxValue)]
+    public int? MempoolCheckerUnsuccessfulIntervalSec { get; set; } = 10;
+
+    [Range(1, int.MaxValue)]
+    public int? MempoolCheckerBlockParserQueuedMax { get; set; } = 1;
 
     [Range(0, int.MaxValue)]
     public int? MempoolCheckerMissingInputsRetries { get; set; } = 5;
@@ -216,6 +222,11 @@ namespace MerchantAPI.APIGateway.Domain
             return ValidateOptionsResult.Fail(error);
           }
         }
+      }
+      if (options.MempoolCheckerUnsuccessfulIntervalSec >= options.MempoolCheckerIntervalSec)
+      {
+        return ValidateOptionsResult.Fail(
+  $"Invalid configuration - {nameof(AppSettings.MempoolCheckerUnsuccessfulIntervalSec)} must be smaller than {nameof(AppSettings.MempoolCheckerIntervalSec)}.");
       }
       if (options.Notification == null)
       {

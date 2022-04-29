@@ -38,6 +38,8 @@ services:
       - AppSettings__CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
       - AppSettings__MempoolCheckerEnabled=${MEMPOOL_CHECKER_ENABLED}
       - AppSettings__MempoolCheckerIntervalSec=${MEMPOOL_CHECKER_INTERVAL_SEC}
+      - AppSettings__MempoolCheckerUnsuccessfulIntervalSec=${MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC}
+      - AppSettings__MempoolCheckerBlockParserQueuedMax=${MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX}
       - AppSettings__MempoolCheckerMissingInputsRetries=${MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES}
       - AppSettings__CheckFeeDisabled=${CHECK_FEE_DISABLED}
       - AppSettings__WifPrivateKey=${WIF_PRIVATEKEY}
