@@ -183,7 +183,8 @@ SELECT t.txInternalId, bin.blockInternalId, bin.txExternalId
 FROM tx t 
 INNER JOIN TxInput tin ON tin.txInternalId = t.txInternalId 
 INNER JOIN BlockTxsWithInputs bin ON tin.prev_n = bin.prev_n and tin.prevTxId = bin.prevTxId
-WHERE t.txExternalId <> bin.txExternalId;
+WHERE t.txExternalId <> bin.txExternalId
+ON CONFLICT (txInternalId, blockInternalId, dsTxId) DO NOTHING;
 ";
 
         await transaction.Connection.ExecuteAsync(cmdInsertDS);
@@ -242,7 +243,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
     {
       return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs, resubmit);
     }
-    
+
     public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool resubmit = false)
     {
       bool returnInsertedTransactions = !resubmit && !areUnconfirmedAncestors && !insertTxInputs;
@@ -1003,7 +1004,8 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
     }
 
 
-    public async Task<long?> GetTransactionInternalIdAsync(byte[] txId) {
+    public async Task<long?> GetTransactionInternalIdAsync(byte[] txId)
+    {
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
@@ -1182,14 +1184,40 @@ AND txinput.n = @prevOutN;
     {
       using var transaction = await connection.BeginTransactionAsync();
 
-      var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS
-        (DELETE FROM Block WHERE blocktime < @lastUpdateBefore RETURNING *)
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
-
       long txs = 0;
       int deletedTxs = 0;
 
+      // remove blockchain transactions (parsed by blockparser)
+      do
+      {
+        deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
+        @"WITH deleted AS (
+          DELETE FROM Tx
+          WHERE txInternalId = any(array(
+           SELECT tx.txInternalId
+           FROM Tx
+           INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
+           INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
+           WHERE Block.OnActiveChain = true AND receivedAt < @lastUpdateBefore AND tx.txstatus = @txstatus 
+           limit 100000))
+          RETURNING txInternalId
+        )
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Blockchain });
+
+        txs += deletedTxs;
+
+      } while (deletedTxs == 100000);
+
+      var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
+        @"WITH deleted AS
+        (DELETE FROM Block WHERE 
+          (Block.OnActiveChain = true AND blocktime < @lastUpdateBefore)
+          OR
+          (Block.OnActiveChain = false AND blocktime < @mempoolExpiredDate)
+        RETURNING *)
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, mempoolExpiredDate });
+
+      // remove unsuccessful transactions
       do
       {
         deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
@@ -1198,7 +1226,7 @@ AND txinput.n = @prevOutN;
           WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore AND txstatus <> @txstatus limit 100000))
           RETURNING txInternalId
         )
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Mempool });
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Blockchain });
 
         txs += deletedTxs;
 
@@ -1221,7 +1249,7 @@ AND txinput.n = @prevOutN;
 
       await transaction.CommitAsync();
 
-      return new (blocks, txs, mempoolTxs.Length);
+      return new(blocks, txs, mempoolTxs.Length);
     }
 
     public async Task<NotificationData[]> GetNotificationsForTestsAsync()

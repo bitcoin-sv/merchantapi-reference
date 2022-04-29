@@ -135,8 +135,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task CheckTxListNotPresentInDbAsync(List<Tx> txList)
     {
-      await CheckTxNotPresentInDbAsync(Tx1Hash, txList[0].TxInternalId);
-      await CheckTxNotPresentInDbAsync(Tx2Hash, txList[1].TxInternalId);
+      foreach(var tx in txList)
+      {
+        await CheckTxNotPresentInDbAsync(tx.TxExternalId.ToString(), tx.TxInternalId);
+      }
     }
 
     private async Task CheckBlockNotPresentInDb(uint256 blockHash)
@@ -285,11 +287,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
 
-        // check if everything in db was cleared
+        // check if everything on active chain was cleared
         await CheckBlockNotPresentInDb(firstBlockHash);
-        await CheckTxListNotPresentInDbAsync(txList);
+        await CheckTxListNotPresentInDbAsync(txList.Where(x => x.TxExternalId != new uint256(Tx2Hash)).ToList());
+        await CheckTxPresentInDbAsync(Tx2Hash);
       }
 
+      using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))
+      {
+        await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
+
+        await CheckTxListNotPresentInDbAsync(txList.Where(x => x.TxExternalId == new uint256(Tx2Hash)).ToList());
+      }
     }
 
 
