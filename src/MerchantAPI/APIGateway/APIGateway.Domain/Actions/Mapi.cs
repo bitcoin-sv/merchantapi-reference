@@ -663,16 +663,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
           prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
           colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
+          
           logger.LogInformation($"CollectPreviousOuputs for {txIdString} returned { prevOuts.Length } prevOuts ({prevOutsErrors.Length } prevOutsErrors, {colidedWith.Length} colidedWith).");
 
           if (appSettings.CheckFeeDisabled.Value || IsConsolidationTxn(transaction, consolidationParameters, prevOuts))
           {
-            logger.LogInformation($"{txIdString}: appSettings.CheckFeeDisabled { appSettings.CheckFeeDisabled }");
+            logger.LogDebug($"{txIdString}: appSettings.CheckFeeDisabled { appSettings.CheckFeeDisabled }");
             (okToMine, okToRelay) = (true, true);
           }
           else
           {
-            logger.LogInformation($"Starting with CheckFees calculation for {txIdString} and { quotes.Length} quotes.");
+            logger.LogDebug($"Starting with CheckFees calculation for {txIdString} and { quotes.Length} quotes.");
             foreach (var feeQuote in quotes)
             {
               var (okToMineTmp, okToRelayTmp) =
@@ -683,6 +684,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 (okToMine, okToRelay, policies) = (okToMineTmp, okToRelayTmp, feeQuote.PoliciesDict);
               }
             }
+            
             logger.LogInformation($"Finished with CheckFees calculation for {txIdString} and { quotes.Length} quotes: { (okToMine, okToRelay, policies == null ? "" : string.Join(";", policies.Select(x => x.Key + "=" + x.Value)) )}.");
           }
 
@@ -774,7 +776,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
       }
 
-      logger.LogInformation($"TransactionsToSubmit: { transactionsToSubmit.Count }: { string.Join("; ", transactionsToSubmit.Select(x => x.transactionId))} ");
+      logger.LogTrace($"TransactionsToSubmit: { transactionsToSubmit.Count }: { string.Join("; ", transactionsToSubmit.Select(x => x.transactionId))} ");
 
       RpcSendTransactions rpcResponse;
 

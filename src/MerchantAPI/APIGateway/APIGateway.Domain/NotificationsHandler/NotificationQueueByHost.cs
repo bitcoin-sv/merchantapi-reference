@@ -58,6 +58,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
         notifications.Enqueue(notificationData);
         notificationsQueue.Add(host, notifications);
       }
+      
       logger.LogDebug($"Successfully enqueued notification for transaction '{new uint256(notificationData.TxExternalId)}'");
     }
 
