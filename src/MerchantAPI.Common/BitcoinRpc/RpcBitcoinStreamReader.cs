@@ -5,6 +5,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MerchantAPI.Common.BitcoinRpc
 {
@@ -40,15 +41,34 @@ namespace MerchantAPI.Common.BitcoinRpc
       throw new NotImplementedException();
     }
 
-    public override int Read(byte[] buffer, int offset, int count)
+    public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
       token?.ThrowIfCancellationRequested();
 
       // Because the data is HEX encoded, we need to read 2 chars for each returned byte
       var charBuffer = new char[count * 2];
-      var hexChar = new char[2];
+      Memory<char> memory = new(charBuffer, offset, count * 2);
+      var readCount = await StreamReader.ReadBlockAsync(memory, cancellationToken);
+
+      return CheckCountAndReadBlock(buffer, count, charBuffer, readCount);
+    }
+
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+      if (token != null)
+      {
+        return ReadAsync(buffer, offset, count, token.Value).Result;
+      }
+
+      // Because the data is HEX encoded, we need to read 2 chars for each returned byte
+      var charBuffer = new char[count * 2];
       var readCount = StreamReader.ReadBlock(charBuffer, offset, count * 2);
 
+      return CheckCountAndReadBlock(buffer, count, charBuffer, readCount);
+    }
+
+    private int CheckCountAndReadBlock(byte[] buffer, int count, char[] charBuffer, int readCount)
+    {
       if (readCount == 0)
       {
         return 0;
@@ -60,6 +80,7 @@ namespace MerchantAPI.Common.BitcoinRpc
         throw new RpcException("Error when executing bitcoin RPC method. RPC response contains invalid HEX data in JSON response", null, null);
       }
 
+      var hexChar = new char[2];
       for (int i = 0; i < readCount; i += 2)
       {
         hexChar[0] = charBuffer[i];
@@ -67,6 +88,7 @@ namespace MerchantAPI.Common.BitcoinRpc
         buffer[i / 2] = (byte)int.Parse(hexChar, NumberStyles.AllowHexSpecifier);
         TotalBytesRead++;
       }
+
       return count;
     }
 
@@ -84,5 +106,17 @@ namespace MerchantAPI.Common.BitcoinRpc
     {
       throw new NotImplementedException();
     }
+
+    protected override void Dispose(bool disposing)
+    {
+      base.Dispose(disposing);
+      StreamReader.Dispose();
+    }
+
+    public override void Close()
+    {
+      Dispose(true);
+    }
+
   }
 }

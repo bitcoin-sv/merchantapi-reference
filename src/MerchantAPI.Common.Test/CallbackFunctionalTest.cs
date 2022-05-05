@@ -16,9 +16,8 @@ namespace MerchantAPI.Common.Test
   public class CallbackFunctionalTests : ICallbackReceived 
   {
     readonly object lockObj = new();
-
-    List<(string path, string request)> calls = new();
-    public string Url => "http://mockCallback:8321";
+    readonly List<(string path, string request)> calls = new();
+    public static string Url => "http://mockCallback:8321";
 
 
     public (string path, string request)[] Calls

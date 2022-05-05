@@ -22,7 +22,7 @@ namespace MerchantAPI.Common.Test.CallbackWebServer
     /// <summary>
     /// Starts an actual web server that can process callbacks
     /// </summary>
-    public static IHost Start(string url, CancellationToken cancellationToken, ICallbackReceived callbackReceived)
+    public static IHost Start(string url, ICallbackReceived callbackReceived, CancellationToken cancellationToken)
     {
 
       var host = CreateHostBuilder(Array.Empty<string>(), url, callbackReceived).Build();

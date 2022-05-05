@@ -49,7 +49,7 @@ namespace MerchantAPI.Common.Test
 
     public virtual string DbConnectionString { get; }
 
-    public static AutoResetEvent SyncTest = new(true);
+    static readonly AutoResetEvent SyncTest = new(true);
 
     public CallbackFunctionalTests Callback = new();
 
@@ -155,7 +155,7 @@ namespace MerchantAPI.Common.Test
 
 
         // setup call back server
-        serverCallback = CallbackServer.GetTestServer(Callback.Url, Callback);
+        serverCallback = CallbackServer.GetTestServer(CallbackFunctionalTests.Url, Callback);
         clientCallback = serverCallback.CreateClient();
 
         //setup server

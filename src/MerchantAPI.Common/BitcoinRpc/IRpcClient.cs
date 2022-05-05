@@ -12,8 +12,9 @@ namespace MerchantAPI.Common.BitcoinRpc
   public interface IRpcClient
   {
     public TimeSpan RequestTimeout { get; set; }
+    public TimeSpan MultiRequestTimeout { get; set; }
     public int NumOfRetries { get; set; }
-
+    public int WaitBetweenRetriesMs { get; set; }
 
     Task<long> GetBlockCountAsync(CancellationToken? token = null);
 
@@ -53,9 +54,9 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     Task<RpcGetMerkleProof2> GetMerkleProof2Async(string blockHash, string txId, CancellationToken? token = null);
 
-    Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null);
+    Task<RpcActiveZmqNotification[]> ActiveZmqNotificationsAsync(CancellationToken? token = null, bool retry = false);
 
-    Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token = null);
+    Task<RpcGetNetworkInfo> GetNetworkInfoAsync(CancellationToken? token = null, bool retry = false);
 
     Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null);
 
