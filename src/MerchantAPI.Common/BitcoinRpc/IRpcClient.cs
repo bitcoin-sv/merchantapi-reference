@@ -72,5 +72,12 @@ namespace MerchantAPI.Common.BitcoinRpc
     Task DisconnectNodeAsync(string host, int P2PPort, CancellationToken? token = null);
 
     Task<int> GetConnectionCountAsync(CancellationToken? token = null);
+
+    Task<RpcListUnspent[]> ListUnspentAsync(CancellationToken? token = null, params object[] parameters);
+
+    Task<string> DumpPrivKeyAsync(string address, CancellationToken? token = null);
+
+    Task<string> GetNewAddressAsync(CancellationToken? token = null);
+    
   }
 }
