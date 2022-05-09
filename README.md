@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.0.
+Readme v.1.4.0a.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -169,13 +169,15 @@ $ curl -H "Api-Key: [RestAdminAPIKey]" \
                 \"limitcpfpgroupmemberscount\": 10, \
                 \"acceptnonstdoutputs\": true, \
                 \"datacarrier\": true, \
-                \"dustrelayfee\": 150, \
                 \"maxstdtxvalidationduration\": 99, \
                 \"maxnonstdtxvalidationduration\": 100, \
+                \"dustrelayfee\": 150, \
                 \"dustlimitfactor\": 500 \
             } \
           }"
 ```
+
+> Note: BSV Node v1.0.11 onwards no longer support "dustrelayfee" and "dustlimitfactor" policies and they must not be set. Doing so will cause an error when the user submits a transaction.
 
 The parameters above are:
 
