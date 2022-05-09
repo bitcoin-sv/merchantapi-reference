@@ -1,0 +1,20 @@
+{
+  "mapiConfig": {
+    "mapiUrl": "https://localhost:5051/",
+    "adminauthorization": "66dd203a-2736-4373-9024-4a525f90f89b"
+  },
+  "node": {
+    "host": "192.168.0.204",
+    "port": 18332,
+    "username": "user",
+    "password": "password",
+    "ZMQ": "tcp://192.168.0.204:28333"
+  },
+  "callback": {
+    "url": "http://localhost:8013/iscallbackUrl?123",
+    "token": "Bearer something",
+    "merkleProof": true,
+    "merkleFormat": "TSC",
+    "dsCheck": true
+  }
+}

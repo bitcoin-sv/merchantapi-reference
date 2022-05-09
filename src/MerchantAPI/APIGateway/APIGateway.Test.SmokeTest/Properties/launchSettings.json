@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "MerchantAPI.APIGateway.Test.SmokeTest": {
+      "commandName": "Project"
+    }
+  }
+}

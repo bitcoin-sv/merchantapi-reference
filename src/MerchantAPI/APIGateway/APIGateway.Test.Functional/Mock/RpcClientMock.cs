@@ -517,6 +517,21 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     {
       throw new NotImplementedException();
     }
+
+    public Task<RpcListUnspent[]> ListUnspentAsync(CancellationToken? token = null, params object[] parameters)
+    {
+      throw new NotImplementedException();
+    }
+
+    public Task<string> DumpPrivKeyAsync(string address, CancellationToken? token = null)
+    {
+      throw new NotImplementedException();
+    }
+
+    public Task<string> GetNewAddressAsync(CancellationToken? token = null)
+    {
+      throw new NotImplementedException();
+    }
   }
 
 }
