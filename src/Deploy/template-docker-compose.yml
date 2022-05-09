@@ -81,5 +81,6 @@ services:
 
 volumes:
   mapi-volume:
+  
 networks:
   mapi-network:
