@@ -713,7 +713,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 continue;
               }
               PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
-              transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, false, tx.SetPolicyQuote ? policyQuote : null, txStatus));
+              bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, HelperTools.ParseBytesToTransaction(oneTx.RawTx), txStatus);
+              transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, listUnconfirmedAncestors, tx.SetPolicyQuote ? policyQuote : null, txStatus));
             }
             continue;
           }
@@ -833,26 +834,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           bool allowHighFees = false;
           bool dontcheckfee = okToMine;
-          bool listUnconfirmedAncestors = false;
+          bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, transaction, txStatus);
 
-          oneTx.TransactionInputs = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput
-          {
-            N = x.Index,
-            PrevN = x.PrevOut.N,
-            PrevTxId = x.PrevOut.Hash.ToBytes()
-          }).ToList();
-          if (oneTx.DsCheck && txStatus < TxStatus.UnknownOldTx)
-          {
-            foreach (TxInput txInput in oneTx.TransactionInputs)
-            {
-              var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevTxId, txInput.PrevN);
-              if (prevOut == null)
-              {
-                listUnconfirmedAncestors = true;
-                break;
-              }
-            }
-          }
           transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, selectedQuote, txStatus));
         }
       }
@@ -999,7 +982,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiUnconfirmedAncestors, unconfirmedAncestors, true);
             unconfirmedAncestorsCount = unconfirmedAncestors.Count;
             // for now we don't combine two InsertOrUpdateTxsAsync into one,
-            // but this can lead to lost UnconfirmedAncestors (test 'SubmitWithUnconfirmedParentsAsync')
+            // which can lead to lost UnconfirmedAncestors (test 'SubmitWithUnconfirmedParentsAsync')
+            // but there is another problem - sendrawtxs only returns unconfirmed ancestors on first call 
+            // (so even if we would combine the two inserts into single transaction, it wouldn't help)
           }
           watch.Stop();
           logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } found unconfirmedAncestors { unconfirmedAncestorsCount } took {watch.ElapsedMilliseconds} ms.");
@@ -1079,6 +1064,32 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         rpcResponse = null;
       }
       return (rpcResponse, submitException);
+    }
+
+    private async Task<bool> FillInputsAndListUnconfirmedAncestorsAsync(SubmitTransaction oneTx, Transaction transaction, int txStatus)
+    {
+      oneTx.TransactionInputs = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput
+      {
+        N = x.Index,
+        PrevN = x.PrevOut.N,
+        PrevTxId = x.PrevOut.Hash.ToBytes()
+      }).ToList();
+      if (oneTx.DsCheck)
+      {
+        if (txStatus >= TxStatus.Accepted)
+        {
+          return true;
+        }
+        foreach (TxInput txInput in oneTx.TransactionInputs)
+        {
+          var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevTxId, txInput.PrevN);
+          if (prevOut == null)
+          {
+            return true;
+          }
+        }
+      }
+      return false;
     }
 
 

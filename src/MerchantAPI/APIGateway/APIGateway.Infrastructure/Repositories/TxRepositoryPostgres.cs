@@ -311,7 +311,7 @@ CREATE TEMPORARY TABLE TxTemp (
           var txInternalId = tx.UpdateTx ? tx.TxInternalId : internalIds[txIndex];
           AddToTxImporter(txImporter, txInternalId, resubmit ? null : tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
                           tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors, tx.TxStatus, tx.SubmittedAt, tx.PolicyQuoteId, tx.OkToMine, tx.SetPolicyQuote);
-          if (tx.TxStatus >= TxStatus.Accepted && (tx.DSCheck || areUnconfirmedAncestors))
+          if (insertTxInputs && (tx.DSCheck || areUnconfirmedAncestors))
           {
             int n = 0;
             foreach (var txIn in tx.TxIn)
@@ -388,15 +388,17 @@ WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId)
         if (areUnconfirmedAncestors)
         {
           cmdText += @"
-  AND unconfirmedAncestor = false;
+  AND unconfirmedAncestor = false
 ";
         }
         else
         {
           cmdText += @"
-  AND txPayload IS NULL;
+  AND txPayload IS NULL
 ";
         }
+        cmdText += @"
+ON CONFLICT (txInternalId, n) DO NOTHING;";
       }
       await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
 
@@ -417,7 +419,7 @@ WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId)
       return inserted;
     }
 
-    private async Task<bool> InsertOrUpdateSingleTxAsync(Faults.DbFaultComponent? faultComponent, Tx tx, bool insertTxInputs, bool isUnconfirmedAncestor, bool resubmit = false)
+    private async Task<bool> InsertOrUpdateSingleTxAsync(Faults.DbFaultComponent? faultComponent, Tx tx, bool isUnconfirmedAncestor, bool insertTxInputs, bool resubmit = false)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
@@ -480,14 +482,15 @@ RETURNING txInternalId;
         setPolicyQuote = tx.SetPolicyQuote
       });
 
-      if (tx.TxStatus == TxStatus.Accepted && txInternalId > 0 && tx.DSCheck)
+      if (txInternalId > 0 && insertTxInputs && (tx.DSCheck || isUnconfirmedAncestor))
       {
         int n = 0;
         foreach (var txIn in tx.TxIn)
         {
           cmdText = @"
 INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
-VALUES (@txInternalId, @n, @prevTxId, @prev_n);
+VALUES (@txInternalId, @n, @prevTxId, @prev_n)
+ON CONFLICT(txInternalId, n) DO NOTHING
 ";
           await connection.ExecuteAsync(cmdText, new
           {
@@ -817,7 +820,7 @@ WHERE b.blockhash = @blockHash;
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
-SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.merkleproof, tx.dscheck, tx.callbackurl, tx.txstatus, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, feequote.identity, feequote.identityprovider, feequote.policies, tx.okToMine, tx.setpolicyquote
+SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.merkleproof, tx.dscheck, tx.callbackurl, tx.unconfirmedancestor, tx.txstatus, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, feequote.identity, feequote.identityprovider, feequote.policies, tx.okToMine, tx.setpolicyquote
 FROM tx
 LEFT JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
 WHERE tx.txExternalId = @txId
@@ -872,15 +875,17 @@ WITH resubmitTxs as
 ((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
 FROM tx
 JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
-WHERE txstatus = @txstatus AND submittedAt < @resubmittedBefore)
+WHERE txstatus = @txstatus AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false)
 EXCEPT
 (SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
  FROM Tx
  INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
  INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
  JOIN FeeQuote feeQuote ON feeQuote.id = policyQuoteId
- WHERE txstatus = @txstatus AND submittedAt < @resubmittedBefore
- AND Block.OnActiveChain = true))
+ WHERE txstatus = @txstatus 
+AND submittedAt < @resubmittedBefore 
+AND unconfirmedancestor = false 
+AND Block.OnActiveChain = true))
 SELECT * from resubmitTxs
 LEFT JOIN MempoolTx m ON resubmitTxs.TxExternalIdBytes = m.txExternalId
 WHERE m.txExternalId IS NULL

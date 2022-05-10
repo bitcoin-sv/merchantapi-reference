@@ -54,9 +54,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
 
       // Check that first tx is in database
-      long? txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
-      Assert.IsTrue(txInternalId1.HasValue);
-      Assert.AreNotEqual(0, txInternalId1.Value);
+      var tx1 = await TxRepositoryPostgres.GetTransactionAsync((new uint256(txId1)).ToBytes());
+      Assert.IsNotNull(tx1);
+      Assert.AreNotEqual(0, tx1.TxInternalId);
+      Assert.IsTrue(tx1.UnconfirmedAncestor);
+      Assert.AreEqual(DateTime.MinValue, tx1.SubmittedAt);
+      // Check last tx
+      var lastTx = await TxRepositoryPostgres.GetTransactionAsync((new uint256(lastTxId)).ToBytes());
+      Assert.IsNotNull(lastTx);
+      Assert.AreNotEqual(0, lastTx.TxInternalId);
+      Assert.IsFalse(lastTx.UnconfirmedAncestor);
+      Assert.AreNotEqual(DateTime.MinValue, lastTx.SubmittedAt);
     }
 
     [TestMethod]
@@ -131,8 +139,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
+    [DataRow(1)]
+    [DataRow(100)]
     [TestMethod]
-    public async Task CatchMempoolDSForUnconfirmedParentAsync()
+    public async Task CatchMempoolDSForUnconfirmedParentAsync(int chainLength)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -148,7 +158,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Create chain based on first transaction with last transaction being submited to mAPI
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, chainLength, 0, true, cts.Token);
 
       // DS first transaction
       Transaction.TryParse(txHex1, Network.RegTest, out Transaction dsTx);

@@ -450,7 +450,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       AppSettings.MempoolCheckerMissingInputsRetries = 2;
 
-      await CheckMissingInputsMaxRetries();
+      await CheckMissingInputsMaxRetriesAsync();
     }
 
     [TestMethod]
@@ -458,14 +458,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task MissingInputsNoRetries()
     {
       AppSettings.MempoolCheckerMissingInputsRetries = 0;
-      await CheckMissingInputsMaxRetries(false);
+      await CheckMissingInputsMaxRetriesAsync(false);
     }
 
-    private async Task CheckMissingInputsMaxRetries(bool resubmitted = true)
+    private async Task CheckMissingInputsMaxRetriesAsync(bool resubmitted = true)
     {
       var parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
 
-      var (txIdA, _, newBlock) = await TwoTxsFromSameCoinOnDifferentChainsAB(parentBlockHash);
+      var (txIdA, _, newBlock) = await CreateTwoTxsFromSameCoinOnDifferentChainsAsync(parentBlockHash);
 
       int retries = AppSettings.MempoolCheckerMissingInputsRetries.Value;
       Tx txAInDb;
@@ -491,7 +491,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    private async Task<(string txIdA, string TxIdB, NBitcoin.Block lastBlock)> TwoTxsFromSameCoinOnDifferentChainsAB(string parentBlockHash, bool dsCheck = false)
+    private async Task<(string txIdA, string TxIdB, NBitcoin.Block lastBlock)> CreateTwoTxsFromSameCoinOnDifferentChainsAsync(string parentBlockHash, bool dsCheck = false)
     {
       // create two transactions with same input
       var coin = availableCoins.Dequeue();
@@ -526,7 +526,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var removedFromMempoolSubscription = EventBus.Subscribe<RemovedFromMempoolEvent>();
       var parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
 
-      var (txIdA, txIdB, _) = await TwoTxsFromSameCoinOnDifferentChainsAB(parentBlockHash, dsCheck: true);
+      var (txIdA, txIdB, _) = await CreateTwoTxsFromSameCoinOnDifferentChainsAsync(parentBlockHash, dsCheck: true);
 
       // new chain C1 -> C2 -> C3
       var (newBlock, _) = await CreateTransactionAndMineBlock(parentBlockHash, false, dsCheck: true);
@@ -563,6 +563,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(2, mempoolTxs.Length);
       Assert.IsFalse(mempoolTxs.Contains(txIdA));
+    }
+
+    [TestMethod]
+    public async Task ResubmitWithUnconfirmedParents()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      // Create and submit first transaction
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
+
+      // Create chain based on first transaction with last transaction being submited to mAPI
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
+
+      var tx1 = await TxRepositoryPostgres.GetTransactionAsync((new uint256(txId1)).ToBytes());
+      Assert.IsNotNull(tx1);
+      var lastTx = await TxRepositoryPostgres.GetTransactionAsync((new uint256(lastTxId)).ToBytes());
+      Assert.IsNotNull(tx1);
+
+      // if mempool would be empty,
+      // only tx with unconfirmedancestor = false would be resubmitted
+      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(Array.Empty<string>());
+      Assert.AreEqual(lastTxId, txs.Single().TxExternalId.ToString());
     }
   }
 }

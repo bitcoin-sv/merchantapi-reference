@@ -335,7 +335,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Create chain based on first transaction with last transaction being submited to mAPI
       var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token, System.Net.HttpStatusCode.InternalServerError);
 
-      // Check that first tx is in database
+      // Check that first tx is not in database
       long? txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
       Assert.IsNull(txInternalId1);
 
@@ -347,7 +347,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(lastTxInternalId1.HasValue);
       Assert.AreNotEqual(0, lastTxInternalId1.Value);
 
-      // since txLast was saved, tx1 is not resubmited
+      // since txLast was saved, the chain (with tx1) is not inserted
       txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
       Assert.IsNull(txInternalId1);
     }

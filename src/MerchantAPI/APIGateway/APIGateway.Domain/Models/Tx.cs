@@ -59,6 +59,8 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public bool DSCheck { get; set; }
 
+    public bool UnconfirmedAncestor { get; set; }
+
     public DateTime SubmittedAt { get; set; }
 
     public int TxStatus { get; set; }
