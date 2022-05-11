@@ -2,6 +2,7 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Test.Functional.CleanUpTx;
 using MerchantAPI.Common.Json;
@@ -344,6 +345,54 @@ namespace MerchantAPI.APIGateway.Test.Functional
         // check if everything in db was cleared
         await CheckBlockNotPresentInDb(firstBlockHash);
         await CheckTxListNotPresentInDbAsync(txList);
+      }
+    }
+
+    [TestMethod]
+    public async Task TestCleanUpWhenResubmitInProcess()
+    {
+      //arrange
+      cleanUpTxService.Pause();
+      var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
+
+      Assert.IsNotNull(feeQuoteRepositoryMock.GetFeeQuoteById(1));
+      List<Tx> txList = await CreateAndInsertTxAsync(false, false, 3, txStatus: TxStatus.Accepted);
+
+      var mapi = server.Services.GetRequiredService<IMapi>();
+      var mempoolCalledAt = MockedClock.UtcNow;
+      var mempoolTxs = Array.Empty<string>();
+      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
+      Assert.AreEqual(3, txs.Length);
+
+      //act
+      using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))
+      {
+        await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
+
+        // check if everything in db was cleared
+        await CheckTxListNotPresentInDbAsync(txList);
+
+        // we consider all txs were successfully submitted to node
+        // but cleanupTx BG service deleted them before update on database
+        // we should get no errors even if we try to update txs that are no longer present
+        await TxRepositoryPostgres.UpdateTxsOnResubmitAsync(null, txs.Select(x => new Tx
+        {
+          // on resubmit we only update submittedAt and txStatus
+          TxInternalId = x.TxInternalId,
+          TxExternalId = x.TxExternalId,
+          SubmittedAt = MockedClock.UtcNow,
+          TxStatus = x.TxStatus,
+          PolicyQuoteId = x.PolicyQuoteId,
+          UpdateTx = true
+        }).ToList());
+
+        // update of txsWithMissingInputs should also not raise any error
+        await TxRepositoryPostgres.UpdateTxsOnResubmitAsync(null, txs.Select(x => new Tx
+        {
+          TxInternalId = x.TxInternalId,
+          SubmittedAt = MockedClock.UtcNow,
+          TxStatus = TxStatus.MissingInputsMaxRetriesReached
+        }).ToList());
       }
     }
   }

@@ -108,7 +108,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
     public FeeQuote GetFeeQuoteById(long feeQuoteId)
     {
-      throw new NotImplementedException();
+      EnsureFeeQuotesAreAvailable();
+      return _feeQuotes.Single(x => x.Id == feeQuoteId);
     }
 
     public IEnumerable<FeeQuote> GetFeeQuotesByIdentity(UserAndIssuer identity)
