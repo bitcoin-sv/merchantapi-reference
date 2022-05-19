@@ -21,6 +21,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
     // total count
     long count;
 
+    long alreadyKnownCount;
+
     public long Count
     {
 
@@ -33,7 +35,19 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
     }
 
-    public void Add(string host, IEnumerable<uint256> txids)
+    public long AlreadyKnownCount
+    {
+
+      get
+      {
+        lock (countByHost)
+        {
+          return alreadyKnownCount;
+        }
+      }
+    }
+
+    public void Add(string host, IEnumerable<uint256> txids, int alreadyKnownCount = 0)
     {
 
       lock (countByHost)
@@ -52,6 +66,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
           }
           count++;
         }
+
+        this.alreadyKnownCount += alreadyKnownCount;
       }
     }
 
@@ -206,9 +222,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
       UpdateLastUpdateTime();
     }
 
-    public void AddOkSubmited(string host, IEnumerable<uint256> txIds)
+    public void AddOkSubmited(string host, IEnumerable<uint256> txIds, int alreadyKnownCount)
     {
-      okSubmitted.Add(host, txIds);
+      okSubmitted.Add(host, txIds, alreadyKnownCount);
       UpdateLastUpdateTime();
     }
 
@@ -218,6 +234,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public long SimulatedCallbackErrors => Interlocked.Read(ref simulatedCallbackErrors);
     public long RequestTxFailures => requestTxFailures.Count;
     public long OKSubmitted => okSubmitted.Count;
+    public long OKAlreadyKnown => okSubmitted.AlreadyKnownCount;
     public long CallbacksReceived => callbackReceived.Count;
 
     private long Elapsed

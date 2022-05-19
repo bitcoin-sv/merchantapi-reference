@@ -29,14 +29,17 @@ using CsvHelper.Configuration;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using Npgsql;
 using MerchantAPI.Common.Tasks;
+using Dapper;
 using System.Diagnostics;
+using MerchantAPI.APIGateway.Domain.Models;
+using Newtonsoft.Json;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
 
   class Program
   {
-    private const string VERSION = "1.0.1";
+    private const string VERSION = "1.0.2";
 
     static async Task SendTransactionsBatch(IEnumerable<string> transactions, HttpClient client, Stats stats, string url, string callbackUrl, string callbackToken, string callbackEncryption)
     {
@@ -115,7 +118,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         var okItems = r.Txs.Where(t => t.ReturnResult == "success").ToArray();
 
         stats.AddRequestTxFailures(callbackHost, errorItems.Select(x => new uint256(x.Txid)));
-        stats.AddOkSubmited(callbackHost, okItems.Select(x => new uint256(x.Txid)));
+        stats.AddOkSubmited(callbackHost, okItems.Select(x => new uint256(x.Txid)), okItems.Where(x => x.ResultDescription == "Already known").Count());
 
         var errors = errorItems
           .Select(t => t.Txid + " " + t.ReturnResult + " " + t.ResultDescription).ToArray();
@@ -231,7 +234,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         {
           return config.MapiConfig.Callback?.Url;
         }
-      
+
         var uri = new UriBuilder(config.MapiConfig.Callback.Url);
 
         uri.Host += rnd.Next(1, config.MapiConfig.Callback.AddRandomNumberToHost.Value + 1);
@@ -239,7 +242,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
 
 
-      var transactions = new TransactionReader(config.Filename, config.TxIndex, config.Limit ?? long.MaxValue);
+      var transactions = new TransactionReader(config.Filename, config.TxIndex, config.Skip, config.Limit ?? long.MaxValue);
 
       var client = new HttpClient();
       if (config.MapiConfig.Authorization != null)
@@ -260,6 +263,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
           await EnsureMapiIsConnectedToNodeAsync(config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization, config.MapiConfig.RearrangeNodes, bitcoind, config.MapiConfig.BitcoindHost, config.MapiConfig.BitcoindZmqEndpointIp);
         }
+
+        await CheckfeeQuotes(config.MapiConfig.AddFeeQuotesFromJsonFile, config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization);
 
         string mAPIversion = "";
         try
@@ -318,6 +323,50 @@ namespace MerchantAPI.APIGateway.Test.Stress
           }
         }
 
+        async Task<int> MeasureGetRawMempool(bool generateCsvMempoolRow = true)
+        {
+          Stopwatch sw = Stopwatch.StartNew();
+          var txsSubmitted = transactions.ReturnedCount;
+          var mempool = await bitcoind.RpcClient.GetRawMempool();
+          sw.Stop();
+          if (generateCsvMempoolRow)
+          {
+            GenerateCsvMempoolRow(txsSubmitted, mempool.Length, sw.Elapsed);
+          }
+          return mempool.Length;
+        }
+
+        async Task MempoolCheckTask(CancellationToken cancellationToken)
+        {
+          int incrementStep = config.GetRawMempoolEveryNTxs;
+          long goal = incrementStep;
+          Stopwatch sw = new();
+          while (goal <= config.Limit)
+          {
+            if (transactions.ReturnedCount >= goal)
+            {
+              try
+              {
+                await MeasureGetRawMempool();
+                goal += incrementStep;
+                if (cancellationToken.IsCancellationRequested)
+                {
+                  return;
+                }
+              }
+              catch (Exception ex)
+              {
+                Console.WriteLine("Error calling GetRawMempool: " + ex.Message);
+              }
+              finally
+              {
+                sw.Reset();
+              }
+            }
+            await Task.Delay(10, CancellationToken.None);
+          }
+        }
+
         async Task GenerateBlock(CancellationToken cancellationToken, int generateBlockPeriodMs)
         {
           do
@@ -367,11 +416,25 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         var progressTask = Task.Run(() => PrintProgress(cancellationSource.Token), cancellationSource.Token);
 
+        Task mempoolCheckTask = null;
+
+        var results = new List<(int mempoolCount, TimeSpan elapsed)>();
+
+        bool measureRawMempoolCall = config.GetRawMempoolEveryNTxs > 0;
+        if (measureRawMempoolCall)
+        {
+          // check mempool before anything is submitted
+          await MeasureGetRawMempool();
+
+          mempoolCheckTask = Task.Run(() => MempoolCheckTask(cancellationSource.Token), cancellationSource.Token);
+        }
+
         RunSubmitThreads();
 
         stats.StopTiming(); // we are no longer submitting txs. Stop the Stopwatch that is used to calculate submission throughput
 
         Task generateTask = null;
+
         if (config.StartGenerateBlocksAtTx > -1)
         {
           transactions.SetLimit(config.Limit ?? long.MaxValue);
@@ -428,7 +491,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
         {
           await webServer.StopAsync();
         }
-        GenerateCsvRow(mAPIversion, config, stats);
+        // GetRawMempool after all txs are submitted
+        var mempoolTxs = await MeasureGetRawMempool(measureRawMempoolCall);
+        GenerateCsvRow(mAPIversion, mempoolTxs, config, stats);
       }
       finally
       {
@@ -439,9 +504,38 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     }
 
-    static void GenerateCsvRow(string mAPIversion, SendConfig config, Stats stats)
+    static void GenerateCsvMempoolRow(long txsSubmitted, int mempoolCount, TimeSpan elapsed)
     {
-      StatsCsv statsCsv = new(mAPIversion, config.Filename, config.BatchSize, config.Threads, !string.IsNullOrEmpty(config.MapiConfig.Callback?.Url), stats, config.CsvComment);
+      string statsFile = "statsMempool.csv";
+      bool fileExists = File.Exists(statsFile);
+      using var stream = File.Open(statsFile, FileMode.Append);
+      using var writer = new StreamWriter(stream);
+      CsvConfiguration conf = new(CultureInfo.InvariantCulture)
+      {
+        Delimiter = ";",
+        DetectColumnCountChanges = true
+      };
+
+      using var csv = new CsvWriter(writer, conf);
+      if (!fileExists)
+      {
+        csv.WriteField("txsSubmitted");
+        csv.WriteField("mempoolCount");
+        csv.WriteField("elapsed");
+        csv.NextRecord();
+        csv.Flush();
+      }
+      csv.WriteField(txsSubmitted);
+      csv.WriteField(mempoolCount);
+      csv.WriteField(elapsed);
+      csv.NextRecord();
+      csv.Flush();
+    }
+
+    static void GenerateCsvRow(string mAPIversion, int mempoolTxs, SendConfig config, Stats stats)
+    {
+      StatsCsv statsCsv = new(mAPIversion, config.Filename, config.BatchSize, config.Threads, !string.IsNullOrEmpty(config.MapiConfig.Callback?.Url),
+        config.GetRawMempoolEveryNTxs, mempoolTxs, stats, config.CsvComment);
 
       string statsFile = "stats.csv";
       bool fileExists = File.Exists(statsFile);
@@ -514,6 +608,49 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
       DirectoryCopy(templateData, destDir);
       return testDataDir;
+    }
+
+    static async Task CheckfeeQuotes(string jsonFile, string mapiUrl, string authAdmin)
+    {
+      if (string.IsNullOrEmpty(jsonFile))
+      {
+        return;
+      }
+      string jsonData = File.ReadAllText(jsonFile);
+      // check json
+      List<FeeQuote> feeQuotes = JsonConvert.DeserializeObject<List<FeeQuote>>(jsonData);
+
+      var adminClient = new HttpClient();
+      adminClient.DefaultRequestHeaders.Add("Api-Key", authAdmin);
+      mapiUrl += "api/v1/FeeQuote";
+
+      var uri = new Uri(mapiUrl);
+      foreach (var feeQuote in feeQuotes)
+      {
+        var postFeeQuote = new FeeQuoteViewModelCreate(feeQuote);
+        if (postFeeQuote.ValidFrom == DateTime.MinValue)
+        {
+          postFeeQuote.ValidFrom = null;
+        }
+        if (postFeeQuote.CreatedAt == DateTime.MinValue)
+        {
+          postFeeQuote.CreatedAt = DateTime.UtcNow;
+        }
+        var newFeeQuoteContent = new StringContent(HelperTools.JSONSerialize(postFeeQuote, true),
+          new UTF8Encoding(false), MediaTypeNames.Application.Json);
+        var newFeeQuoteResult = await adminClient.PostAsync(uri, newFeeQuoteContent);
+
+
+        if (newFeeQuoteResult.IsSuccessStatusCode)
+        {
+          Console.WriteLine($"FeeQuote with identity '{ postFeeQuote.Identity ?? "" } { postFeeQuote.IdentityProvider ?? "" }' successfully added.");
+        }
+        else
+        {
+          throw new Exception(
+  $"Unable to create new {feeQuote}. Error: {newFeeQuoteResult.StatusCode} { await newFeeQuoteResult.Content.ReadAsStringAsync() }");
+        }
+      }
     }
 
     static async Task EnsureMapiIsConnectedToNodeAsync(string mapiUrl, string authAdmin, bool rearrangeNodes, BitcoindProcess bitcoind, string bitcoindHost, string bitcoindZmqEndpointIp)
@@ -591,10 +728,15 @@ namespace MerchantAPI.APIGateway.Test.Stress
       await Task.Delay(TimeSpan.FromSeconds(1)); // Give mAPI some time to establish ZMQ subscriptions
     }
 
-    static async Task<int> ClearDb(string mapiDBConnectionString)
+    static async Task<int> ClearDb(string mapiDBConnectionString, bool eraseFeeQuotes = false)
     {
       await CleanUpTxHandler(mapiDBConnectionString);
       NodeRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
+      if (eraseFeeQuotes)
+      {
+        FeeQuoteRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
+        Console.WriteLine($"Table feeQuote truncated.");
+      }
       Console.WriteLine($"Tables truncated.");
       Console.WriteLine($"mAPI cache is out of sync, you have to restart mAPI!");
       return 0;
@@ -644,12 +786,19 @@ namespace MerchantAPI.APIGateway.Test.Stress
         )
         {
           Arity = new ArgumentArity(1,1)
-        }
+        },
       };
+      clearDbCommand.AddOption(
+        new Option<bool?>(
+          alias: "eraseFeeQuotes",
+          getDefaultValue: () => false,
+          description: "False by default - set to true if you also want to truncate feeQuote table."
+        )
+      );
 
-      clearDbCommand.Description = "Truncate data in all tables (except feeQuote) and stops program. If mAPI is running, restart it to reinitialize cache.";
-      clearDbCommand.Handler = CommandHandler.Create(async (string mapiDBConnectionString) =>
-        await ClearDb(mapiDBConnectionString));
+      clearDbCommand.Description = "Truncate data in all tables (feeQuote table is only truncated, if second argument is defined as true) and stops program. If mAPI is running, restart it to reinitialize cache.";
+      clearDbCommand.Handler = CommandHandler.Create(async (string mapiDBConnectionString, bool eraseFeeQuotes) =>
+        await ClearDb(mapiDBConnectionString, eraseFeeQuotes));
 
       var rootCommand = new RootCommand
       {
@@ -662,7 +811,5 @@ namespace MerchantAPI.APIGateway.Test.Stress
       return await rootCommand.InvokeAsync(args);
     }
 
-
   }
-
 }

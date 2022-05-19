@@ -18,14 +18,28 @@ namespace MerchantAPI.APIGateway.Test.Stress
     readonly IEnumerator<string> lines;
     bool hasCurrent;
     long limit;
-    long returnedCount = 0;
+    readonly int skip;
+    public long ReturnedCount { get; private set; }
 
-    public TransactionReader(string fileName, int txIndex, long limit)
+    public TransactionReader(string fileName, int txIndex, int skip, long limit)
     {
+      ReturnedCount = 0;
       this.txIndex = txIndex;
       lines = File.ReadLines(fileName).GetEnumerator();
       hasCurrent = lines.MoveNext();
       this.limit = limit;
+      lock (objLock)
+      {
+        this.skip = 0;
+        while (this.skip < skip)
+        {
+          if (!LimitReached)
+          {
+            hasCurrent = lines.MoveNext();
+          }
+          this.skip++;
+        }
+      }
     }
 
     public void SetLimit(long limit)
@@ -33,11 +47,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
       this.limit = limit;
     }
 
+    public bool LimitReached => !hasCurrent || ReturnedCount == (limit - skip);
+
     public bool TryGetnextTransaction(out string transaction)
     {
       lock (objLock)
       {
-        if (!hasCurrent || returnedCount == limit)
+        if (LimitReached)
         {
           transaction = null;
           return false;
@@ -65,7 +81,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           transaction = parts[txIndex];
         }
 
-        returnedCount++;
+        ReturnedCount++;
         return true;
       }
     }

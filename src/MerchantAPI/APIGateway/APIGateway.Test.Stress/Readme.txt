@@ -30,16 +30,19 @@ If you want to run clearDb command you must add port mapping for merchant-gatewa
 *** SendConfig options ***
 - filename: File containing transactions to send.
 - txIndex: Specifies a zero based index of column that contains hex encoded transaction in a file (default=1).
+- skip: Specifies how many transactions should be skipped from the file (default=0).
 - limit: Only submit up to the specified number of transactions from transaction file (optional).
 - batchSize: Number of transactions submitted in one call (default=100).
 - threads: Number of concurrent threads that will be used to submitting transactions. When using multiple threads, make sure that transactions in the file are not dependent on each other (default=1).
 - startGenerateBlocksAtTx: Start with transactions submit and block generating when the certain number of transactions is submitted (optional).
 - generateBlockPeriodMs: Periodically call generate block on node (default=500). The number of blocks in the database can be different from generate block calls (you can filter blocks inserted to the block table by column blocktime).
+- getRawMempoolEveryNTxs: Call RPC GetRawMempool after approximately every N submitted transactions (optional). Results are written to statsMempool.csv. You can test mempoolChecker, if you start stressTool with database, that already contains transactions.
 - csvComment: Fill column comment in csv file (optional).
 - mapiConfig:
   - authorization: Authorization header used when submitting transactions.
   - mapiUrlURL: Used for submitting transactions. Example: "http://localhost:5000/".
   - rearrangeNodes: Delete local node (from bitcoindConfig) on mAPI (if exists) and add it again if set to true, otherwise user has to take care for it by himself.
+  - addFeeQuotesFromJsonFile: Add feeQuotes from file (optional).
   - bitcoindHost: Use if local node (from bitcoindConfig) is unreachable from mAPI (override default "127.0.0.1").
   - bitcoindZmqEndpointIp: Use when you need to override local node's default zmqEndpointIp.
   - callback: Specify, if you want to trigger callbacks

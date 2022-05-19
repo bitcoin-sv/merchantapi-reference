@@ -14,7 +14,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public int BatchSize { get; set; }
     public int Threads { get; set; }
     public bool DoCallbacks { get; set; }
-    public long OKSubmitted { get; set; }
+    public string OKSubmitted { get; set; }
     public long RequestErrors { get; set; }
     public long RequestTxFailures { get; set; }
     public long Throughput { get; set; }
@@ -22,17 +22,21 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public long SimulatedCallbackErrors { get; set; }
     public TimeSpan ElapsedTime { get; set; }
     public long GenerateBlockCalls { get; set; }
+    public int GetRawMempoolEveryNTxs { get; set; }
+    public int MempoolTxsAtEnd { get; set; }
     public string Comment { get; set; }
 
 
-    public StatsCsv(string mAPIVersion, string filename, int batchSize, int threads, bool doCallbacks, Stats stats, string comment = null)
+    public StatsCsv(string mAPIVersion, string filename, int batchSize, int threads, bool doCallbacks, int getRawMempoolEveryNTxs, int mempoolTxs, Stats stats, string comment = null)
     {
       MerchantApiVersion = mAPIVersion;
       Filename = filename;
       BatchSize = batchSize;
       Threads = threads;
       DoCallbacks = doCallbacks;
-      OKSubmitted = stats.OKSubmitted;
+      GetRawMempoolEveryNTxs = getRawMempoolEveryNTxs;
+      MempoolTxsAtEnd = mempoolTxs;
+      OKSubmitted = $"{stats.OKSubmitted} (already known: {stats.OKAlreadyKnown})";
       RequestErrors = stats.RequestErrors;
       RequestTxFailures = stats.RequestTxFailures;
       Throughput = stats.Throughput;
