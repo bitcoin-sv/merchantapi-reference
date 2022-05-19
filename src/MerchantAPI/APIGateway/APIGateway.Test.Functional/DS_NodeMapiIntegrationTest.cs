@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using System.Collections.Generic;
+using MerchantAPI.APIGateway.Domain.Models;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -46,6 +47,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public override void TestCleanup()
     {
       base.TestCleanup();
+      if (mapiHost != null)
+      {
+        // mAPI must be stopped in TestCleanup because it can happen,
+        // that assert fails or an error is thrown
+        StopMAPI().Wait();
+      }
     }
 
     #region Setup live MAPI
@@ -80,10 +87,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       mapiHost.RunAsync();
     }
 
-    private Task StopMAPI()
+    private async Task StopMAPI()
     {
       var cancellationToken = new CancellationTokenSource(1000).Token;
-      return mapiHost.WaitForShutdownAsync(cancellationToken);
+      await mapiHost.WaitForShutdownAsync(cancellationToken);
     }
     #endregion
 
@@ -214,8 +221,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
       Assert.AreEqual(1, notifications.Length);
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -244,8 +249,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
       Assert.AreEqual(1, notifications.Length);
       Assert.AreEqual(txId2, new uint256(notifications.Single().DoubleSpendTxId).ToString());
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -298,14 +301,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Task.WhenAll(taskList);
 
       // Need to wait for all nodes to do their calls to mAPI
-      await Task.Delay(2000);
+      NotificationData[] notifications = Array.Empty<NotificationData>();
+      while (!notifications.Any())
+      {
+        notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
+        await Task.Delay(500, cts.Token);
+      }
 
       loggerTest.LogInformation("Retrieving notification data");
-      var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
+
       Assert.AreEqual(1, notifications.Length);
       Assert.AreEqual(txId2, new uint256(notifications.Single().DoubleSpendTxId).ToString());
-
-      await StopMAPI();
     }
 
     [TestMethod]
@@ -356,7 +362,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
       Assert.AreEqual(1, notifications.Length);
-      await StopMAPI();
     }
   }
 }
