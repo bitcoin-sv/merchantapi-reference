@@ -273,7 +273,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 SELECT NEXTVAL('tx_txinternalid_seq') 
 FROM generate_series(1, @transactionsCount)
 ";
-      long[] internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count(x => !x.UpdateTx) })).ToArray();
+      long[] internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count(x => x.UpdateTx ==  Tx.UpdateTxMode.Insert) })).ToArray();
 
       using var transaction = await connection.BeginTransactionAsync();
 
@@ -309,9 +309,9 @@ CREATE TEMPORARY TABLE TxTemp (
         for (int txIndex = 0; txIndex < transactions.Count; txIndex++)
         {
           var tx = transactions[txIndex];
-          var txInternalId = tx.UpdateTx ? tx.TxInternalId : internalIds[internalIdIndex++];
+          var txInternalId = tx.UpdateTx != Tx.UpdateTxMode.Insert ? tx.TxInternalId : internalIds[internalIdIndex++];
           AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
-                          tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors, tx.TxStatus, tx.SubmittedAt, tx.PolicyQuoteId, tx.OkToMine, tx.SetPolicyQuote);
+              tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors, tx.TxStatus, tx.SubmittedAt, tx.PolicyQuoteId, tx.OkToMine, tx.SetPolicyQuote);
           if (insertTxInputs && (tx.DSCheck || areUnconfirmedAncestors))
           {
             int n = 0;
@@ -335,7 +335,7 @@ SET submittedAt = TxTemp.submittedAt, txStatus = TxTemp.txStatus
 FROM TxTemp 
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
 TxTemp.txPayload IS NOT NULL AND 
-Tx.txStatus >= { TxStatus.UnknownOldTx };
+Tx.txStatus >= { TxStatus.SentToNode };
 UPDATE Tx
 SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, 
 callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, merkleFormat = TxTemp.merkleFormat, 
@@ -344,7 +344,7 @@ txstatus = TxTemp.txstatus, policyQuoteId = TxTemp.policyQuoteId, okToMine = TxT
 FROM TxTemp 
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
 TxTemp.txPayload IS NOT NULL AND
-Tx.txStatus < { TxStatus.UnknownOldTx };
+Tx.txStatus < { TxStatus.SentToNode };
 "
 ;
       cmdText += @"
@@ -432,12 +432,22 @@ WHERE txInternalId = @txInternalId "
         await transaction.CommitAsync();
         return true;
       }
-      else if (!tx.UpdateTx)
+      else if (tx.UpdateTx == Tx.UpdateTxMode.Insert)
       {
         cmdText = @"
 INSERT INTO Tx(txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
 VALUES (@txExternalId, @txPayload, @receivedAt, @callbackUrl, @callbackToken, @callbackEncryption, @merkleProof, @merkleFormat, @dsCheck, @unconfirmedAncestor, @submittedAt, @txstatus, @policyQuoteId, @okToMine, @setPolicyQuote)
 ON CONFLICT (txExternalId) DO NOTHING
+RETURNING txInternalId;
+";
+      }
+      else if (tx.UpdateTx == Tx.UpdateTxMode.TxStatusAndResubmittedAt)
+      {
+        cmdText = @$"
+UPDATE Tx
+SET submittedAt = @submittedAt, txStatus = @txStatus
+WHERE txExternalId = @txExternalId AND 
+Tx.txStatus >= { TxStatus.SentToNode }
 RETURNING txInternalId;
 ";
       }
@@ -448,12 +458,9 @@ UPDATE Tx
 SET txPayload = @txPayload, callbackUrl = @callbackUrl, callbackToken = @callbackToken, 
 callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, merkleFormat = @merkleFormat, 
 dsCheck = @dsCheck, unconfirmedAncestor = @unconfirmedAncestor, policyQuoteId = @policyQuoteId, 
-okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
+submittedAt = @submittedAt, txStatus = @txStatus, okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
 WHERE Tx.txExternalId = @txExternalId AND 
-Tx.txStatus < { TxStatus.UnknownOldTx };
-UPDATE Tx
-SET submittedAt = @submittedAt, txStatus = @txstatus
-WHERE txExternalId = @txExternalId
+Tx.txStatus < { TxStatus.SentToNode }
 RETURNING txInternalId;
 ";
       }

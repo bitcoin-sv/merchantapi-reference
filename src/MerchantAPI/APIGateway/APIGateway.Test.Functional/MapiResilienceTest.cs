@@ -484,7 +484,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           DSCheck = false,
           TxStatus = TxStatus.Accepted,
           PolicyQuoteId = policyQuoteId,
-          UpdateTx = bearerAuthentication && inserted.Length > 0
+          UpdateTx = (bearerAuthentication && inserted.Length > 0) ? Domain.Models.Tx.UpdateTxMode.TxStatusAndResubmittedAt : Domain.Models.Tx.UpdateTxMode.Insert
         }
       };
 

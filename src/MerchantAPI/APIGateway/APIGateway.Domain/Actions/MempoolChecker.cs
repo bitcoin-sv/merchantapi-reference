@@ -200,7 +200,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         TxInternalId = x.Key,
         SubmittedAt = clock.UtcNow(),
-        TxStatus = TxStatus.MissingInputsMaxRetriesReached
+        TxStatus = TxStatus.MissingInputsMaxRetriesReached,
+        UpdateTx = Tx.UpdateTxMode.TxStatusAndResubmittedAt
       }).ToList());
       txsWithMaxMissingInputs.ForEach(x => txsRetriesIncremented.Remove(x.Key));
       txsRetries = txsRetriesIncremented;

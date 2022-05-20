@@ -872,7 +872,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               ReceivedAt = clock.UtcNow(),
               TxIn = x.transaction.TransactionInputs,
               TxStatus = TxStatus.SentToNode,
-              UpdateTx = txsToUpdate.Contains(x.transactionId),
+              UpdateTx = txsToUpdate.Contains(x.transactionId) ? Tx.UpdateTxMode.UpdateTx : Tx.UpdateTxMode.Insert,
               PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
               Policies = x.policyQuote?.Policies,
               OkToMine = x.dontCheckFees,
@@ -953,7 +953,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             TxIn = x.transaction.TransactionInputs,
             SubmittedAt = clock.UtcNow(),
             TxStatus = x.txstatus < TxStatus.UnknownOldTx ? TxStatus.Accepted : x.txstatus,
-            UpdateTx = txsToUpdate.Contains(x.transactionId),
+            UpdateTx = txsToUpdate.Contains(x.transactionId) ? 
+                  (x.txstatus < TxStatus.UnknownOldTx && user == null ? Tx.UpdateTxMode.UpdateTx : Tx.UpdateTxMode.TxStatusAndResubmittedAt ) : Tx.UpdateTxMode.Insert ,
             PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
             Policies = x.policyQuote?.Policies,
             OkToMine = x.dontCheckFees,
@@ -1168,7 +1169,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             SubmittedAt = clock.UtcNow(),
             TxStatus = x.TxStatus,
             PolicyQuoteId = x.PolicyQuoteId,
-            UpdateTx = true
+            UpdateTx = Tx.UpdateTxMode.TxStatusAndResubmittedAt
           }).ToList());
 
           // we allow certain errors

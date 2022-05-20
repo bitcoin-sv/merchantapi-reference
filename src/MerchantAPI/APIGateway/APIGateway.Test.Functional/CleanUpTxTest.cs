@@ -383,7 +383,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           SubmittedAt = MockedClock.UtcNow,
           TxStatus = x.TxStatus,
           PolicyQuoteId = x.PolicyQuoteId,
-          UpdateTx = true
+          UpdateTx = Tx.UpdateTxMode.TxStatusAndResubmittedAt
         }).ToList());
 
         // update of txsWithMissingInputs should also not raise any error
