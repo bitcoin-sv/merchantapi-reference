@@ -338,9 +338,9 @@ TxTemp.txPayload IS NOT NULL AND
 Tx.txStatus >= { TxStatus.UnknownOldTx };
 UPDATE Tx
 SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, 
-callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, dsCheck = TxTemp.dsCheck, 
-unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus, 
-policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote
+callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, merkleFormat = TxTemp.merkleFormat, 
+dsCheck = TxTemp.dsCheck, unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submittedAt, 
+txstatus = TxTemp.txstatus, policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote 
 FROM TxTemp 
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
 TxTemp.txPayload IS NOT NULL AND
@@ -446,8 +446,9 @@ RETURNING txInternalId;
         cmdText = @$"
 UPDATE Tx
 SET txPayload = @txPayload, callbackUrl = @callbackUrl, callbackToken = @callbackToken, 
-callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, dsCheck = @dsCheck, 
-unconfirmedAncestor = @unconfirmedAncestor, policyQuoteId = @policyQuoteId, okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
+callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, merkleFormat = @merkleFormat, 
+dsCheck = @dsCheck, unconfirmedAncestor = @unconfirmedAncestor, policyQuoteId = @policyQuoteId, 
+okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
 WHERE Tx.txExternalId = @txExternalId AND 
 Tx.txStatus < { TxStatus.UnknownOldTx };
 UPDATE Tx
@@ -880,7 +881,7 @@ WHERE b.blockhash = @blockHash;
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
-SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.merkleproof, tx.dscheck, tx.callbackurl, tx.unconfirmedancestor, tx.txstatus, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, feequote.identity, feequote.identityprovider, feequote.policies, tx.okToMine, tx.setpolicyquote
+SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.merkleproof, tx.merkleformat, tx.dscheck, tx.callbackurl, tx.unconfirmedancestor, tx.txstatus, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, feequote.identity, feequote.identityprovider, feequote.policies, tx.okToMine, tx.setpolicyquote
 FROM tx
 JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
 WHERE tx.txExternalId = @txId

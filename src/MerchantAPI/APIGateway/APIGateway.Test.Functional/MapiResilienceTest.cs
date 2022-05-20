@@ -289,7 +289,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       if (txStatus == TxStatus.NodeRejected)
       {
-        var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, true, true);
+        var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, true, true, "TSC");
         VerifySignature(response);
         var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
         Assert.AreEqual("success", payload.ReturnResult);
@@ -298,6 +298,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(TxStatus.Accepted, tx.TxStatus);
         Assert.AreEqual(true, tx.DSCheck);
         Assert.AreEqual(true, tx.MerkleProof);
+        Assert.AreEqual("TSC", tx.MerkleFormat);
         Assert.IsNotNull(tx.CallbackUrl);
       }
       else
@@ -314,6 +315,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(txStatus, tx.TxStatus);
         Assert.AreEqual(false, tx.DSCheck);
         Assert.AreEqual(false, tx.MerkleProof);
+        Assert.AreEqual(null, tx.MerkleFormat);
         Assert.IsNull(tx.CallbackUrl);
       }
     }
