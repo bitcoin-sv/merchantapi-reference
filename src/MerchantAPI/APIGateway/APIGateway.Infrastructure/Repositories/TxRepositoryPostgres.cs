@@ -334,6 +334,7 @@ UPDATE Tx
 SET submittedAt = TxTemp.submittedAt, txStatus = TxTemp.txStatus
 FROM TxTemp 
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
+TxTemp.txPayload IS NOT NULL AND 
 Tx.txStatus >= { TxStatus.UnknownOldTx };
 UPDATE Tx
 SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, 
@@ -342,6 +343,7 @@ unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submitted
 policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote
 FROM TxTemp 
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
+TxTemp.txPayload IS NOT NULL AND
 Tx.txStatus < { TxStatus.UnknownOldTx };
 "
 ;
