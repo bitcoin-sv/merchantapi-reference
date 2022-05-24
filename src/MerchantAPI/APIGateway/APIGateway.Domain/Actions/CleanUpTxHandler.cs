@@ -52,7 +52,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       catch (Exception ex)
       {
-        logger.LogError($"Exception in CleanupHandler: { ex.Message }");
+        logger.LogError($"Exception in CleanUpTxHandler: { ex.Message }");
       }
     }
 

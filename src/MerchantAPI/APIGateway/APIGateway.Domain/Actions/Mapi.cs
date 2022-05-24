@@ -402,7 +402,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             }
             else
             {
-              var rejectCodeAndReason = NodeRejectCode.CombineRejectCodeAndReason(invalid.RejectCode.Value, invalid.RejectReason);
+              var rejectCodeAndReason = NodeRejectCode.CombineRejectCodeAndReason(invalid.RejectCode, invalid.RejectReason);
               responses.Add(new SubmitTransactionOneResponse
               {
                 Txid = invalid.Txid,
@@ -1174,7 +1174,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
 
       int failures = txs.Length - submitSuccessfulCount - txsWithMissingInputs.Count;
-      logger.LogWarning($"ResubmitMempoolTransactions: resubmitted { txs.Length } txs = successful: { submitSuccessfulCount}, failures: { failures }, missing inputs: { txsWithMissingInputs.Count }).");
+      logger.LogWarning($"ResubmitMempoolTransactions: resubmitted { txs.Length } txs = successful: { submitSuccessfulCount}, failures: { failures }, missing inputs: { txsWithMissingInputs.Count }.");
 
       return (failures == 0, txsWithMissingInputs);
     }

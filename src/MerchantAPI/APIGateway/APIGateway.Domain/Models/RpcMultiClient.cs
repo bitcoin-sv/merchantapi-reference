@@ -64,7 +64,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
     }
 
-    IRpcClient[] GetRpcClients()
+    public IRpcClient[] GetRpcClients()
     {
       var result = nodes.GetNodes().Select(
         n => rpcClientFactory.Create(

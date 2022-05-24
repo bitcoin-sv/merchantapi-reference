@@ -53,17 +53,31 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartupMapiMock>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
-    [TestMethod]
-    public async Task GetRawMempoolMultipleNodes()
+    private async Task<BitcoindProcess> CreateAndStartupNode1(bool addToDb, CancellationToken token)
     {
       // startup another node and link it to the first node
       var node1 = StartBitcoind(1, new BitcoindProcess[] { node0 });
 
+      if (addToDb)
+      {
+        var node1db = new Node(node1.Host, node1.RpcPort, node1.RpcUser, node1.RpcPassword,
+        $"This is a mock node #1", null);
+        await Nodes.CreateNodeAsync(node1db);
+      }
+
+      await SyncNodesBlocksAsync(token, node0, node1);
+
+      await RegisterNodesWithServiceAndWaitAsync(token);
+
+      return node1;
+    }
+
+    [TestMethod]
+    public async Task GetRawMempoolMultipleNodes()
+    {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await SyncNodesBlocksAsync(cts.Token, node0, node1);
-
-      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
+      var node1 = await CreateAndStartupNode1(false, cts.Token);
 
       var mempoolTxs = await RpcMultiClient.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
@@ -99,6 +113,35 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       StopBitcoind(node1);
       StopBitcoind(node2);
+    }
+
+    [TestMethod]
+    public async Task CheckMempoolAfterNewNodeConnected()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+      var (txHex1, txId1) = CreateNewTransaction(availableCoins.Dequeue(), new Money(1000L));
+
+      var payload = await SubmitTransactionAsync(txHex1, true, true);
+      Assert.AreEqual("success", payload.ReturnResult);
+
+      await WaitForTxToBeAcceptedToMempool(node0, txId1, cts.Token);
+
+      var node1 = await CreateAndStartupNode1(true, cts.Token);
+
+      // txId1 is only present in node0's mempool
+      var mempoolTxs = await node0.RpcClient.GetRawMempool();
+      Assert.AreEqual(txId1, mempoolTxs.Single());
+      mempoolTxs = await node1.RpcClient.GetRawMempool();
+      Assert.AreEqual(0, mempoolTxs.Length);
+
+      bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
+      Assert.IsTrue(success);
+
+      // node1 now also has txId1 in mempool
+      mempoolTxs = await node1.RpcClient.GetRawMempool();
+      Assert.AreEqual(txId1, mempoolTxs.Single());
+
+      StopBitcoind(node1);
     }
 
     [TestMethod]
@@ -444,6 +487,20 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, txsWithMissingInputs.Count);
     }
 
+    [DataRow(1)]
+    [DataRow(5)]
+    [TestMethod]
+    public async Task MissingInputsMaxRetriesReachedTwoNodes(int nTxs)
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      var node1 = await CreateAndStartupNode1(true, cts.Token);
+
+      await MissingInputsMaxRetriesReached(nTxs);
+
+      StopBitcoind(node1);
+    }
+
     [TestMethod]
     [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 2)]
     public async Task MissingInputsResubmitSuccessfully()
@@ -451,6 +508,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       AppSettings.MempoolCheckerMissingInputsRetries = 2;
 
       await CheckMissingInputsMaxRetriesAsync();
+    }
+
+    [TestMethod]
+    [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 2)]
+    public async Task MissingInputsResubmitSuccessfullyTwoNodes()
+    {
+      AppSettings.MempoolCheckerMissingInputsRetries = 2;
+
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      var node1 = await CreateAndStartupNode1(true, cts.Token);
+
+      await CheckMissingInputsMaxRetriesAsync();
+
+      StopBitcoind(node1);
     }
 
     [TestMethod]
@@ -463,13 +535,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task CheckMissingInputsMaxRetriesAsync(bool resubmitted = true)
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       var parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
 
       var (txIdA, _, newBlock) = await CreateTwoTxsFromSameCoinOnDifferentChainsAsync(parentBlockHash);
 
       int retries = AppSettings.MempoolCheckerMissingInputsRetries.Value;
+      if (retries == 0)
+      {
+        retries++; // force resubmit test
+      }
       Tx txAInDb;
-      while (retries > -1)
+      while (retries > 0)
       {
         txAInDb = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txIdA).ToBytes());
         Assert.AreEqual(TxStatus.Accepted, txAInDb.TxStatus);
@@ -482,6 +560,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs);
       Assert.IsTrue(success);
       Assert.AreEqual(0, txsWithMissingInputs.Count);
+
+      do
+      {
+        await Task.Delay(100, cts.Token);
+        txAInDb = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txIdA).ToBytes());
+      } while(txAInDb.TxStatus == TxStatus.Accepted);
 
       txAInDb = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txIdA).ToBytes());
       Assert.AreEqual(TxStatus.MissingInputsMaxRetriesReached, txAInDb.TxStatus);
@@ -508,8 +592,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
 
-      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs);
-      Assert.IsTrue(success);
+      // does not always return success, because of the collision in block
+      var (_, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs); 
+
       var txInternalId = await TxRepositoryPostgres.GetTransactionInternalIdAsync(new uint256(txA.GetHash()).ToBytes());
       Assert.AreEqual(txInternalId, txsWithMissingInputs.Single());
       return (txIdA, txIdB, lastBlock);

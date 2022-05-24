@@ -145,26 +145,36 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           logger.LogDebug("MempoolChecker: blockparsing is processing blocks.");
           isBlockParserIdle = false;
         }
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
-        var mempoolCalledAt = clock.UtcNow();
-        var mempoolTxs = await rpcMultiClient.GetRawMempool();
-        logger.LogInformation($"{ mempoolTxs.Length } txs in mempool.");
-
-        var (success, txsWithMissingInputs) = await mapi.ResubmitMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
-        if (txsWithMissingInputs != null)
+        var rpcClients = rpcMultiClient.GetRpcClients();
+        var txsWithMissingInputsSet = new HashSet<long>();
+        bool finalSuccess = true;
+        foreach (var rpcClient in rpcClients)
         {
-          await ArrangeTxsWithMissingInputs(txsWithMissingInputs);
+          using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
+          var mempoolCalledAt = clock.UtcNow();
+
+          var mempoolTxs = await rpcClient.GetRawMempool(cts.Token);
+          logger.LogInformation($"{ rpcClient } has { mempoolTxs.Length } txs in mempool.");
+
+          var (resubmitSuccess, txsWithMissingInputs) = await mapi.ResubmitMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
+          if (txsWithMissingInputs != null)
+          {
+            txsWithMissingInputsSet.UnionWith(txsWithMissingInputs);
+          }
+          finalSuccess &= resubmitSuccess;
         }
+
+        logger.LogDebug($"TxsWithMissingInputs count: { txsWithMissingInputsSet.Count } .");
+        await ArrangeTxsWithMissingInputsAsync(txsWithMissingInputsSet.ToList());
 
         lock (lockObj)
         {
           ResubmitInProcess = false;
         }
 
-        logger.LogInformation($"MempoolChecker: resubmit finished with '{ nameof(success) }'={ success }, '{ nameof(isBlockParserIdle) }'={ isBlockParserIdle }, took { stopwatch.ElapsedMilliseconds } ms.");
+        logger.LogInformation($"MempoolChecker: resubmit finished with '{ nameof(finalSuccess) }'={ finalSuccess }, '{ nameof(isBlockParserIdle) }'={ isBlockParserIdle }, took { stopwatch.ElapsedMilliseconds } ms.");
 
-        return success && isBlockParserIdle;
+        return finalSuccess && isBlockParserIdle;
       }
       catch (Exception)
       {
@@ -176,7 +186,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
     }
 
-    private async Task ArrangeTxsWithMissingInputs(List<long> txsWithMissingInputs)
+    private async Task ArrangeTxsWithMissingInputsAsync(List<long> txsWithMissingInputs)
     {
       Dictionary<long, int> txsRetriesIncremented = new();
       foreach (var tx in txsWithMissingInputs)
@@ -184,7 +194,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var retries = txsRetries.GetValueOrDefault(tx);
         txsRetriesIncremented[tx] = retries + 1;
       }
-      var txsWithMax = txsRetriesIncremented.Where(x => x.Value == appSettings.MempoolCheckerMissingInputsRetries + 1).ToList();
+      var txsWithMax = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolCheckerMissingInputsRetries).ToList();
       await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateTxs, txsWithMax.Select(x => new Tx
       {
         TxInternalId = x.Key,
