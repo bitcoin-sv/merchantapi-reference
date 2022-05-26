@@ -40,6 +40,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var node = NodeRepository.GetNodes().First();
       RpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+
+      feeQuoteRepositoryMock.GetAllFeeQuotes();
     }
 
     [TestCleanup]

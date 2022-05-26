@@ -1,12 +1,13 @@
-﻿using MerchantAPI.APIGateway.Domain.Models;
+﻿// Copyright(c) 2021 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.APIGateway.Domain.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Transactions;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -21,6 +22,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     virtual public void TestInitialize()
     {
       base.Initialize(mockedServices: true);
+
+      feeQuoteRepositoryMock.GetAllFeeQuotes();
     }
 
     [TestCleanup]

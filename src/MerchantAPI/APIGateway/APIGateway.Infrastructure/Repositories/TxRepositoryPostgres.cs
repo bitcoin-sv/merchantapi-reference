@@ -285,19 +285,19 @@ CREATE TEMPORARY TABLE TxTemp (
 		receivedAt			TIMESTAMP,
 		callbackUrl			VARCHAR(1024),    
 		callbackToken		VARCHAR(256),
-  callbackEncryption VARCHAR(1024),
+    callbackEncryption VARCHAR(1024),
 		merkleProof			BOOLEAN,
-  merkleFormat		VARCHAR(32),
+    merkleFormat		VARCHAR(32),
 		dsCheck				  BOOLEAN,
 		n					      BIGINT,
 		prevTxId			  BYTEA,
 		prev_n				  BIGINT,
-  unconfirmedAncestor BOOLEAN,
-  txstatus SMALLINT,
-  submittedAt TIMESTAMP,
-  policyQuoteId BIGINT,
-  okToMine BOOLEAN,
-  setPolicyQuote BOOLEAN
+    unconfirmedAncestor BOOLEAN,
+    txstatus SMALLINT,
+    submittedAt TIMESTAMP,
+    policyQuoteId BIGINT,
+    okToMine BOOLEAN,
+    setPolicyQuote BOOLEAN
 ) ON COMMIT DROP;
 ";
       await transaction.Connection.ExecuteAsync(cmdTempTable);
@@ -336,7 +336,7 @@ UPDATE Tx
 SET submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus
 FROM TxTemp
 WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId) "
-  ; // we also compare policyQuoteId, so each user can only update his own txs
+  ;
       }
       else
       {
@@ -822,11 +822,10 @@ WHERE b.blockhash = @blockHash;
       string cmdText = @"
 SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.merkleproof, tx.dscheck, tx.callbackurl, tx.unconfirmedancestor, tx.txstatus, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, feequote.identity, feequote.identityprovider, feequote.policies, tx.okToMine, tx.setpolicyquote
 FROM tx
-LEFT JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
+JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
 WHERE tx.txExternalId = @txId
 LIMIT 1;
 ";
-      // LEFT JOIN - old transactions have policyQuoteId null
       return (await connection.QueryFirstOrDefaultAsync<Tx>(cmdText, new { txId }));
     }
 

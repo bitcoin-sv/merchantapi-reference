@@ -698,7 +698,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
             if (txStatus == TxStatus.UnknownOldTx)
             {
-              // we don't have user or feeQuote saved for the unknownOldTxs
+              // we don't have actual user or feeQuote saved for the unknownOldTxs
               // and we cannot always define feequote (valid feeQuote can be expired or sumPrevOuputs = 0)
               // so we resend it to node as with dontcheckfees
               transactionsToSubmit.Add((txIdString, oneTx, false, true, false, null, txStatus));
@@ -974,7 +974,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                   PrevTxId = (new uint256(i.Txid)).ToBytes(),
                   PrevN = i.Vout
                 }).ToList(),
-                TxStatus = TxStatus.Accepted
+                TxStatus = TxStatus.Accepted,
+                PolicyQuoteId = quotes.First().Id
               })
               );
             }

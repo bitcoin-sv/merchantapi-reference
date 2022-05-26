@@ -36,6 +36,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.TestInitialize();
       mapiMock = server.Services.GetRequiredService<IMapi>() as MapiMock;
+      feeQuoteRepositoryMock.GetAllFeeQuotes();
     }
 
     [TestCleanup]
@@ -238,7 +239,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
           ReceivedAt = DateTime.UtcNow,
           MerkleProof = false,
           DSCheck = false,
-          TxStatus = txStatus
+          TxStatus = txStatus,
+          PolicyQuoteId = 1
         }
       };
       await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false);
@@ -373,6 +375,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // we save tx to database with 'testStatus' status and simulate mapi calls to db
       int testStatus = 100;
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      feeQuoteRepositoryMock.GetAllFeeQuotes();
       // saved policyQuoteId is synonymous to authentication: 1 = anonymous, 2 = authenticated
       int policyQuoteId = 1;
       if (dbAuthenticated)
@@ -460,6 +463,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task SubmitTransactionSentToNodeDifferentUsersAsync(bool authenticated)
     {
       feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      feeQuoteRepositoryMock.GetAllFeeQuotes();
       // saved policyQuoteId is synonymous to authentication:
       // 2 and 3 policyQuotes are from two different authenticated users
       var (txHex1, txId1) = (txC3Hex, txC3Hash);

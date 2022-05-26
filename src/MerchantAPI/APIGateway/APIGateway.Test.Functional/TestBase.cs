@@ -231,10 +231,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
         TxPayload = HelperTools.HexStringToByteArray(txHex),
         TxStatus = txstatus,
         SubmittedAt = MockedClock.UtcNow,
-        PolicyQuoteId = txstatus == TxStatus.UnknownOldTx ? null : policyQuoteId,
+        PolicyQuoteId = policyQuoteId,
         OkToMine = txstatus != TxStatus.UnknownOldTx,
-        SetPolicyQuote = txstatus == TxStatus.UnknownOldTx ? false: setPolicyQuote
-        // on db upgrade - tx have UnknownOldTx status, policyQuoteId and okToMine are null, setPolicyQuote = false
+        SetPolicyQuote = txstatus != TxStatus.UnknownOldTx && setPolicyQuote
+        // on db upgrade - txs have UnknownOldTx status, policyQuoteId references default feeQuote,
+        // okToMine and setPolicyQuote are false
       };
       var transaction = HelperTools.ParseBytesToTransaction(tx.TxPayload);
       tx.TxIn = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput

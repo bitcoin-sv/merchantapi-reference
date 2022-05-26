@@ -40,6 +40,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task InsertTXAsync()
     {
+      feeQuoteRepositoryMock.GetAllFeeQuotes();
       var txList = new List<Tx>() { CreateNewTx(txC0Hash, txC0Hex, false, null, true) };
       await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
     }

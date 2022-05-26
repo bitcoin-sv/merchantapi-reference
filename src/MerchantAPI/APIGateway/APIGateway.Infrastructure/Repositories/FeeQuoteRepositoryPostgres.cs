@@ -352,8 +352,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     {
       using var connection = new NpgsqlConnection(connectionString);
       RetryUtils.Exec(() => connection.Open());
-      string cmdText =
-        "TRUNCATE feeamount, fee, feequote; ALTER SEQUENCE feequote_id_seq RESTART WITH 1;";
+      string cmdText = "TRUNCATE feeamount, fee, feequote CASCADE; ALTER SEQUENCE feequote_id_seq RESTART WITH 1;";
       connection.Execute(cmdText, null);
 
       lock (cache)
