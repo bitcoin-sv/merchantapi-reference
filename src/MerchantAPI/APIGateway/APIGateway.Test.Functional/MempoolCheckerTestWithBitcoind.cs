@@ -581,8 +581,20 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var coin = availableCoins.Dequeue();
       var txA = CreateNewTransactionTx(coin, new Money(1000L));
       var txB = CreateNewTransactionTx(coin, new Money(500L));
-      // chain A
-      var (_, txIdA) = await CreateTransactionAndMineBlock(parentBlockHash, dsCheck: dsCheck, transaction: txA);
+
+      if (Nodes.GetNodes().Count() > 1)
+      {
+        // we only update rpcClient0 in tests, so collision in block is not properly propagated
+        // assume that txA was in block in chain A
+        var txList = new List<Tx>() { CreateNewTx(txA.GetHash().ToString(), txA.ToHex(), false, null, true) };
+        await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
+      }
+      else
+      {
+        // chain A
+        await CreateTransactionAndMineBlock(parentBlockHash, dsCheck: dsCheck, transaction: txA);
+      }
+
       // new longer chain B
       var (newBlock, _) = await CreateTransactionAndMineBlock(parentBlockHash, false, dsCheck: dsCheck);
       var (lastBlock, txIdB) = await CreateTransactionAndMineBlock(newBlock.GetHash().ToString(), dsCheck: dsCheck, transaction: txB);
@@ -592,12 +604,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
 
-      // does not always return success, because of the collision in block
-      var (_, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs); 
+      var (success, txsWithMissingInputs) = await mapiMock.ResubmitMissingTransactions(mempoolTxs); 
+      Assert.AreEqual(true, success);
 
       var txInternalId = await TxRepositoryPostgres.GetTransactionInternalIdAsync(new uint256(txA.GetHash()).ToBytes());
       Assert.AreEqual(txInternalId, txsWithMissingInputs.Single());
-      return (txIdA, txIdB, lastBlock);
+      return (txA.GetHash().ToString(), txIdB, lastBlock);
     }
 
     [TestMethod]

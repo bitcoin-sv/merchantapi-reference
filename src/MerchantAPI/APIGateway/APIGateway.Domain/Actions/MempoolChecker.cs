@@ -194,14 +194,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var retries = txsRetries.GetValueOrDefault(tx);
         txsRetriesIncremented[tx] = retries + 1;
       }
-      var txsWithMax = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolCheckerMissingInputsRetries).ToList();
-      await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateTxs, txsWithMax.Select(x => new Tx
+      var txsWithMaxMissingInputs = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolCheckerMissingInputsRetries).ToList();
+      logger.LogDebug($"TxsWithMaxMissingInputs count: { txsWithMaxMissingInputs.Count } .");
+      await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateTxs, txsWithMaxMissingInputs.Select(x => new Tx
       {
         TxInternalId = x.Key,
         SubmittedAt = clock.UtcNow(),
         TxStatus = TxStatus.MissingInputsMaxRetriesReached
       }).ToList());
-      txsWithMax.ForEach(x => txsRetriesIncremented.Remove(x.Key));
+      txsWithMaxMissingInputs.ForEach(x => txsRetriesIncremented.Remove(x.Key));
       txsRetries = txsRetriesIncremented;
     } 
   }
