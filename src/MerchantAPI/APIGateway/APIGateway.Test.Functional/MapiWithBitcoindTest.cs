@@ -87,7 +87,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual("success", tx1_payload1.ReturnResult);
       Assert.AreEqual("success", tx1_payload2.ReturnResult);
-      Assert.AreEqual("Already known", tx1_payload2.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.ResultAlreadyKnown, tx1_payload2.ResultDescription);
 
       var tx2_payload1 = await SubmitTransactionAsync(txHex2);
       Assert.AreEqual("success", tx2_payload1.ReturnResult);
@@ -108,11 +108,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx3_payload3 = await SubmitTransactionAsync(txHex3);
 
       Assert.AreEqual("success", tx1_payload3.ReturnResult);
-      Assert.AreEqual("Already known", tx1_payload3.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.ResultAlreadyKnown, tx1_payload3.ResultDescription);
       Assert.AreEqual("success", tx2_payload3.ReturnResult);
-      Assert.AreEqual("Already known", tx2_payload3.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.ResultAlreadyKnown, tx2_payload3.ResultDescription);
       Assert.AreEqual("success", tx3_payload3.ReturnResult);
-      Assert.AreEqual("Already known", tx3_payload3.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.ResultAlreadyKnown, tx3_payload3.ResultDescription);
       Assert.IsNull(tx3_payload3.ConflictedWith);
     }
 

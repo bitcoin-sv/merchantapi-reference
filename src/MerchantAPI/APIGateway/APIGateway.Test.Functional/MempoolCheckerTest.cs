@@ -36,15 +36,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    [OverrideSetting("AppSettings:MempoolCheckerEnabled", false)]
-    public void CheckConfigResubmitKnownTransactions()
+    [OverrideSetting("AppSettings:MempoolCheckerDisabled", true)]
+    public void NoResubmitIfMempoolCheckerDisabled()
     {
       Assert.IsFalse(mempoolChecker.ExecuteCheckMempoolAndResubmitTxs);
     }
 
     [TestMethod]
     [OverrideSetting("AppSettings:DontParseBlocks", true)]
-    public async Task CheckConfigDontParseBlocks()
+    public async Task NoResubmitIfDontParseBlocks()
     {
       // if we don't parse blocks then we don't have onActiveChain info
       var info = await BlockChainInfo.GetInfoAsync();

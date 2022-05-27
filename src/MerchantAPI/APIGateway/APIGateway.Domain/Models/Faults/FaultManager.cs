@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2022 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +14,24 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
   {
     readonly object faultLock = new();
     readonly List<FaultTrigger> faults = new();
+    readonly bool enabled;
+
+    public FaultManager(IOptions<AppSettings> appSettings)
+    {
+      enabled = appSettings.Value.EnableFaultInjection.Value;
+    }
+
+    public void CheckFaultInjectionEnabled()
+    {
+      if (!enabled)
+      {
+        throw new Exception("Fault injection disabled");
+      }
+    }
 
     public List<FaultTrigger> GetList()
     {
+      CheckFaultInjectionEnabled();
       lock (faultLock)
       {
         return new List<FaultTrigger>(faults);
@@ -24,6 +40,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public FaultTrigger GetFaultById(string id)
     {
+      CheckFaultInjectionEnabled();
       lock (faultLock)
       {
         return faults.SingleOrDefault(x => IdsEqual(x.Id, id));
@@ -32,6 +49,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public void Add(FaultTrigger fault)
     {
+      CheckFaultInjectionEnabled();
       if (fault.Id == null)
       {
         fault.Id = Guid.NewGuid().ToString("N");
@@ -50,6 +68,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public void Update(FaultTrigger fault)
     {
+      CheckFaultInjectionEnabled();
       if (fault.Id != null)
       {
         var oldFault = faults.Single(x => IdsEqual(x.Id, fault.Id));
@@ -62,6 +81,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public void Clear()
     {
+      CheckFaultInjectionEnabled();
       lock (faultLock)
       {
         faults.Clear();
@@ -70,6 +90,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.Faults
 
     public void Remove(string id)
     {
+      CheckFaultInjectionEnabled();
       lock (faultLock)
       {
         faults.RemoveAll(x => IdsEqual(x.Id, id));

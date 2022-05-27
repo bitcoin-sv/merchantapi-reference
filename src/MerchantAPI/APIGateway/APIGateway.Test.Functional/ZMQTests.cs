@@ -330,7 +330,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var newBlockDiscoveredSubscription = EventBus.Subscribe<NewBlockDiscoveredEvent>();
 
       // Add node to database and emit repository event
-      var node = new Node(0, "localhost", 18332, "user", "password", $"This is a mock node #0",
+      var node = new Node(0, "localhost", 18332, "user", "password", $"This is a test node #0",
         null, (int)NodeStatus.Connected, null, null);
       this.NodeRepository.CreateNode(node);
       EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });

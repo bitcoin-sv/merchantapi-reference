@@ -56,7 +56,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if all fields are set
       await AssertIsOKAsync(payload, txHash, expectedResult, expectedDescription);
 
-      if (expectedResult == "success" && expectedDescription != "Already known")
+      if (expectedResult == "success" && expectedDescription != NodeRejectCode.ResultAlreadyKnown)
       {
         var calls = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/" + txHash);
         Assert.AreEqual(nCallsBeforeSubmit + 1, calls.Count());
@@ -116,7 +116,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertIsOKAsync(payload, txC3Hash, "success");
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash, "success", "Already known");
+      await SubmitTxModeNormal(txC3Hex, txC3Hash, "success", NodeRejectCode.ResultAlreadyKnown);
     }
 
     [DataRow(false)]
@@ -137,7 +137,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertTxStatus(txC3Hash, TxStatus.Accepted);
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash, expectedDescription: "Already known");
+      await SubmitTxModeNormal(txC3Hex, txC3Hash, expectedDescription: NodeRejectCode.ResultAlreadyKnown);
     }
 
     [DataRow(false)]

@@ -204,7 +204,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(postPoliciesJsonString, getPoliciesJsonString);
       }
 
-      for (int i=0; i<post.Fees.Length; i++)
+      for (int i = 0; i < post.Fees.Length; i++)
       {
         var postFee = post.Fees[i].ToDomainObject();
         var getFee = get.Fees.Single(x => x.FeeType == postFee.FeeType);

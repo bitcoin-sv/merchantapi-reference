@@ -61,7 +61,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       if (addToDb)
       {
         var node1db = new Node(node1.Host, node1.RpcPort, node1.RpcUser, node1.RpcPassword,
-        $"This is a mock node #1", null);
+        $"This is a test node #1", null);
         await Nodes.CreateNodeAsync(node1db);
       }
 
@@ -666,7 +666,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx1 = await TxRepositoryPostgres.GetTransactionAsync((new uint256(txId1)).ToBytes());
       Assert.IsNotNull(tx1);
       var lastTx = await TxRepositoryPostgres.GetTransactionAsync((new uint256(lastTxId)).ToBytes());
-      Assert.IsNotNull(tx1);
+      Assert.IsNotNull(lastTx);
 
       // if mempool would be empty,
       // only tx with unconfirmedancestor = false would be resubmitted

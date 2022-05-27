@@ -133,7 +133,7 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(600, int.MaxValue)]
     public int? CleanUpTxPeriodSec { get; set; } = 3600;
 
-    public bool? MempoolCheckerEnabled { get; set; } = true;
+    public bool? MempoolCheckerDisabled { get; set; } = false;
 
     [Range(10, int.MaxValue)]
     public int? MempoolCheckerIntervalSec { get; set; } = 60;

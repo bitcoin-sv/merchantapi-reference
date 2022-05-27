@@ -103,7 +103,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var bitcoind = StartBitcoindWithZmq(nodeIndex, nodesToConnect, zmqIndex, zmqIp);
 
-      var node = new Node(nodeIndex, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a mock node #{nodeIndex}",
+      var node = new Node(nodeIndex, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a test node #{nodeIndex}",
         zmqNotificationsEndpoint, (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.CreateNodeAsync(node).Result;
@@ -112,7 +112,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public BitcoindProcess UpdateNodeZMQNotificationsEndpoint(int nodeIndex, BitcoindProcess bitcoind, string zmqNotificationsEndpoint = null)
     {
-      var node = new Node(nodeIndex, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a mock node #{nodeIndex}",
+      var node = new Node(nodeIndex, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a test node #{nodeIndex}",
         zmqNotificationsEndpoint, (int)NodeStatus.Connected, null, null);
 
       _ = Nodes.UpdateNodeAsync(node).Result;

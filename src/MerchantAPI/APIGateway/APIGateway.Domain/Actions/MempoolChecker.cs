@@ -32,7 +32,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly object lockObj = new();
     public bool ResubmitInProcess { get; private set; }
 
-    public bool ExecuteCheckMempoolAndResubmitTxs => !appSettings.DontParseBlocks.Value && appSettings.MempoolCheckerEnabled.Value;
+    public bool ExecuteCheckMempoolAndResubmitTxs => !appSettings.DontParseBlocks.Value && !appSettings.MempoolCheckerDisabled.Value;
 
     public MempoolChecker(ILogger<MempoolChecker> logger, IRpcMultiClient rpcMultiClient, IBlockChainInfo blockChainInfo, IMapi mapi, IBlockParser blockParser, ITxRepository txRepository, IClock clock, IOptions<AppSettings> options)
     {

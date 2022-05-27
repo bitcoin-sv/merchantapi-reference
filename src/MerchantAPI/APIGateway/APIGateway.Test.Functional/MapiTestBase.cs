@@ -51,7 +51,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     protected async Task AssertIsOKAsync(FeeQuoteViewModelGet response)
     {
 
-      Assert.AreEqual("1.4.0", response.ApiVersion);
+      Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
 
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
@@ -77,7 +77,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected async Task AssertIsOKAsync(SubmitTransactionResponseViewModel response, string expectedTxId, int txStatus, string expectedResult = "success", string expectedDescription = "")
     {
-      Assert.AreEqual("1.4.0", response.ApiVersion);
+      Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedResult, response.ReturnResult);
       Assert.AreEqual(expectedDescription, response.ResultDescription);
@@ -94,7 +94,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     protected async Task ValidateHeaderSubmitTransactionsAsync(SubmitTransactionsResponseViewModel response)
     {
       // validate header
-      Assert.AreEqual("1.4.0", response.ApiVersion);
+      Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
       var blockchainInfo = await BlockChainInfo.GetInfoAsync();
@@ -133,7 +133,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected async Task AssertQueryTxAsync(QueryTransactionStatusResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
     {
-      Assert.AreEqual("1.4.0", response.ApiVersion);
+      Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedTxId, response.Txid);
       Assert.AreEqual(expectedResult, response.ReturnResult);

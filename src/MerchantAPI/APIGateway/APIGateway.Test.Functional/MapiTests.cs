@@ -192,7 +192,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       VerifySignature(response);
       payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("success", payload.ReturnResult);
-      Assert.AreEqual("Already known", payload.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.ResultAlreadyKnown, payload.ResultDescription);
     }
 
     [TestMethod]

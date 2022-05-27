@@ -95,7 +95,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return response.response?.ExtractPayload<SubmitTransactionResponseViewModel>();
     }
 
-    public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = false)
+    public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = false, bool merkleProof = false)
     {
 
       // Send transaction
@@ -111,6 +111,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
         {
           ("defaultDsCheck", dsCheck.ToString()),
           ("defaultCallbackUrl", "https://test.domain")
+        };
+        url = PrepareQueryParams(url, queryParams);
+      }
+      if (merkleProof)
+      {
+        List<(string, string)> queryParams = new()
+        {
+          ("defaultMerkleProof", merkleProof.ToString()),
+          ("defaultCallbackUrl", Common.Test.CallbackFunctionalTests.Url)
         };
         url = PrepareQueryParams(url, queryParams);
       }
@@ -137,7 +146,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long? confirmations = null,
       int txStatus = TxStatus.Accepted)
     {
-      Assert.AreEqual("1.4.0", response.ApiVersion);
+      Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedTxId, response.Txid);
       Assert.AreEqual(expectedResult, response.ReturnResult);

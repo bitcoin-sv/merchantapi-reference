@@ -211,7 +211,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual("success", tx1_payload1.ReturnResult);
       Assert.AreEqual("success", tx1_payload2.ReturnResult);
-      Assert.AreEqual("Already known", tx1_payload2.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.ResultAlreadyKnown, tx1_payload2.ResultDescription);
     }
 
     private async Task ResubmitKnownTransactionsMultipleTimesAsync(bool resubmitToNode, int txsInBatch)

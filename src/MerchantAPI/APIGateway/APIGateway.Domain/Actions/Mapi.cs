@@ -371,16 +371,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return true;
     }
 
-    private static void AddAlreadyKnownTxResponse(List<SubmitTransactionOneResponse> responses, string txId)
-    {
-      responses.Add(new SubmitTransactionOneResponse
-      {
-        Txid = txId,
-        ReturnResult = ResultCodes.Success,
-        ResultDescription = "Already known"
-      });
-    }
-
     public static (int failureCount, SubmitTransactionOneResponse[] responses) TransformRpcResponse(RpcSendTransactions rpcResponse, string[] allSubmitedTxIds)
     {
 
@@ -398,7 +388,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             // ignore RejectCodes - should we add duplicate for resubmit?
             if (invalid.RejectCode.HasValue && NodeRejectCode.MapiSuccessCodes.Contains(invalid.RejectCode.Value))
             {
-              AddAlreadyKnownTxResponse(responses, invalid.Txid);
+              responses.Add(new SubmitTransactionOneResponse
+              {
+                Txid = invalid.Txid,
+                ReturnResult = ResultCodes.Success,
+                ResultDescription = NodeRejectCode.ResultAlreadyKnown
+              });
             }
             else
             {
@@ -452,7 +447,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           if (processed.TryAdd(known, null))
           {
-            AddAlreadyKnownTxResponse(responses, known);
+            responses.Add(new SubmitTransactionOneResponse
+            {
+              Txid = known,
+              ReturnResult = ResultCodes.Success,
+              ResultDescription = NodeRejectCode.ResultAlreadyKnown
+            });
           }
         }
       }
@@ -680,7 +680,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             }
             else
             {
-              AddAlreadyKnownTxResponse(responses, txIdString);
+              responses.Add(new SubmitTransactionOneResponse
+              {
+                Txid = txIdString,
+                ReturnResult = ResultCodes.Success,
+                ResultDescription = NodeRejectCode.ResultAlreadyKnown
+              });
               continue;
             }
 

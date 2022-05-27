@@ -89,7 +89,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         blockCount++;
       }
       while (blockCount < chainLength);
-      //var forkLastBlockhash = await rpcClient.GetBestBlockHashAsync();
+
       PublishBlockHashToEventBus(forkBlockHashes.Last().ToString());
 
       return forkBlockHashes.ToArray();

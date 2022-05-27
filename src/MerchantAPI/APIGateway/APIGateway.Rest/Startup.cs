@@ -140,23 +140,12 @@ namespace MerchantAPI.APIGateway.Rest
         services.AddHostedService<CleanUpTxHandler>();
         services.AddHostedService<APIStatusService>();
       }
-      else
-      {
-        // We register clock as singleton, so that we can set time in individual tests
 
-      }
-
-      if (appSettings.EnableFaultInjection.Value)
+      services.AddSingleton<FaultManager>();
+      services.AddSingleton<IFaultManager>(x => x.GetRequiredService<FaultManager>());
+      services.AddSingleton<IFaultInjection>(x => x.GetRequiredService<FaultManager>());
+      if (!appSettings.EnableFaultInjection.Value)
       {
-        var faultManager = new FaultManager();
-        services.AddSingleton<IFaultManager>(faultManager);
-        services.AddSingleton<IFaultInjection>(faultManager);
-      }
-      else
-      {
-        var faultManager = new FaultManagerDisabled();
-        services.AddSingleton<IFaultManager>(faultManager);
-        services.AddSingleton<IFaultInjection>(faultManager);
         services.AddTransient<IActionModelConvention, FaultControllerVisibility>();
         services.AddMvcCore(options =>
         {

@@ -103,6 +103,8 @@ namespace MerchantAPI.APIGateway.Domain
     public const int Conflict = 258;
     public const int MempoolFull = 259;
 
+    public const string ResultAlreadyKnown = "Already known";
+
     public static readonly int[] MapiSuccessCodes = { AlreadyKnown };
 
     public static readonly (int code, string reason) MempoolFullCodeAndReason = (InsufficientFee, "mempool full");
@@ -134,7 +136,7 @@ namespace MerchantAPI.APIGateway.Domain
 
     public static string CombineRejectCodeAndReason(int? rejectCode, string rejectReason)
     {
-      return ($"{ (rejectCode.HasValue ? rejectCode.ToString() : "") } { rejectReason ?? ""}").Trim();
+      return ($"{(rejectCode.HasValue ? rejectCode.ToString() : "") } { rejectReason ?? ""}").Trim();
     }
   }
 

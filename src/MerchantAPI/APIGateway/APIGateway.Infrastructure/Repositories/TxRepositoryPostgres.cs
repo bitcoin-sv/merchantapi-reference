@@ -349,7 +349,10 @@ FROM TxTemp
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
 Tx.txStatus >= { TxStatus.UnknownOldTx };
 UPDATE Tx
-SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, dsCheck = TxTemp.dsCheck, unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus, policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote
+SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, 
+callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, dsCheck = TxTemp.dsCheck, 
+unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus, 
+policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote
 FROM TxTemp 
 WHERE Tx.txExternalId = TxTemp.txExternalId AND 
 Tx.txStatus < { TxStatus.UnknownOldTx };
@@ -454,11 +457,13 @@ RETURNING txInternalId;
       {
         cmdText = @$"
 UPDATE Tx
-SET txPayload = @txPayload, callbackUrl = @callbackUrl, callbackToken = @callbackToken, callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, dsCheck = @dsCheck, unconfirmedAncestor = @unconfirmedAncestor, policyQuoteId = @policyQuoteId, okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
+SET txPayload = @txPayload, callbackUrl = @callbackUrl, callbackToken = @callbackToken, 
+callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, dsCheck = @dsCheck, 
+unconfirmedAncestor = @unconfirmedAncestor, policyQuoteId = @policyQuoteId, okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
 WHERE Tx.txExternalId = @txExternalId AND 
 Tx.txStatus < { TxStatus.UnknownOldTx };
 UPDATE Tx
-SET submittedAt = @submittedAt, txStatus = @txStatus
+SET submittedAt = @submittedAt, txStatus = @txstatus
 WHERE txExternalId = @txExternalId
 RETURNING txInternalId;
 ";
@@ -688,10 +693,10 @@ WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true AND txExternalId= @txI
     {
       using var connection = await GetDbConnectionAsync();
 
-      string cmdText = @"
+      string cmdText = @$"
 SELECT txInternalId, txExternalId TxExternalIdBytes, merkleProof
 FROM Tx
-WHERE txstatus=@txstatus AND NOT EXISTS
+WHERE txstatus={ TxStatus.Accepted }  AND NOT EXISTS
 (
   WITH RECURSIVE ancestorBlocks AS 
   (
@@ -711,7 +716,7 @@ WHERE txstatus=@txstatus AND NOT EXISTS
   WHERE txblock.txInternalId=Tx.txInternalId
 );";
 
-      return await connection.QueryAsync<Tx>(cmdText, new { txstatus = TxStatus.Accepted, blockInternalId });
+      return await connection.QueryAsync<Tx>(cmdText, new { blockInternalId });
     }
 
     /// <summary>
@@ -869,19 +874,19 @@ LIMIT 1;
       await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
 
       var resubmittedBefore = resubmittedAt ?? clock.UtcNow();
-      string cmdText = @"
+      string cmdText = @$"
 WITH resubmitTxs as
-((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
+((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
 FROM tx
-JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
-WHERE txstatus = @txstatus AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false)
+JOIN FeeQuote fq ON fq.id = tx.policyQuoteId
+WHERE txstatus = { TxStatus.Accepted } AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false)
 EXCEPT
-(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, feequote.policies
+(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
  FROM Tx
  INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
  INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
- JOIN FeeQuote feeQuote ON feeQuote.id = policyQuoteId
- WHERE txstatus = @txstatus 
+ JOIN FeeQuote fq ON fq.id = policyQuoteId
+ WHERE txstatus = { TxStatus.Accepted } 
 AND submittedAt < @resubmittedBefore 
 AND unconfirmedancestor = false 
 AND Block.OnActiveChain = true))
@@ -891,7 +896,7 @@ WHERE m.txExternalId IS NULL
 ORDER BY resubmitTxs.txInternalId
 ";
 
-      var txs = await connection.QueryAsync<Tx>(cmdText, new { txstatus = TxStatus.Accepted, resubmittedBefore });
+      var txs = await connection.QueryAsync<Tx>(cmdText, new { resubmittedBefore });
 
       await transaction.CommitAsync();
 
@@ -1203,18 +1208,18 @@ AND txinput.n = @prevOutN;
       do
       {
         deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS (
+        @$"WITH deleted AS (
           DELETE FROM Tx
           WHERE txInternalId = any(array(
            SELECT tx.txInternalId
            FROM Tx
            INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
            INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
-           WHERE Block.OnActiveChain = true AND receivedAt < @lastUpdateBefore AND tx.txstatus = @txstatus 
+           WHERE Block.OnActiveChain = true AND receivedAt < @lastUpdateBefore AND tx.txstatus = { TxStatus.Accepted }  
            limit 100000))
           RETURNING txInternalId
         )
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Accepted });
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
 
         txs += deletedTxs;
 
@@ -1233,23 +1238,23 @@ AND txinput.n = @prevOutN;
       do
       {
         deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS (
+        @$"WITH deleted AS (
           DELETE FROM Tx
-          WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore AND txstatus <> @txstatus limit 100000))
+          WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore AND txstatus <> { TxStatus.Accepted }  limit 100000))
           RETURNING txInternalId
         )
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, txstatus = TxStatus.Accepted });
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
 
         txs += deletedTxs;
 
       } while (deletedTxs == 100000);
 
       var mempoolTxs = (await transaction.Connection.QueryAsync<byte[]>(
-         @"WITH deleted AS 
+         @$"WITH deleted AS 
           (DELETE FROM Tx
-          WHERE receivedAt < @mempoolExpiredDate AND txstatus = @txstatus RETURNING txExternalId)
+          WHERE receivedAt < @mempoolExpiredDate AND txstatus = { TxStatus.Accepted } RETURNING txExternalId)
           SELECT * FROM deleted;",
-        new { lastUpdateBefore, mempoolExpiredDate, txstatus = TxStatus.Accepted })).ToArray();
+        new { lastUpdateBefore, mempoolExpiredDate })).ToArray();
 
       // deleted txs with mempool status should be exceptional
       // (with stress program we should avoid logging, since there can be too much of them)
@@ -1323,14 +1328,13 @@ WHERE blockInternalId=@blockInternalId AND (parsedForMerkleAt IS NOT NULL OR par
       var feeQuotesIds = feeQuotes.Select(x => x.Id).ToArray();
       using var connection = await GetDbConnectionAsync();
 
-      string cmdText = @"
+      string cmdText = @$"
 SELECT txInternalId, txExternalId TxExternalIdBytes, policyQuoteId
-FROM Tx WHERE TxStatus = @txstatus AND PolicyQuoteId = ANY(@feeQuotesIds);";
+FROM Tx WHERE TxStatus = { TxStatus.SentToNode } AND PolicyQuoteId = ANY(@feeQuotesIds);";
 
 
       var txs = await connection.QueryAsync<Tx>(cmdText, new
       {
-        txstatus = TxStatus.SentToNode,
         feeQuotesIds
       });
 
@@ -1347,16 +1351,15 @@ FROM Tx WHERE TxStatus = @txstatus AND PolicyQuoteId = ANY(@feeQuotesIds);";
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
-      string cmdText = @"
+      string cmdText = @$"
 WITH deleted AS
-(DELETE FROM Tx WHERE TxStatus = @txstatus AND PolicyQuoteId = ANY(@feeQuotesIds) RETURNING *)
+(DELETE FROM Tx WHERE TxStatus = { TxStatus.SentToNode }  AND PolicyQuoteId = ANY(@feeQuotesIds) RETURNING *)
 SELECT count(*) FROM deleted;
 ";
 
       var txsCount = await connection.ExecuteScalarAsync<int>(cmdText, new
       {
-        txstatus = TxStatus.SentToNode,
-        feeQuotesIds = feeQuotesIds
+        feeQuotesIds
       });
       await transaction.CommitAsync();
       return txsCount;

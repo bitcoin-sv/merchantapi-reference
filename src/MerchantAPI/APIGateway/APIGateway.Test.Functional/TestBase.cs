@@ -185,13 +185,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
       loggerTest.LogInformation("Waiting for the EventBus to become idle completed");
     }
 
-    public async Task CheckCallbacksAsync(int nCalls, CancellationToken token)
+    public async Task CheckCallbacksAsync(int minCalls, CancellationToken token)
     {
       WaitUntilEventBusIsIdle();
 
       while (!token.IsCancellationRequested)
       {
-        if (Callback.Calls.Length == nCalls)
+        if (Callback.Calls.Length >= minCalls)
         {
           return;
         }

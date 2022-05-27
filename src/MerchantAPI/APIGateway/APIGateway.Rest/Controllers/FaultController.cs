@@ -94,7 +94,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// </summary>
     /// <returns>List of all faults.</returns>
     [HttpGet]
-    public ActionResult<List<FaultTriggerViewModelGet>> GetFaultTriggers()
+    public ActionResult<List<FaultTriggerViewModelGet>> GetList()
     {
       List<FaultTriggerViewModelGet> faults = new();
       faultManager.GetList().ForEach(x => faults.Add(new FaultTriggerViewModelGet(x)));
