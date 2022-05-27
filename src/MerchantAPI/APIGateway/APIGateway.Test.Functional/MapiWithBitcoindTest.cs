@@ -182,6 +182,46 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    public async Task SubmitTransactionsAndWaitForProofs()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      var tx1 = CreateNewTransactionTx(availableCoins.Dequeue(), new Money(1000L));
+      var tx2 = CreateNewTransactionTx(availableCoins.Dequeue(), new Money(500L));
+      var txHexList = new string[] { tx1.ToHex(), tx2.ToHex() };
+
+      var payload = await SubmitTransactionsAsync(txHexList, merkleProof: true);
+
+      Assert.AreEqual(0, payload.FailureCount);
+
+      // Try to fetch tx from the node
+      var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(tx1.GetHash().ToString());
+      Assert.AreEqual(tx1.ToHex(), HelperTools.ByteToHexString(txFromNode));
+      txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(tx2.GetHash().ToString());
+      Assert.AreEqual(tx2.ToHex(), HelperTools.ByteToHexString(txFromNode));
+
+      Assert.AreEqual(0, Callback.Calls.Length);
+
+      var notificationEventSubscription = EventBus.Subscribe<NewNotificationEvent>();
+      // This is not absolutely necessary, since we ar waiting for NotificationEvent too, but it helps
+      // with troubleshooting:
+      var generatedBlock = await GenerateBlockAndWaitForItToBeInsertedInDBAsync();
+      loggerTest.LogInformation($"Generated block {generatedBlock} should contain our transactions");
+
+      WaitUntilEventBusIsIdle();
+
+      // Check if callbacks were received
+      await CheckCallbacksAsync(2, cts.Token);
+
+      var callbacks = Callback.Calls.Select(x => 
+      (HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(x.request)).ExtractPayload<CallbackNotificationMerkeProofViewModel>());
+      Assert.IsTrue(callbacks.All(x => x.CallbackReason == CallbackReason.MerkleProof));
+      Assert.IsTrue(callbacks.Any(x => new uint256(x.CallbackTxId) == tx1.GetHash()));
+      Assert.IsTrue(callbacks.Any(x => new uint256(x.CallbackTxId) == tx2.GetHash()));
+      Assert.IsTrue(callbacks.All(x => x.CallbackTxId == x.CallbackPayload.TxOrId));
+    }
+
+    [TestMethod]
     public async Task SubmitTransactionAndWaitForProof2()
     {
       var (txHex, txId) = CreateNewTransaction();

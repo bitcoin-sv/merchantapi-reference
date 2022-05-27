@@ -87,6 +87,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await AssertTxStatus(txHash, TxStatus.NodeRejected);
     }
 
+    [DataRow(1)]
     [DataRow(3)]
     [TestMethod]
     public async Task SubmitTransactionsDifferentUsers(int nTxs)
