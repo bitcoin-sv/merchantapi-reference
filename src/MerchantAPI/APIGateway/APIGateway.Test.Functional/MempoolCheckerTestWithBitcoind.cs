@@ -505,8 +505,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 2)]
     public async Task MissingInputsResubmitSuccessfully()
     {
-      AppSettings.MempoolCheckerMissingInputsRetries = 2;
-
       await CheckMissingInputsMaxRetriesAsync();
     }
 
@@ -514,8 +512,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 2)]
     public async Task MissingInputsResubmitSuccessfullyTwoNodes()
     {
-      AppSettings.MempoolCheckerMissingInputsRetries = 2;
-
       using CancellationTokenSource cts = new(cancellationTimeout);
 
       var node1 = await CreateAndStartupNode1(true, cts.Token);
@@ -529,7 +525,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 0)]
     public async Task MissingInputsNoRetries()
     {
-      AppSettings.MempoolCheckerMissingInputsRetries = 0;
       await CheckMissingInputsMaxRetriesAsync(false);
     }
 
