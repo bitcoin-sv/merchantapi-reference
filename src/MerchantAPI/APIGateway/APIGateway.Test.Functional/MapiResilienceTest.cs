@@ -10,6 +10,7 @@ using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -36,7 +37,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.TestInitialize();
       mapiMock = server.Services.GetRequiredService<IMapi>() as MapiMock;
-      feeQuoteRepositoryMock.GetAllFeeQuotes();
+
+      LoadFeeQuotesFromJsonAndInsertToDbAsync().Wait();
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockWithDBInsertStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     [TestCleanup]
@@ -97,12 +104,47 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await SubmitTxModeNormal(txC3Hex, txC3Hash);
     }
 
+
+    [TestMethod]
+    public async Task SubmitTransactionJsonAuthenticated()
+    {
+      // use special free fee policy for user
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
+
+      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      // txZeroFeeHex - it should fail without authentication
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+      Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      // Check if all fields are set
+      await AssertIsOKAsync(payload, txZeroFeeHash, "failure", "Not enough fees");
+
+      // Test token valid until year 2030. Generate with:
+      //    TokenManager.exe generate -n 5 -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
+      //
+      RestAuthentication = MockedIdentityBearerAuthentication;
+      // now it should succeed for this user
+      response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txZeroFeeHash);
+      payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      // Check if all fields are set
+      await AssertIsOKAsync(payload, txZeroFeeHash);
+    }
+
     [DataRow(false)]
     [DataRow(true)]
     [TestMethod]
     public async Task SubmitTxJsonNodeFailsAfterSendRawTxs(bool authenticated)
     {
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
+
       if (authenticated)
       {
         RestAuthentication = MockedIdentityBearerAuthentication;
@@ -124,7 +166,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxJsonMapiFailsAfterSendRawTxsAndDbSave(bool authenticated)
     {
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
       if (authenticated)
       {
         RestAuthentication = MockedIdentityBearerAuthentication;
@@ -145,7 +187,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTxJsonMapiFailsAfterSendRawTxs(bool authenticated)
     {
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
       if (authenticated)
       {
         RestAuthentication = MockedIdentityBearerAuthentication;
@@ -175,7 +217,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       if (authenticated)
       {
-        feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+        await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
         RestAuthentication = MockedIdentityBearerAuthentication;
       }
 
@@ -287,7 +329,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitSameTransactionAfterRejectedAsync()
     {
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
 
       var (txHex1, txId1) = (txC3Hex, txC3Hash);
 
@@ -374,8 +416,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // we want to simulate situation, where the same tx is sent in parallel in two different submits
       // we save tx to database with 'testStatus' status and simulate mapi calls to db
       int testStatus = 100;
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      feeQuoteRepositoryMock.GetAllFeeQuotes();
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
+
       // saved policyQuoteId is synonymous to authentication: 1 = anonymous, 2 = authenticated
       int policyQuoteId = 1;
       if (dbAuthenticated)
@@ -462,8 +504,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionSentToNodeDifferentUsersAsync(bool authenticated)
     {
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-      feeQuoteRepositoryMock.GetAllFeeQuotes();
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
       // saved policyQuoteId is synonymous to authentication:
       // 2 and 3 policyQuotes are from two different authenticated users
       var (txHex1, txId1) = (txC3Hex, txC3Hash);
@@ -511,7 +552,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task SubmitTransactionJsonCheckFeeDisabled()
     {
       var reqContent = GetJsonRequestContent(txZeroFeeHex);
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
       RestAuthentication = MockedIdentityBearerAuthentication;
 
       var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);

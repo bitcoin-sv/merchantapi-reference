@@ -511,42 +511,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(returnResult, txsRespViewModel.Txs[0].ResultDescription);
     }
 
-
-    [TestMethod]
-    public async Task SubmitTransactionJsonAuthenticated()
-    {
-      // use special free fee policy for user
-      feeQuoteRepositoryMock.FeeFileName = "feeQuotesWithIdentity.json";
-
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      // txZeroFeeHex - it should fail without authentication
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
-      VerifySignature(response);
-      Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
-
-      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-      // Check if all fields are set
-      await AssertIsOKAsync (payload, txZeroFeeHash, "failure", "Not enough fees");
-
-      // Test token valid until year 2030. Generate with:
-      //    TokenManager.exe generate -n 5 -i http://mysite.com -a http://myaudience.com -k thisisadevelopmentkey -d 3650
-      //
-      RestAuthentication = MockedIdentityBearerAuthentication;
-      // now it should succeed for this user
-      response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
-      VerifySignature(response);
-
-      rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txZeroFeeHash);
-      payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-
-      // Check if all fields are set
-      await AssertIsOKAsync (payload, txZeroFeeHash);
-    }
-
-
-
     [TestMethod]
     public async Task SubmitTransactionJsonFeeQuoteExpired()
     {

@@ -29,6 +29,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -49,8 +50,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public IEventBus EventBus { get; private set; }
 
-    // Mocks are non-null only when we actually use the,
+    // Mocks are non-null only when we actually use the right startup
     protected FeeQuoteRepositoryMock feeQuoteRepositoryMock;
+    protected TxRepositoryMock txRepositoryMock;
     protected RpcClientFactoryMock rpcClientFactoryMock;
 
     private static readonly double quoteExpiryMinutes = 10;
@@ -147,6 +149,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         feeQuoteRepositoryMock.QuoteExpiryMinutes = quoteExpiryMinutes;
       }
+      txRepositoryMock = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryMock;
 
       if (rpcClientFactoryMock != null)
       {
@@ -437,6 +440,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
+    protected async Task LoadFeeQuotesFromJsonAndInsertToDbAsync(string feeFileName = null)
+    {
+      // load from json file and maintain data on database, because tx table references feeQuote table (for mAPI resilience)
+      var clock = server.Services.GetRequiredService<IClock>();
+      var feeQuoteMock = new FeeQuoteRepositoryMock(clock);
+      if (FeeQuoteRepository == null || feeQuoteRepositoryMock != null)
+      {
+        throw new Exception("Invalid startup used.");
+      }
+      if (feeFileName != null)
+      {
+        feeQuoteMock.FeeFileName = feeFileName;
+      }
+      FeeQuoteRepositoryPostgres.EmptyRepository(DbConnectionStringDDL);
+      foreach (var feeQuote in feeQuoteMock.GetAllFeeQuotes())
+      {
+        var insertedFee = await FeeQuoteRepository.InsertFeeQuoteAsync(feeQuote);
+        if (insertedFee == null)
+        {
+          throw new Exception("Problem with insert feeQuote");
+        }
+      }
+    }
+
     /// <summary>
     /// Create a new transaction with is totalBytes long. Out of this totalBytes, dataBytes are spent as data bytes. 
     /// </summary>
@@ -541,7 +568,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     protected async Task AssertTxStatus(string txHash, int expectedTxStatus)
     {
-      var txStatus = await TxRepositoryPostgres.GetTransactionStatusAsync(new uint256(txHash).ToBytes());
+      int txStatus;
+      if (TxRepositoryPostgres != null)
+      {
+        txStatus = await TxRepositoryPostgres.GetTransactionStatusAsync(new uint256(txHash).ToBytes());
+      }
+      else
+      {
+        txStatus = await txRepositoryMock.GetTransactionStatusAsync(new uint256(txHash).ToBytes());
+      }
       Assert.AreEqual(expectedTxStatus, txStatus);
     }
 

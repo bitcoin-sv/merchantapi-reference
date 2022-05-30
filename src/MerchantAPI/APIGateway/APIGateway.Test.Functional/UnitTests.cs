@@ -2,6 +2,9 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Infrastructure.Repositories;
+using MerchantAPI.APIGateway.Test.Functional.Server;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
@@ -23,7 +26,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.Initialize(mockedServices: true);
 
-      feeQuoteRepositoryMock.GetAllFeeQuotes();
+      LoadFeeQuotesFromJsonAndInsertToDbAsync().Wait();
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockWithDBInsertStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     [TestCleanup]

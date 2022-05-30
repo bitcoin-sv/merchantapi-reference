@@ -3,8 +3,11 @@
 
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
+using MerchantAPI.APIGateway.Test.Functional.Server;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -27,6 +30,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       
       PublishBlockHashToEventBus(RpcMultiClient.GetBestBlockchainInfoAsync().Result.BestBlockHash);
       WaitUntilEventBusIsIdle();
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockWithDBInsertStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     [TestCleanup]

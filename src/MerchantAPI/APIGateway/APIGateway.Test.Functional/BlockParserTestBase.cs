@@ -3,8 +3,10 @@
 
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.DataEncoders;
@@ -41,7 +43,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var node = NodeRepository.GetNodes().First();
       RpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
 
-      feeQuoteRepositoryMock.GetAllFeeQuotes();
+      LoadFeeQuotesFromJsonAndInsertToDbAsync().Wait();
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockWithDBInsertStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     [TestCleanup]

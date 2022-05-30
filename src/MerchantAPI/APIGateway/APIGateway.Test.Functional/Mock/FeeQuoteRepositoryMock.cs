@@ -12,34 +12,23 @@ using MerchantAPI.Common.Test.Clock;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using Microsoft.Extensions.Options;
-using MerchantAPI.APIGateway.Domain;
-using Microsoft.Extensions.Configuration;
-using MerchantAPI.APIGateway.Infrastructure.Repositories;
 
 namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
   public class FeeQuoteRepositoryMock : IFeeQuoteRepository
   {
-
+    public string FeeFileName { get; set; } = "feeQuotes.json";
     public double QuoteExpiryMinutes;
 
+    readonly IClock clock;
+
+    private string _feeFileName;
     private List<FeeQuote> _feeQuotes;
 
-    readonly string connectionString;
-    readonly IClock clock;
-    readonly FeeQuoteRepositoryPostgres feeQuoteRepositoryPostgres;
-
-    public FeeQuoteRepositoryMock(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock)
+    public FeeQuoteRepositoryMock(IClock clock)
     {
-      this.connectionString = configuration["ConnectionStrings:DBConnectionStringDDL"];
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
-      this.feeQuoteRepositoryPostgres = new FeeQuoteRepositoryPostgres(appSettings, configuration, clock);
     }
-
-    public string FeeFileName { get; set; } = "feeQuotes.json";
-    private string _feeFileName;
-
 
     private static string GetFunctionalTestSrcRoot()
     {
@@ -80,16 +69,11 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         _feeQuotes = new List<FeeQuote>();
         _feeQuotes.AddRange(feeQuotes.OrderBy(x => x.CreatedAt));
 
-        // we must also maintain data on database, because tx table references feeQuote table (for mAPI resilience)
-        FeeQuoteRepositoryPostgres.EmptyRepository(connectionString);
+        // we must also maintain ids because tx references feeQuoteId
+        int i = 0;
         foreach (var feeQuote in _feeQuotes)
         {
-          var insertedFee = feeQuoteRepositoryPostgres.InsertFeeQuoteAsync(feeQuote).Result;
-          if (insertedFee == null)
-          {
-            throw new Exception("Problem with insert feeQuote");
-          }
-          feeQuote.Id = insertedFee.Id;
+          feeQuote.Id = i++;
         }
       }
     }
@@ -109,7 +93,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     public FeeQuote GetFeeQuoteById(long feeQuoteId)
     {
       EnsureFeeQuotesAreAvailable();
-      return _feeQuotes.Single(x => x.Id == feeQuoteId);
+      return _feeQuotes.SingleOrDefault(x => x.Id == feeQuoteId);
     }
 
     public IEnumerable<FeeQuote> GetFeeQuotesByIdentity(UserAndIssuer identity)

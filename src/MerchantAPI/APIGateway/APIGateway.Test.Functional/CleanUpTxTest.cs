@@ -355,7 +355,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       cleanUpTxService.Pause();
       var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
 
-      Assert.IsNotNull(feeQuoteRepositoryMock.GetFeeQuoteById(1));
+      Assert.IsNotNull(FeeQuoteRepository.GetFeeQuoteById(1));
       List<Tx> txList = await CreateAndInsertTxAsync(false, false, 3, txStatus: TxStatus.Accepted);
 
       var mapi = server.Services.GetRequiredService<IMapi>();
