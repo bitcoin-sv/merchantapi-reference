@@ -50,18 +50,25 @@ namespace MerchantAPI.Common.EventBus
             Interlocked.Decrement(ref processingEvent);
           }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException e)
         {
-          try
+          if (cancellationToken.IsCancellationRequested)
           {
-            logger?.LogInformation("Processing of event queue stopped due to cancellation");
-          }
-          catch (Exception)
-          {
-            // this can throw since logger might already be dispocsed during shut down
-          }
+            try
+            {
+              logger?.LogInformation("Processing of event queue stopped due to cancellation");
+            }
+            catch (Exception)
+            {
+              // this can throw since logger might already be disposed during shut down
+            }
 
-          break;
+            break;
+          }
+          else
+          {
+            logger?.LogError($"Cancellation error while processing an event from event queue. Will ignore error and continue with next event. Error {e}");
+          }
         }
         catch (Exception e)
         {
