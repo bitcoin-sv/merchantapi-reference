@@ -33,8 +33,10 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     // Key is nodeID:memberName value is value that should be returned to the caller
     private readonly ConcurrentDictionary<string, object> predefinedResponse;
 
-    public TimeSpan RequestTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-    public int NumOfRetries { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    TimeSpan requestTimeout;
+    int numOfRetries;
+    public TimeSpan RequestTimeout { get => requestTimeout; set => requestTimeout = value; }
+    public int NumOfRetries { get => numOfRetries; set => numOfRetries = value; }
 
     public string zmqAddress = "tcp://127.0.0.1:28332";
 
