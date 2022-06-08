@@ -73,7 +73,10 @@ namespace MerchantAPI.APIGateway.Domain
 
     [Range(1, int.MaxValue)]
     public int? ZmqConnectionTestIntervalSec { get; set; } = 60;
- 
+
+    [Range(1, int.MaxValue)]
+    public int? ZmqStatsLogPeriodMin{ get; set; } = 10;
+
     public long? DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 
     [Range(1, int.MaxValue)]
