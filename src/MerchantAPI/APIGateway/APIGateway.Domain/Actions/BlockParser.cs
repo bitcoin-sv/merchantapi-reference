@@ -247,6 +247,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
 
         logger.LogInformation($"Block {e.BlockHash} successfully parsed.");
+      }
+      catch (BadRequestException ex)
+      {
+        logger.LogError(ex.Message);
+      }
+      catch (RpcException ex)
+      {
+        logger.LogError(ex.Message);
+      }
+      finally
+      {
         await semaphoreSlim.WaitAsync();
         try
         {
@@ -256,14 +267,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           semaphoreSlim.Release();
         }
-      }
-      catch (BadRequestException ex)
-      {
-        logger.LogError(ex.Message);
-      }
-      catch (RpcException ex)
-      {
-        logger.LogError(ex.Message);
       }
     }
 
