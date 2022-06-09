@@ -14,6 +14,7 @@ using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace MerchantAPI.Common.Test
 {
@@ -160,6 +161,12 @@ namespace MerchantAPI.Common.Test
 
         //setup server
         server = this.CreateServer(mockedServices, serverCallback, DbConnectionString, overridenSettings);
+        if (overridenSettings != null)
+        {
+          overridenSettings.ToList().ForEach(setting => Configuration[setting.Key] = setting.Value);
+          AppSettings = Configuration.GetSection("AppSettings").Get<TAppSettings>();
+        }
+
         Client = server.CreateClient();
 
         // setup common services
