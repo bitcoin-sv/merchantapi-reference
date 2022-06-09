@@ -240,45 +240,11 @@ namespace MerchantAPI.APIGateway.Test.SmokeTest
 
     private static async Task EnsureMapiIsConnectedToNodeAsync(SmokeConfig config)
     {
-      var adminClient = new HttpClient();
-      adminClient.DefaultRequestHeaders.Add("Api-Key", config.MapiConfig.AdminAuthorization);
-      
-      string mapiUrl = config.MapiConfig.MapiUrl + "api/v1/Node";
-
-      var uri = new Uri(mapiUrl);
-
-      Console.WriteLine($"Checking mAPIurl ...");
-
-      var nodesResult = await adminClient.GetAsync(mapiUrl);
-
-      if (!nodesResult.IsSuccessStatusCode)
-      {
-        throw new Exception(
-          $"Unable to retrieve data from {mapiUrl} (GET). Error: {nodesResult.StatusCode} {await nodesResult.Content.ReadAsStringAsync()}");
-      }
-
-      var nodes = HelperTools.JSONDeserialize<NodeViewModelGet[]>(await nodesResult.Content.ReadAsStringAsync());
-      if(!nodes.Any(x=>string.Compare(x.Id, $"{config.Node.Host}:{config.Node.Port}") == 0))
-      {
-        var newNode = new NodeViewModelCreate
-        {
-          Id = $"{config.Node.Host}:{config.Node.Port}",
-          Username = config.Node.Username,
-          Password = config.Node.Password,
-          Remarks = "Node created by mAPI Smoke Test at " + DateTime.Now,
-          ZMQNotificationsEndpoint = config.Node.ZMQ
-        };
-        var newNodeContent = new StringContent(HelperTools.JSONSerialize(newNode, true), new UTF8Encoding(false), MediaTypeNames.Application.Json);
-
-        var newNodeResult = await adminClient.PostAsync(uri, newNodeContent);
-
-        if (!newNodeResult.IsSuccessStatusCode)
-        {
-          throw new Exception(
-            $"Unable to create new {newNode.Id}. Error: {newNodeResult.StatusCode} {await newNodeResult.Content.ReadAsStringAsync()}");
-        }
-      }
-      await Task.Delay(TimeSpan.FromSeconds(1)); // Give mAPI some time to establish ZMQ subscriptions
+      await Functional.Utils.EnsureMapiIsConnectedToNodeAsync(
+        config.MapiConfig.MapiUrl, config.MapiConfig.AdminAuthorization, true,
+        config.Node.Host, config.Node.Port, config.Node.Username, config.Node.Password,
+        "Smoke", config.Node.ZMQ
+      );
     }
 
     private async static Task<List<Transaction>> CreateChain2Async(RpcClient rpcClient, Transaction tx, int numOfOutputs, int chainLength)
