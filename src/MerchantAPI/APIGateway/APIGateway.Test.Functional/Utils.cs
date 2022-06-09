@@ -81,7 +81,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           Remarks = $"Node created by mAPI {remarkTest} Test at {DateTime.Now}",
           ZMQNotificationsEndpoint = nodeZMQNotificationsEndpoint
         };
-        Console.WriteLine($"ZMQNotificationsEndpointIp: { newNode.ZMQNotificationsEndpoint }");
+        Console.WriteLine($"ZMQNotificationsEndpoint: { newNode.ZMQNotificationsEndpoint }");
 
         var newNodeContent = new StringContent(HelperTools.JSONSerialize(newNode, true),
           new UTF8Encoding(false), MediaTypeNames.Application.Json);

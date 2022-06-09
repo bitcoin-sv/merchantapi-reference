@@ -22,7 +22,7 @@ One way to access bitcoind from mAPI container is to use docker.internal.host (y
 (on Linux you need to provide the following run flag: --add-host=host.docker.internal:host-gateway, check https://stackoverflow.com/questions/48546124/what-is-linux-equivalent-of-host-docker-internal/61001152).
 
 You can override zmqEndpoint set on bitcoind when adding/updating node through REST API, by setting the zmqnotificationsendpoint.
-For the local node (from bitcoindConfig) you can set it with -bitcoindZmqEndpointIp.
+For the local node (from bitcoindConfig) you can set it with -nodeZMQNotificationsEndpoint.
 
 Running -clearDb:
 If you want to run clearDb command you must add port mapping for merchant-gateway-database to docker-compose.yml (ports).
@@ -43,8 +43,8 @@ If you want to run clearDb command you must add port mapping for merchant-gatewa
   - mapiUrlURL: Used for submitting transactions. Example: "http://localhost:5000/".
   - rearrangeNodes: Delete local node (from bitcoindConfig) on mAPI (if exists) and add it again if set to true, otherwise user has to take care for it by himself.
   - addFeeQuotesFromJsonFile: Add feeQuotes from file (optional).
-  - bitcoindHost: Use if local node (from bitcoindConfig) is unreachable from mAPI (override default "127.0.0.1").
-  - bitcoindZmqEndpointIp: Use when you need to override local node's default zmqEndpointIp.
+  - nodeHost: Use if local node (the one from the bitcoindConfig) is unreachable from mAPI (override default "127.0.0.1").
+  - nodeZMQNotificationsEndpoint: Use when you need to override local node's default zmqEndpoint.
   - callback: Specify, if you want to trigger callbacks
     - url: Url that will process double spend and merkle proof notifications. When present, transactions will be submitted with MerkleProof and DsCheck set to true. Example: "http://localhost:2000/callbacks".
     - addRandomNumberToHost: When specified, a random number between 1 and  AddRandomNumberToHost will be appended to host name specified in Url when submitting each batch of transactions. This is useful for testing callbacks toward different hosts.

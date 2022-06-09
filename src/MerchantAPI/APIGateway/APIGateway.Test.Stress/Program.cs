@@ -8,7 +8,6 @@ using System.CommandLine.Invocation;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Net.Mime;
 using System.Text;
@@ -20,16 +19,8 @@ using MerchantAPI.APIGateway.Test.Functional;
 using MerchantAPI.Common.Test.CallbackWebServer;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
-using NBitcoin;
 using Microsoft.Extensions.DependencyInjection;
-using CsvHelper;
-using System.Globalization;
-using CsvHelper.Configuration;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
-using Npgsql;
-using MerchantAPI.Common.Tasks;
-using Dapper;
 using System.Diagnostics;
 using MerchantAPI.APIGateway.Domain.Models;
 using Newtonsoft.Json;
@@ -40,177 +31,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
   class Program
   {
     private const string VERSION = "1.0.2";
-
-    static async Task SendTransactionsBatch(IEnumerable<string> transactions, HttpClient client, Stats stats, string url, string callbackUrl, string callbackToken, string callbackEncryption)
-    {
-
-      var query = new List<string>();
-
-      string doCallbacks = string.IsNullOrEmpty(callbackUrl) ? "false" : "true";
-      query.Add($"defaultDsCheck={doCallbacks}");
-      query.Add($"defaultMerkleProof={doCallbacks}");
-
-      if (!string.IsNullOrEmpty(callbackUrl))
-      {
-        query.Add("defaultCallbackUrl=" + WebUtility.UrlEncode(callbackUrl));
-
-        if (!string.IsNullOrEmpty(callbackToken))
-        {
-          query.Add("defaultCallbackToken=" + WebUtility.UrlEncode(callbackToken));
-        }
-
-        if (!string.IsNullOrEmpty(callbackEncryption))
-        {
-          query.Add("defaultCallbackEncryption=" + WebUtility.UrlEncode(callbackEncryption));
-        }
-      }
-
-      string queryString = string.Join("&", query.ToArray());
-
-      var ub = new UriBuilder(url);
-      if (ub.Query.Length == 0)
-      {
-        ub.Query = queryString; // automatically adds ? at the beginning
-      }
-      else
-      {
-        ub.Query = ub.Query[1..] + "&" + queryString; // remove leading ?  it is added back automatically
-      }
-
-      string urlWithParams = ub.Uri.ToString();
-
-      string callbackHost = "";
-      if (!string.IsNullOrEmpty(callbackUrl))
-      {
-        callbackHost = new Uri(callbackUrl).Host;
-      }
-
-
-      // We currently submit through REST interface., We could also use binary  interface
-      var request = transactions.Select(t => new SubmitTransactionViewModel
-      {
-        RawTx = t,
-        // All other parameters are passed in query string
-        CallbackUrl = null,
-        CallbackToken = null,
-        CallbackEncryption = null,
-        MerkleProof = null,
-        DsCheck = null
-      }).ToArray();
-
-      var requestString = HelperTools.JSONSerialize(request, false);
-      var response = await client.PostAsync(urlWithParams,
-        new StringContent(requestString, new UTF8Encoding(false), MediaTypeNames.Application.Json));
-
-      var responseAsString = await response.Content.ReadAsStringAsync();
-      if (!response.IsSuccessStatusCode)
-      {
-        Console.WriteLine($"Error while submitting transaction request {responseAsString}");
-        stats.IncrementRequestErrors();
-      }
-      else
-      {
-        var rEnvelope = HelperTools.JSONDeserialize<SignedPayloadViewModel>(responseAsString);
-        var r = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(rEnvelope.Payload);
-        int printLimit = 10;
-        var errorItems = r.Txs.Where(t => t.ReturnResult != "success").ToArray();
-
-        var okItems = r.Txs.Where(t => t.ReturnResult == "success").ToArray();
-
-        stats.AddRequestTxFailures(callbackHost, errorItems.Select(x => new uint256(x.Txid)));
-        stats.AddOkSubmited(callbackHost, okItems.Select(x => new uint256(x.Txid)), okItems.Where(x => x.ResultDescription == "Already known").Count());
-
-        var errors = errorItems
-          .Select(t => t.Txid + " " + t.ReturnResult + " " + t.ResultDescription).ToArray();
-
-
-
-        var limitedErrors = string.Join(Environment.NewLine, errors.Take(printLimit));
-        if (errors.Any())
-        {
-          Console.WriteLine($"Error while submitting transactions. Printing  up to {printLimit} out of {errors.Length} errors : {limitedErrors}");
-        }
-      }
-
-    }
-
-    static async Task<BitcoindProcess> StartBitcoindWithTemplateDataAsync(string templateData, string bitcoindPath, string zmqEndpointIp, IHttpClientFactory httpClientFactory)
-    {
-      var testDataDir = CopyTemplateData(templateData);
-
-
-      Console.WriteLine("Starting up bitcoind");
-
-      if (string.IsNullOrEmpty(bitcoindPath))
-      {
-        bitcoindPath = Path.Combine(Directory.GetCurrentDirectory(), "bitcoind");
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-        {
-          bitcoindPath += ".exe";
-        }
-      }
-
-      if (!File.Exists(bitcoindPath))
-      {
-        throw new Exception($"Can not start bitcoind. Expected bitcoind at location: {bitcoindPath}");
-      }
-
-      List<string> argumentList = new() { "-checklevel=0", "-checkblocks=0" }; // "Verifying blocks..." can take too long
-      var bitcoind = new BitcoindProcess("127.0.0.1", bitcoindPath, testDataDir, 18444, 18332,
-        string.IsNullOrEmpty(zmqEndpointIp) ? "127.0.0.1" : zmqEndpointIp, 28333,
-        new NullLoggerFactory(), httpClientFactory, emptyDataDir: false, argumentList: argumentList);
-      Console.WriteLine($"Bitcoind arguments:");
-
-      Console.WriteLine(String.Join(" ", bitcoind.ArgumentList));
-
-      long blocks = (await bitcoind.RpcClient.GetBlockchainInfoAsync()).Blocks;
-
-      if (blocks == 0)
-      {
-        Console.WriteLine($"Warning: current active chain has 0 blocks. The submission of all transactions will probably fail. Check the content of template data directory - {templateData}");
-      }
-
-      return bitcoind;
-
-    }
-    /// <summary>
-    /// Wait until all callback are received or until timeout expires
-    /// Print out any missing callbacks
-    /// </summary>
-    static async Task WaitForCallbacksAsync(int timeoutMs, Stats stats)
-    {
-
-      (string host, uint256[] txs)[] missing;
-      bool timeout;
-      do
-      {
-        await Task.Delay(1000);
-        missing = stats.GetMissingCallbacksByHost();
-        timeout = stats.LastUpdateAgeMs > timeoutMs;
-
-      } while (missing.Any() && !timeout);
-
-      if (timeout)
-      {
-        Console.WriteLine($"Timeout occurred when waiting for callbacks. No new callbacks received for last {timeoutMs} ms");
-      }
-
-      // TODO: print out multiple callbacks
-      if (missing.Any())
-      {
-        const int printUpTo = 3;
-        Console.WriteLine($"Error: Not all callbacks were received. Total missing {missing.Sum(x => x.txs.Length)}");
-        Console.WriteLine($"Printing up to {printUpTo} missing tx per host");
-        foreach (var host in missing)
-        {
-          Console.WriteLine($"   {host.host}  {string.Join(" ", host.txs.Take(printUpTo).Select(x => x.ToString()).ToArray())} ");
-        }
-      }
-      else
-      {
-        Console.WriteLine("Ok, all callbacks were received");
-      }
-    }
 
     static readonly Random rnd = new();
     static async Task<int> SendTransactions(string configFileName, IHttpClientFactory httpClientFactory)
@@ -258,13 +78,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
         if (!string.IsNullOrEmpty(config.BitcoindConfig?.TemplateData))
         {
 
-          bitcoind = await StartBitcoindWithTemplateDataAsync(config.BitcoindConfig.TemplateData, config.BitcoindConfig.BitcoindPath, config.BitcoindConfig.ZmqEndpointIp, httpClientFactory);
+          bitcoind = await Utils.StartBitcoindWithTemplateDataAsync(config.BitcoindConfig.TemplateData, config.BitcoindConfig.BitcoindPath, config.BitcoindConfig.ZmqEndpointIp, httpClientFactory);
           Console.WriteLine("Bitcoind started successfully.");
 
-          await EnsureMapiIsConnectedToNodeAsync(config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization, config.MapiConfig.RearrangeNodes, bitcoind, config.MapiConfig.BitcoindHost, config.MapiConfig.BitcoindZmqEndpointIp);
+          await Utils.EnsureMapiIsConnectedToNodeAsync(config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization, config.MapiConfig.RearrangeNodes, bitcoind, config.MapiConfig.NodeHost, config.MapiConfig.NodeZMQNotificationsEndpoint);
         }
 
-        await CheckfeeQuotes(config.MapiConfig.AddFeeQuotesFromJsonFile, config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization);
+        await Utils.CheckFeeQuotesAsync(config.MapiConfig.AddFeeQuotesFromJsonFile, config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization);
 
         string mAPIversion = "";
         try
@@ -299,7 +119,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         }
 
 
-        async Task submitThread()
+        async Task submitThreadAsync()
         {
           var batchSize = config.BatchSize;
           var batch = new List<string>();
@@ -308,7 +128,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
             batch.Add(transaction);
             if (batch.Count >= batchSize)
             {
-              await SendTransactionsBatch(batch, client, stats, config.MapiConfig.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.MapiConfig.Callback?.CallbackToken,
+              await Actions.SendTransactionsBatch(batch, client, stats, config.MapiConfig.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.MapiConfig.Callback?.CallbackToken,
                 config.MapiConfig.Callback?.CallbackEncryption);
               batch.Clear();
             }
@@ -317,13 +137,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
           // Send remaining transactions
           if (batch.Any())
           {
-            await SendTransactionsBatch(batch, client, stats, config.MapiConfig.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.MapiConfig.Callback?.CallbackToken,
+            await Actions.SendTransactionsBatch(batch, client, stats, config.MapiConfig.MapiUrl + "mapi/txs", GetDynamicCallbackUrl(), config.MapiConfig.Callback?.CallbackToken,
               config.MapiConfig.Callback?.CallbackEncryption);
             batch.Clear();
           }
         }
 
-        async Task<int> MeasureGetRawMempool(bool generateCsvMempoolRow = true)
+        async Task<int> measureGetRawMempoolAsync(bool generateCsvMempoolRow = true)
         {
           Stopwatch sw = Stopwatch.StartNew();
           var txsSubmitted = transactions.ReturnedCount;
@@ -331,7 +151,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           sw.Stop();
           if (generateCsvMempoolRow)
           {
-            GenerateCsvMempoolRow(txsSubmitted, mempool.Length, sw.Elapsed);
+            CsvUtils.GenerateMempoolCsvRow(txsSubmitted, mempool.Length, sw.Elapsed);
           }
           return mempool.Length;
         }
@@ -347,7 +167,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
             {
               try
               {
-                await MeasureGetRawMempool();
+                await measureGetRawMempoolAsync();
                 goal += incrementStep;
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -401,7 +221,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           var tasks = new List<Task>();
           for (int i = 0; i < config.Threads; i++)
           {
-            tasks.Add(Task.Run(submitThread));
+            tasks.Add(Task.Run(submitThreadAsync));
           }
           Task.WaitAll(tasks.ToArray());
         }
@@ -424,7 +244,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         if (measureRawMempoolCall)
         {
           // check mempool before anything is submitted
-          await MeasureGetRawMempool();
+          await measureGetRawMempoolAsync();
 
           mempoolCheckTask = Task.Run(() => MempoolCheckTask(cancellationSource.Token), cancellationSource.Token);
         }
@@ -474,7 +294,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
             await bitcoind.RpcClient.GenerateAsync(1);
             Interlocked.Increment(ref stats.GenerateBlockCalls);
           }
-          await WaitForCallbacksAsync(config.MapiConfig.Callback.IdleTimeoutMS, stats);
+          await Actions.WaitForCallbacksAsync(config.MapiConfig.Callback.IdleTimeoutMS, stats);
         }
 
         // Cancel progress task
@@ -492,8 +312,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
           await webServer.StopAsync();
         }
         // GetRawMempool after all txs are submitted
-        var mempoolTxs = await MeasureGetRawMempool(measureRawMempoolCall);
-        GenerateCsvRow(mAPIversion, mempoolTxs, config, stats);
+        var mempoolTxs = await measureGetRawMempoolAsync(measureRawMempoolCall);
+        CsvUtils.GenerateCsvRow(mAPIversion, mempoolTxs, config, stats);
       }
       finally
       {
@@ -501,236 +321,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
 
       return 0;
-
     }
 
-    static void GenerateCsvMempoolRow(long txsSubmitted, int mempoolCount, TimeSpan elapsed)
-    {
-      string statsFile = "statsMempool.csv";
-      bool fileExists = File.Exists(statsFile);
-      using var stream = File.Open(statsFile, FileMode.Append);
-      using var writer = new StreamWriter(stream);
-      CsvConfiguration conf = new(CultureInfo.InvariantCulture)
-      {
-        Delimiter = ";",
-        DetectColumnCountChanges = true
-      };
-
-      using var csv = new CsvWriter(writer, conf);
-      if (!fileExists)
-      {
-        csv.WriteField("txsSubmitted");
-        csv.WriteField("mempoolCount");
-        csv.WriteField("elapsed");
-        csv.NextRecord();
-        csv.Flush();
-      }
-      csv.WriteField(txsSubmitted);
-      csv.WriteField(mempoolCount);
-      csv.WriteField(elapsed);
-      csv.NextRecord();
-      csv.Flush();
-    }
-
-    static void GenerateCsvRow(string mAPIversion, int mempoolTxs, SendConfig config, Stats stats)
-    {
-      StatsCsv statsCsv = new(mAPIversion, config.Filename, config.BatchSize, config.Threads, !string.IsNullOrEmpty(config.MapiConfig.Callback?.Url),
-        config.GetRawMempoolEveryNTxs, mempoolTxs, stats, config.CsvComment);
-
-      string statsFile = "stats.csv";
-      bool fileExists = File.Exists(statsFile);
-      using var stream = File.Open(statsFile, FileMode.Append);
-      using var writer = new StreamWriter(stream);
-      CsvConfiguration conf = new(CultureInfo.InvariantCulture)
-      {
-        Delimiter = ";",
-        DetectColumnCountChanges = true
-      };
-
-      using var csv = new CsvWriter(writer, conf);
-      if (!fileExists)
-      {
-        csv.WriteHeader<StatsCsv>();
-        csv.NextRecord();
-      }
-      csv.WriteRecord(statsCsv);
-      csv.NextRecord();
-      csv.Flush();
-    }
-
-
-    private static void DirectoryCopy(string sourceDirName, string destDirName)
-    {
-      // Get the subdirectories for the specified directory.
-      DirectoryInfo dir = new(sourceDirName);
-
-      if (!dir.Exists)
-      {
-        throw new DirectoryNotFoundException(
-          "Source directory does not exist or could not be found: "
-          + sourceDirName);
-      }
-
-
-      var dirs = new Queue<(DirectoryInfo, string)>();
-      dirs.Enqueue((dir, destDirName));
-
-      while (dirs.TryDequeue(out var current))
-      {
-        var (currentSrcDir, currentDestDir) = current;
-
-        Directory.CreateDirectory(currentDestDir);
-
-        foreach (FileInfo file in currentSrcDir.GetFiles())
-        {
-          file.CopyTo(Path.Combine(currentDestDir, file.Name), false);
-        }
-
-        // Enqueue subdirectories for later
-        foreach (var x in currentSrcDir.GetDirectories())
-        {
-          dirs.Enqueue((x, Path.Combine(currentDestDir, x.Name)));
-        }
-      }
-    }
-
-    static string CopyTemplateData(string templateData)
-    {
-      if (!Directory.Exists(Path.Combine(templateData, "blocks")))
-      {
-        throw new Exception("Invalid templatePath - Directory pointed to by templatePath should contain 'blocks' sub-directory.");
-      }
-
-      string testDataDir = Path.Combine(Directory.GetCurrentDirectory(), "nodes", DateTime.Now.ToString("s").Replace(":", "-"));
-
-      string destDir = Path.Combine(testDataDir, "regtest");
-      Console.WriteLine($"Copying template data from directory {templateData} into temporary directory {destDir}");
-
-      DirectoryCopy(templateData, destDir);
-      return testDataDir;
-    }
-
-    static async Task CheckfeeQuotes(string jsonFile, string mapiUrl, string authAdmin)
-    {
-      if (string.IsNullOrEmpty(jsonFile))
-      {
-        return;
-      }
-      string jsonData = File.ReadAllText(jsonFile);
-      // check json
-      List<FeeQuote> feeQuotes = JsonConvert.DeserializeObject<List<FeeQuote>>(jsonData);
-
-      var adminClient = new HttpClient();
-      adminClient.DefaultRequestHeaders.Add("Api-Key", authAdmin);
-      mapiUrl += "api/v1/FeeQuote";
-
-      var uri = new Uri(mapiUrl);
-      foreach (var feeQuote in feeQuotes)
-      {
-        var postFeeQuote = new FeeQuoteViewModelCreate(feeQuote);
-        if (postFeeQuote.ValidFrom == DateTime.MinValue)
-        {
-          postFeeQuote.ValidFrom = null;
-        }
-        if (postFeeQuote.CreatedAt == DateTime.MinValue)
-        {
-          postFeeQuote.CreatedAt = DateTime.UtcNow;
-        }
-        var newFeeQuoteContent = new StringContent(HelperTools.JSONSerialize(postFeeQuote, true),
-          new UTF8Encoding(false), MediaTypeNames.Application.Json);
-        var newFeeQuoteResult = await adminClient.PostAsync(uri, newFeeQuoteContent);
-
-
-        if (newFeeQuoteResult.IsSuccessStatusCode)
-        {
-          Console.WriteLine($"FeeQuote with identity '{ postFeeQuote.Identity ?? "" } { postFeeQuote.IdentityProvider ?? "" }' successfully added.");
-        }
-        else
-        {
-          throw new Exception(
-  $"Unable to create new {feeQuote}. Error: {newFeeQuoteResult.StatusCode} { await newFeeQuoteResult.Content.ReadAsStringAsync() }");
-        }
-      }
-    }
-
-    static async Task EnsureMapiIsConnectedToNodeAsync(string mapiUrl, string authAdmin, bool rearrangeNodes, BitcoindProcess bitcoind, string bitcoindHost, string bitcoindZmqEndpointIp)
-    {
-      var adminClient = new HttpClient();
-      adminClient.DefaultRequestHeaders.Add("Api-Key", authAdmin);
-      mapiUrl += "api/v1/Node";
-
-      var uri = new Uri(mapiUrl);
-      Console.WriteLine($"Checking mAPIurl ...");
-
-      var hostPort = (bitcoindHost ?? bitcoind.Host) + ":" + bitcoind.RpcPort;
-      var nodesResult = await adminClient.GetAsync(mapiUrl);
-      if (!nodesResult.IsSuccessStatusCode)
-      {
-        throw new Exception(
-          $"Unable to retrieve existing node {hostPort}. Error: {nodesResult.StatusCode} {await nodesResult.Content.ReadAsStringAsync()}");
-      }
-
-      Console.WriteLine($"Bitcoind hostPort: { hostPort}. Checking node...");
-      var nodes =
-        HelperTools.JSONDeserialize<NodeViewModelGet[]>(await nodesResult.Content.ReadAsStringAsync());
-      if (rearrangeNodes)
-      {
-        if (nodes.Any(x => string.Compare(x.Id, hostPort, StringComparison.InvariantCultureIgnoreCase) == 0))
-        {
-
-          Console.WriteLine($"Removing existing node {hostPort} from mAPI");
-
-          var deleteResult = await adminClient.DeleteAsync(uri + "/" + hostPort);
-          if (!deleteResult.IsSuccessStatusCode)
-          {
-            throw new Exception(
-              $"Unable to delete existing node {hostPort}. Error: {deleteResult.StatusCode} {await deleteResult.Content.ReadAsStringAsync()}");
-          }
-          // delete always returns noContent, so we have to check with GET
-          var getResult = await adminClient.GetAsync(uri + "/" + hostPort);
-          if (getResult.IsSuccessStatusCode)
-          {
-            throw new Exception($"mAPI cache is out of sync, you have to restart mAPI!");
-          }
-        }
-
-        Console.WriteLine($"Adding new node {hostPort} to mAPI");
-
-        var newNode = new NodeViewModelCreate
-        {
-          Id = hostPort,
-          Username = bitcoind.RpcUser,
-          Password = bitcoind.RpcPassword,
-          Remarks = "Node created by mAPI Stress Test at " + DateTime.Now,
-          ZMQNotificationsEndpoint = $"tcp://{ (string.IsNullOrEmpty(bitcoindZmqEndpointIp) ? bitcoind.ZmqIp : bitcoindZmqEndpointIp) }:{bitcoind.ZmqPort}"
-        };
-        Console.WriteLine($"ZMQNotificationsEndpointIp: { newNode.ZMQNotificationsEndpoint }");
-        var newNodeContent = new StringContent(HelperTools.JSONSerialize(newNode, true),
-          new UTF8Encoding(false), MediaTypeNames.Application.Json);
-
-        var newNodeResult = await adminClient.PostAsync(uri, newNodeContent);
-
-        if (!newNodeResult.IsSuccessStatusCode)
-        {
-          throw new Exception(
-            $"Unable to create new {hostPort}. Error: {newNodeResult.StatusCode} {await newNodeResult.Content.ReadAsStringAsync()}");
-        }
-      }
-      else
-      {
-        if (!nodes.Any(x => string.Compare(x.Id, hostPort, StringComparison.InvariantCultureIgnoreCase) == 0))
-        {
-          throw new Exception(
-            $"Please add missing node: {hostPort} {bitcoind.RpcUser} {bitcoind.RpcPassword} with ZMQNotificationsEndpoint: 'tcp://{ (string.IsNullOrEmpty(bitcoindZmqEndpointIp) ? bitcoind.ZmqIp : bitcoindZmqEndpointIp) }:{bitcoind.ZmqPort}!'");
-        }
-      }
-
-      await Task.Delay(TimeSpan.FromSeconds(1)); // Give mAPI some time to establish ZMQ subscriptions
-    }
 
     static async Task<int> ClearDb(string mapiDBConnectionString, bool eraseFeeQuotes = false)
     {
-      await CleanUpTxHandler(mapiDBConnectionString);
+      await Actions.CleanUpTxHandler(mapiDBConnectionString);
       NodeRepositoryPostgres.EmptyRepository(mapiDBConnectionString);
       if (eraseFeeQuotes)
       {
@@ -740,18 +336,6 @@ namespace MerchantAPI.APIGateway.Test.Stress
       Console.WriteLine($"Tables truncated.");
       Console.WriteLine($"mAPI cache is out of sync, you have to restart mAPI!");
       return 0;
-    }
-
-    static async Task CleanUpTxHandler(string mapiDBConnectionString)
-    {
-      var watch = Stopwatch.StartNew();
-      using var connection = new NpgsqlConnection(mapiDBConnectionString);
-      RetryUtils.Exec(() => connection.Open());
-
-      (int blocks, long txs, int mempoolTxs) = await TxRepositoryPostgres.CleanUpTxAsync(connection, DateTime.MaxValue, DateTime.MaxValue, null);
-
-      watch.Stop();
-      Console.WriteLine($"CleanUpTxHandler: deleted {blocks} blocks, {txs} txs, {mempoolTxs} mempool txs. Elapsed: {watch.Elapsed}.");
     }
 
     static async Task<int> Main(string[] args)

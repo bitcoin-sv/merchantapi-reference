@@ -8,8 +8,8 @@
   "mapiConfig": {
     "mapiUrl": "https://localhost:5001/",
     "rearrangeNodes": true,
-    "bitcoindHost": "host.docker.internal",
-    "bitcoindZmqEndpointIp": "host.docker.internal",
+    "nodeHost": "host.docker.internal",
+    "nodeZMQNotificationsEndpoint": "host.docker.internal",
     "callback": {
       "url": "http://localhost:8013/iscallbackUrl?123",
       "addRandomNumberToHost": 3,

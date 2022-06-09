@@ -107,9 +107,9 @@ be smaller than { nameof(Limit) }({ Limit }).");
 
     public string AddFeeQuotesFromJsonFile { get; set; }
 
-    public string BitcoindHost { get; set; }
+    public string NodeHost { get; set; }
 
-    public string BitcoindZmqEndpointIp { get; set; }
+    public string NodeZMQNotificationsEndpoint { get; set; }
 
     public CallbackConfig Callback { get; set; }
   }
