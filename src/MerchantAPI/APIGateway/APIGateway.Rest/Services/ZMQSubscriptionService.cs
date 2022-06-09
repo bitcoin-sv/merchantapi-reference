@@ -351,6 +351,14 @@ namespace MerchantAPI.APIGateway.Rest.Services
       return subscriptions.Values;
     }
 
+    public int GetFailedSubscriptionsCount()
+    {
+      lock (failedSubscriptions)
+      {
+        return failedSubscriptions.Count;
+      }
+    }
+
     public ZmqStatus GetStatusForNode(Node node)
     {
       // Check active subscriptions

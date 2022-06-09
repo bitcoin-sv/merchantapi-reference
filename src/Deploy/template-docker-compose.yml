@@ -29,7 +29,8 @@ services:
       - AppSettings__QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
       - AppSettings__CallbackIPAddresses=${CALLBACK_IP_ADDRESSES}
       - AppSettings__ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
-      - AppSettings__ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC}
+      - AppSettings__ZmqConnectionRpcResponseTimeoutSec=${ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC}
+      - AppSettings__ZmqStatsLogPeriodMin=${ZMQ_STATS_LOG_PERIOD_MIN}
       - AppSettings__RestAdminAPIKey=${RESTADMIN_APIKEY}
       - AppSettings__DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
       - AppSettings__CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}

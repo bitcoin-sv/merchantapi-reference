@@ -294,21 +294,25 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var blockParseTime = stopwatch.Elapsed;
 
         logger.LogInformation($"Block {e.BlockHash} successfully parsed, needed { blockParseTime.TotalMilliseconds } ms.");
-        await semaphoreSlim.WaitAsync();
-        try
-        {
-          blockHashesBeingParsed.Remove(e.BlockHash);
-        }
-        finally
-        {
-          semaphoreSlim.Release();
-        }
+
         blockParserStatus.IncrementBlocksProcessed(e.BlockHash, e.BlockHeight, txsFound, dsFound, bytes,
           block.Transactions.Count, e.CreationDate, blockParseTime, blockDownloadTime);
         blockParsingQueue.Set(QueueCount);
         blockParsed.Inc();
       }
       catch (Exception ex)
+      {
+        blockParserStatus.IncrementNumOfErrors();
+        if (ex is BadRequestException || ex is RpcException)
+        {
+          logger.LogError(ex.Message);
+        }
+        else
+        {
+          throw;
+        }
+      }
+      finally
       {
         await semaphoreSlim.WaitAsync();
         try
@@ -319,15 +323,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         finally
         {
           semaphoreSlim.Release();
-        }
-        blockParserStatus.IncrementNumOfErrors();
-        if (ex is BadRequestException || ex is RpcException)
-        {
-          logger.LogError(ex.Message);
-        }
-        else
-        {
-          throw;
         }
       }
     }

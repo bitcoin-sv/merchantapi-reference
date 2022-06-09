@@ -31,5 +31,10 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       LastPingAt = domain.LastPingAt.ToUniversalTime();
       LastMessageAt = domain.LastMessageAt?.ToUniversalTime();
     }
+
+    public string PrepareForLogging()
+    {
+      return $"{nameof(Address)}={Address} {nameof(Topics)}: {string.Join(", ", Topics)}. {nameof(LastPingAt)}={LastPingAt} {LastMessageAt.ToString() ?? ""}";
+    }
   }
 }

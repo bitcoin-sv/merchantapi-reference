@@ -119,6 +119,9 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(1, int.MaxValue)]
     public int? ZmqConnectionRpcResponseTimeoutSec { get; set; } = 5;
 
+    [Range(1, int.MaxValue)]
+    public int? ZmqStatsLogPeriodMin{ get; set; } = 10;
+
     public long? DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 
     [Range(1, int.MaxValue)]

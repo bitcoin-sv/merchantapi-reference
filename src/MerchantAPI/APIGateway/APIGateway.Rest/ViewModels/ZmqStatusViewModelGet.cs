@@ -38,5 +38,12 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       if (domainZmqStatus.Endpoints != null)
         Endpoints = domainZmqStatus.Endpoints.Select(e => new ZmqEndpointViewModelGet(e)).ToArray();
     }
+
+    public string PrepareForLogging()
+    {
+      return $@"
+Node '{ NodeId }' is {(IsResponding ? "" : "NOT ")}responding. {nameof(LastConnectionAttemptAt)}='{ LastConnectionAttemptAt.ToString() ?? ""}', {nameof(LastError)}='{ LastError }'.
+{nameof(Endpoints)}: {(Endpoints != null ? string.Join(Environment.NewLine, Endpoints.Select(x => x.PrepareForLogging())): "None")}";
+    }
   }
 }

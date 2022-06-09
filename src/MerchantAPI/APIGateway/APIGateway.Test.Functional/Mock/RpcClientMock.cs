@@ -33,8 +33,10 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     // Key is nodeID:memberName value is value that should be returned to the caller
     private readonly ConcurrentDictionary<string, object> predefinedResponse;
 
-    public TimeSpan RequestTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-    public int NumOfRetries { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+    TimeSpan requestTimeout;
+    int numOfRetries;
+    public TimeSpan RequestTimeout { get => requestTimeout; set => requestTimeout = value; }
+    public int NumOfRetries { get => numOfRetries; set => numOfRetries = value; }
     public TimeSpan MultiRequestTimeout { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
     public int WaitBetweenRetriesMs { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
