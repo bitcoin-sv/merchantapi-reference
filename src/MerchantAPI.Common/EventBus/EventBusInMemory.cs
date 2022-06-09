@@ -120,7 +120,11 @@ namespace MerchantAPI.Common.EventBus
         {
           foreach (var s in list)
           {
-            if (!((Channel<T>)subscription2Channel[s]).Writer.TryWrite(@event)) 
+            if (((Channel<T>)subscription2Channel[s]).Writer.TryWrite(@event)) 
+            {
+              s.IncrementQueueCount();
+            }
+            else
             {
               // Should not happen, since we are using unbounded channels
               logger.LogError($"Unexpected error - can not write to EventBusChannel");
