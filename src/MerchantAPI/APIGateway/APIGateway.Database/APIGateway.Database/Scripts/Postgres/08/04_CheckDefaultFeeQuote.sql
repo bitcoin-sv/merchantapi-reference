@@ -20,19 +20,19 @@ begin
     INSERT INTO public.Fee(feeQuote, feeType)
     VALUES(feeQuoteId, 'standard')
     returning id INTO standardFeeId;
-	
-	INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
-	VALUES(standardFeeId, 100, 200, 'MiningFee');
-	INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
-	VALUES(standardFeeId, 100, 200, 'RelayFee');
-	
-	INSERT INTO public.Fee(feeQuote, feeType)
+
+    INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
+    VALUES(standardFeeId, 100, 200, 'MiningFee');
+    INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
+    VALUES(standardFeeId, 100, 200, 'RelayFee');
+
+    INSERT INTO public.Fee(feeQuote, feeType)
     VALUES(feeQuoteId, 'data')
     returning id INTO dataFeeId;
-	
-	INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
-	VALUES(dataFeeId, 100, 200, 'MiningFee');
-	INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
-	VALUES(dataFeeId, 100, 200, 'RelayFee');
+
+    INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
+    VALUES(dataFeeId, 100, 200, 'MiningFee');
+    INSERT INTO public.FeeAmount (fee, satoshis, bytes, feeamounttype) 
+    VALUES(dataFeeId, 100, 200, 'RelayFee');
   end if;
 end $$;
