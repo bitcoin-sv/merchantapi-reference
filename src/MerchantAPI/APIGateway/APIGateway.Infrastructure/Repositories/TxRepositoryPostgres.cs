@@ -410,29 +410,13 @@ ON CONFLICT (txInternalId, n) DO NOTHING;";
       return inserted;
     }
 
-    private async Task<bool> InsertOrUpdateSingleTxAsync(Faults.DbFaultComponent? faultComponent, Tx tx, bool isUnconfirmedAncestor, bool insertTxInputs, bool resubmit = false)
+    private async Task<bool> InsertOrUpdateSingleTxAsync(Faults.DbFaultComponent? faultComponent, Tx tx, bool isUnconfirmedAncestor, bool insertTxInputs)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdText;
-      if (resubmit)
-      {
-        cmdText = @"
-UPDATE Tx
-SET submittedAt = @submittedAt, txstatus = @txstatus
-WHERE txInternalId = @txInternalId "
-  ;
-        await transaction.Connection.ExecuteAsync(cmdText, new
-        {
-          txInternalId = tx.TxInternalId,
-          txstatus = tx.TxStatus,
-          submittedAt = tx.SubmittedAt
-        });
-        await transaction.CommitAsync();
-        return true;
-      }
-      else if (tx.UpdateTx == Tx.UpdateTxMode.Insert)
+      if (tx.UpdateTx == Tx.UpdateTxMode.Insert)
       {
         cmdText = @"
 INSERT INTO Tx(txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
@@ -466,7 +450,7 @@ RETURNING txInternalId;
       }
       var txInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new
       {
-        txExternalId = resubmit ? null : tx.TxExternalIdBytes,
+        txExternalId = tx.TxExternalIdBytes,
         txPayload = tx.TxPayload,
         receivedAt = tx.ReceivedAt,
         callbackUrl = tx.CallbackUrl,
