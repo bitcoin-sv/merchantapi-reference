@@ -11,39 +11,45 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Actions;
 
 namespace MerchantAPI.APIGateway.Rest.Services
 {
-  public class ZMQStats : BackgroundService
+  public class APIStatusService : BackgroundService
   {
 
     readonly INodes nodes;
+    readonly IBlockParser blockParser;
+    readonly AppSettings appSettings;
     readonly ZMQSubscriptionService subscriptionService;
-    readonly ILogger<ZMQStats> logger;
+    readonly ILogger<APIStatusService> logger;
     readonly int LOG_PERIOD_MIN;
 
-    public ZMQStats(
+    public APIStatusService(
       INodes nodes,
+      IBlockParser blockParser,
+      IOptions<AppSettings> options,
       ZMQSubscriptionService subscriptionService,
-      ILogger<ZMQStats> logger,
-      IOptions<AppSettings> appSettings
+      ILogger<APIStatusService> logger
       )
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
+      this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      appSettings = options.Value;
       this.subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-      LOG_PERIOD_MIN = appSettings.Value.ZmqStatsLogPeriodMin.Value;
+      LOG_PERIOD_MIN = appSettings.ZmqStatsLogPeriodMin.Value;
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-      logger.LogInformation($"ZMQStats background service is starting");
+      logger.LogInformation($"StatusStats background service is starting");
       return base.StartAsync(cancellationToken);
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)
     {
-      logger.LogInformation($"ZMQStats background service is stopping");
+      logger.LogInformation($"StatusStats background service is stopping");
       return base.StopAsync(cancellationToken);
     }
 
@@ -61,7 +67,26 @@ ZMQ subscription status for { result.Count() } node(s): { string.Join(Environmen
       }
       catch (Exception ex)
       {
-        logger.LogError($"Exception in ZMQStats: { ex.Message }");
+        logger.LogError($"Exception in LogZMQStats: { ex.Message }");
+      }
+    }
+
+    private void LogBlockParserStats()
+    {
+      try
+      {
+        var status = blockParser.GetBlockParserStatus();
+        logger.LogInformation(
+$@"** BlockParser Stats **
+{(new BlockParserStatusViewModelGet(status,
+          appSettings.DontParseBlocks.Value,
+          appSettings.DontInsertTransactions.Value,
+          appSettings.DeltaBlockHeightForDoubleSpendCheck.Value,
+          appSettings.MaxBlockChainLengthForFork.Value)).PrepareForLogging()}");
+      }
+      catch (Exception ex)
+      {
+        logger.LogError($"Exception in LogBlockParserStats: { ex.Message }");
       }
     }
 
@@ -70,6 +95,7 @@ ZMQ subscription status for { result.Count() } node(s): { string.Join(Environmen
       while (!stoppingToken.IsCancellationRequested)
       {
         LogZMQStats();
+        LogBlockParserStats();
         await Task.Delay(LOG_PERIOD_MIN * 60 * 1000, stoppingToken);
       }
     }
