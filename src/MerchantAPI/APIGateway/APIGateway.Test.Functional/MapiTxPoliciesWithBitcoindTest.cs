@@ -80,7 +80,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [DataRow("{\"minconsolidationfactor\": -1}")]
     [DataRow("{\"maxconsolidationinputscriptsize\": -1}")]
     [DataRow("{\"minconfconsolidationinput\": -1}")]
-    //[DataRow("{\"minconsolidationinputmaturity\": -1}")] // deprecated
+    //[DataRow("{\"minconsolidationinputmaturity\": -1}")] // deprecated - this is now minconfconsolidationinput
     [DataRow("{\"acceptnonstdconsolidationinput\": 1}")]
     [DataRow("{\"dustlimitfactor\": 301}")]
     [TestMethod]

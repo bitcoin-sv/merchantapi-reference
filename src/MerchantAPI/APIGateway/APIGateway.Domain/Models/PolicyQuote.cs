@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain.Actions;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -28,6 +29,14 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     [JsonPropertyName("fees")]
     public Fee[] Fees { get; set; }
+
+    class ConsolidationPolicies
+    {
+      public const string MinConsolidationFactor = "minconsolidationfactor";
+      public const string MaxConsolidationInputScriptSize = "maxconsolidationinputscriptsize";
+      public const string MinConfConsolidationInput = "minconfconsolidationinput";
+      public const string AcceptNonStdConsolidationInput = "acceptnonstdconsolidationinput";
+    }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
@@ -69,8 +78,30 @@ namespace MerchantAPI.APIGateway.Domain.Models
           }
         }
       }
-
     }
 
+    private T GetPolicyValue<T>(string policyName, T defaultValue)
+    {
+      if (PoliciesDict?.ContainsKey(policyName) == true)
+      {
+        var jsonElement = (JsonElement)PoliciesDict[policyName];
+        var v = JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
+        return v;
+      }
+      return defaultValue;
+    }
+
+
+    public ConsolidationTxParameters GetMergedConsolidationTxParameters(ConsolidationTxParameters consolidationTxParameters)
+    {
+      return new ConsolidationTxParameters
+      {
+        Version = consolidationTxParameters.Version,
+        MinConsolidationFactor = GetPolicyValue(ConsolidationPolicies.MinConsolidationFactor, consolidationTxParameters.MinConsolidationFactor),
+        MaxConsolidationInputScriptSize = GetPolicyValue(ConsolidationPolicies.MaxConsolidationInputScriptSize, consolidationTxParameters.MaxConsolidationInputScriptSize),
+        MinConfConsolidationInput = GetPolicyValue(ConsolidationPolicies.MinConfConsolidationInput, consolidationTxParameters.MinConfConsolidationInput),
+        AcceptNonStdConsolidationInput = GetPolicyValue(ConsolidationPolicies.AcceptNonStdConsolidationInput, consolidationTxParameters.AcceptNonStdConsolidationInput)
+      };
+    }
   }
 }

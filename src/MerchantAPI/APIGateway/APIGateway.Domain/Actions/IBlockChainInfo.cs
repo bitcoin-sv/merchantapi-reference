@@ -17,7 +17,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       Version = networkInfo.Version;
       MinConsolidationFactor = networkInfo.MinConsolidationFactor;
-      MinConsolidationInputMaturity = networkInfo.MinConsolidationInputMaturity;
+      MinConfConsolidationInput = networkInfo.MinConsolidationInputMaturity;
       MaxConsolidationInputScriptSize = networkInfo.MaxConsolidationInputScriptSize;
       AcceptNonStdConsolidationInput = networkInfo.AcceptNonStdConsolidationInput;
     }
@@ -28,7 +28,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public long MaxConsolidationInputScriptSize { get; set; }
 
-    public long MinConsolidationInputMaturity { get; set; }
+    public long MinConfConsolidationInput { get; set; }
 
     public bool AcceptNonStdConsolidationInput { get; set; }
 

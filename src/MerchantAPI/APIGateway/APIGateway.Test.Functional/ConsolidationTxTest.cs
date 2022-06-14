@@ -3,35 +3,28 @@
 
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.ViewModels;
-using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
 using System;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
 using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo1")]
   [TestClass]
-  public class ConsolidationTxTest : TestBaseWithBitcoind
+  public class ConsolidationTxTest : MapiWithBitcoindTestBase
   {
 
-    ConsolidationTxParameters consolidationParameters;
+    protected ConsolidationTxParameters consolidationParameters;
+    ConsolidationTxParameters mergedParameters;
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
-      InsertFeeQuote();
 
       //make additional 10 coins
       foreach (var coin in GetCoins(base.rpcClient0, 10))
@@ -48,8 +41,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.TestCleanup();
     }
 
+    protected enum ConsolidationReason
+    {
+     None,
+     InputMinConf,
+     InputScriptSize,
+     InputNonStd,
+     RatioInOutCount,
+     RatioInOutScriptSize
+    }
 
-    async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(string reason = "")
+    protected async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(ConsolidationReason reason = ConsolidationReason.None)
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx = BCash.Instance.Regtest.CreateTransaction();
@@ -57,16 +59,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       int inCount = 0;
       var OP_NOP_string = "61";
       var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-      int noBlocks = (int)consolidationParameters.MinConsolidationInputMaturity - 1;
+      int noBlocks = (int)consolidationParameters.MinConfConsolidationInput - 1;
 
-      if (reason == "inputMaturity")
+      if (reason == ConsolidationReason.InputMinConf)
       {
         noBlocks--;
       }
 
       await rpcClient0.GenerateAsync(noBlocks);
 
-      if (reason == "inputScriptSize")
+      if (reason == ConsolidationReason.InputScriptSize)
       {
         Coin coin = availableCoins.Dequeue();
         tx.Inputs.Add(new TxIn(coin.Outpoint));
@@ -89,12 +91,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
         value += coin.Amount;
         inCount++;
 
-        if (reason == "ratioInOutCount" && inCount == consolidationParameters.MinConsolidationFactor - 1)
+        if (reason == ConsolidationReason.RatioInOutCount && inCount == consolidationParameters.MinConsolidationFactor - 1)
         {
           break;
         }
       }
-      if (reason == "ratioInOutScriptSize")
+      if (reason == ConsolidationReason.RatioInOutScriptSize)
       {
         string coinPubKey = availableCoins.ElementAt(0).ScriptPubKey.ToHex();
         tx.Outputs.Add(value, Script.FromHex(OP_NOP_string + coinPubKey));
@@ -107,30 +109,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var spendOutputs = tx.Inputs.Select(x => (txId: x.PrevOut.Hash.ToString(), N: (long)x.PrevOut.N)).ToArray();
       var (_, prevOuts) = await Mapi.CollectPreviousOuputs(tx, null, RpcMultiClient);
+      if (reason == ConsolidationReason.InputNonStd)
+      {
+        prevOuts[0].IsStandard = false;
+      }
       return (tx.ToHex(), tx, prevOuts);
     }
 
-
-    async Task<SubmitTransactionResponseViewModel> SubmitTransaction(string txHex)
-    {
-      // Send transaction
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-    }
-
     [TestMethod]
-    public async Task SubmitTransactionValid()
+    public virtual async Task SubmitTransactionValid()
     {
       var (txHex, tx, prevOuts) = await CreateNewConsolidationTx();
 
       Assert.IsTrue(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      var payload = await SubmitTransactionAsync(txHex);
 
       Assert.AreEqual("success", payload.ReturnResult);
 
@@ -141,55 +134,131 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    public async Task SubmitTransactionValidWithPolicy()
+    {
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx();
+
+      // set too high MinConfConsolidationInput
+      SetPoliciesForCurrentFeeQuote(
+      $"{{" +
+      $"\"minconfconsolidationinput\": {consolidationParameters.MinConfConsolidationInput + 1} " +
+      $"}}"
+      );
+      mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+
+      var payload = await SubmitTransactionAsync(txHex);
+
+      Assert.AreEqual("failure", payload.ReturnResult);
+
+      // clear policies
+      SetPoliciesForCurrentFeeQuote(null);
+      // submit should now succeed
+      await SubmitTransactionValid();
+    }
+
+    [DataRow(ConsolidationReason.RatioInOutCount)]
+    [DataRow(ConsolidationReason.RatioInOutScriptSize)]
+    [DataRow(ConsolidationReason.InputMinConf)]
+    [DataRow(ConsolidationReason.InputScriptSize)]
+    [TestMethod]
+    public async Task CheckConsolidationTransaction(int consolidationReason)
+    {
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx((ConsolidationReason)consolidationReason);
+
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
+
+      var payload = await SubmitTransactionAsync(txHex);
+
+      Assert.AreEqual("failure", payload.ReturnResult);
+      Assert.AreEqual("Not enough fees", payload.ResultDescription);
+    }
+
+    [TestMethod]
     public async Task SubmitTransactionRatioInOutCount()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("ratioInOutCount");
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.RatioInOutCount);
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      SetPoliciesForCurrentFeeQuote(
+      $"{{" +
+      $"\"minconsolidationfactor\": {consolidationParameters.MinConsolidationFactor - 1} " +
+      $"}}"
+      );
+      mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
 
-      Assert.AreEqual("failure", payload.ReturnResult);
-      Assert.AreEqual("Not enough fees", payload.ResultDescription);
+      var payload = await SubmitTransactionAsync(txHex);
+      Assert.AreEqual("success", payload.ReturnResult);
+    }
+
+    [DataRow(ConsolidationReason.RatioInOutCount)]
+    [DataRow(ConsolidationReason.RatioInOutScriptSize)]
+    [DataRow(ConsolidationReason.InputMinConf)]
+    [DataRow(ConsolidationReason.InputScriptSize, "16 mandatory-script-verify-flag-failed (Only non-push operators allowed in signatures)")]
+    [TestMethod]
+    public async Task CheckConsolidationTransactionWithPolicy(int consolidationReason, string errorDescription = null)
+    {
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx((ConsolidationReason)consolidationReason);
+
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
+
+      string policy = null;
+      switch ((ConsolidationReason)consolidationReason)
+      {
+        case ConsolidationReason.RatioInOutCount:
+        case ConsolidationReason.RatioInOutScriptSize:
+          policy = $"\"minconsolidationfactor\": {consolidationParameters.MinConsolidationFactor - 1} ";
+          break;
+        case ConsolidationReason.InputMinConf:
+          policy = $"\"minconfconsolidationinput\": {consolidationParameters.MinConfConsolidationInput - 1 }";
+          break;
+        case ConsolidationReason.InputScriptSize:
+          policy = $"\"maxconsolidationinputscriptsize\": {consolidationParameters.MaxConsolidationInputScriptSize + 1}, " +
+      "\"acceptnonstdconsolidationinput\": true ";
+          break;
+      }
+
+      SetPoliciesForCurrentFeeQuote($"{{ { policy }}}");
+
+      mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+
+      var payload = await SubmitTransactionAsync(txHex);
+      if (errorDescription == null)
+      {
+        Assert.AreEqual("success", payload.ReturnResult);
+      }
+      else
+      {
+        Assert.AreEqual("failure", payload.ReturnResult);
+        Assert.AreEqual(errorDescription, payload.ResultDescription);
+      }
     }
 
     [TestMethod]
-    public async Task SubmitTransactionRatioInOutScript()
+    public async Task CheckConsolidationTransactionInputNonStd()
     {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("ratioInOutScriptSize");
+      var (_, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.InputNonStd);
 
       Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
 
-      var payload = await SubmitTransaction(txHex);
+      SetPoliciesForCurrentFeeQuote(
+      $"{{" +
+      "\"acceptnonstdconsolidationinput\": false " +
+      $"}}"
+      );
+      mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
 
-      Assert.AreEqual("failure", payload.ReturnResult);
-      Assert.AreEqual("Not enough fees", payload.ResultDescription);
+      SetPoliciesForCurrentFeeQuote(
+      $"{{" +
+      "\"acceptnonstdconsolidationinput\": true " +
+      $"}}"
+      );
+      mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
     }
-
-    [TestMethod]
-    public async Task SubmitTransactionInputMaturity()
-    {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("inputMaturity");
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
-
-      var payload = await SubmitTransaction(txHex);
-
-      Assert.AreEqual("failure", payload.ReturnResult);
-      Assert.AreEqual("Not enough fees", payload.ResultDescription);
-    }
-
-    [TestMethod]
-    public async Task SubmitTransactionInputScriptSize()
-    {
-      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx("inputScriptSize");
-
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
-
-      var payload = await SubmitTransaction(txHex);
-
-      Assert.AreEqual("failure", payload.ReturnResult);
-      Assert.AreEqual("Not enough fees", payload.ResultDescription);
-    }
-
   }
 }
