@@ -136,7 +136,7 @@ namespace MerchantAPI.APIGateway.Rest
       {
         services.AddTransient<IDbManager, MerchantAPIDbManager>();
         services.AddHostedService<CleanUpTxHandler>();
-        services.AddHostedService<ZMQStats>();
+        services.AddHostedService<APIStatusService>();
       }
       else
       {

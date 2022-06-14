@@ -24,7 +24,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public TimeSpan? AverageParseTime => BlocksParsed > 0 ? BlocksParseTime / BlocksParsed : null;
     public TimeSpan? AverageTxParseTime => TotalTxs > 0 ? BlocksParseTime / TotalTxs : null;
     public TimeSpan BlocksDownloadTime { get; private set; }
-    public double? AverageBlockDownloadSpeed => TotalBytes > 0 ? (TotalBytes / Const.Megabyte) / BlocksDownloadTime.TotalSeconds : null;
+    public double? AverageBlockDownloadSpeed => TotalBytes > 0 ? TotalBytes / (double)Const.Megabyte / BlocksDownloadTime.TotalSeconds : null;
     public TimeSpan? MaxParseTime { get; private set; }
     public long NumOfErrors { get; private set; }
     public long BlocksQueued { get; private set; }

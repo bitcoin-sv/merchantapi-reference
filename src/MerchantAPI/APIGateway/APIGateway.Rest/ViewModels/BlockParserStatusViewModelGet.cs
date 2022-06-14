@@ -19,6 +19,12 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       public long DeltaBlockHeightForDoubleSpendCheck { get; set; }
       [JsonPropertyName("maxBlockChainLengthForFork")]
       public int MaxBlockChainLengthForFork { get; set; }
+
+      public string PrepareForLogging()
+      {
+        return $@"Settings: {nameof(DontParseBlocks)}='{ DontParseBlocks }', {nameof(DontInsertTransactions)}='{ DontInsertTransactions }',
+{nameof(DeltaBlockHeightForDoubleSpendCheck)}='{ DeltaBlockHeightForDoubleSpendCheck }', {nameof(MaxBlockChainLengthForFork)}='{ MaxBlockChainLengthForFork }'.";
+      }
     }
 
     [JsonPropertyName("blocksProcessed")]
@@ -92,6 +98,19 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       Settings.DontInsertTransactions = dontInsertTransactions;
       Settings.DeltaBlockHeightForDoubleSpendCheck = deltaBlockHeightForDoubleSpendCheck;
       Settings.MaxBlockChainLengthForFork = maxBlockChainLengthForFork;
+    }
+
+    public string PrepareForLogging()
+    {
+      return $@"BlockParserDescription: '{ BlockParserDescription }'.
+Total stats: {nameof(TotalBytes)}='{TotalBytes} bytes', {nameof(TotalTxs)}='{TotalTxs}', {nameof(TotalDsFound)}='{TotalDsFound}', {nameof(TotalTxsFound)}='{TotalTxsFound}'
+Last block stats: { 
+  (string.IsNullOrEmpty(LastBlockHash) ? "unknown" 
+: $"{nameof(LastBlockHash)}='{LastBlockHash}', {nameof(LastBlockHeight)}='{LastBlockHeight}', {nameof(LastBlockParseTime)}='{LastBlockParseTime.Value.TotalMilliseconds} ms'.")
+}
+Average stats: {nameof(AverageParseTime)}='{AverageParseTime?.TotalMilliseconds ?? 0} ms', {nameof(AverageTxParseTime)}='{AverageTxParseTime?.TotalMilliseconds ?? 0} ms', {nameof(AverageBlockDownloadSpeed)}='{AverageBlockDownloadSpeed}'.
+Max stats: {nameof(MaxParseTime)}='{MaxParseTime?.TotalMilliseconds ?? 0} ms'.
+{ Settings.PrepareForLogging() }";
     }
   }
 }

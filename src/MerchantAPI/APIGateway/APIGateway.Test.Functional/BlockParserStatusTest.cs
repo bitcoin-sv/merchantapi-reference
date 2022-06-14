@@ -83,7 +83,7 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: 0.", stat
       Assert.IsNotNull(status.LastBlockInQueueAndParseTime);
       Assert.IsNotNull(status.AverageParseTime);
       Assert.IsNotNull(status.AverageTxParseTime);
-      Assert.IsNotNull(status.AverageBlockDownloadSpeed);
+      Assert.IsTrue(status.AverageBlockDownloadSpeed > 0);
       Assert.IsNotNull(status.MaxParseTime);
       Assert.AreEqual(numOfErrors, status.NumOfErrors);
       Assert.AreEqual(blocksQueued, status.BlocksQueued);
