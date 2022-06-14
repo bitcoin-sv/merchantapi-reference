@@ -877,7 +877,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               Policies = x.policyQuote?.Policies,
               OkToMine = x.dontCheckFees,
               SetPolicyQuote = x.policyQuote != null
-            }).ToList(), false, false, false)).Select(x => new uint256(x)).ToList();
+            }).ToList(), false, false)).Select(x => new uint256(x)).ToList();
           insertedTxs.ForEach(x => txsToUpdate.Add(x.ToString()));
         }
 

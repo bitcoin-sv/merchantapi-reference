@@ -447,7 +447,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           PolicyQuoteId = policyQuoteId
         }
       };
-      var inserted = await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false, false, false);
+      var inserted = await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false, false);
       Assert.AreEqual(txToInsert[0].TxExternalId, new uint256(inserted[0]));
 
       // the tx in database should not be updated

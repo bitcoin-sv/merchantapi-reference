@@ -171,14 +171,14 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new NotImplementedException();
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool resubmit = false)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
     {
-      return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs, resubmit);
+      return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs);
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool resubmit = false)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
     {
-      if ((areUnconfirmedAncestors && transactions.Any()) || (insertTxInputs && transactions.Any(x => x.DSCheck)) || resubmit)
+      if ((areUnconfirmedAncestors && transactions.Any()) || (insertTxInputs && transactions.Any(x => x.DSCheck)))
       {
         throw new NotImplementedException();
       }

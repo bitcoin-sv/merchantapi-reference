@@ -38,7 +38,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       if (faultType == Faults.FaultType.DbAfterSavingUncommittedState ||
           faultType == Faults.FaultType.DbBeforeSavingUncommittedState)
       {
-        throw new Exception("Invalid faultType for SimulateDbFault.");
+        throw new Exception("Invalid faultType for SimulateMode.");
       }
 
       faultManager.Clear();

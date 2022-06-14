@@ -239,14 +239,14 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
       txImporter.Write(setPolicyQuote, NpgsqlTypes.NpgsqlDbType.Boolean);
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool resubmit = false)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
     {
-      return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs, resubmit);
+      return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs);
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool resubmit = false)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
     {
-      bool returnInsertedTransactions = !resubmit && !areUnconfirmedAncestors && !insertTxInputs;
+      bool returnInsertedTransactions = !areUnconfirmedAncestors && !insertTxInputs;
       if (transactions.Count == 0)
       {
         return Array.Empty<byte[]>();
@@ -254,7 +254,7 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 
       if (transactions.Count == 1)
       {
-        var success = await InsertOrUpdateSingleTxAsync(faultComponent, transactions.Single(), areUnconfirmedAncestors, insertTxInputs, resubmit);
+        var success = await InsertOrUpdateSingleTxAsync(faultComponent, transactions.Single(), areUnconfirmedAncestors, insertTxInputs);
         if (returnInsertedTransactions && success)
         {
           var successfulTx = new byte[1][];
@@ -305,11 +305,12 @@ CREATE TEMPORARY TABLE TxTemp (
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, 
                                                                                       merkleProof, merkleFormat, dsCheck, n, prevTxId, prev_n, unconfirmedAncestor, txstatus, submittedAt, policyQuoteId, okToMine, setPolicyQuote) FROM STDIN (FORMAT BINARY)"))
       {
+        int internalIdIndex = 0;
         for (int txIndex = 0; txIndex < transactions.Count; txIndex++)
         {
           var tx = transactions[txIndex];
-          var txInternalId = tx.UpdateTx ? tx.TxInternalId : internalIds[txIndex];
-          AddToTxImporter(txImporter, txInternalId, resubmit ? null : tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
+          var txInternalId = tx.UpdateTx ? tx.TxInternalId : internalIds[internalIdIndex++];
+          AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
                           tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors, tx.TxStatus, tx.SubmittedAt, tx.PolicyQuoteId, tx.OkToMine, tx.SetPolicyQuote);
           if (insertTxInputs && (tx.DSCheck || areUnconfirmedAncestors))
           {
@@ -326,23 +327,9 @@ CREATE TEMPORARY TABLE TxTemp (
         await txImporter.CompleteAsync();
       }
 
-
-      string cmdText;
-
-      if (resubmit)
-      {
-        cmdText = @"
-UPDATE Tx
-SET submittedAt = TxTemp.submittedAt, txstatus = TxTemp.txstatus
-FROM TxTemp
-WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId) "
-  ;
-      }
-      else
-      {
-        // tx has old txstatus, txTemp has new value
-        // when tx has successful status, we should only change submittedAt and txStatus
-        cmdText = @$"
+      // tx has old txstatus, txTemp has new value
+      // when tx has successful status, we should only change submittedAt and txStatus
+      string cmdText = @$"
 UPDATE Tx
 SET submittedAt = TxTemp.submittedAt, txStatus = TxTemp.txStatus
 FROM TxTemp 
@@ -358,26 +345,25 @@ WHERE Tx.txExternalId = TxTemp.txExternalId AND
 Tx.txStatus < { TxStatus.UnknownOldTx };
 "
 ;
-        cmdText += @"
+      cmdText += @"
 INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
 SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote
 FROM TxTemp WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId) "
 ;
 
-        if (areUnconfirmedAncestors)
-        {
-          cmdText += @"
+      if (areUnconfirmedAncestors)
+      {
+        cmdText += @"
   AND unconfirmedAncestor = true;
 ";
-        }
-        else
-        {
-          cmdText += @"
+      }
+      else
+      {
+        cmdText += @"
  AND txPayload IS NOT NULL
 ON CONFLICT (txExternalId) DO NOTHING
 RETURNING txExternalId;
 ";
-        }
       }
 
       if (insertTxInputs)
@@ -520,7 +506,74 @@ ON CONFLICT(txInternalId, n) DO NOTHING
 
     public async Task UpdateTxsOnResubmitAsync(DbFaultComponent? faultComponent, IList<Tx> transactions)
     {
-      await InsertOrUpdateTxsAsync(faultComponent, transactions, false, false, resubmit: true);
+      using var connection = await GetDbConnectionAsync();
+
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText;
+
+      if (transactions.Count == 0)
+      {
+        return;
+      }
+      else if (transactions.Count == 1)
+      {
+        var tx = transactions.Single();
+        cmdText = @"
+UPDATE Tx
+SET submittedAt = @submittedAt, txstatus = @txstatus
+WHERE txInternalId = @txInternalId; "
+;
+        await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
+
+        await transaction.Connection.ExecuteAsync(cmdText, new
+        {
+          txInternalId = tx.TxInternalId,
+          submittedAt = tx.SubmittedAt,
+          txstatus = tx.TxStatus
+        });
+      }
+      else
+      {
+        string cmdTempTable = @"
+CREATE TEMPORARY TABLE TxResubmitTemp (
+  txInternalId    BIGINT			NOT NULL,
+  txstatus SMALLINT,
+  submittedAt TIMESTAMP
+) ON COMMIT DROP;
+";
+        string cmdCopyToTemp = @"COPY TxResubmitTemp (txInternalId, txstatus, submittedAt) FROM STDIN (FORMAT BINARY)";
+
+        await transaction.Connection.ExecuteAsync(cmdTempTable);
+
+        using (var txImporter = transaction.Connection.BeginBinaryImport(cmdCopyToTemp))
+        {
+          foreach (var tx in transactions)
+          {
+            txImporter.StartRow();
+
+            txImporter.Write(tx.TxInternalId, NpgsqlTypes.NpgsqlDbType.Bigint);
+            txImporter.Write(tx.TxStatus, NpgsqlTypes.NpgsqlDbType.Smallint);
+            txImporter.Write(tx.SubmittedAt, NpgsqlTypes.NpgsqlDbType.Timestamp);
+          }
+
+          await txImporter.CompleteAsync();
+        }
+
+        cmdText = @"
+UPDATE Tx
+SET submittedAt = TxResubmitTemp.submittedAt, txstatus = TxResubmitTemp.txstatus
+FROM TxResubmitTemp
+WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxResubmitTemp.txInternalId); ";
+
+        await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
+
+        await transaction.Connection.ExecuteAsync(cmdText);
+      }
+
+      await transaction.CommitAsync();
+
+      await faultInjection.FailAfterSavingUncommittedStateAsync(faultComponent);
     }
 
     public async Task InsertTxBlockAsync(IList<long> txInternalIds, long blockInternalId)
