@@ -196,7 +196,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       var txsWithMaxMissingInputs = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolCheckerMissingInputsRetries).ToList();
       logger.LogDebug($"TxsWithMaxMissingInputs count: { txsWithMaxMissingInputs.Count } .");
-      await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateTxs, txsWithMaxMissingInputs.Select(x => new Tx
+      await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateMissingInputs, txsWithMaxMissingInputs.Select(x => new Tx
       {
         TxInternalId = x.Key,
         SubmittedAt = clock.UtcNow(),

@@ -144,9 +144,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       StopBitcoind(node1);
     }
 
-    [TestMethod]
-    public async Task CheckMempool_AfterSubmitSingleTx()
+    private async Task<(Tx tx, string txHash)> SendTxWithNodeFailsAfterSendRawTxsAsync()
     {
+      var mempoolTxsLength = (await rpcClient0.GetRawMempool()).Length;
+
       // create transaction and submit it to the node
       var (txHex, txHash) = CreateNewTransaction();
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeFailsAfterSendRawTxs);
@@ -154,15 +155,25 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
       await AssertTxStatus(txHash, TxStatus.Accepted);
+      // mempool stays the same
       var mempoolTxs = await rpcClient0.GetRawMempool();
-      Assert.AreEqual(0, mempoolTxs.Length);
+      Assert.AreEqual(mempoolTxsLength, mempoolTxs.Length);
+
       var tx = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs)).Single();
+      return (tx, txHash);
+    }
+
+    [TestMethod]
+    public async Task CheckMempool_AfterSubmitSingleTx()
+    {
+      // create transaction and submit it to the node
+      var (tx, txHash) = await SendTxWithNodeFailsAfterSendRawTxsAsync();
 
       // check mempool fails because of mode
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeFailsWhenSendRawTxs, Faults.FaultType.SimulateSendTxsMempoolChecker);
       bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsFalse(success);
-      mempoolTxs = await rpcClient0.GetRawMempool();
+      var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
       var txResubmitted = (await TxRepositoryPostgres.GetMissingTransactionsAsync(Array.Empty<string>())).Single();
       Assert.AreEqual(tx.SubmittedAt, txResubmitted.SubmittedAt);
@@ -175,6 +186,46 @@ namespace MerchantAPI.APIGateway.Test.Functional
       txResubmitted = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txHash).ToBytes());
       Assert.IsTrue(tx.SubmittedAt < txResubmitted.SubmittedAt);
       await AssertTxStatus(txHash, TxStatus.Accepted);
+    }
+
+    [DataRow(Faults.DbFaultComponent.MempoolCheckerUpdateTxs)]
+    [DataRow(Faults.DbFaultComponent.MempoolCheckerUpdateMissingInputs)]
+    [TestMethod]
+    public async Task CheckMempool_AfterDbFault(Faults.DbFaultComponent dbFaultComponent)
+    {
+      // create transaction and submit it to the node
+      var (tx, txHash) = await SendTxWithNodeFailsAfterSendRawTxsAsync();
+
+      var mempoolTxs = await rpcClient0.GetRawMempool();
+      Assert.AreEqual(0, mempoolTxs.Length);
+      var txs = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs));
+      Assert.AreEqual(1, txs.Length);
+
+      // check db fail
+      mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, dbFaultComponent);
+      if (dbFaultComponent == Faults.DbFaultComponent.MempoolCheckerUpdateTxs)
+      {
+        await Assert.ThrowsExceptionAsync<Domain.Models.Faults.FaultException>(async () => await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0));
+      }
+      else
+      {
+        // no missing inputs present
+        var success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
+        Assert.IsTrue(success);
+      }
+
+      mempoolTxs = await rpcClient0.GetRawMempool();
+      Assert.AreEqual(txHash, mempoolTxs.Single());
+      var txResubmitted = (await TxRepositoryPostgres.GetMissingTransactionsAsync(Array.Empty<string>())).Single();
+      if (dbFaultComponent == Faults.DbFaultComponent.MempoolCheckerUpdateTxs)
+      {
+        // RPC call was successful, DB update not
+        Assert.AreEqual(tx.SubmittedAt, txResubmitted.SubmittedAt);
+      }
+      else
+      {
+        Assert.AreNotEqual(tx.SubmittedAt, txResubmitted.SubmittedAt);
+      }
     }
 
     [TestMethod]
