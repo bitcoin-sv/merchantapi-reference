@@ -162,7 +162,7 @@ namespace MerchantAPI.APIGateway.Test.SmokeTest
             var rEnvelope = HelperTools.JSONDeserialize<SignedPayloadViewModel>(responseAsString);
             var res = HelperTools.JSONDeserialize<SubmitTransactionResponseViewModel>(rEnvelope.Payload);
 
-            if (res.ReturnResult == "success")
+            if (res.ReturnResult == "success" && !string.IsNullOrEmpty(res.ResultDescription))
             {
               Console.WriteLine($"{res.Txid}:{res.ReturnResult}");
             }
@@ -202,7 +202,7 @@ namespace MerchantAPI.APIGateway.Test.SmokeTest
             
             foreach(var res in r.Txs)
             {
-              if (res.ReturnResult == "success")
+              if (res.ReturnResult == "success" && !string.IsNullOrEmpty(res.ResultDescription))
               {
                 Console.WriteLine($"{res.Txid}:{res.ReturnResult}");
               }
