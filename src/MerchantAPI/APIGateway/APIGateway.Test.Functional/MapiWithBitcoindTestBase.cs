@@ -204,5 +204,33 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       return (curTxHex, curTxId, mapiTxCount);
     }
+
+    protected async Task ValidateTxInputsAsync(string txHex, string txId = null, bool presentOnDB = true)
+    {
+      Transaction.TryParse(txHex, Network.RegTest, out Transaction tx);
+      foreach (var txInput in tx.Inputs)
+      {
+        var prevOut = await TxRepositoryPostgres.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
+        if (presentOnDB)
+        {
+          // not all txInputs are spent
+          if (prevOut == null && txInput != tx.Inputs.Last())
+          {
+            continue;
+          }
+          Assert.IsNotNull(prevOut);
+          Assert.AreEqual(prevOut.N, txInput.PrevOut.N);
+          if (txId != null)
+          {
+            Assert.AreEqual(new uint256(prevOut.TxExternalId).ToString(), txId);
+          }
+          break;
+        }
+        else
+        {
+          Assert.IsNull(prevOut);
+        }
+      }
+    }
   }
 }

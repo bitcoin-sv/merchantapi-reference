@@ -232,7 +232,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // insert same feeQuote as for unauthorized user
       InsertFeeQuote(MockedIdentity);
 
-      (string txHex, string _) = CreateNewTransaction();
+      (string txHex, _) = CreateNewTransaction();
 
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);

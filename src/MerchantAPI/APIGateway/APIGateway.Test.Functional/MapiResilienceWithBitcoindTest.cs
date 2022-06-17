@@ -96,20 +96,35 @@ namespace MerchantAPI.APIGateway.Test.Functional
       SetPoliciesForCurrentFeeQuote("{\"maxscriptsizepolicy\": 105 }");
       // insert new feeQuote for authorized user (without policies)
       InsertFeeQuote(MockedIdentity);
-      List<string> txHexList = new();
+
       // test single update and batch
+      List<(string txId, string txHex)> txList = new();
       for (int i = 0; i < nTxs; i++)
       {
-        (string txHex, string _) = CreateNewTransaction();
-        txHexList.Add(txHex);
+        (string txHex, string txId) = CreateNewTransaction();
+        txList.Add((txId, txHex));
       }
 
-      var payloadSubmit = await SubmitTransactionsAsync(txHexList.ToArray());
+      var payloadSubmit = await SubmitTransactionsAsync(txList.Select(x => x.txHex).ToArray());
       Assert.IsTrue(payloadSubmit.Txs.All(x => x.ReturnResult == "failure"));
 
       RestAuthentication = MockedIdentityBearerAuthentication;
-      payloadSubmit = await SubmitTransactionsAsync(txHexList.ToArray());
+      payloadSubmit = await SubmitTransactionsAsync(txList.Select(x => x.txHex).ToArray(), true);
       Assert.IsTrue(payloadSubmit.Txs.All(x => x.ReturnResult == "success"));
+
+      var q = await QueryTransactionStatus(txList.Last().txId);
+      Assert.AreEqual("success", q.ReturnResult);
+
+      foreach(var (txId, txHex) in txList)
+      {
+        // Create another transaction but don't submit it
+        Transaction.TryParse(txHex, Network.RegTest, out Transaction currentTx);
+        var curTxCoin = new Coin(currentTx, 0);
+        var (curTxHex, curTxId) = CreateNewTransaction(new Coin[] { availableCoins.Dequeue(), curTxCoin }, new Money(1000L));
+
+        // Validate that all of the inputs are already in the database
+        await ValidateTxInputsAsync(curTxHex, txId);
+      }
     }
 
     [DataRow(false)]

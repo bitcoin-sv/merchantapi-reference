@@ -1211,12 +1211,11 @@ WHERE sentMerkleproofAt IS NULL;
       if (foundPrevOut == null)
       {
         using var connection = await GetDbConnectionAsync();
-
         string cmdText = @"
 SELECT tx.txInternalId, tx.txExternalId, txinput.n
 FROM tx 
 INNER JOIN txinput ON txinput.txInternalId = tx.txInternalId
-WHERE txinput.txExternalId = @prevOutTxId
+WHERE tx.txExternalId = @prevOutTxId
 AND txinput.n = @prevOutN;
 ";
         foundPrevOut = await connection.QueryFirstOrDefaultAsync<PrevTxOutput>(cmdText, new { prevOutTxId, prevOutN });

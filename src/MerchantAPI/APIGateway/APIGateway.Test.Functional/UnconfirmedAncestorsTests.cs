@@ -92,14 +92,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
 
       // Validate that all of the inputs are already in the database
-      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
-      foreach(var txInput in curTx.Inputs)
-      {        
-        var prevOut = await TxRepositoryPostgres.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
-        Assert.IsNotNull(prevOut);
-        Assert.AreEqual(new uint256(prevOut.TxExternalId).ToString(), lastTxId);
-      }
-
+      await ValidateTxInputsAsync(curTxHex, lastTxId);
     }
 
     [TestMethod]
@@ -130,13 +123,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
 
       // Validate that inputs are not already in the database
-      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
-      foreach (var txInput in curTx.Inputs)
-      {
-        var prevOut = await TxRepositoryPostgres.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
-        Assert.IsNull(prevOut);
-      }
-
+      await ValidateTxInputsAsync(curTxHex, lastTxId, false);
     }
 
     [DataRow(1)]
