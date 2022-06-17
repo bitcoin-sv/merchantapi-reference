@@ -877,7 +877,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               Policies = x.policyQuote?.Policies,
               OkToMine = x.dontCheckFees,
               SetPolicyQuote = x.policyQuote != null
-            }).ToList(), false, false)).Select(x => new uint256(x)).ToList();
+            }).ToList(), false, false, true)).Select(x => new uint256(x)).ToList();
           insertedTxs.ForEach(x => txsToUpdate.Add(x.ToString()));
         }
 
@@ -959,7 +959,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             Policies = x.policyQuote?.Policies,
             OkToMine = x.dontCheckFees,
             SetPolicyQuote = x.policyQuote != null
-          }).ToList(), false);
+          }).ToList(), false, true);
           // if transaction is sent in parallel in two batches, only the first processed tx is saved
           // maybe we could:
           // 1) add on conflict do nothing and return inserted + updated, return failure for missing

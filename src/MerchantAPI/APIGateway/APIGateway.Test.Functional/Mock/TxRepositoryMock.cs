@@ -171,12 +171,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new NotImplementedException();
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
     {
       return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs);
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
     {
       if ((areUnconfirmedAncestors && transactions.Any()) || (insertTxInputs && transactions.Any(x => x.DSCheck)))
       {
@@ -207,6 +207,11 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         _txs[tx.TxExternalId] = tx;
 
         await faultInjection.FailAfterSavingUncommittedStateAsync(faultComponent);
+
+        if (returnInsertedTransactions)
+        {
+          ids.Add(tx.TxExternalIdBytes);
+        }
       }
       return ids.ToArray();
     }

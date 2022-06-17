@@ -239,14 +239,13 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
       txImporter.Write(setPolicyQuote, NpgsqlTypes.NpgsqlDbType.Boolean);
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
     {
-      return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs);
+      return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs, returnInsertedTransactions);
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
     {
-      bool returnInsertedTransactions = !areUnconfirmedAncestors && !insertTxInputs;
       if (transactions.Count == 0)
       {
         return Array.Empty<byte[]>();
@@ -318,7 +317,6 @@ CREATE TEMPORARY TABLE TxTemp (
             foreach (var txIn in tx.TxIn)
             {
               AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false, tx.TxStatus, tx.SubmittedAt, null, false, false);
-              CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
               n++;
             }
           }
@@ -370,25 +368,20 @@ RETURNING txExternalId;
 
       if (insertTxInputs)
       {
-        cmdText += @"
+        string condition = areUnconfirmedAncestors ? "AND TxTemp.unconfirmedAncestor = false" : "AND TxTemp.txPayload IS NULL";
+
+        cmdText += @$"
 INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
-SELECT txInternalId, n, prevTxId, prev_n
-FROM TxTemp
-WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId)
-";
-        if (areUnconfirmedAncestors)
-        {
-          cmdText += @"
-  AND unconfirmedAncestor = false
-";
-        }
-        else
-        {
-          cmdText += @"
-  AND txPayload IS NULL
-";
-        }
-        cmdText += @"
+(SELECT TxTemp.txInternalId, TxTemp.n, TxTemp.prevTxId, TxTemp.prev_n
+FROM TxTemp 
+WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId) 
+AND TxTemp.txInternalId > 0 { condition })
+ON CONFLICT (txInternalId, n) DO NOTHING;
+
+INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
+(SELECT tx1.txInternalId, TxTemp.n, TxTemp.prevTxId, TxTemp.prev_n
+FROM TxTemp 
+JOIN Tx tx1 ON TxTemp.txExternalid = tx1.txExternalid AND TxTemp.txInternalId = 0 { condition })
 ON CONFLICT (txInternalId, n) DO NOTHING;";
       }
       await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
@@ -406,6 +399,19 @@ ON CONFLICT (txInternalId, n) DO NOTHING;";
       await transaction.CommitAsync();
 
       await faultInjection.FailAfterSavingUncommittedStateAsync(faultComponent);
+
+      foreach (var tx in transactions)
+      {
+        if (insertTxInputs && (tx.DSCheck || areUnconfirmedAncestors))
+        {
+          int n = 0;
+          foreach (var txIn in tx.TxIn)
+          {
+            CachePrevOut(tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
+            n++;
+          }
+        }
+      }
 
       return inserted;
     }
@@ -484,7 +490,7 @@ ON CONFLICT(txInternalId, n) DO NOTHING
             prevTxId = txIn.PrevTxId,
             prev_n = txIn.PrevN
           });
-          CachePrevOut(txInternalId, tx.TxExternalIdBytes, isUnconfirmedAncestor ? n : txIn.N);
+          CachePrevOut(tx.TxExternalIdBytes, isUnconfirmedAncestor ? n : txIn.N);
           n++;
         }
       }
@@ -1210,7 +1216,7 @@ WHERE sentMerkleproofAt IS NULL;
 SELECT tx.txInternalId, tx.txExternalId, txinput.n
 FROM tx 
 INNER JOIN txinput ON txinput.txInternalId = tx.txInternalId
-WHERE tx.txExternalId = @prevOutTxId
+WHERE txinput.txExternalId = @prevOutTxId
 AND txinput.n = @prevOutN;
 ";
         foundPrevOut = await connection.QueryFirstOrDefaultAsync<PrevTxOutput>(cmdText, new { prevOutTxId, prevOutN });
@@ -1233,9 +1239,10 @@ AND txinput.n = @prevOutN;
         .SetSlidingExpiration(TimeSpan.FromMinutes(30));
       prevTxOutputCache.Cache.Set<PrevTxOutput>($"{HelperTools.ByteToHexString(prevTxOutput.TxExternalId)}_{prevTxOutput.N}", prevTxOutput, cacheEntryOptions);
     }
-    private void CachePrevOut(long prevOutInternalTxId, byte[] prevOutTxId, long prevOutN)
+
+    private void CachePrevOut(byte[] prevOutTxId, long prevOutN)
     {
-      CachePrevOut(new PrevTxOutput() { TxInternalId = prevOutInternalTxId, TxExternalId = prevOutTxId, N = prevOutN });
+      CachePrevOut(new PrevTxOutput() { TxExternalId = prevOutTxId, N = prevOutN });
     }
 
     public async Task<(int blocks, long txs, int mempoolTxs)> CleanUpTxAsync(DateTime lastUpdateBefore, DateTime mempoolExpiredDate)

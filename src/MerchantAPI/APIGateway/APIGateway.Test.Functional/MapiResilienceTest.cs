@@ -449,7 +449,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           PolicyQuoteId = policyQuoteId
         }
       };
-      var inserted = await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false, false);
+      var inserted = await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false, true, true);
       Assert.AreEqual(txToInsert[0].TxExternalId, new uint256(inserted[0]));
 
       // the tx in database should not be updated
@@ -468,7 +468,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
             PolicyQuoteId = policyQuoteId
           }
         };
-        inserted = await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToUpdate, false, false);
+        inserted = await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToUpdate, false, false, true);
         Assert.IsTrue(inserted.Length == 0);
         RestAuthentication = MockedIdentityBearerAuthentication;
       }
@@ -488,7 +488,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         }
       };
 
-      inserted =  await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToUpdateAfterSentNoded, false, false);
+      inserted =  await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToUpdateAfterSentNoded, false, true, true);
       Assert.IsTrue(inserted.Length == 0);
 
       var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK);
