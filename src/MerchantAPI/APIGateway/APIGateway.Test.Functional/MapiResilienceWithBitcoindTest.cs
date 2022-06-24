@@ -93,7 +93,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task SubmitTransactionsDifferentUsers(int nTxs)
     {
       // unauthorized user has limited maxscriptsizepolicy
-      SetPoliciesForCurrentFeeQuote("{\"maxscriptsizepolicy\": 105 }");
+      SetPoliciesForCurrentFeeQuote("{\"maxscriptsizepolicy\": 100 }");
       // insert new feeQuote for authorized user (without policies)
       InsertFeeQuote(MockedIdentity);
 
