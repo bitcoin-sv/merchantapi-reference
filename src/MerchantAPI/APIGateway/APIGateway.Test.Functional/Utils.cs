@@ -35,11 +35,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var adminClient = new HttpClient();
       adminClient.DefaultRequestHeaders.Add("Api-Key", authAdmin);
+      adminClient.Timeout = TimeSpan.FromMinutes(1);
+
       string nodeUrl = mapiUrl + "api/v1/Node";
       var uri = new Uri(nodeUrl);
-      Console.WriteLine($"Checking MapiUrl: (GET) node ...");
-
       var hostPort = $"{nodeHost}:{nodePort}";
+
+      Console.WriteLine($"Checking MapiUrl: (GET) node ...");
       var nodesResult = await adminClient.GetAsync(nodeUrl);
       if (!nodesResult.IsSuccessStatusCode)
       {

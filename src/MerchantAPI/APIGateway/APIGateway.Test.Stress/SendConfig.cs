@@ -113,6 +113,7 @@ be smaller than { nameof(Limit) }({ Limit }).");
 
     public CallbackConfig Callback { get; set; }
   }
+
   public class CallbackConfig : IValidatableObject
   {
     [Required]

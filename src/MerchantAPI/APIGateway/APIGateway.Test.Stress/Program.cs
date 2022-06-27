@@ -9,8 +9,6 @@ using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Mime;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.ViewModels;
@@ -22,8 +20,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using System.Diagnostics;
-using MerchantAPI.APIGateway.Domain.Models;
-using Newtonsoft.Json;
 
 namespace MerchantAPI.APIGateway.Test.Stress
 {
@@ -314,6 +310,13 @@ namespace MerchantAPI.APIGateway.Test.Stress
         // GetRawMempool after all txs are submitted
         var mempoolTxs = await measureGetRawMempoolAsync(measureRawMempoolCall);
         CsvUtils.GenerateCsvRow(mAPIversion, mempoolTxs, config, stats);
+      }
+      catch (Exception ex)
+      {
+        Console.ForegroundColor = ConsoleColor.DarkRed;
+        Console.WriteLine("Program interrupted, please check the exception below:");
+        Console.WriteLine(ex);
+        Console.ResetColor();
       }
       finally
       {
