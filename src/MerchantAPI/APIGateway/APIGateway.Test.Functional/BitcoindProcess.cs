@@ -131,7 +131,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           $"-zmqpubdiscardedfrommempool=tcp://{ZmqIp}:{zmqPort}",
           $"-invalidtxsink=ZMQ",
           $"-rpcallowip=0.0.0.0/0",
-          $"-maxmempool=10000",
+          $"-maxmempool=1000000000",
           $"-rpcthreads=100",
           $"-txnvalidationqueuesmaxmemory=5120",
           $"-minminingtxfee=0"
