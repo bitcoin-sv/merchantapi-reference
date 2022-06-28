@@ -119,7 +119,7 @@ be smaller than { nameof(Limit) }({ Limit }).");
     [Required]
     public string Url { get; set; }
 
-    public int? AddRandomNumberToHost { get; set; }
+    public int? AddRandomNumberToPort { get; set; }
 
     public string CallbackToken { get; set; }
 

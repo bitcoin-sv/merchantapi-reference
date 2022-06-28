@@ -43,17 +43,36 @@ namespace MerchantAPI.APIGateway.Test.Stress
         return 0;
       }
 
+      string[] GetAllCallbackUrls()
+      {
+        List <string> callbackUrls = new();
+        if (config.MapiConfig.Callback?.AddRandomNumberToPort == null)
+        {
+          callbackUrls.Add(config.MapiConfig.Callback.Url);
+        }
+        else
+        {
+          for (int i = 1; i < config.MapiConfig.Callback.AddRandomNumberToPort.Value + 1; i++)
+          {
+            var uri = new UriBuilder(config.MapiConfig.Callback.Url);
+            uri.Port += i;
+            callbackUrls.Add(uri.ToString());
+          }
+        }
+
+        return callbackUrls.ToArray();
+      }
 
       string GetDynamicCallbackUrl()
       {
-        if (config.MapiConfig.Callback?.AddRandomNumberToHost == null)
+        if (config.MapiConfig.Callback?.AddRandomNumberToPort == null)
         {
           return config.MapiConfig.Callback?.Url;
         }
 
         var uri = new UriBuilder(config.MapiConfig.Callback.Url);
 
-        uri.Host += rnd.Next(1, config.MapiConfig.Callback.AddRandomNumberToHost.Value + 1);
+        uri.Port += rnd.Next(1, config.MapiConfig.Callback.AddRandomNumberToPort.Value + 1);
         return uri.ToString();
       }
 
@@ -105,13 +124,18 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
 
         // Start web server if required
-        IHost webServer = null;
+        IHost[] webServers = null;
         var cancellationSource = new CancellationTokenSource();
         var cancellationBlocksSource = new CancellationTokenSource();
         if (config.MapiConfig.Callback?.StartListener == true)
         {
-          Console.WriteLine($"Starting web server for url {config.MapiConfig.Callback.Url}");
-          webServer = CallbackServer.Start(config.MapiConfig.Callback.Url, new CallbackReceived(stats, config.MapiConfig.Callback?.Hosts), cancellationSource.Token);
+          var allUrls = GetAllCallbackUrls();
+          webServers = new IHost[allUrls.Length];
+          for(int i=0; i < allUrls.Length; i++)
+          {
+            Console.WriteLine($"Starting web server for url {allUrls[i]}");
+            webServers[i] = CallbackServer.Start(allUrls[i], new CallbackReceived(stats, config.MapiConfig.Callback?.Hosts), cancellationSource.Token);
+          }
         }
 
 
@@ -303,9 +327,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
         {
         }
 
-        if (webServer != null)
+        if (webServers != null)
         {
-          await webServer.StopAsync();
+          foreach (var webServer in webServers)
+          {
+            await webServer.StopAsync();
+          }
         }
         // GetRawMempool after all txs are submitted
         var mempoolTxs = await measureGetRawMempoolAsync(measureRawMempoolCall);
@@ -313,7 +340,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
       catch (Exception ex)
       {
-        Console.ForegroundColor = ConsoleColor.DarkRed;
+        Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine("Program interrupted, please check the exception below:");
         Console.WriteLine(ex);
         Console.ResetColor();

@@ -47,7 +47,7 @@ If you want to run clearDb command you must add port mapping for merchant-gatewa
   - nodeZMQNotificationsEndpoint: Use when you need to override local node's default zmqEndpoint.
   - callback: Specify, if you want to trigger callbacks
     - url: Url that will process double spend and merkle proof notifications. When present, transactions will be submitted with MerkleProof and DsCheck set to true. Example: "http://localhost:2000/callbacks".
-    - addRandomNumberToHost: When specified, a random number between 1 and  AddRandomNumberToHost will be appended to host name specified in Url when submitting each batch of transactions. This is useful for testing callbacks toward different hosts.
+    - addRandomNumberToPort: When specified, a random number between 1 and  AddRandomNumberToPort will be appended to host port specified in Url when submitting each batch of transactions. This is useful for testing callbacks toward different hosts.
     - callbackToken: Full authorization header that mAPI should use when performing callbacks.
     - callbackEncryption: Encryption parameters used when performing callbacks.
     - startListener: Start a listener that will listen to callbacks on port specified by Url. When specified, error will be reported if not all callbacks are received.
