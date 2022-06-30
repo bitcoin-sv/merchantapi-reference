@@ -185,6 +185,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         return (false, "DSNT callback message: missing IP address count.");
       }
 
+      // TODO: probably further validation of callback message should be removed (and only validated by node)
       // VarInt, 1 byte for numbers up to 252
       var IPaddressCountLength = 1;
       var IPaddressCount = dsntCallbackMessage[2];

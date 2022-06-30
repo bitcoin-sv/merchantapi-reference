@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
+  [TestCategory("TestCategoryNo2")]
   [TestClass]
   public class DS_NodeMapiValidationTest : DS_NodeMapiTestBase
   {
