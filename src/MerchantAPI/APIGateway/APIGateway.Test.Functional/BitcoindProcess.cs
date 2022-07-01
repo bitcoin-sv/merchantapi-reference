@@ -134,7 +134,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           $"-maxmempool=10000",
           $"-rpcthreads=100",
           $"-txnvalidationqueuesmaxmemory=5120",
-          $"-blockmintxfee=0"
+          $"-minminingtxfee=0"
         }
       );
 
