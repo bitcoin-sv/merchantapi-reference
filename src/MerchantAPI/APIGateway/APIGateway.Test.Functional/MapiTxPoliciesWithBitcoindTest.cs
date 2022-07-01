@@ -3,6 +3,7 @@
 
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NBitcoin;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -74,15 +75,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [DataRow("{\"limitcpfpgroupmemberscount\": 1}")]
     [DataRow("{\"acceptnonstdoutputs\": True}")]
     [DataRow("{\"datacarrier\": 0}")]
-    [DataRow("{\"dustrelayfee\": 0.1}")]
     [DataRow("{\"maxstdtxvalidationduration\": 0}")]
     [DataRow("{\"maxnonstdtxvalidationduration\": 0}")]
     [DataRow("{\"minconsolidationfactor\": -1}")]
     [DataRow("{\"maxconsolidationinputscriptsize\": -1}")]
     [DataRow("{\"minconfconsolidationinput\": -1}")]
-    //[DataRow("{\"minconsolidationinputmaturity\": -1}")] // deprecated - this is now minconfconsolidationinput
     [DataRow("{\"acceptnonstdconsolidationinput\": 1}")]
-    [DataRow("{\"dustlimitfactor\": 301}")]
     [TestMethod]
     public async Task SubmitTransactionWithInvalidPolicy(string policy)
     {
@@ -100,10 +98,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       SetPoliciesForCurrentFeeQuote(
         "{\"maxtxsizepolicy\" : 99999, \"datacarriersize\" : 100000, \"maxscriptsizepolicy\" : 100000, " +
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
-        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
+        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
         "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
-        "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10 }");
+        "\"acceptnonstdconsolidationinput\": false }");
       var (txHex, txHash) = CreateNewTransaction();
 
       var payloadSubmit = await SubmitTransactionAsync(txHex);
@@ -130,34 +128,34 @@ namespace MerchantAPI.APIGateway.Test.Functional
       SetPoliciesForCurrentFeeQuote(
         "{\"maxtxsizepolicy\" : -1, \"datacarriersize\" : 100000, \"maxscriptsizepolicy\" : 100000, " +
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
-        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
+        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
         "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
-        "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10 }");
+        "\"acceptnonstdconsolidationinput\": false }");
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
 
       (txHex, _) = CreateNewTransaction();
-      // invalid last dustlimitfactor - second (of duplicated) value is taken
+      // invalid last acceptnonstdconsolidationinput - second (of duplicated) value is taken
       SetPoliciesForCurrentFeeQuote(
         "{\"maxtxsizepolicy\" : 99999, \"datacarriersize\" : 100000, \"maxscriptsizepolicy\" : 100000, " +
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
-        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
+        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
         "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
-        "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10, \"dustlimitfactor\": -1 }");
+        "\"acceptnonstdconsolidationinput\": false, \"acceptnonstdconsolidationinput\": 10 }");
       payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
 
       (txHex, _) = CreateNewTransaction();
-      // duplicated dustlimitfactor policy is not a problem
+      // duplicated acceptnonstdconsolidationinput policy is not a problem
       SetPoliciesForCurrentFeeQuote(
         "{\"maxtxsizepolicy\" : 99999, \"datacarriersize\" : 100000, \"maxscriptsizepolicy\" : 100000, " +
         "\"maxscriptnumlengthpolicy\" : 100000, \"maxstackmemoryusagepolicy\" : 10000000, \"limitancestorcount\": 1000," +
-        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, \"dustrelayfee\": 150, " +
+        "\"limitcpfpgroupmemberscount\": 10, \"acceptnonstdoutputs\": true, \"datacarrier\": true, " +
         "\"maxstdtxvalidationduration\": 99, \"maxnonstdtxvalidationduration\": 100, \"minconsolidationfactor\": 10, " +
         "\"maxconsolidationinputscriptsize\": 100, \"minconfconsolidationinput\": 10, " +
-        "\"acceptnonstdconsolidationinput\": false, \"dustlimitfactor\": 10, \"dustlimitfactor\": 20 }");
+        "\"acceptnonstdconsolidationinput\": false, \"acceptnonstdconsolidationinput\": false }");
       payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payloadSubmit.ReturnResult);
     }
@@ -265,17 +263,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task SubmitTransactionsWithDustRelayFeePolicy()
+    public async Task SubmitTransactionsWithLimitAncestorCount()
     {
-      SetPoliciesForCurrentFeeQuote("{\"dustrelayfee\": 10 }");
+      SetPoliciesForCurrentFeeQuote("{\"limitancestorcount\": 1 }");
 
-      var tx1 = CreateNewTransactionTx(100);
-      // consider tx2 and tx3 output to be dust (value is lower than the cost of spending it at the DustRelayFee)
-      var tx2 = CreateNewTransactionTx(1);
-      var tx3 = CreateNewTransactionTx(10);
+      // no ancestor
+      var tx1 = CreateNewTransactionTx();
+      var parentTxCoin = new Coin(tx1, 0);
+      // one ancestor
+      var (tx2Hex, tx2Id) = CreateNewTransaction(parentTxCoin, new Money(1000L));
 
-      var payloadSubmit = await SubmitTransactionsAsync(new string[] { tx1.ToHex(), tx2.ToHex(), tx3.ToHex() });
-      Assert.AreEqual(2, payloadSubmit.FailureCount);
+      var payloadSubmit = await SubmitTransactionsAsync(new string[] { tx1.ToHex(), tx2Hex });
+      Assert.AreEqual(1, payloadSubmit.FailureCount);
+      var txFailure = payloadSubmit.Txs.Single(x => x.ReturnResult == "failure");
+      Assert.AreEqual(tx2Id, txFailure.Txid);
+      Assert.AreEqual("64 too-long-mempool-chain", txFailure.ResultDescription);
     }
 
     [DataRow("{\"skipscriptflags\": [\"MINIMALDATA\"] }")]

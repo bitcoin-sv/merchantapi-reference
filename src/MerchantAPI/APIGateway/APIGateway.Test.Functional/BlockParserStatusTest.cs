@@ -299,7 +299,7 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQu
       Assert.AreEqual(firstBlockParseTime + status.LastBlockParseTime, status.BlocksParseTime);
       Assert.AreEqual( (firstBlockParseTime + status.LastBlockParseTime) / 2, status.AverageParseTime);
       Assert.IsTrue(firstBlockDownloadSpeed < status.AverageBlockDownloadSpeed);
-      Assert.AreEqual( (status.TotalBytes / Const.Megabyte) / status.BlocksDownloadTime.TotalSeconds, status.AverageBlockDownloadSpeed);
+      Assert.AreEqual( (status.TotalBytes / (double)Const.Megabyte) / status.BlocksDownloadTime.TotalSeconds, status.AverageBlockDownloadSpeed);
     }
   }
 }
