@@ -58,7 +58,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
-      // Add PROTOCOL_ID •	32-bit identifier for Double Spend Notifications: 0x64736e74 “dsnt” (in this byte order)
+      // PROTOCOL_ID: 32-bit identifier for Double Spend Notifications: 0x64736e74 "dsnt" (in this byte order)
       script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
       // The following hex data '01017f0000010100' is in accordance with specs where:
       // 1st byte (0x01) is version number
@@ -124,7 +124,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return tx1;
     }
 
-    protected async Task<SubmitTransactionsResponseViewModel> SubmitTransactions(string[] txHexList, bool dsCheck = true)
+    protected async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = true)
     {
       // Send transaction
 
@@ -136,88 +136,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
         await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, HttpStatusCode.OK);
 
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
-    }
-
-    /// <summary>
-    /// Validate DSNT callback message. NOTE: only works for IPaddressCount and inputCount smaller than 252.
-    /// </summary>
-    /// <param name="output">output</param>
-    /// <param name="numOfInputs">number of tx inputs</param>
-    protected static (bool valid, string warning) ValidateDsntCallbackMessage(TxOut output, int numOfInputs)
-    {
-      var ops = output.ScriptPubKey.ToOps().ToArray();
-      if (ops.Length < 4)
-      {
-        return (false, "Missing DSNT callback message.");
-      }
-      var dsntCallbackMessage = ops.Last().ToBytes();
-
-      // check version field
-      // Bit 7 = 0 for IPv4, 1 for IPv6
-      // Bit 6 = 0, reserved
-      // Bit 5 = 0, reserved
-      // Bits 4 - 0 = dsnt protocol version(currently 1, max 31)
-
-      if (dsntCallbackMessage.Length < 1) // pushop + version byte
-      {
-        return (false, "DSNT callback message: missing version field.");
-      }
-      var versionByte = dsntCallbackMessage[1];
-
-      var version = GetBitValue(versionByte, 0) +
-                    GetBitValue(versionByte, 1) +
-                    GetBitValue(versionByte, 2) +
-                    GetBitValue(versionByte, 3) +
-                    GetBitValue(versionByte, 4);
-      if (version == 0 ||
-          version > 31 ||
-          // bit 5 & 6 must be zero (reserved)
-          GetBitValue(versionByte, 5) != 0 ||
-          GetBitValue(versionByte, 6) != 0)
-      {
-        return (false, "DSNT callback message: invalid version field.");
-      }
-
-      bool isIPv4 = GetBitValue(versionByte, 7) == 0;
-
-      if (dsntCallbackMessage.Length < 3)
-      {
-        return (false, "DSNT callback message: missing IP address count.");
-      }
-
-      // TODO: probably further validation of callback message should be removed (and only validated by node)
-      // VarInt, 1 byte for numbers up to 252
-      var IPaddressCountLength = 1;
-      var IPaddressCount = dsntCallbackMessage[2];
-      if (IPaddressCount == 0)
-      {
-        return (false, "DSNT callback message: IP address count of 0 is not allowed.");
-      }
-      var IPaddressLength = isIPv4 ? (IPaddressCount * 4) : (IPaddressCount * 16);
-      if (dsntCallbackMessage.Length - 3 < IPaddressLength)
-      {
-        return (false, "DSNT callback message: missing/bad IP address.");
-      }
-
-      if (dsntCallbackMessage.Length < 2 + IPaddressCountLength + IPaddressLength + 1)
-      {
-        return (false, "DSNT callback message: missing input count.");
-      }
-      var inputCount = dsntCallbackMessage[2 + IPaddressCountLength + IPaddressLength];
-      if (inputCount > numOfInputs)
-      {
-        return (false, "DSNT callback message: invalid input count.");
-      }
-      if (inputCount == 0 && dsntCallbackMessage.Length > 2 + IPaddressCountLength + IPaddressLength + 1)
-      {
-        return (false, "DSNT callback message: invalid inputs.");
-      }
-      return (true, null);
-    }
-    static int GetBitValue(byte b, int bitNumber)
-    {
-      var bit = (b & (1 << bitNumber));
-      return bit;
     }
   }
 }

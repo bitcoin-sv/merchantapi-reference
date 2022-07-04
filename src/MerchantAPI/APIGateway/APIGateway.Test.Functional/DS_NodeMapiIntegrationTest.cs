@@ -40,10 +40,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestCleanup]
     public override void TestCleanup()
     {
-      if (mapiHost != null)
-      {
-        StopMAPI().Wait();
-      }
       base.TestCleanup();
       if (mapiHost != null)
       {
@@ -164,7 +160,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx1Id = tx1.GetHash().ToString();
 
       loggerTest.LogInformation($"Submiting {tx1Id} with dsCheck enabled");
-      var payload = await SubmitTransactions(new string[] { tx1Hex });
+      var payload = await SubmitTransactionsAsync(new string[] { tx1Hex });
       Assert.AreEqual(0, payload.FailureCount);
 
       if (sendToNode1)
@@ -233,7 +229,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx1Id = tx1.GetHash().ToString();
 
       loggerTest.LogInformation($"Submiting {tx1Id} with doublespend notification enabled");
-      var payload = await SubmitTransactions(new string[] { tx1Hex });
+      var payload = await SubmitTransactionsAsync(new string[] { tx1Hex });
 
       // Wait for tx to be propagated to all nodes before submiting a doublespend tx to nodes
       List<Task> mempoolTasks = new();
@@ -299,72 +295,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task SubmitTxWithMissingCallbackMessage()
-    {
-      StartupNode1AndLiveMAPI();
-
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-
-      var coin = availableCoins.Dequeue();
-      var tx1 = CreateDS_Tx(coin, script);
-
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, string warning) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsFalse(valid);
-      Assert.AreEqual("Missing DSNT callback message.", warning);
-
-      await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidVersion()
-    {
-      StartupNode1AndLiveMAPI();
-
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-
-      string dsData = $"ff017f000001{0:D2}"; // ff - reserved bits in version fields should be zero, but are not
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var coin = availableCoins.Dequeue();
-      var tx1 = CreateDS_Tx(coin, script);
-
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, string warning) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsFalse(valid);
-      Assert.AreEqual("DSNT callback message: invalid version field.", warning);
-
-      await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidZeroIPAddressCount()
-    {
-      StartupNode1AndLiveMAPI();
-
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-
-      string dsData = $"01007f000001{0:D2}"; // IP address count = 0
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var coin = availableCoins.Dequeue();
-      var tx1 = CreateDS_Tx(coin, script);
-
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, string warning) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsFalse(valid);
-      Assert.AreEqual("DSNT callback message: IP address count of 0 is not allowed.", warning);
-
-      await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-    }
-
-    [TestMethod]
     public async Task SubmitTxWithInvalidIPAddressCount()
     {
       StartupNode1AndLiveMAPI();
@@ -378,132 +308,24 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var coin = availableCoins.Dequeue();
       var tx1 = CreateDS_Tx(coin, script);
 
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, string warning) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsFalse(valid);
-      Assert.AreEqual("DSNT callback message: missing/bad IP address.", warning);
-
       await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
     }
 
     [TestMethod]
-    public async Task SubmitTxWithOneValidIPAddress()
+    public async Task SubmitTxWithOnlyOneValidIPAddress()
     {
       StartupNode1AndLiveMAPI();
 
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
       script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-      string dsData = $"01027f0000017f000002{0:D2}"; // IP address count = 2
+      string dsData = $"01027f0000027f000001{0:D2}"; // IP address count = 2
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
 
       var coin = availableCoins.Dequeue();
       var tx1 = CreateDS_Tx(coin, script);
-
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, _) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsTrue(valid);
 
       await CheckDsNotifications(tx1, coin, 1, sendToNode1: true);
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidIPv6Address()
-    {
-      StartupNode1AndLiveMAPI();
-
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-      string dsData = $"81037f0000017f000001{0:D2}";
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var coin = availableCoins.Dequeue();
-      var tx1 = CreateDS_Tx(coin, script);
-
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, string warning) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsFalse(valid);
-      Assert.AreEqual("DSNT callback message: missing/bad IP address.", warning);
-
-      await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-    }
-
-    [DataRow("7f000001", "7f000002", 1)]
-    [DataRow("7f000002", "7f000001", 0)]
-    [TestMethod]
-    public async Task SubmitTxWithMultipleDsntOutputs(string ipAddress1, string ipAddress2, int expectedDSNotifications)
-    {
-      // If multiple DSNT outputs, the node only attempts to process the first DSNT output (lowest index) 
-      // 7f000001 - localhost is reachable, 7f000002 is not
-      StartupNode1AndLiveMAPI();
-
-      var script1 = new Script(OpcodeType.OP_FALSE);
-      script1 += OpcodeType.OP_RETURN;
-      script1 += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-      string dsData = $"0101{ipAddress1}{0:D2}";
-      script1 += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var script2 = new Script(OpcodeType.OP_FALSE);
-      script2 += OpcodeType.OP_RETURN;
-      script2 += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-      string dsData2 = $"0101{ipAddress2}{0:D2}";
-      script2 += Op.GetPushOp(Encoders.Hex.DecodeData(dsData2));
-
-      var coin = availableCoins.Dequeue();
-      var tx1 = CreateDS_Tx(new Coin[] { coin }, new Script[] { script1, script2 });
-
-      Assert.AreEqual(3, tx1.Outputs.Count);
-      (bool valid, _) = ValidateDsntCallbackMessage(tx1.Outputs[1], tx1.Inputs.Count);
-      Assert.IsTrue(valid);
-      (valid, _) = ValidateDsntCallbackMessage(tx1.Outputs[2], tx1.Inputs.Count);
-      Assert.IsTrue(valid);
-
-      await CheckDsNotifications(tx1, coin, expectedDSNotifications, sendToNode1: true);
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithMissingInputCount()
-    {
-      StartupNode1AndLiveMAPI();
-
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-      string dsData = $"01017f000001";
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var coin = availableCoins.Dequeue();
-      var tx1 = CreateDS_Tx(coin, script);
-
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, string warning) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsFalse(valid);
-      Assert.AreEqual("DSNT callback message: missing input count.", warning);
-
-      await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
-    }
-
-    [TestMethod]
-    public async Task SubmitTxWithInvalidInputCount()
-    {
-      StartupNode1AndLiveMAPI();
-
-      var script = new Script(OpcodeType.OP_FALSE);
-      script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
-      string dsData = $"01017f000001{2:D2}";
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
-
-      var coin = availableCoins.Dequeue();
-      var tx1 = CreateDS_Tx(coin, script);
-
-      var dsntOutput = tx1.Outputs.Last();
-      (bool valid, string warning) = ValidateDsntCallbackMessage(dsntOutput, tx1.Inputs.Count);
-      Assert.IsFalse(valid);
-      Assert.AreEqual("DSNT callback message: invalid input count.", warning);
-
-      await CheckDsNotifications(tx1, coin, 0, sendToNode1: true);
     }
   }
 }

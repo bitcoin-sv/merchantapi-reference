@@ -293,7 +293,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       Money sumNewOutputs = Money.Zero;
       long dataBytes = 0;
-      TxOut dsntOutput = null;
+      bool dsntOutput = false;
       foreach (var output in transaction.Outputs)
       {
         sumNewOutputs += output.Value;
@@ -308,19 +308,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           dataBytes += output.ScriptPubKey.Length;
           if (dsCheck && IsDsntOutput(scriptBytes))
           {
-            if (dsntOutput == null)
-            {
-              dsntOutput = output;
-            }
-            else
-            {
-              warnings = new string[] { "There should only be one DSNT output in a transaction. The node only attempts to process the first DSNT output (lowest index)." };
-            }
+            dsntOutput = true;
           }
         }
       }
 
-      if (dsCheck && dsntOutput == null)
+      if (dsCheck && !dsntOutput)
       {
         warnings = new string[] { "Missing DSNT output." };
       }
