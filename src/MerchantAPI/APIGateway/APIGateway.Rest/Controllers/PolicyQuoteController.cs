@@ -23,10 +23,9 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     public PolicyQuoteController(
       ILogger<FeeQuoteController> logger,
       IFeeQuoteRepository feeQuoteRepository,
-      ITxRepository txRepository,
       IClock clock,
       IOptions<AppSettings> options
-      ) : base(logger, feeQuoteRepository, txRepository, clock, options)
+      ) : base(logger, feeQuoteRepository, clock, options)
     {
 
     }
