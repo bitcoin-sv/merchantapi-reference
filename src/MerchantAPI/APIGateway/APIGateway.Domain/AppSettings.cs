@@ -141,8 +141,8 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(1, int.MaxValue)]
     public int? MempoolCheckerUnsuccessfulIntervalSec { get; set; } = 10;
 
-    [Range(1, int.MaxValue)]
-    public int? MempoolCheckerBlockParserQueuedMax { get; set; } = 1;
+    [Range(0, int.MaxValue)]
+    public int? MempoolCheckerBlockParserQueuedMax { get; set; } = 0;
 
     [Range(0, int.MaxValue)]
     public int? MempoolCheckerMissingInputsRetries { get; set; } = 5;
