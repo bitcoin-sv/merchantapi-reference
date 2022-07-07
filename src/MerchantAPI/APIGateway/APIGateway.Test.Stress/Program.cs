@@ -181,7 +181,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           int incrementStep = config.GetRawMempoolEveryNTxs;
           long goal = incrementStep;
           Stopwatch sw = new();
-          while (goal <= config.Limit)
+          while (!transactions.LimitReached)
           {
             if (transactions.ReturnedCount >= goal)
             {

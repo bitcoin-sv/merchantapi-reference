@@ -14,7 +14,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
     public int BatchSize { get; set; }
     public int Threads { get; set; }
     public bool DoCallbacks { get; set; }
-    public string OKSubmitted { get; set; }
+    public long OKSubmitted { get; set; }
+    public long OKAlreadyKnown { get; set; }
     public long RequestErrors { get; set; }
     public long RequestTxFailures { get; set; }
     public long Throughput { get; set; }
@@ -36,7 +37,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
       DoCallbacks = doCallbacks;
       GetRawMempoolEveryNTxs = getRawMempoolEveryNTxs;
       MempoolTxsAtEnd = mempoolTxs;
-      OKSubmitted = $"{stats.OKSubmitted} (already known: {stats.OKAlreadyKnown})";
+      OKSubmitted = stats.OKSubmitted;
+      OKAlreadyKnown = stats.OKAlreadyKnown;
       RequestErrors = stats.RequestErrors;
       RequestTxFailures = stats.RequestTxFailures;
       Throughput = stats.Throughput;

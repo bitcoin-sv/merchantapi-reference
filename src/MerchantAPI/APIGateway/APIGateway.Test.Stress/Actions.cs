@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
       else
       {
-        ub.Query = ub.Query[1..] + "&" + queryString; // remove leading ?  it is added back automatically
+        ub.Query = ub.Query + "&" + queryString; // see https://docs.microsoft.com/en-us/dotnet/api/system.uribuilder.query
       }
 
       string urlWithParams = ub.Uri.ToString();

@@ -119,7 +119,10 @@ namespace MerchantAPI.APIGateway.Test.Stress
         {
           var hostPortArray = nodeHost.Split(':');
           host = hostPortArray[0];
-          port = int.Parse(hostPortArray[1]);
+          if (!int.TryParse(hostPortArray[1], out port))
+          {
+            throw new ArgumentException("Invalid nodeHost - must be specified as 'ip' or 'ip:port'.");
+          }
         }
         else
         {

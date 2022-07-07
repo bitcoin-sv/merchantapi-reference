@@ -153,11 +153,7 @@ namespace MerchantAPI.APIGateway.Test.SmokeTest
 
           var responseAsString = await response.Content.ReadAsStringAsync();
 
-          if (!response.IsSuccessStatusCode)
-          {
-            Console.WriteLine($"Error while submitting transaction request {responseAsString}");
-          }
-          else
+          if (response.IsSuccessStatusCode)
           {
             var rEnvelope = HelperTools.JSONDeserialize<SignedPayloadViewModel>(responseAsString);
             var res = HelperTools.JSONDeserialize<SubmitTransactionResponseViewModel>(rEnvelope.Payload);
@@ -170,6 +166,10 @@ namespace MerchantAPI.APIGateway.Test.SmokeTest
             {
               Console.WriteLine($"{res.Txid}:{res.ReturnResult} => {res.ResultDescription}");
             }
+          }
+          else
+          {
+            Console.WriteLine($"Error while submitting transaction request {responseAsString}");
           }
         }
       }
@@ -191,11 +191,7 @@ namespace MerchantAPI.APIGateway.Test.SmokeTest
 
           var responseAsString = await response.Content.ReadAsStringAsync();
 
-          if (!response.IsSuccessStatusCode)
-          {
-            Console.WriteLine($"Error while submitting transaction request {responseAsString}");
-          }
-          else
+          if (response.IsSuccessStatusCode)
           {
             var rEnvelope = HelperTools.JSONDeserialize<SignedPayloadViewModel>(responseAsString);
             var r = HelperTools.JSONDeserialize<SubmitTransactionsResponseViewModel>(rEnvelope.Payload);
@@ -211,6 +207,10 @@ namespace MerchantAPI.APIGateway.Test.SmokeTest
                 Console.WriteLine($"{res.Txid}:{res.ReturnResult} => {res.ResultDescription}");
               }
             }
+          }
+          else
+          {
+            Console.WriteLine($"Error while submitting transaction request {responseAsString}");
           }
           requests = requests.Skip(batchSize);
         }
