@@ -230,6 +230,51 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(NodeRejectCode.ResultAlreadyKnown, tx1_payload2.ResultDescription);
     }
 
+    [DataRow(Faults.FaultType.DbBeforeSavingUncommittedState)]
+    [DataRow(Faults.FaultType.DbAfterSavingUncommittedState)]
+    [TestMethod]
+    public async Task ResubmitSameTransactionAfterBlockWasMined(Faults.FaultType dbFaultType)
+    {
+      InsertFeeQuote(MockedIdentity);
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      var (txHexAuth, txHashAuth) = CreateNewTransaction();
+      var (txHexAnonymous, txHashAnonymous) = CreateNewTransaction();
+
+      mapiMock.SimulateDbFault(dbFaultType, Faults.DbFaultComponent.MapiAfterSendToNode);
+
+      RestAuthentication = MockedIdentityBearerAuthentication;
+      var payloadSubmit = await SubmitTransactionAsync(txHexAuth, expectedHttpStatusCode: System.Net.HttpStatusCode.InternalServerError);
+      Assert.IsNull(payloadSubmit);
+
+      RestAuthentication = null;
+      payloadSubmit = await SubmitTransactionAsync(txHexAnonymous, expectedHttpStatusCode: System.Net.HttpStatusCode.InternalServerError);
+      Assert.IsNull(payloadSubmit);
+      mapiMock.ClearMode();
+
+      // check txs were accepted to mempool and mine block with them
+      var mempoolTxs = await RpcMultiClient.GetRawMempool(cts.Token);
+      Assert.IsTrue(mempoolTxs.Contains(txHashAuth));
+      Assert.IsTrue(mempoolTxs.Contains(txHashAnonymous));
+
+      await GenerateBlockAndWaitForItToBeInsertedInDBAsync();
+
+      RestAuthentication = MockedIdentityBearerAuthentication;
+      payloadSubmit = await SubmitTransactionAsync(txHexAuth);
+      Assert.AreEqual("success", payloadSubmit.ReturnResult);
+
+      RestAuthentication = null;
+      payloadSubmit = await SubmitTransactionAsync(txHexAnonymous);
+      if (dbFaultType == Faults.FaultType.DbBeforeSavingUncommittedState)
+      {
+        Assert.AreEqual("failure", payloadSubmit.ReturnResult);
+      }
+      else
+      {
+        Assert.AreEqual("success", payloadSubmit.ReturnResult);
+      }
+    }
+
     private async Task ResubmitKnownTransactionsMultipleTimesAsync(bool resubmitToNode, int txsInBatch)
     {
       //make additional coins
