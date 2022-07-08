@@ -292,7 +292,7 @@ CREATE TEMPORARY TABLE TxTemp (
 		prevTxId			  BYTEA,
 		prev_n				  BIGINT,
     unconfirmedAncestor BOOLEAN,
-    txstatus SMALLINT,
+    txstatus SMALLINT NOT NULL,
     submittedAt TIMESTAMP,
     policyQuoteId BIGINT,
     okToMine BOOLEAN,
