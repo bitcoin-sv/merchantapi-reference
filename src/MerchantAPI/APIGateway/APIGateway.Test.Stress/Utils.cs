@@ -3,6 +3,7 @@
 
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Rest.ViewModels.Faults;
 using MerchantAPI.APIGateway.Test.Functional;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -182,6 +183,66 @@ namespace MerchantAPI.APIGateway.Test.Stress
           throw new Exception(
   $"Unable to create new {feeQuote}. Error: {newFeeQuoteResult.StatusCode} { await newFeeQuoteResult.Content.ReadAsStringAsync() }");
         }
+      }
+    }
+
+    public static async Task CheckFaultsAsync(string jsonFile, string mapiUrl, string authAdmin)
+    {
+      if (string.IsNullOrEmpty(jsonFile))
+      {
+        return;
+      }
+      await ClearAllFaultsAsync(jsonFile, mapiUrl, authAdmin);
+
+      string jsonData = File.ReadAllText(jsonFile);
+      // check json
+      List<FaultTriggerViewModelCreate> faults = JsonConvert.DeserializeObject<List<FaultTriggerViewModelCreate>>(jsonData);
+
+      var adminClient = new HttpClient();
+      adminClient.DefaultRequestHeaders.Add("Api-Key", authAdmin);
+      mapiUrl += "test/v1/Fault";
+
+      var uri = new Uri(mapiUrl);
+      foreach (var postFault in faults)
+      {
+        var newFeeQuoteContent = new StringContent(HelperTools.JSONSerialize(postFault, true),
+          new UTF8Encoding(false), MediaTypeNames.Application.Json);
+        var newFaultResult = await adminClient.PostAsync(uri, newFeeQuoteContent);
+
+        if (newFaultResult.IsSuccessStatusCode)
+        {
+          Console.WriteLine($"Fault with id '{ postFault.Id }' successfully added.");
+        }
+        else
+        {
+          throw new Exception(
+  $"Unable to create new {postFault}. Error: {newFaultResult.StatusCode} { await newFaultResult.Content.ReadAsStringAsync() }");
+        }
+      }
+    }
+
+    public static async Task ClearAllFaultsAsync(string jsonFile, string mapiUrl, string authAdmin)
+    {
+      if (string.IsNullOrEmpty(jsonFile))
+      {
+        return;
+      }
+
+      var adminClient = new HttpClient();
+      adminClient.DefaultRequestHeaders.Add("Api-Key", authAdmin);
+      mapiUrl += "test/v1/Fault/clearall";
+
+      var uri = new Uri(mapiUrl);
+      var clearFaultsResult = await adminClient.PostAsync(uri, null);
+
+      if (clearFaultsResult.IsSuccessStatusCode)
+      {
+        Console.WriteLine($"Faults successfully cleared.");
+      }
+      else
+      {
+        throw new Exception(
+$"Unable to clear faults. Error: {clearFaultsResult.StatusCode} { await clearFaultsResult.Content.ReadAsStringAsync() }");
       }
     }
   }

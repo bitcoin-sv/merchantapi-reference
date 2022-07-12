@@ -26,7 +26,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
   class Program
   {
-    private const string VERSION = "1.0.2";
+    private const string VERSION = "1.0.3";
 
     static readonly Random rnd = new();
     static async Task<int> SendTransactions(string configFileName, IHttpClientFactory httpClientFactory)
@@ -101,6 +101,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
         await Utils.CheckFeeQuotesAsync(config.MapiConfig.AddFeeQuotesFromJsonFile, config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization);
 
+        await Utils.CheckFaultsAsync(config.MapiConfig.TestResilience?.AddFaultsFromJsonFile, config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization);
+
         string mAPIversion = "";
         try
         {
@@ -120,8 +122,15 @@ namespace MerchantAPI.APIGateway.Test.Stress
           throw new Exception($"Can not connect to mAPI {config.MapiConfig.MapiUrl}. Check if parameters are correct. Error {e.Message}", e);
         }
 
-        var stats = new Stats();
+        long missingTransactionsCountAtStart = 0;
+        if (config.MapiConfig.TestResilience?.DBConnectionString != null)
+        {
+          // test DBConnectionString
+          (var missingAtStart, _) = await Actions.GetMissingTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false));
+          missingTransactionsCountAtStart = missingAtStart.Length;
+        }
 
+        var stats = new Stats();
 
         // Start web server if required
         IHost[] webServers = null;
@@ -163,7 +172,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           }
         }
 
-        async Task<int> measureGetRawMempoolAsync(bool generateCsvMempoolRow = true)
+        async Task<string[]> measureGetRawMempoolAsync(bool generateCsvMempoolRow = true)
         {
           Stopwatch sw = Stopwatch.StartNew();
           var txsSubmitted = transactions.ReturnedCount;
@@ -173,7 +182,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
           {
             CsvUtils.GenerateMempoolCsvRow(txsSubmitted, mempool.Length, sw.Elapsed);
           }
-          return mempool.Length;
+          return mempool;
         }
 
         async Task MempoolCheckTask(CancellationToken cancellationToken)
@@ -336,14 +345,80 @@ namespace MerchantAPI.APIGateway.Test.Stress
         }
         // GetRawMempool after all txs are submitted
         var mempoolTxs = await measureGetRawMempoolAsync(measureRawMempoolCall);
-        CsvUtils.GenerateCsvRow(mAPIversion, mempoolTxs, config, stats);
+        CsvUtils.GenerateCsvRow(mAPIversion, mempoolTxs.Length, config, stats);
+
+        if (stats.RequestErrors > 0)
+        {
+          Console.WriteLine($"There were request errors with code 500 present. It is possible, that some transactions are in node's mempool, but not in DB.");
+          await measureGetRawMempoolAsync(false);
+        }
+
+        if (config.MapiConfig.TestResilience?.DBConnectionString != null)
+        {
+          int countNoDiff = 0;
+          var txsCount = await Actions.GetAllSuccessfulTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString);
+          Actions.PrintToConsoleWithColor(
+            $"All transactions in database, that should be in mempool or blockchain: { txsCount }.",
+            ConsoleColor.Yellow);
+          long missing = (await Actions.GetMissingTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false))).missingTxs.Length;
+          while (missing > 0 && countNoDiff < 10)
+          {
+            await Task.Delay(1500);
+            // Wait for resubmit of missing transactions
+            (var missingTxs, _) = await Actions.GetMissingTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false));
+            countNoDiff = (missingTxs.Length >= missing) ? ++countNoDiff : 0;
+            missing = missingTxs.Length;
+          }
+          if (missing == 0)
+          {
+            Console.WriteLine($"Mempool checker sucessfully finished (or nothing was missing).");
+          }
+          else
+          {
+            Actions.PrintToConsoleWithColor(
+              $@"There is a problem with resubmit. Please check that mempoolChecker is enabled and MempoolCheckerIntervalSec is 10 or less.{Environment.NewLine}
+Also check that blocks parsing is enabled and that bitcoind's maxmempool setting is not too low.",
+              ConsoleColor.Yellow);
+          }
+        }
+
+        if (config.MapiConfig.TestResilience?.ResubmitWithoutFaults == true)
+        {
+          Console.WriteLine("Test resubmit without faults:");
+          await Utils.ClearAllFaultsAsync(config.MapiConfig.TestResilience?.AddFaultsFromJsonFile, config.MapiConfig.MapiUrl, config.BitcoindConfig.MapiAdminAuthorization);
+
+          stats = new Stats();
+          var cancellationSourceResubmit = new CancellationTokenSource();
+          // resubmit all (check for duplicates is fast, so it doesn't take that long as the first time)
+          transactions = new TransactionReader(config.Filename, config.TxIndex, config.Skip, config.Limit ?? long.MaxValue);
+          var progressTaskResubmit = Task.Run(() => PrintProgress(cancellationSourceResubmit.Token), cancellationSourceResubmit.Token);
+
+          RunSubmitThreads();
+          stats.StopTiming();
+
+          // Cancel progress task
+          cancellationSourceResubmit.Cancel(false);
+          try
+          {
+            progressTaskResubmit.Wait();
+          }
+          catch
+          {
+          }
+          // GetRawMempool after all txs are resubmitted
+          mempoolTxs = await measureGetRawMempoolAsync(false);
+          CsvUtils.GenerateCsvRow(mAPIversion, mempoolTxs.Length, config, stats);
+          var txsCount = await Actions.GetAllSuccessfulTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString);
+          Actions.PrintToConsoleWithColor(
+            $"All transactions that are marked as successful in DB: { txsCount }. All transactions submitted: {transactions.ReturnedCount}",
+            txsCount == transactions.ReturnedCount ? ConsoleColor.Green : ConsoleColor.Yellow);
+        }
       }
       catch (Exception ex)
       {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine("Program interrupted, please check the exception below:");
-        Console.WriteLine(ex);
-        Console.ResetColor();
+        Actions.PrintToConsoleWithColor(
+          $"Program interrupted, please check the exception below: { Environment.NewLine }{ ex }",
+          ConsoleColor.Red);
       }
       finally
       {

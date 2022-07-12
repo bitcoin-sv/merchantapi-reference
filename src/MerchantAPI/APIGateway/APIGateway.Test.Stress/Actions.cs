@@ -1,6 +1,9 @@
 ﻿// Copyright(c) 2022 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using Dapper;
+using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.ViewModels;
@@ -153,16 +156,49 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
     }
 
-    public static async Task CleanUpTxHandler(string mapiDBConnectionString)
+    public static async Task<long> GetAllSuccessfulTransactionsAsync(string mapiDBConnectionString)
+    {
+      using var connection = new NpgsqlConnection(mapiDBConnectionString);
+      RetryUtils.Exec(() => connection.Open());
+
+      string cmdText = @$"SELECT COUNT(*) FROM Tx WHERE txstatus = {TxStatus.Accepted}";
+
+      var txsCount = await connection.QuerySingleAsync<long>(cmdText);
+
+      return txsCount;
+    }
+
+    public static async Task<(Tx[] missingTxs, TimeSpan elapsedTime)> GetMissingTransactionsAsync(string mapiDBConnectionString, string[] mempoolTxs)
     {
       var watch = Stopwatch.StartNew();
       using var connection = new NpgsqlConnection(mapiDBConnectionString);
       RetryUtils.Exec(() => connection.Open());
 
+      Console.WriteLine($"There is {mempoolTxs.Length} transactions present in mempool.");
+      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(connection, mempoolTxs, DateTime.MaxValue);
+
+      watch.Stop();
+      Console.WriteLine($"Number of transactions, that are missing in mempool: {txs.Length}. DB query took: {watch.Elapsed}.");
+      return (txs, watch.Elapsed);
+    }
+
+    public static async Task CleanUpTxHandler(string mapiDBConnectionStringDDL)
+    {
+      var watch = Stopwatch.StartNew();
+      using var connection = new NpgsqlConnection(mapiDBConnectionStringDDL);
+      RetryUtils.Exec(() => connection.Open());
+
       (int blocks, long txs, int mempoolTxs) = await TxRepositoryPostgres.CleanUpTxAsync(connection, DateTime.MaxValue, DateTime.MaxValue, null);
 
       watch.Stop();
-      Console.WriteLine($"CleanUpTxHandler: deleted {blocks} blocks, {txs} txs, {mempoolTxs} mempool txs. Elapsed: {watch.Elapsed}.");
+      Console.WriteLine($"CleanUpTxHandler: deleted {blocks} blocks, {txs} txs, {mempoolTxs} mempool/blockchain txs. Elapsed: {watch.Elapsed}.");
+    }
+
+    public static void PrintToConsoleWithColor(string text, ConsoleColor color)
+    {
+      Console.ForegroundColor = color;
+      Console.WriteLine(text);
+      Console.ResetColor();
     }
   }
 }
