@@ -64,7 +64,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task NodeWarningsBitcoindSettings()
     {
       // test default settings
-      var (_, _, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      var (valid, error, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      Assert.IsTrue(valid);
+      Assert.IsNull(error);
       Assert.IsTrue(warnings.Length == 0);
 
       var defaultParams = new RpcDumpParameters();
@@ -82,13 +84,25 @@ namespace MerchantAPI.APIGateway.Test.Functional
         "-rpcservertimeout=0",
         "-mempoolexpiry=300"
       };
-      StartBitcoindWithZmq(0,  argumentList: args);
+      node0 = StartBitcoindWithZmq(0, argumentList: args);
 
       var parametersChanged = await rpcClient0.DumpParametersAsync();
       Assert.AreNotEqual(parameters.RpcServerTimeout, parametersChanged.RpcServerTimeout);
       Assert.AreNotEqual(parameters.MempoolExpiry, parametersChanged.MempoolExpiry);
       (_, _, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
       Assert.IsTrue(warnings.Length == 2);
+
+      StopBitcoind(node0);
+      // test invalid rpcservertimeout
+      args = new List<string>
+      {
+        "-rpcservertimeout=abc"
+      };
+      StartBitcoindWithZmq(0, argumentList: args);
+      (valid, error, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      Assert.IsFalse(valid);
+      Assert.AreEqual("Invalid bitcoind parameters set - check values in RPC dumpparameters.", error);
+      Assert.IsTrue(warnings.Length == 0);
     }
 
     [TestMethod]
