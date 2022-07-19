@@ -15,6 +15,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.Extensions.Options;
 
 namespace MerchantAPI.Common.Test
 {
@@ -166,6 +167,9 @@ namespace MerchantAPI.Common.Test
           overridenSettings.ToList().ForEach(setting => Configuration[setting.Key] = setting.Value);
           AppSettings = Configuration.GetSection("AppSettings").Get<TAppSettings>();
         }
+        // validate must be called so that optional settings are initialized (such as RpcClient)
+        IValidateOptions<TAppSettings> validator = server.Services.GetRequiredService<IValidateOptions<TAppSettings>>();
+        validator.Validate(null, AppSettings);
 
         Client = server.CreateClient();
 

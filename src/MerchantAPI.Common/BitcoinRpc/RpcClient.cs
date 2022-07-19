@@ -206,6 +206,12 @@ namespace MerchantAPI.Common.BitcoinRpc
       }
     }
 
+    public async Task<RpcDumpParameters> DumpParametersAsync(CancellationToken? token = null)
+    {
+      var dumpparameters = await RequestAsyncWithRetry<string[]>(token, "dumpparameters");
+      return new RpcDumpParameters(dumpparameters);
+    }
+
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
     {
       var param = outpoints.Select(
