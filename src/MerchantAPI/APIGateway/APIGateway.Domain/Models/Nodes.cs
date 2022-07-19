@@ -151,7 +151,17 @@ namespace MerchantAPI.APIGateway.Domain.Models
       {
         var requestTimeoutSec = appSettings.RpcClient.RequestTimeoutSec;
         var cleanUpTxAfterMempoolExpiredDays = appSettings.CleanUpTxAfterMempoolExpiredDays;
-        var parameters = await bitcoind.DumpParametersAsync();
+        RpcDumpParameters parameters;
+        try
+        {
+          parameters = await bitcoind.DumpParametersAsync();
+        }
+        catch (FormatException)
+        {
+          // bitcoind can validate parameter on startup or later or simply ignore them
+          return (false, "Invalid bitcoind parameters set - check values in RPC dumpparameters.", warnings.ToArray());
+        }
+
         if (parameters.RpcServerTimeout == 0)
         {
           warnings.Add($"Bitcoind's config RpcServerTimeout is set to 0 (no timeout), but RequestTimeoutSec is {requestTimeoutSec}.");
