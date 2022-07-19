@@ -26,7 +26,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     readonly ILogger<Nodes> logger;
     readonly IClock clock;
     readonly IZMQEndpointChecker ZMQEndpointChecker;
-    readonly RpcClientSettings rpcClientSettings;
+    readonly AppSettings appSettings;
 
     public Nodes(INodeRepository nodeRepository,
       IEventBus eventBus,
@@ -43,7 +43,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       this.ZMQEndpointChecker = ZMQEndpointChecker ?? throw new ArgumentNullException(nameof(ZMQEndpointChecker));
-      rpcClientSettings = options.Value.RpcClient;
+      appSettings = options.Value;
     }
 
     private async Task ValidateNode(Node node, bool isUpdate = false)
@@ -54,18 +54,22 @@ namespace MerchantAPI.APIGateway.Domain.Models
         node.Port,
         node.Username,
         node.Password,
-        rpcClientSettings.RequestTimeoutSec.Value,
-        rpcClientSettings.MultiRequestTimeoutSec.Value,
-        rpcClientSettings.NumOfRetries.Value,
-        rpcClientSettings.WaitBetweenRetriesMs.Value);
+        appSettings.RpcClient.RequestTimeoutSec.Value,
+        appSettings.RpcClient.MultiRequestTimeoutSec.Value,
+        appSettings.RpcClient.NumOfRetries.Value,
+        appSettings.RpcClient.WaitBetweenRetriesMs.Value);
       try
       {
         // try to call some method to test if connectivity parameters are correct
-        var networkInfo = await bitcoind.GetNetworkInfoAsync(retry: true);
+        var (valid, versionError, warnings) = await Nodes.IsNodeValidAsync(bitcoind, appSettings);
 
-        if (!Nodes.IsNodeVersionValid(networkInfo.Version, out string versionError))
+        if (!valid)
         {
           throw new BadRequestException(versionError);
+        }
+        if (warnings.Any())
+        {
+          logger.LogWarning($"Validation of node {node} returned warnings: {string.Join(Environment.NewLine, warnings)}");
         }
       }
       catch (Exception ex)
@@ -139,9 +143,36 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return nodeRepository.DeleteNode(id);
     }
 
-    public static bool IsNodeVersionValid(long version, out string error)
+    public static async Task<(bool valid, string error, string[] warnings)> IsNodeValidAsync(IRpcClient bitcoind, AppSettings appSettings)
     {
-      error = null;
+      var (valid, error) = await IsNodeVersionValidAsync(bitcoind);
+      List<string> warnings = new();
+      if (valid)
+      {
+        var requestTimeoutSec = appSettings.RpcClient.RequestTimeoutSec;
+        var cleanUpTxAfterMempoolExpiredDays = appSettings.CleanUpTxAfterMempoolExpiredDays;
+        var parameters = await bitcoind.DumpParametersAsync();
+        if (parameters.RpcServerTimeout == 0)
+        {
+          warnings.Add($"Bitcoind's config RpcServerTimeout is set to 0 (no timeout), but RequestTimeoutSec is {requestTimeoutSec}.");
+        }
+        else if (requestTimeoutSec < parameters.RpcServerTimeout)
+        {
+          warnings.Add($"RequestTimeoutSec (value={requestTimeoutSec}) is smaller than bitcoind's config RpcServerTimeout (value={parameters.RpcServerTimeout}).");
+        }
+        if (cleanUpTxAfterMempoolExpiredDays * 24 != parameters.MempoolExpiry)
+        {
+          warnings.Add($"CleanUpTxAfterMempoolExpiredDays (value={cleanUpTxAfterMempoolExpiredDays} days={cleanUpTxAfterMempoolExpiredDays*24} hours) is not in sync with bitcoind's config MempoolExpiry (value={parameters.MempoolExpiry} hours).");
+        }
+      }
+      return (valid, error, warnings.ToArray());
+    }
+
+    private static async Task<(bool valid, string error)> IsNodeVersionValidAsync(IRpcClient bitcoind)
+    {
+      var networkInfo = await bitcoind.GetNetworkInfoAsync(retry: true);
+      var version = networkInfo.Version;
+      string error = null;
 
       string requiredNodeVersion = Const.MinBitcoindRequired();
       if (!string.IsNullOrEmpty(requiredNodeVersion))
@@ -152,7 +183,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
           error = $"Node version must be at least { requiredNodeVersion }.";
         }
       }
-      return error == null;
+      return (error == null, error);
     }
 
     public bool IsZMQNotificationsEndpointValid(Node node, RpcActiveZmqNotification[] notifications, out string error)

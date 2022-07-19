@@ -31,8 +31,7 @@ namespace MerchantAPI.APIGateway.Rest
     readonly INotificationsHandler notificationsHandler;
     readonly IMinerId minerId;
     readonly IDbManager dbManager;
-    readonly RpcClientSettings rpcClientSettings;
-    readonly DbConnectionSettings dbConnectionSettings;
+    readonly AppSettings appSettings;
     bool nodesAccessible;
 
     public StartupChecker(INodeRepository nodeRepository,
@@ -53,8 +52,7 @@ namespace MerchantAPI.APIGateway.Rest
       this.dbManager = dbManager ?? throw new ArgumentNullException(nameof(dbManager));
       this.minerId = minerId ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
-      rpcClientSettings = options.Value.RpcClient;
-      dbConnectionSettings = options.Value.DbConnection;
+      appSettings = options.Value;
     }
 
     public async Task<bool> CheckAsync(bool testingEnvironment)
@@ -65,7 +63,7 @@ namespace MerchantAPI.APIGateway.Rest
         logger.LogInformation($"API version: {Const.MERCHANT_API_VERSION}");
         logger.LogInformation($"Build version: {Const.MERCHANT_API_BUILD_VERSION}");
 
-        RetryUtils.ExecAsync(() => TestDBConnection(), retry: dbConnectionSettings.StartupTestConnectionMaxRetries.Value, errorMessage: "Unable to open connection to database").Wait();
+        RetryUtils.ExecAsync(() => TestDBConnection(), retry: appSettings.DbConnection.StartupTestConnectionMaxRetries.Value, errorMessage: "Unable to open connection to database").Wait();
         ExecuteCreateDb();
         if (!testingEnvironment)
         {
@@ -150,11 +148,14 @@ namespace MerchantAPI.APIGateway.Rest
         var rpcClient = CreateStartupRpcClient(node);
         try
         {
-          var networkInfo = await rpcClient.GetNetworkInfoAsync(retry: true);
-
-          if (!Nodes.IsNodeVersionValid(networkInfo.Version, out string error))
+          var (valid, error, warnings) = await Nodes.IsNodeValidAsync(rpcClient, appSettings);
+          if (!valid)
           {
             logger.LogError(error);
+          }
+          if (warnings.Any())
+          {
+            logger.LogWarning($"Validation of node {node} returned warnings: {string.Join(Environment.NewLine, warnings)}");
           }
           accessibleNodes.Add(node);
           nodesAccessible = true;
@@ -174,10 +175,10 @@ namespace MerchantAPI.APIGateway.Rest
         node.Port,
         node.Username,
         node.Password,
-        rpcClientSettings.RequestTimeoutSec.Value,
-        rpcClientSettings.MultiRequestTimeoutSec.Value,
-        rpcClientSettings.RpcCallsOnStartupRetries.Value,
-        rpcClientSettings.WaitBetweenRetriesMs.Value);
+        appSettings.RpcClient.RequestTimeoutSec.Value,
+        appSettings.RpcClient.MultiRequestTimeoutSec.Value,
+        appSettings.RpcClient.RpcCallsOnStartupRetries.Value,
+        appSettings.RpcClient.WaitBetweenRetriesMs.Value);
     }
 
     private async Task CheckNodesZmqNotificationsAsync()

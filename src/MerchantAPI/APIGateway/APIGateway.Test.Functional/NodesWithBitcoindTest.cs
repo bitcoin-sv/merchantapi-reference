@@ -2,6 +2,10 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MerchantAPI.Common.BitcoinRpc.Responses;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -54,6 +58,61 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // update node's zmqNotificationsEndpoint to same value is successful
       UpdateNodeZMQNotificationsEndpoint(0, node0, "tcp://127.0.0.1:28333");
+    }
+
+    [TestMethod]
+    public async Task NodeWarningsBitcoindSettings()
+    {
+      // test default settings
+      var (_, _, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      Assert.IsTrue(warnings.Length == 0);
+
+      var defaultParams = new RpcDumpParameters();
+      var parameters = await rpcClient0.DumpParametersAsync();
+      Assert.AreEqual(defaultParams.RpcServerTimeout, parameters.RpcServerTimeout);
+      Assert.AreEqual(defaultParams.MempoolExpiry, parameters.MempoolExpiry);
+
+      Assert.IsTrue(AppSettings.RpcClient.RequestTimeoutSec > parameters.RpcServerTimeout);
+      Assert.AreEqual((uint)AppSettings.CleanUpTxAfterMempoolExpiredDays * 24, parameters.MempoolExpiry);
+
+      // test changed settings
+      StopBitcoind(node0);
+      var args = new List<string>
+      {
+        "-rpcservertimeout=0",
+        "-mempoolexpiry=300"
+      };
+      StartBitcoindWithZmq(0,  argumentList: args);
+
+      var parametersChanged = await rpcClient0.DumpParametersAsync();
+      Assert.AreNotEqual(parameters.RpcServerTimeout, parametersChanged.RpcServerTimeout);
+      Assert.AreNotEqual(parameters.MempoolExpiry, parametersChanged.MempoolExpiry);
+      (_, _, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      Assert.IsTrue(warnings.Length == 2);
+    }
+
+    [TestMethod]
+    public async Task NodeWarningsDifferentAppSettings()
+    {
+      var parameters = await rpcClient0.DumpParametersAsync();
+
+      AppSettings.RpcClient.RequestTimeoutSec = 10;
+      Assert.IsTrue(AppSettings.RpcClient.RequestTimeoutSec < parameters.RpcServerTimeout);
+      var (_, _, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      Assert.AreEqual(
+        $"RequestTimeoutSec (value={AppSettings.RpcClient.RequestTimeoutSec}) is smaller than bitcoind's config RpcServerTimeout (value={parameters.RpcServerTimeout}).",
+        warnings.Single());
+
+      AppSettings.CleanUpTxAfterMempoolExpiredDays = 10;
+      Assert.AreNotEqual(AppSettings.CleanUpTxAfterMempoolExpiredDays * 24, parameters.MempoolExpiry);
+      (_, _, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      Assert.AreEqual(2, warnings.Length);
+
+      AppSettings.RpcClient.RequestTimeoutSec = parameters.RpcServerTimeout + 10;
+      (_, _, warnings) = await Domain.Models.Nodes.IsNodeValidAsync(rpcClient0, AppSettings);
+      Assert.AreEqual(
+        $"CleanUpTxAfterMempoolExpiredDays (value=10 days=240 hours) is not in sync with bitcoind's config MempoolExpiry (value=336 hours).",
+        warnings.Single());
     }
   }
 }
