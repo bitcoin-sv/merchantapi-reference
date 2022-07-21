@@ -182,7 +182,12 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <remarks>This endpoint is used to check the current status of a previously submitted transaction.</remarks>
     [HttpGet]
     [Route("tx/{id}")]
-    public async Task<ActionResult<QueryTransactionStatusResponseViewModel>> QueryTransactionStatus(string id)
+    public async Task<ActionResult<QueryTransactionStatusResponseViewModel>> QueryTransactionStatus(
+      string id,
+      [FromQuery]
+      bool merkleProof = false,
+      [FromQuery]
+      string merkleFormat = MerkleFormat.TSC)
     {
       if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out _))
       {
@@ -197,7 +202,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       var result =
         new QueryTransactionStatusResponseViewModel(
-          await mapi.QueryTransactionAsync(id));
+          await mapi.QueryTransactionAsync(id, merkleProof, merkleFormat));
 
       return await SignIfRequiredAsync(result, result.MinerId);
     }

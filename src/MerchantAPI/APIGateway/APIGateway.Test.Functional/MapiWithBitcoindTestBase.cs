@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test.Clock;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -16,6 +17,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -133,10 +135,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
 
-    protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId)
+    protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId, bool? merkleProof=null, string merkleFormat=null)
     {
+      List<(string, string)> queryParams = new();
+      if (merkleProof != null)
+      {
+        queryParams.Add(("merkleProof", merkleProof.Value.ToString()));
+      }
+      if (merkleFormat != null)
+      {
+        queryParams.Add(("merkleFormat", merkleFormat));
+      }
+
+      var url = PrepareQueryParams(MapiServer.ApiMapiQueryTransactionStatus + txId, queryParams);
       var response = await Get<SignedPayloadViewModel>(
-        Client, MapiServer.ApiMapiQueryTransactionStatus + txId, HttpStatusCode.OK);
+        Client, url, HttpStatusCode.OK);
 
       return response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
     }
@@ -147,7 +160,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       string expectedResult = "success",
       string expectedDescription = null,
       long? confirmations = null,
-      int txStatus = TxStatus.Accepted)
+      string checkMerkleProofWithMerkleFormat = null,
+      int txStatus = TxStatus.Accepted,
+      bool checkBestBlock = true)
     {
       Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
@@ -162,11 +177,33 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         if (confirmations != null)
         {
-          var blockChainInfo = await BlockChainInfo.GetInfoAsync();
-          Assert.AreEqual(blockChainInfo.BestBlockHeight, response.BlockHeight);
-          Assert.AreEqual(blockChainInfo.BestBlockHash, response.BlockHash);
+          if (checkBestBlock)
+          {
+            var blockChainInfo = await BlockChainInfo.GetInfoAsync();
+            Assert.AreEqual(blockChainInfo.BestBlockHeight, response.BlockHeight);
+            Assert.AreEqual(blockChainInfo.BestBlockHash, response.BlockHash);
+          }
+          if (checkMerkleProofWithMerkleFormat != null)
+          {
+            Assert.IsNotNull(response.MerkleProof);
+            var jsonMerkleProof = ((JsonElement)response.MerkleProof).GetRawText();
+            if (checkMerkleProofWithMerkleFormat == MerkleFormat.TSC)
+            {
+              RpcGetMerkleProof2 merkleProof2 = JsonSerializer.Deserialize<RpcGetMerkleProof2>(jsonMerkleProof);
+              Assert.AreEqual(response.Txid, merkleProof2.TxOrId);
+            }
+            else
+            {
+              RpcGetMerkleProof merkleProof = JsonSerializer.Deserialize<RpcGetMerkleProof>(jsonMerkleProof);
+              Assert.AreEqual(response.Txid, merkleProof.TxOrId);
+              Assert.AreEqual(response.BlockHash, merkleProof.Target.Hash);
+            }
+          }
         }
-
+        if (checkMerkleProofWithMerkleFormat == null)
+        {
+          Assert.IsNull(response.MerkleProof);
+        }
         Assert.AreEqual(0, response.TxSecondMempoolExpiry);
         await AssertTxStatus(response.Txid, txStatus);
       }

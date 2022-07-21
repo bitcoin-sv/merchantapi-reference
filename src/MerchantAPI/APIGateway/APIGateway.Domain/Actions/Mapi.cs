@@ -475,13 +475,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
 
-    public async Task<QueryTransactionStatusResponse> QueryTransactionAsync(string id)
+    public async Task<QueryTransactionStatusResponse> QueryTransactionAsync(string id, bool merkleProof, string merkleFormat)
     {
       var currentMinerId = await minerId.GetCurrentMinerIdAsync();
 
       var (result, allTheSame, exception) = await rpcMultiClient.GetRawTransactionAsync(id);
 
-      if (exception != null && result == null) // only report errors none of the nodes return result or if we got RpcExcpetion (such as as transaction not found)
+      if (exception != null && result == null) // only report errors none of the nodes return result or if we got RpcException (such as as transaction not found)
       {
         return new QueryTransactionStatusResponse
         {
@@ -493,7 +493,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         };
       }
 
-      // report mixed errors if we got  mixed result or if we got some successful results and some RpcException.
+      // report mixed errors if we got mixed result or if we got some successful results and some RpcException.
       // Ordinary exception might indicate connectivity problems, so we skip them
       if (!allTheSame || (exception as AggregateException)?.GetBaseException() is RpcException)
       {
@@ -507,6 +507,20 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         };
       }
 
+      RpcGetMerkleProof proof1 = null;
+      RpcGetMerkleProof2 proof2 = null;
+      if (result.Blockhash != null && merkleProof)
+      {
+        if (merkleFormat == MerkleFormat.TSC)
+        {
+          proof2 = await rpcMultiClient.GetMerkleProof2Async(result.Blockhash, id);
+        }
+        else
+        {
+          proof1 = await rpcMultiClient.GetMerkleProofAsync(id, result.Blockhash);
+        }
+      }
+
       return new QueryTransactionStatusResponse
       {
         Timestamp = clock.UtcNow(),
@@ -517,11 +531,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         BlockHeight = result.Blockheight,
         Confirmations = result.Confirmations,
         MinerID = currentMinerId,
+        MerkleFormat = merkleFormat,
+        MerkleProof = proof1,
+        MerkleProof2 = proof2,
         //TxSecondMempoolExpiry
       };
-
-
     }
+
     public async Task<SubmitTransactionResponse> SubmitTransactionAsync(SubmitTransaction request, UserAndIssuer user)
     {
       var responseMulti = await SubmitTransactionsAsync(new[] { request }, user);

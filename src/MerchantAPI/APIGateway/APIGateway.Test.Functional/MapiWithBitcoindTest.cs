@@ -315,11 +315,36 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertQueryTxAsync(q1, txHash, "success", confirmations: null);
 
+      // try to get with merkleProof
+      q1 = await QueryTransactionStatus(txHash, true);
+      // returns no error, only merkleProof is not present
+      await AssertQueryTxAsync(q1, txHash, "success", confirmations: null);
+
       _ = await rpcClient0.GenerateAsync(1);
 
+      // default query does not return merkleProof
       var q2 = await QueryTransactionStatus(txHash);
 
       await AssertQueryTxAsync(q2, txHash, "success", confirmations: 1);
+
+      // check no merkle proof, but format set
+      q2 = await QueryTransactionStatus(txHash, false, MerkleFormat.TSC);
+
+      await AssertQueryTxAsync(q2, txHash, "success", confirmations: 1);
+
+      // check defaultFormat value
+      q2 = await QueryTransactionStatus(txHash, true);
+
+      await AssertQueryTxAsync(q2, txHash, "success", confirmations: 1, checkMerkleProofWithMerkleFormat: MerkleFormat.TSC);
+
+      // check merkle proof formats
+      q2 = await QueryTransactionStatus(txHash, true, "");
+
+      await AssertQueryTxAsync(q2, txHash, "success", confirmations: 1, checkMerkleProofWithMerkleFormat: "");
+
+      q2 = await QueryTransactionStatus(txHash, true, MerkleFormat.TSC);
+
+      await AssertQueryTxAsync(q2, txHash, "success", confirmations: 1, checkMerkleProofWithMerkleFormat: MerkleFormat.TSC);
     }
 
 

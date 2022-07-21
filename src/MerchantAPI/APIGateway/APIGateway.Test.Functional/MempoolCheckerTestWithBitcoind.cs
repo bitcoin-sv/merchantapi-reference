@@ -443,8 +443,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       WaitUntilEventBusIsIdle();
 
       Assert.IsFalse((await TxRepositoryPostgres.GetBlockAsync(forkBlock.GetHash().ToBytes())).OnActiveChain);
-      var q = await QueryTransactionStatus(txIdA);
-      await AssertQueryTxAsync(q, txIdA, "success", confirmations: null, txStatus: TxStatus.Accepted);
+      var qa = await QueryTransactionStatus(txIdA, true);
+      await AssertQueryTxAsync(qa, txIdA, "success", confirmations: null, txStatus: TxStatus.Accepted);
 
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(1, mempoolTxs.Length);
@@ -461,8 +461,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       WaitUntilEventBusIsIdle();
 
       Assert.IsTrue((await TxRepositoryPostgres.GetBlockAsync(forkBlock.GetHash().ToBytes())).OnActiveChain);
-      q = await QueryTransactionStatus(txIdB1);
-      await AssertQueryTxAsync(q, txIdB1, "success", confirmations: null, txStatus: TxStatus.Accepted);
+      var qb = await QueryTransactionStatus(txIdB1, true);
+      await AssertQueryTxAsync(qb, txIdB1, "success", confirmations: null, txStatus: TxStatus.Accepted);
+      qa = await QueryTransactionStatus(txIdA, true);
+      await AssertQueryTxAsync(qa, txIdA, "success", confirmations: 3, txStatus: TxStatus.Accepted, checkMerkleProofWithMerkleFormat: MerkleFormat.TSC, checkBestBlock: false);
 
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(2, mempoolTxs.Length);
