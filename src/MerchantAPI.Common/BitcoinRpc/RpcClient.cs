@@ -233,9 +233,14 @@ namespace MerchantAPI.Common.BitcoinRpc
       return RequestAsync<string[]>(token, "getrawmempool");
     }
 
-    public Task<string[]> GetMempoolAncestors(string txId, CancellationToken? token = null)
+    public async Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null)
     {
-      return RequestAsync<string[]>(token, "getmempoolancestors", txId);
+      var data = await RequestAsync<JsonElement>(token, "getmempoolancestors", txId, true);
+      var txs = data.EnumerateObject().ToDictionary(x => x.Name, v => HelperTools.JSONDeserialize<RpcGetMempoolAncestor>(v.Value.GetRawText()));
+      return new RpcGetMempoolAncestors
+      {
+        Transactions = txs
+      };
     }
 
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
