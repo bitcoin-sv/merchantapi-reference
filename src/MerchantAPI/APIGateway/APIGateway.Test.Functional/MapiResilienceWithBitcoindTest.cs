@@ -373,7 +373,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await DisconnectNodeAndWait(node1, node0, 1, cts.Token);
 
       // generate forks of different length that will trigger safe mode
-      await node1.RpcClient.GenerateAsync(60);
+      await node1.RpcClient.GenerateAsync(90);
 
       await node0.RpcClient.GenerateAsync(30);
 

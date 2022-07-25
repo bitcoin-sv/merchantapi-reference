@@ -3,6 +3,7 @@
 
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
+using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels.Faults;
@@ -95,11 +96,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeFailsWhenSendRawTxs);
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
-      VerifySignature(response);
-      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-
-      await AssertIsOKAsync(payload, txC3Hash, "failure", "Error while submitting transactions to the node");
+      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.InternalServerError);
+      Assert.IsNull(response.response);
+      await CheckHttpResponseMessageDetailAsync(response.httpResponse,
+        "Error while submitting transactions to the node - no response or error returned.");
 
       await SubmitTxModeNormal(txC3Hex, txC3Hash);
     }
@@ -174,6 +174,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       mapiMock.SimulateDbFault(Faults.FaultType.DbAfterSavingUncommittedState, Faults.DbFaultComponent.MapiAfterSendToNode);
 
       var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.InternalServerError);
+      var faultmanager = server.Services.GetRequiredService<IFaultManager>();
+      var fault = faultmanager.GetList().Single();
+      await CheckHttpResponseMessageDetailAsync(response.httpResponse, $"Fault (no name) id {fault.Id}");
 
       Assert.IsNull(response.response);
 

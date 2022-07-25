@@ -86,7 +86,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       "{\"maxstackmemoryusagepolicy\": -1}",
       "{\"limitancestorcount\": -1}",
       "{\"limitcpfpgroupmemberscount\": 1}",
-      "{\"acceptnonstdoutputs\": True}",
+      "{\"acceptnonstdoutputs\": 1}",
       "{\"datacarrier\": 0}",
       "{\"maxstdtxvalidationduration\": 0}",
       "{\"maxnonstdtxvalidationduration\": 0}",

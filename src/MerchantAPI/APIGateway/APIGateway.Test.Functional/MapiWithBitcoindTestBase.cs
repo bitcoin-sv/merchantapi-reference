@@ -92,12 +92,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var (response, message) =
         await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedHttpStatusCode);
-      if (expectedHttpMessage != null)
-      {
-        var json = System.Text.Json.JsonDocument.Parse(await message.Content.ReadAsStringAsync());
-        var details = json.RootElement.GetProperty("detail").GetString();
-        Assert.AreEqual(expectedHttpMessage, details);
-      }
+
+      await CheckHttpResponseMessageDetailAsync(message, expectedHttpMessage);
+
       return response?.ExtractPayload<SubmitTransactionResponseViewModel>();
     }
 
@@ -215,10 +212,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       await node.RpcClient.AddNodeAsync(addNode.Host, addNode.P2Port);
 
-      do
+      while (await node.RpcClient.GetConnectionCountAsync(cancellationToken) == currentConnectionCount)
       {
         await Task.Delay(100, cancellationToken);
-      } while ((await node.RpcClient.GetConnectionCountAsync(cancellationToken)) == currentConnectionCount);
+      }
 
       if (syncNodes)
       {
@@ -230,10 +227,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       await node.RpcClient.DisconnectNodeAsync(addNode.Host, addNode.P2Port);
 
-      do
+      while (await node.RpcClient.GetConnectionCountAsync(cancellationToken) > (currentConnectionCount - 1))
       {
         await Task.Delay(100, cancellationToken);
-      } while ((await node.RpcClient.GetConnectionCountAsync(cancellationToken)) > (currentConnectionCount - 1));
+      }
     }
   }
 }
