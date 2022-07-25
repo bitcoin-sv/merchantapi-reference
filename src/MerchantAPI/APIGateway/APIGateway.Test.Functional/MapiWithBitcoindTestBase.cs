@@ -84,15 +84,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return (tx1.ToHex(), tx1.GetHash().ToString());
     }
 
-    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "", HttpStatusCode expectedHttpStatusCode = HttpStatusCode.OK)
+    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "",
+          HttpStatusCode expectedHttpStatusCode = HttpStatusCode.OK, string expectedHttpMessage = null)
     {
       // Send transaction
       var reqContent = GetJsonRequestContent(txHex, merkleProof, dsCheck, merkleFormat);
 
-      var response =
+      var (response, message) =
         await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedHttpStatusCode);
-
-      return response.response?.ExtractPayload<SubmitTransactionResponseViewModel>();
+      if (expectedHttpMessage != null)
+      {
+        var json = System.Text.Json.JsonDocument.Parse(await message.Content.ReadAsStringAsync());
+        var details = json.RootElement.GetProperty("detail").GetString();
+        Assert.AreEqual(expectedHttpMessage, details);
+      }
+      return response?.ExtractPayload<SubmitTransactionResponseViewModel>();
     }
 
     public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = false, bool merkleProof = false)
@@ -203,6 +209,31 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       return (curTxHex, curTxId, mapiTxCount);
+    }
+
+    protected async Task AddNodeAndWait(BitcoindProcess node, BitcoindProcess addNode, int currentConnectionCount, bool syncNodes = true, CancellationToken cancellationToken = default)
+    {
+      await node.RpcClient.AddNodeAsync(addNode.Host, addNode.P2Port);
+
+      do
+      {
+        await Task.Delay(100, cancellationToken);
+      } while ((await node.RpcClient.GetConnectionCountAsync(cancellationToken)) == currentConnectionCount);
+
+      if (syncNodes)
+      {
+        await SyncNodesBlocksAsync(cancellationToken, addNode, node);
+      }
+    }
+
+    protected async Task DisconnectNodeAndWait(BitcoindProcess node, BitcoindProcess addNode, int currentConnectionCount, CancellationToken cancellationToken = default)
+    {
+      await node.RpcClient.DisconnectNodeAsync(addNode.Host, addNode.P2Port);
+
+      do
+      {
+        await Task.Delay(100, cancellationToken);
+      } while ((await node.RpcClient.GetConnectionCountAsync(cancellationToken)) > (currentConnectionCount - 1));
     }
   }
 }

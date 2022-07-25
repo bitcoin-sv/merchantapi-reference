@@ -907,20 +907,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       if (submitException != null)
       {
-        var unableToSubmit = transactionsToSubmit.Select(x =>
-          new SubmitTransactionOneResponse
-          {
-            Txid = x.transactionId,
-            ReturnResult = ResultCodes.Failure,
-            ResultDescription = "Error while submitting transactions to the node" // do not expose detailed error message. It might contain internal IPS etc
-          });
-
         logger.LogError($"Error while submitting transactions to the node {submitException}");
-        responses.AddRange(unableToSubmit);
-        result.Txs = responses.ToArray();
-        result.FailureCount = result.Txs.Length; // all of the transactions have failed
-
-        return result;
+        // All of the transactions have failed - return error 500 so that user knows, he must retry,
+        // but do not expose detailed error message. It might contain internal IPS etc.
+        throw new Exception(
+          $"Error while submitting transactions to the node - no response or error returned.");
       }
       else // submitted without error
       {

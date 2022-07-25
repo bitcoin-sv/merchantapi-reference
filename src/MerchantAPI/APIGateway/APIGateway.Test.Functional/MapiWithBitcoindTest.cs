@@ -473,23 +473,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       Assert.AreEqual(1, await node1.RpcClient.GetConnectionCountAsync());
 
-      await node1.RpcClient.DisconnectNodeAsync(node0.Host, node0.P2Port);
-
-      do
-      {
-        await Task.Delay(100);
-      } while ((await node1.RpcClient.GetConnectionCountAsync()) > 0);
+      await DisconnectNodeAndWait(node1, node0, 1, cts.Token);
 
       // Send second transaction 
       _ = await node1.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false, cts.Token);
       await node1.RpcClient.GenerateAsync(1);
 
-      await node1.RpcClient.AddNodeAsync(node0.Host, node0.P2Port);
-
-      do
-      {
-        await Task.Delay(100);
-      } while ((await node1.RpcClient.GetConnectionCountAsync()) == 0);
+      await AddNodeAndWait(node1, node0, 0, false, cts.Token);
 
       // We are sleeping here for a second to make sure that after the nodes were reconnected
       // there wasn't any additional notification sent because of node1
