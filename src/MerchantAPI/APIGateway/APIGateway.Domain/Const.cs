@@ -121,6 +121,7 @@ namespace MerchantAPI.APIGateway.Domain
     };
 
     public const string MapiRetryMempoolError = "Mempool error, retry again later.";
+    public const string UnconfirmedAncestorsError = "Transaction is already present in db, but unconfirmed ancestors are missing, retry again.";
 
     public static string MapiRetryMempoolErrorWithDetails(string rejectCodeAndReason)
     {

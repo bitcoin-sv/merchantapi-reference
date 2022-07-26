@@ -10,6 +10,7 @@ using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
+using MerchantAPI.Common.Test;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -445,6 +446,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           ReceivedAt = DateTime.UtcNow,
           MerkleProof = false,
           DSCheck = false,
+          CallbackUrl = CallbackFunctionalTests.Url,
           TxStatus = testStatus,
           PolicyQuoteId = policyQuoteId
         }
@@ -464,6 +466,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
             ReceivedAt = DateTime.UtcNow,
             MerkleProof = false,
             DSCheck = false,
+            CallbackUrl = CallbackFunctionalTests.Url,
             TxStatus = TxStatus.SentToNode,
             PolicyQuoteId = policyQuoteId
           }
@@ -482,6 +485,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           ReceivedAt = DateTime.UtcNow,
           MerkleProof = false,
           DSCheck = false,
+          CallbackUrl = CallbackFunctionalTests.Url,
           TxStatus = TxStatus.Accepted,
           PolicyQuoteId = policyQuoteId,
           UpdateTx = (bearerAuthentication && inserted.Length > 0) ? Domain.Models.Tx.UpdateTxMode.TxStatusAndResubmittedAt : Domain.Models.Tx.UpdateTxMode.Insert
@@ -494,11 +498,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-      Assert.AreEqual("success", payload.ReturnResult);
+      if (dbAuthenticated == bearerAuthentication)
+      {
+        Assert.AreEqual("success", payload.ReturnResult);
 
-      var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
-      Assert.AreEqual(testStatus, tx.TxStatus);
-      Assert.AreEqual(policyQuoteId, tx.PolicyQuoteId);
+        var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
+        Assert.AreEqual(testStatus, tx.TxStatus);
+        Assert.AreEqual(policyQuoteId, tx.PolicyQuoteId);
+      }
+      else
+      {
+        Assert.AreEqual("failure", payload.ReturnResult);
+        Assert.AreEqual("Transaction already submitted with different parameters.", payload.ResultDescription);
+      }
     }
 
     [DataRow(false)]

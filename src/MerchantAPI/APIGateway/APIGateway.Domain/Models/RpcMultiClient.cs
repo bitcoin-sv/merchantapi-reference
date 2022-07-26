@@ -270,6 +270,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return GetFirstSuccessfulAsync(x => x.GetRawMempool(token));
     }
 
+    public Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null)
+    {
+      return GetFirstSuccessfulAsync(x => x.GetMempoolAncestors(txId, token));
+    }
+
     enum GroupType
     {
       OK,

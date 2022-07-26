@@ -678,16 +678,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             {
               logger.LogInformation($"Transaction {txIdString} already known (txstatus={ txStatus }. Will resubmit to node.");
             }
-            else
-            {
-              responses.Add(new SubmitTransactionOneResponse
-              {
-                Txid = txIdString,
-                ReturnResult = ResultCodes.Success,
-                ResultDescription = NodeRejectCode.ResultAlreadyKnown
-              });
-              continue;
-            }
 
             var tx = await txRepository.GetTransactionAsync(txId.ToBytes());
             if (oneTx.CallbackUrl != tx.CallbackUrl ||
@@ -718,7 +708,28 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 continue;
               }
               PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
-              bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, HelperTools.ParseBytesToTransaction(oneTx.RawTx), txStatus);
+              bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, HelperTools.ParseBytesToTransaction(oneTx.RawTx));
+              if (txStatus >= TxStatus.Accepted && !appSettings.ResubmitKnownTransactions.Value)
+              {
+                if (listUnconfirmedAncestors)
+                {
+                  var (success, count) = await InsertMissingMempoolAncestors(txIdString, tx.PolicyQuoteId.Value);
+                  if (!success)
+                  {
+                    AddFailureResponse(txIdString, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
+
+                    failureCount++;
+                    continue;
+                  }
+                }
+                responses.Add(new SubmitTransactionOneResponse
+                {
+                  Txid = txIdString,
+                  ReturnResult = ResultCodes.Success,
+                  ResultDescription = NodeRejectCode.ResultAlreadyKnown
+                });
+                continue;
+              }
               transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, listUnconfirmedAncestors, tx.SetPolicyQuote ? policyQuote : null, txStatus));
             }
             continue;
@@ -839,7 +850,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           bool allowHighFees = false;
           bool dontcheckfee = okToMine;
-          bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, transaction, txStatus);
+          bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, transaction);
 
           transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, selectedQuote, txStatus));
         }
@@ -927,8 +938,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var (submitFailureCount, transformed) = TransformRpcResponse(rpcResponse,
           transactionsToSubmit.Select(x => x.transactionId).ToArray());
         responses.AddRange(transformed);
-        result.Txs = responses.ToArray();
-        result.FailureCount = failureCount + submitFailureCount;
 
         var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
         txAcceptedByNode.Inc(successfullTxs.Count());
@@ -966,8 +975,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           // 2) or select all in batch in db + recheck here if the provided parameters match and return failure ...
 
           long unconfirmedAncestorsCount = 0;
+          var txsWithAncestors = Array.Empty<string>();
           if (rpcResponse.Unconfirmed != null)
           {
+            txsWithAncestors = rpcResponse.Unconfirmed.Select(x => x.Txid).ToArray();
             List<Tx> unconfirmedAncestors = new();
             foreach (var unconfirmed in rpcResponse.Unconfirmed)
             {
@@ -987,11 +998,24 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             }
             // unconfirmedAncestors are only inserted, not updated
             await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiUnconfirmedAncestors, unconfirmedAncestors, true);
-            unconfirmedAncestorsCount = unconfirmedAncestors.Count;
-            // for now we don't combine two InsertOrUpdateTxsAsync into one,
-            // which can lead to lost UnconfirmedAncestors (test 'SubmitWithUnconfirmedParentsAsync')
-            // but there is another problem - sendrawtxs only returns unconfirmed ancestors on first call 
-            // (so even if we would combine the two inserts into single transaction, it wouldn't help)
+            unconfirmedAncestorsCount += unconfirmedAncestors.Count;
+          }
+          // sendrawtxs only returns unconfirmed ancestors on first call
+          // if tx was accepted by a node in a previous submit, sendrawtxs returns no ancestors
+          // and we have to get them with GetMempoolAncestors
+          foreach (var (transactionId, _, _, _, _, policyQuote, txstatus) in
+            successfullTxs.Where(x => x.listUnconfirmedAncestors && x.txstatus >= TxStatus.SentToNode && !txsWithAncestors.Contains(x.transactionId)))
+          {
+            var (success, count) = await InsertMissingMempoolAncestors(transactionId, policyQuote.Id);
+            if (!success)
+            {
+              responses.RemoveAll(x => x.Txid == transactionId);
+              AddFailureResponse(transactionId, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
+
+              failureCount++;
+              continue;
+            }
+            unconfirmedAncestorsCount += count;
           }
           watch.Stop();
           logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } found unconfirmedAncestors { unconfirmedAncestorsCount } took {watch.ElapsedMilliseconds} ms.");
@@ -1003,7 +1027,50 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }
         }
 
+        result.Txs = responses.ToArray();
+        result.FailureCount = failureCount + submitFailureCount;
         return result;
+      }
+    }
+
+    private async Task<(bool, int)> InsertMissingMempoolAncestors(string txId, long policyQuoteId)
+    {
+      if (appSettings.DontInsertTransactions.Value)
+      {
+        return (true, 0);
+      }
+      // situation where tx is present in db, but unconfirmedancestors are missing, should be rare
+      // we can only get mempool ancestors of transaction, that is present in mempool
+      try
+      {
+        var mempoolAncestors = await rpcMultiClient.GetMempoolAncestors(txId);
+        List<Tx> unconfirmedAncestors = new();
+        unconfirmedAncestors.AddRange(mempoolAncestors.Transactions.Select(u => new Tx
+        {
+          TxExternalId = new uint256(u.Key),
+          ReceivedAt = clock.UtcNow(),
+          TxIn = u.Value.Depends.Select((input, i) => new TxInput()
+          {
+            PrevTxId = (new uint256(input)).ToBytes(),
+            PrevN = i
+          }).ToList(),
+          TxStatus = TxStatus.Accepted,
+          PolicyQuoteId = policyQuoteId
+        })
+        );
+        logger.LogInformation($"GetMempoolAncestors returned {unconfirmedAncestors.Count} transactions.");
+        await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiUnconfirmedAncestors, unconfirmedAncestors, true);
+        return (true, unconfirmedAncestors.Count);
+      }
+      catch (RpcException ex)
+      {
+        logger.LogInformation($"GetMempoolAncestors finished with rpcException for {txId}: {ex.Message}");
+        return (ex.Code == -5, 0); // -5 is code for error: Transaction not in mempool
+      }
+      catch (Exception ex)
+      {
+        logger.LogInformation($"GetMempoolAncestors finished with exception for {txId}: {ex.Message}");
+        return (false, 0);
       }
     }
 
@@ -1073,7 +1140,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return (rpcResponse, submitException);
     }
 
-    private async Task<bool> FillInputsAndListUnconfirmedAncestorsAsync(SubmitTransaction oneTx, Transaction transaction, int txStatus)
+    private async Task<bool> FillInputsAndListUnconfirmedAncestorsAsync(SubmitTransaction oneTx, Transaction transaction)
     {
       oneTx.TransactionInputs = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput
       {
@@ -1083,10 +1150,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }).ToList();
       if (oneTx.DsCheck)
       {
-        if (txStatus >= TxStatus.Accepted)
-        {
-          return true;
-        }
         foreach (TxInput txInput in oneTx.TransactionInputs)
         {
           var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevTxId, txInput.PrevN);

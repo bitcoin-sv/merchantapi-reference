@@ -205,9 +205,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return (curTxHex, curTxId, mapiTxCount);
     }
 
-    protected async Task ValidateTxInputsAsync(string txHex, string txId = null, bool presentOnDB = true)
+    protected async Task ValidateTxInputsAsync(string lastTxHex, string txId = null, bool presentOnDB = true)
     {
-      Transaction.TryParse(txHex, Network.RegTest, out Transaction tx);
+      // Create another transaction but don't submit it
+      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
+      var curTxCoin = new Coin(lastTx, 0);
+      var (curTxHex, _) = CreateNewTransaction(curTxCoin, new Money(1000L));
+
+      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction tx);
       foreach (var txInput in tx.Inputs)
       {
         var prevOut = await TxRepositoryPostgres.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);

@@ -117,13 +117,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       foreach(var (txId, txHex) in txList)
       {
-        // Create another transaction but don't submit it
-        Transaction.TryParse(txHex, Network.RegTest, out Transaction currentTx);
-        var curTxCoin = new Coin(currentTx, 0);
-        var (curTxHex, curTxId) = CreateNewTransaction(new Coin[] { availableCoins.Dequeue(), curTxCoin }, new Money(1000L));
-
         // Validate that all of the inputs are already in the database
-        await ValidateTxInputsAsync(curTxHex, txId);
+        await ValidateTxInputsAsync(txHex, txId);
       }
     }
 
@@ -381,8 +376,35 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await AssertTxStatus(txId1, TxStatus.NotPresentInDb);
     }
 
+    [DataRow(false)]
+    [DataRow(true)]
     [TestMethod]
-    public async Task SubmitWithUnconfirmedParentsAsync()
+    public async Task SubmitWithUnconfirmedParentsAndGenerateBlockAsync(bool generateBlock)
+    {
+      mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, Faults.DbFaultComponent.MapiUnconfirmedAncestors);
+
+      await SubmitWithUnconfirmedParentsAsync(generateBlock);
+    }
+
+    [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
+    [TestMethod]
+    public async Task SubmitWithUnconfirmedParentsAndResubmitAsync()
+    {
+      await SubmitWithUnconfirmedParentsAndGenerateBlockAsync(false);
+      await SubmitWithUnconfirmedParentsAndGenerateBlockAsync(true);
+    }
+
+    [TestMethod]
+    public async Task SubmitWithUnconfirmedParentsTestDifferentFaultsAsync()
+    {
+      InsertFeeQuote(MockedIdentity);
+      RestAuthentication = MockedIdentityBearerAuthentication;
+
+      mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, Faults.DbFaultComponent.MapiAfterSendToNode);
+      await SubmitWithUnconfirmedParentsAsync(false);
+    }
+
+    private async Task SubmitWithUnconfirmedParentsAsync(bool generateBlock)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -391,8 +413,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
-      mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, Faults.DbFaultComponent.MapiUnconfirmedAncestors);
-
       // Create chain based on first transaction with last transaction being submited to mAPI
       var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token, System.Net.HttpStatusCode.InternalServerError);
 
@@ -400,17 +420,46 @@ namespace MerchantAPI.APIGateway.Test.Functional
       long? txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
       Assert.IsNull(txInternalId1);
 
-      mapiMock.ClearMode();
+      mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, Faults.DbFaultComponent.MapiUnconfirmedAncestors);
 
       var payload = await SubmitTransactionAsync(lastTxHex, true, true);
-      Assert.AreEqual(payload.ReturnResult, "success");
-      long? lastTxInternalId1= await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(lastTxId)).ToBytes());
+      Assert.AreEqual("failure", payload.ReturnResult);
+      Assert.AreEqual(NodeRejectCode.UnconfirmedAncestorsError, payload.ResultDescription);
+
+      mapiMock.ClearMode();
+      if (generateBlock)
+      {
+        await GenerateBlockAndWaitForItToBeInsertedInDBAsync();
+      }
+
+      payload = await SubmitTransactionAsync(lastTxHex, true, true);
+      Assert.AreEqual("success", payload.ReturnResult);
+      long? lastTxInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(lastTxId)).ToBytes());
       Assert.IsTrue(lastTxInternalId1.HasValue);
       Assert.AreNotEqual(0, lastTxInternalId1.Value);
 
-      // since txLast was saved, the chain (with tx1) is not inserted
+      // The chain (with tx1) was inserted, if no block mined
       txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
-      Assert.IsNull(txInternalId1);
+      if (generateBlock)
+      {
+        Assert.IsNull(txInternalId1);
+        return;
+      }
+      Assert.IsNotNull(txInternalId1);
+
+      // Check unconfirmed ancestors response
+      var ua = await rpcClient0.GetMempoolAncestors(lastTxId);
+      // sendrawtransactions takes a snapshot of the ancestors in the mempool and
+      // prints the inputs of the elements in the snapshot.
+      // getmempoolancestors takes a snapshot of the ancestors in the mempool and
+      // prints the inputs of the elements in the snapshot ONLY if those inputs are also in the snapshot.
+      Assert.AreEqual(100, ua.Transactions.Count);
+      Assert.AreEqual(99, ua.Transactions.Count(x => x.Value.Depends.Any())); // sendrawtxs returns 100
+
+      // Validate that all of the inputs are already in the database
+      // first txInput is not present in GetMempoolAncestors response
+      await ValidateTxInputsAsync(txHex1, txId1, presentOnDB: false);
+      await ValidateTxInputsAsync(lastTxHex, lastTxId);
     }
   }
 }

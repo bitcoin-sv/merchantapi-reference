@@ -65,6 +65,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreNotEqual(0, lastTx.TxInternalId);
       Assert.IsFalse(lastTx.UnconfirmedAncestor);
       Assert.AreNotEqual(DateTime.MinValue, lastTx.SubmittedAt);
+
+      // Validate that all of the inputs are already in the database
+      await ValidateTxInputsAsync(txHex1, txId1);
+      await ValidateTxInputsAsync(lastTxHex, lastTxId);
     }
 
     [TestMethod]
@@ -86,13 +90,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Create chain based on first transaction with last transaction being submited to mAPI
       var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 50, 0, true, cts.Token);
 
-      // Create another transaction but don't submit it
-      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
-      var curTxCoin = new Coin(lastTx, 0);
-      var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
-
       // Validate that all of the inputs are already in the database
-      await ValidateTxInputsAsync(curTxHex, lastTxId);
+      await ValidateTxInputsAsync(lastTxHex, lastTxId);
     }
 
     [TestMethod]
@@ -117,13 +116,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Create another transaction through RPC 
       (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(lastTxHex, lastTxId, 1, 0, false, cts.Token);
 
-      // Create another transaction but don't submit it
-      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
-      var curTxCoin = new Coin(lastTx, 0);
-      var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
-
       // Validate that inputs are not already in the database
-      await ValidateTxInputsAsync(curTxHex, lastTxId, false);
+      await ValidateTxInputsAsync(lastTxHex, lastTxId, false);
     }
 
     [DataRow(1)]
