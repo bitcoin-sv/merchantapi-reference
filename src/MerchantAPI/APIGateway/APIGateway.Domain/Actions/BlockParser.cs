@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
 
-    long QueueCount => newBlockAvailableInDBSubscription.QueueCount;
+    long QueueCount => newBlockAvailableInDBSubscription?.QueueCount ?? 0;
 
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger,

@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2021 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -290,7 +291,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, payloadSubmit.FailureCount);
       var txFailure = payloadSubmit.Txs.Single(x => x.ReturnResult == "failure");
       Assert.AreEqual(tx2Id, txFailure.Txid);
-      Assert.AreEqual("64 too-long-mempool-chain", txFailure.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[0]), txFailure.ResultDescription);
     }
 
     [DataRow("{\"skipscriptflags\": [\"MINIMALDATA\"] }")]
