@@ -21,7 +21,10 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public long CurrentHighestBlockHeight { get; set; }
 
-    public long TxSecondMempoolExpiry { get; set; } 
+    public long TxSecondMempoolExpiry { get; set; }
+
+    public string[] Warnings { get; set; }
+
     public SubmitTransactionConflictedTxResponse[] ConflictedWith { get; set; }
 
   }

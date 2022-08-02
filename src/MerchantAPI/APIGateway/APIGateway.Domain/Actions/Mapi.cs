@@ -120,12 +120,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     static bool IsDsntOutput(byte[] scriptBytes)
     {
-      // OP_FALSE OP_RETURN represents data outputs after Genesis was activated. 
-      // There is no need to check for output.Value=0.
-      // We do not care if somebody wants to burn some satoshis. 
       var scriptDsnt = new Script(OpcodeType.OP_FALSE);
       scriptDsnt += OpcodeType.OP_RETURN;
-      scriptDsnt += Op.GetPushOp(Encoders.Hex.DecodeData("64736e74"));
+      scriptDsnt += Op.GetPushOp(Encoders.Hex.DecodeData(Const.DSNT_IDENTIFIER));
 
       var scriptDsntBytes = scriptDsnt.ToBytes();
       if (scriptBytes.Length < scriptDsntBytes.Length)
@@ -285,10 +282,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     /// <param name="Transaction">transaction</param>
     /// <param name="DsCheck">dsCheck. Only validate dsCheck output, if true.</param>
     /// <param name="Warnings">warnings. DsCheck warnings.</param>
-    /// <returns>Sum of new outputs and dataBytes count.</returns>
-    public static (Money sumNewOutputs, long dataBytes) CheckOutputsSumAndValidateDs(Transaction transaction, bool dsCheck, ref string[] warnings)
+    /// <param name="TxStatus">txStatus. Status of transaction in mAPI.</param>
+    /// <returns>Sum of new outputs and dataBytes count, if tx was not yet accepted by mAPI. Otherwise only check if DSNT output is present.</returns>
+    public static (Money sumNewOutputs, long dataBytes) CheckOutputsSumAndValidateDs(Transaction transaction, bool dsCheck, int txStatus, List<string> warnings)
     {
-      // This could leave some og the bytes unparsed. In this case we would charge for bytes at the end of 
+      // This could leave some of the bytes unparsed. In this case we would charge for bytes at the end of 
       // the stream that will not be published to the blockchain, but this is sender's problem.
 
       Money sumNewOutputs = Money.Zero;
@@ -309,13 +307,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           if (dsCheck && IsDsntOutput(scriptBytes))
           {
             dsntOutput = true;
+            if (txStatus >= TxStatus.SentToNode)
+            {
+              // we are only interested in dsnt output warnings
+              return (-1L, -1L);
+            }
           }
         }
       }
 
       if (dsCheck && !dsntOutput)
       {
-        warnings = new string[] { "Missing DSNT output." };
+        warnings.Add(Warning.MissingDSNT);
       }
 
       return (sumNewOutputs, dataBytes);
@@ -589,12 +592,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         Txid = tx.Txid,
         ReturnResult = tx.ReturnResult,
         ResultDescription = tx.ResultDescription,
-        ConflictedWith = tx.ConflictedWith,
         Timestamp = responseMulti.Timestamp,
         MinerId = responseMulti.MinerId,
         CurrentHighestBlockHash = responseMulti.CurrentHighestBlockHash,
         CurrentHighestBlockHeight = responseMulti.CurrentHighestBlockHeight,
-        TxSecondMempoolExpiry = responseMulti.TxSecondMempoolExpiry
+        TxSecondMempoolExpiry = responseMulti.TxSecondMempoolExpiry,
+        Warnings = tx.Warnings,
+        ConflictedWith = tx.ConflictedWith
       };
     }
 
@@ -634,7 +638,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       var responses = new List<SubmitTransactionOneResponse>();
 
-      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, string[] warnings)>();
+      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, List<string> warnings)>();
 
       int failureCount = 0;
 
@@ -716,7 +720,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         bool okToMine = false;
         bool okToRelay = false;
         PolicyQuote selectedQuote = null;
-        string[] warnings = Array.Empty<string>();
+        List<string> warnings = new();
         var txStatus = await txRepository.GetTransactionStatusAsync(txId.ToBytes());
 
         if (txStatus > TxStatus.NotPresentInDb)
@@ -738,7 +742,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             var tx = await txRepository.GetTransactionAsync(txId.ToBytes());
             if (oneTx.CallbackUrl != tx.CallbackUrl ||
                 oneTx.MerkleProof != tx.MerkleProof ||
-                oneTx.DsCheck != tx.DSCheck
+                oneTx.DsCheck != tx.DSCheck ||
+                ((txStatus != TxStatus.UnknownOldTx) && (user?.Identity != tx.Identity || user?.IdentityProvider != tx.IdentityProvider))
                )
             {
               AddFailureResponse(txIdString, "Transaction already submitted with different parameters.", ref responses);
@@ -746,6 +751,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               failureCount++;
               continue;
             }
+
+            // check for warnings
+            PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
+            var txParsed = HelperTools.ParseBytesToTransaction(oneTx.RawTx);
+            bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, txParsed);
+            CheckOutputsSumAndValidateDs(txParsed, oneTx.DsCheck, txStatus, warnings);
 
             if (txStatus == TxStatus.UnknownOldTx)
             {
@@ -755,7 +766,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 {
                   Txid = txIdString,
                   ReturnResult = ResultCodes.Success,
-                  ResultDescription = NodeRejectCode.ResultAlreadyKnown
+                  ResultDescription = NodeRejectCode.ResultAlreadyKnown,
+                  Warnings = warnings.ToArray()
                 });
                 continue;
               }
@@ -764,39 +776,29 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               // so we resend it to node as with dontcheckfees
               transactionsToSubmit.Add((txIdString, oneTx, false, true, false, null, txStatus, warnings));
             }
+            else if (txStatus >= TxStatus.Accepted && !appSettings.ResubmitKnownTransactions.Value)
+            {
+              if (listUnconfirmedAncestors)
+              {
+                var (success, count) = await InsertMissingMempoolAncestors(txIdString, tx.PolicyQuoteId.Value);
+                if (!success)
+                {
+                  AddFailureResponse(txIdString, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
+
+                  failureCount++;
+                  continue;
+                }
+              }
+              responses.Add(new SubmitTransactionOneResponse
+              {
+                Txid = txIdString,
+                ReturnResult = ResultCodes.Success,
+                ResultDescription = NodeRejectCode.ResultAlreadyKnown,
+                Warnings = warnings.ToArray()
+              });
+            }
             else
             {
-              if (user?.Identity != tx.Identity || user?.IdentityProvider != tx.IdentityProvider)
-              {
-                AddFailureResponse(txIdString, "Transaction already submitted with different parameters.", ref responses);
-
-                failureCount++;
-                continue;
-              }
-              PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
-
-              bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, HelperTools.ParseBytesToTransaction(oneTx.RawTx));
-              if (txStatus >= TxStatus.Accepted && !appSettings.ResubmitKnownTransactions.Value)
-              {
-                if (listUnconfirmedAncestors)
-                {
-                  var (success, count) = await InsertMissingMempoolAncestors(txIdString, tx.PolicyQuoteId.Value);
-                  if (!success)
-                  {
-                    AddFailureResponse(txIdString, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
-
-                    failureCount++;
-                    continue;
-                  }
-                }
-                responses.Add(new SubmitTransactionOneResponse
-                {
-                  Txid = txIdString,
-                  ReturnResult = ResultCodes.Success,
-                  ResultDescription = NodeRejectCode.ResultAlreadyKnown
-                });
-                continue;
-              }
               transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, listUnconfirmedAncestors, tx.SetPolicyQuote ? policyQuote : null, txStatus, warnings));
             }
             continue;
@@ -831,7 +833,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           {
             logger.LogDebug($"Starting with CheckFees calculation for {txIdString} and { quotes.Length} quotes.");
 
-            (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, ref warnings);
+            (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, txStatus, warnings);
+            if (warnings.Any())
+            {
+              logger.LogInformation($"CheckOutputsSumAndValidateDs returned warnings: '{ string.Join(",", warnings)}'.");
+            }
             foreach (var policyQuote in quotes)
             {
               if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
@@ -931,7 +937,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       Exception submitException = null;
 
-      var saveTxsBeforeSendToNode = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, string[] warnings)>();
+      var saveTxsBeforeSendToNode = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, List<string> warnings)>();
       if (transactionsToSubmit.Any())
       {
         if (!appSettings.DontInsertTransactions.Value && 
@@ -993,7 +999,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             Txid = x.transactionId,
             ReturnResult = ResultCodes.Failure,
             ResultDescription = "Error while submitting transactions to the node", // do not expose detailed error message. It might contain internal IPS etc
-            Warnings = x.warnings
+            Warnings = x.warnings.ToArray()
           });
 
         logger.LogError($"Error while submitting transactions to the node {submitException}");
@@ -1006,7 +1012,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       else // submitted without error
       {
         var (submitFailureCount, transformed ) = TransformRpcResponse(rpcResponse,
-          transactionsToSubmit.Select(x => (x.transactionId, x.warnings)).ToArray());
+          transactionsToSubmit.Select(x => (x.transactionId, x.warnings.ToArray())).ToArray());
 
         responses.AddRange(transformed);
 
@@ -1074,10 +1080,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           // sendrawtxs only returns unconfirmed ancestors on first call
           // if tx was accepted by a node in a previous submit, sendrawtxs returns no ancestors
           // and we have to get them with GetMempoolAncestors
-          foreach (var (transactionId, policyQuote, txstatus) in
-            successfullTxs
+          var txsWithMissingMempoolAncestors = successfullTxs
               .Where(x => x.listUnconfirmedAncestors && x.txstatus >= TxStatus.SentToNode && !txsWithAncestors.Contains(x.transactionId))
-              .Select(x=> (x.transactionId, x.policyQuote, x.txstatus)))
+              .Select(x => (x.transactionId, x.policyQuote, x.txstatus)).ToArray();
+          foreach (var (transactionId, policyQuote, txstatus) in txsWithMissingMempoolAncestors)
           {
             var (success, count) = await InsertMissingMempoolAncestors(transactionId, policyQuote != null ? policyQuote.Id : quotes.First().Id);
             if (!success)
@@ -1129,7 +1135,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }).ToList(),
           TxStatus = TxStatus.Accepted,
           PolicyQuoteId = policyQuoteId
-        })
+          })
         );
         logger.LogInformation($"GetMempoolAncestors returned {unconfirmedAncestors.Count} transactions.");
         await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiUnconfirmedAncestors, unconfirmedAncestors, true);
@@ -1148,7 +1154,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
     private async Task<(RpcSendTransactions, Exception)> SendTransactions(
-      List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txStatus, string[] warnings)> transactionsToSubmit,
+      List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txStatus, List<string> warnings)> transactionsToSubmit,
       Faults.FaultType faultType)
     {
       return await SendRawTransactions(

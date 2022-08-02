@@ -331,6 +331,56 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("Transaction already submitted with different parameters.", payload.ResultDescription);
     }
 
+    [DataRow(TxStatus.NodeRejected)]
+    [DataRow(TxStatus.SentToNode)]
+    [DataRow(TxStatus.UnknownOldTx)]
+    [DataRow(TxStatus.Accepted)]
+    [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
+    [TestMethod]
+    public async Task SubmitSameTransactionTestWarningsAsync(int txStatus)
+    {
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
+      RestAuthentication = MockedIdentityBearerAuthentication;
+
+      var (txHex1, txId1) = (txC3Hex, txC3Hash);
+
+      // Store tx to database before submitting it to the mAPI
+      List<Domain.Models.Tx> txToInsert = new()
+      {
+        new Domain.Models.Tx()
+        {
+          TxPayload = HelperTools.HexStringToByteArray(txHex1),
+          TxExternalId = new uint256(txId1),
+          ReceivedAt = DateTime.UtcNow,
+          MerkleProof = false,
+          DSCheck = true,
+          CallbackUrl = CallbackFunctionalTests.Url,
+          TxStatus = txStatus,
+          PolicyQuoteId = 2
+        }
+      };
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false);
+
+      var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, true);
+      VerifySignature(response);
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      Assert.AreEqual("success", payload.ReturnResult);
+      Assert.IsTrue(payload.Warnings.Any());
+      Assert.AreEqual(Warning.MissingDSNT, payload.Warnings.Single());
+    }
+
+    [DataRow(TxStatus.NodeRejected)]
+    [DataRow(TxStatus.SentToNode)]
+    [DataRow(TxStatus.UnknownOldTx)]
+    [DataRow(TxStatus.Accepted)]
+    [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
+    [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
+    [TestMethod]
+    public async Task SubmitSameTransactionTestWarningsAndResubmitAsync(int txStatus)
+    {
+      await SubmitSameTransactionTestWarningsAsync(txStatus);
+    }
+
     [TestMethod]
     public async Task SubmitSameTransactionAfterRejectedAsync()
     {
@@ -360,6 +410,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("success", payload.ReturnResult);
+      Assert.IsTrue(payload.Warnings.Any());
+      Assert.AreEqual(Warning.MissingDSNT, payload.Warnings.Single());
 
       var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
       Assert.AreEqual(TxStatus.Accepted, tx.TxStatus);

@@ -21,6 +21,7 @@ using MerchantAPI.APIGateway.Domain.Models;
 using NBitcoin.DataEncoders;
 using Serilog;
 using Serilog.Events;
+using MerchantAPI.APIGateway.Domain;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -160,7 +161,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx1Id = tx1.GetHash().ToString();
 
       loggerTest.LogInformation($"Submiting {tx1Id} with dsCheck enabled");
-      var payload = await SubmitTransactionsAsync(new string[] { tx1Hex });
+      var payload = await SubmitTransactionsAsync(new string[] { tx1Hex }, true);
       Assert.AreEqual(0, payload.FailureCount);
 
       if (sendToNode1)
@@ -229,7 +230,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var tx1Id = tx1.GetHash().ToString();
 
       loggerTest.LogInformation($"Submiting {tx1Id} with doublespend notification enabled");
-      var payload = await SubmitTransactionsAsync(new string[] { tx1Hex });
+      var payload = await SubmitTransactionsAsync(new string[] { tx1Hex }, true);
 
       // Wait for tx to be propagated to all nodes before submiting a doublespend tx to nodes
       List<Task> mempoolTasks = new();
@@ -301,7 +302,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(Const.DSNT_IDENTIFIER));
       string dsData = $"01037f0000017f000001{0:D2}"; // IP address count = 3
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
 
@@ -318,7 +319,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(Const.DSNT_IDENTIFIER));
       string dsData = $"01027f0000027f000001{0:D2}"; // IP address count = 2
       script += Op.GetPushOp(Encoders.Hex.DecodeData(dsData));
 

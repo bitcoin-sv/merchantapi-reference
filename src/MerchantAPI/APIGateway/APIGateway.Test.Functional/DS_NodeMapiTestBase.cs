@@ -5,22 +5,13 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
 using NBitcoin.DataEncoders;
-using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Rest.ViewModels;
-using System.Net.Http;
-using MerchantAPI.APIGateway.Domain.ViewModels;
-using System.Net.Http.Headers;
-using MerchantAPI.APIGateway.Test.Functional.Server;
-using System.Net.Mime;
-using System.Net;
 using System.Linq;
+using MerchantAPI.APIGateway.Domain;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
-  public class DS_NodeMapiTestBase : TestBaseWithBitcoind
+  public class DS_NodeMapiTestBase : MapiWithBitcoindTestBase
   {
-    protected const string DSNTIdentifier = "64736e74";
-
     [TestInitialize]
     public override void TestInitialize()
     {
@@ -59,7 +50,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var script = new Script(OpcodeType.OP_FALSE);
       script += OpcodeType.OP_RETURN;
       // PROTOCOL_ID: 32-bit identifier for Double Spend Notifications: 0x64736e74 "dsnt" (in this byte order)
-      script += Op.GetPushOp(Encoders.Hex.DecodeData(DSNTIdentifier));
+      script += Op.GetPushOp(Encoders.Hex.DecodeData(Const.DSNT_IDENTIFIER));
       // The following hex data '01017f0000010100' is in accordance with specs where:
       // 1st byte (0x01) is version number
       // 2nd byte (0x01) is number of IPv4 addresses (in this case only 1)
@@ -122,20 +113,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       tx1.Sign(key.GetBitcoinSecret(Network.RegTest), coins);
 
       return tx1;
-    }
-
-    protected async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = true)
-    {
-      // Send transaction
-
-      var reqJSON = "[{\"rawtx\": \"" + string.Join("\"}, {\"rawtx\": \"", txHexList) + "\", \"dscheck\": " + dsCheck.ToString().ToLower() + ", \"callbackurl\": \"http://mockCallback:8321\"}]";
-      var reqContent = new StringContent(reqJSON);
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response =
-        await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, HttpStatusCode.OK);
-
-      return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
   }
 }
