@@ -693,6 +693,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
             if (txStatus == TxStatus.UnknownOldTx)
             {
+              if (!appSettings.ResubmitKnownTransactions.Value)
+              {
+                responses.Add(new SubmitTransactionOneResponse
+                {
+                  Txid = txIdString,
+                  ReturnResult = ResultCodes.Success,
+                  ResultDescription = NodeRejectCode.ResultAlreadyKnown
+                });
+                continue;
+              }
               // we don't have actual user or feeQuote saved for the unknownOldTxs
               // and we cannot always define feequote (valid feeQuote can be expired or sumPrevOuputs = 0)
               // so we resend it to node as with dontcheckfees

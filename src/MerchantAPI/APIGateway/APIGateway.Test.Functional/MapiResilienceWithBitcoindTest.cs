@@ -305,7 +305,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           var dbTx = await TxRepositoryPostgres.GetTransactionAsync(t.TxExternalIdBytes);
           if (!resubmitToNode)
           {
-            Assert.AreEqual(t.SubmittedAt.Ticks, dbTx.SubmittedAt.Ticks, 10);
+            Assert.AreEqual(t.SubmittedAt.Ticks, dbTx.SubmittedAt.Ticks, 1);
           }
           else
           {
