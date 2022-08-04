@@ -504,7 +504,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       {
         return r;
       }
-      return new RpcGetMempoolAncestors();
+      return new RpcGetMempoolAncestors() { Transactions = new() };
     }
 
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid, 

@@ -5,7 +5,6 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.Common.Clock;
 using System;
 using System.Collections.Generic;
 using System.Linq;

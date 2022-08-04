@@ -1016,7 +1016,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           foreach (var (transactionId, _, _, _, _, policyQuote, txstatus) in
             successfullTxs.Where(x => x.listUnconfirmedAncestors && x.txstatus >= TxStatus.SentToNode && !txsWithAncestors.Contains(x.transactionId)))
           {
-            var (success, count) = await InsertMissingMempoolAncestors(transactionId, policyQuote.Id);
+            var (success, count) = await InsertMissingMempoolAncestors(transactionId, policyQuote != null ? policyQuote.Id : quotes.First().Id);
             if (!success)
             {
               responses.RemoveAll(x => x.Txid == transactionId);

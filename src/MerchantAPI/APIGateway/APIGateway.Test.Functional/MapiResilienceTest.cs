@@ -301,6 +301,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(true, tx.MerkleProof);
         Assert.AreEqual("TSC", tx.MerkleFormat);
         Assert.IsNotNull(tx.CallbackUrl);
+        Assert.IsTrue(tx.SetPolicyQuote);
       }
       else
       {
@@ -318,6 +319,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(false, tx.MerkleProof);
         Assert.AreEqual(null, tx.MerkleFormat);
         Assert.IsNull(tx.CallbackUrl);
+        Assert.IsFalse(tx.SetPolicyQuote);
       }
     }
 
@@ -578,6 +580,37 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Check if all fields are set
       await AssertIsOKAsync(payload, txZeroFeeHash);
+    }
+
+    [TestMethod]
+    [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
+    public async Task ResubmitTxWithCheckFeeDisabledAndUnconfirmedAncestorsCallAsync()
+    {
+      // tx has ListUnconfirmedAncestors = true on submit
+      var (txHex, txId) = (txC3Hex, txC3Hash);
+
+      // Store tx to database before submitting it to the mAPI
+      List<Domain.Models.Tx> txToInsert = new()
+      {
+        new Domain.Models.Tx()
+        {
+          TxPayload = HelperTools.HexStringToByteArray(txHex),
+          TxExternalId = new uint256(txId),
+          ReceivedAt = DateTime.UtcNow,
+          MerkleProof = false,
+          DSCheck = true,
+          CallbackUrl = CallbackFunctionalTests.Url,
+          TxStatus = TxStatus.Accepted,
+          PolicyQuoteId = 1,
+          SetPolicyQuote = false // is set to false when CheckFeeDisabled
+        }
+      };
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false);
+
+      var response = await SubmitTxToMapiAsync(txHex, HttpStatusCode.OK, true);
+      VerifySignature(response);
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      Assert.AreEqual("success", payload.ReturnResult);
     }
 
     [TestMethod]
