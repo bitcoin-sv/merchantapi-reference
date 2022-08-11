@@ -24,6 +24,7 @@ using Prometheus;
 using System.Diagnostics.CodeAnalysis;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using NBitcoin.DataEncoders;
+using System.Text;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -644,8 +645,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
       HashSet<string> txsToUpdate = new();
+      StringBuilder txLog;
+      
       foreach (var oneTx in request)
       {
+        txLog = new();
         if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
         {
           AddFailureResponse(null, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
@@ -679,7 +683,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
         string txIdString = txId.ToString();
-        logger.LogInformation($"Processing transaction: { txIdString }");
+        txLog.AppendLine($"Processing transaction: {txIdString}");
 
         if (oneTx.MerkleProof && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
         {
@@ -821,28 +825,26 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
           prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
           colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
-
-          logger.LogInformation($"CollectPreviousOuputs for {txIdString} returned { prevOuts.Length } prevOuts ({prevOutsErrors.Length } prevOutsErrors, {colidedWith.Length} colidedWith).");
+          txLog.AppendLine($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
 
           if (appSettings.CheckFeeDisabled.Value)
           {
-            logger.LogDebug($"{txIdString}: appSettings.CheckFeeDisabled { appSettings.CheckFeeDisabled }");
+            txLog.AppendLine("No checkFees, CheckFeeDisabled.");
             (okToMine, okToRelay) = (true, true);
           }
           else
           {
-            logger.LogDebug($"Starting with CheckFees calculation for {txIdString} and { quotes.Length} quotes.");
-
             (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, txStatus, warnings);
+
             if (warnings.Any())
             {
-              logger.LogInformation($"CheckOutputsSumAndValidateDs returned warnings: '{ string.Join(",", warnings)}'.");
+              txLog.AppendLine($"CheckOutputsSumAndValidateDs returned warnings: '{string.Join(",", warnings)}'.");
             }
             foreach (var policyQuote in quotes)
             {
               if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
               {
-                logger.LogInformation($"{txIdString}: IsConsolidationTxn");
+                txLog.AppendLine($"Determined as ConsolidationTxn.");
                 (okToMine, okToRelay, selectedQuote) = (true, true, policyQuote);
                 break;
               }
@@ -854,7 +856,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 (okToMine, okToRelay, selectedQuote) = (okToMineTmp, okToRelayTmp, policyQuote);
               }
             }
-            logger.LogInformation($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
+            txLog.AppendLine($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
               $"{(okToMine, okToRelay, selectedQuote?.PoliciesDict == null ? "" : string.Join(";", selectedQuote.PoliciesDict.Select(x => x.Key + "=" + x.Value)))}.");
           }
         }
@@ -862,6 +864,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           exception = ex;
         }
+        logger.LogDebug(txLog.ToString());
 
         if (exception != null || colidedWith.Any() || transaction == null || prevOutsErrors.Any())
         {
@@ -1022,7 +1025,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         if (!appSettings.DontInsertTransactions.Value)
         {
-          logger.LogInformation($"Starting with InsertOrUpdateTxsAsync: { successfullTxs.Count() }: { string.Join("; ", successfullTxs.Select(x => x.transactionId))} (TransactionsToSubmit: { transactionsToSubmit.Count })");
+          logger.LogDebug($"Starting with InsertOrUpdateTxsAsync: {successfullTxs.Count()}: {string.Join("; ", successfullTxs.Select(x => x.transactionId))} (TransactionsToSubmit: {transactionsToSubmit.Count})");
 
           var watch = System.Diagnostics.Stopwatch.StartNew();
           await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiAfterSendToNode, successfullTxs.Select(x => new Tx
@@ -1097,7 +1100,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             unconfirmedAncestorsCount += count;
           }
           watch.Stop();
-          logger.LogInformation($"Finished with InsertTxsAsync: { successfullTxs.Count() } found unconfirmedAncestors { unconfirmedAncestorsCount } took {watch.ElapsedMilliseconds} ms.");
+
+          logger.LogDebug($"Finished with InsertTxsAsync: {successfullTxs.Count()} found unconfirmedAncestors {unconfirmedAncestorsCount} took {watch.ElapsedMilliseconds} ms.");
 
           if (saveTxsBeforeSendToNode.Any())
           {
