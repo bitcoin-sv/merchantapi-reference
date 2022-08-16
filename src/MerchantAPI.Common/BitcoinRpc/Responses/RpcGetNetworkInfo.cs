@@ -19,8 +19,8 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
     [JsonPropertyName("maxconsolidationinputscriptsize")]
     public long MaxConsolidationInputScriptSize { get; set; }
 
-    [JsonPropertyName("minconsolidationinputmaturity")]
-    public long MinConsolidationInputMaturity { get; set; }
+    [JsonPropertyName("minconfconsolidationinput")]
+    public long MinConfConsolidationInput { get; set; }
 
     [JsonPropertyName("acceptnonstdconsolidationinput")]
     public bool AcceptNonStdConsolidationInput { get; set; }
