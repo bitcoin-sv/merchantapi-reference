@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MerchantAPI.APIGateway.Rest.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MerchantAPI.APIGateway.Rest.Services;
@@ -13,6 +12,7 @@ using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain;
 using Microsoft.Extensions.Options;
+using MerchantAPI.APIGateway.Rest.ViewModels.APIStatus;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
