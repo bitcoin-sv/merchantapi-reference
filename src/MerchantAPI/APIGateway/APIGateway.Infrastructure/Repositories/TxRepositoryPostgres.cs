@@ -369,10 +369,10 @@ RETURNING txExternalId;
       if (insertTxInputs)
       {
         string condition = areUnconfirmedAncestors ? "AND TxTemp.unconfirmedAncestor = false" : "AND TxTemp.txPayload IS NULL";
-
+        // todo : check Is TxTemp. necessary here since there is only TxTemp in FROM statement?
         cmdText += @$"
 INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
-(SELECT TxTemp.txInternalId, TxTemp.n, TxTemp.prevTxId, TxTemp.prev_n
+(SELECT txInternalId, n, prevTxId, prev_n
 FROM TxTemp 
 WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId) 
 AND TxTemp.txInternalId > 0 { condition })

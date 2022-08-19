@@ -301,11 +301,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Task.WhenAll(taskList);
 
       // Need to wait for all nodes to do their calls to mAPI
-      NotificationData[] notifications = Array.Empty<NotificationData>();
+      var notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
       while (!notifications.Any())
       {
-        notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
         await Task.Delay(500, cts.Token);
+        notifications = await TxRepositoryPostgres.GetNotificationsForTestsAsync();
       }
 
       loggerTest.LogInformation("Retrieving notification data");
