@@ -46,7 +46,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     static readonly string metricsPrefix = "merchantapi_mapi_";
 
     static readonly Counter requestSum = Metrics
-      .CreateCounter($"{metricsPrefix}request_counter", "Number of requests processed by mAPI.");
+      .CreateCounter($"{metricsPrefix}request_counter", "Number of processed requests.");
     static readonly Counter txAuthenticatedUser = Metrics
       .CreateCounter($"{metricsPrefix}tx_authenticated_user_counter", "Number of transactions submitted by authenticated users.");
     static readonly Counter txAnonymousUser = Metrics
@@ -669,8 +669,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       
       foreach (var oneTx in request)
       {
-        StringBuilder txLog;
-        txLog = new();
+        StringBuilder txLog = new();
         if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
         {
           AddFailureResponse(null, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
