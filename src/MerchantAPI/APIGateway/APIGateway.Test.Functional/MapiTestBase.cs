@@ -13,6 +13,11 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Test.Functional.Server;
+using System.Net.Mime;
+using System.Net;
+using System.Net.Http.Headers;
+using MerchantAPI.APIGateway.Test.Functional.Mock;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -80,6 +85,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedResult, response.ReturnResult);
+      // Description should be "" (not null)
       Assert.AreEqual(expectedDescription, response.ResultDescription);
 
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
@@ -152,6 +158,43 @@ namespace MerchantAPI.APIGateway.Test.Functional
       else
       {
         await AssertTxStatus(response.Txid, TxStatus.NotPresentInDb);
+      }
+    }
+
+    protected async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxToMapiAsync(string txHex, HttpStatusCode expectedStatusCode, bool dsCheck = false, bool merkleProof = false, string merkleFormat = "", string customCallbackUrl = "")
+    {
+      var reqContent = GetJsonRequestContent(txHex, merkleProof, dsCheck, merkleFormat, customCallbackUrl);
+
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+
+      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedStatusCode);
+    }
+
+    protected async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxsToMapiAsync(HttpStatusCode expectedStatusCode)
+    {
+      var reqContent = new StringContent($"[ {{ \"rawtx\": \"{txC3Hex}\" }}, {{ \"rawtx\": \"{txZeroFeeHex}\" }},  {{ \"rawtx\": \"{tx2Hex}\" }}]");
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, expectedStatusCode);
+    }
+
+    public async Task AssertSubmitTxAsync(string txHex, string txHash, string expectedResult = "success", string expectedDescription = "")
+    {
+      var nCallsBeforeSubmit = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count();
+
+      var response = await SubmitTxToMapiAsync(txHex, HttpStatusCode.OK);
+      VerifySignature(response);
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      // Check if all fields are set
+      await AssertIsOKAsync(payload, txHash, expectedResult, expectedDescription);
+
+      if (expectedResult == "success" && expectedDescription != NodeRejectCode.ResultAlreadyKnown)
+      {
+        var calls = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/" + txHash);
+        Assert.AreEqual(nCallsBeforeSubmit + 1, calls.Count());
+      }
+      else
+      {
+        Assert.AreEqual(nCallsBeforeSubmit, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count());
       }
     }
   }

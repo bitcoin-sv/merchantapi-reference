@@ -15,7 +15,6 @@ using NBitcoin.Crypto;
 using Transaction = NBitcoin.Transaction;
 using MerchantAPI.Common.Json;
 using System.ComponentModel.DataAnnotations;
-using System.Collections.ObjectModel;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Exceptions;
@@ -25,6 +24,8 @@ using System.Diagnostics.CodeAnalysis;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using NBitcoin.DataEncoders;
 using System.Text;
+using MerchantAPI.APIGateway.Domain.Models.APIStatus;
+using System.Collections.ObjectModel;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -44,12 +45,24 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     static readonly string metricsPrefix = "merchantapi_mapi_";
 
-    static readonly Counter txSendToNode = Metrics
-      .CreateCounter($"{metricsPrefix}txsendtonode_counter", "Number of transactions send to node.");
+    static readonly Counter requestSum = Metrics
+      .CreateCounter($"{metricsPrefix}request_counter", "Number of requests processed by mAPI.");
+    static readonly Counter txAuthenticatedUser = Metrics
+      .CreateCounter($"{metricsPrefix}tx_authenticated_user_counter", "Number of transactions submitted by authenticated users.");
+    static readonly Counter txAnonymousUser = Metrics
+      .CreateCounter($"{metricsPrefix}tx_anonymous_user_counter", "Number of transactions submitted by anonymous users.");
+    static readonly Counter txSentToNode = Metrics
+      .CreateCounter($"{metricsPrefix}tx_sent_to_node_counter", "Number of transactions sent to node.");
     static readonly Counter txAcceptedByNode = Metrics
-      .CreateCounter($"{metricsPrefix}acceptedbynode_counter", "Number of transactions accepted by node.");
+      .CreateCounter($"{metricsPrefix}tx_accepted_by_node_counter", "Number of transactions accepted by node.");
     static readonly Counter txRejectedByNode = Metrics
-      .CreateCounter($"{metricsPrefix}rejectedbynode_counter", "Number of transactions rejected by node.");
+      .CreateCounter($"{metricsPrefix}tx_rejected_by_node_counter", "Number of transactions rejected by node.");
+    static readonly Counter txSubmitException = Metrics
+      .CreateCounter($"{metricsPrefix}tx_submit_exception_counter", "Number of transactions with submit exception.");
+    static readonly Counter txResponseFailure = Metrics
+      .CreateCounter($"{metricsPrefix}tx_response_failure_counter", "Number of failure responses.");
+    static readonly Counter txResponseSuccess = Metrics
+      .CreateCounter($"{metricsPrefix}tx_response_success_counter", "Number of success responses.");
 
     static class ResultCodes
     {
@@ -577,14 +590,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         //TxSecondMempoolExpiry
       };
 
-
     }
+
     public async Task<SubmitTransactionResponse> SubmitTransactionAsync(SubmitTransaction request, UserAndIssuer user)
     {
       var responseMulti = await SubmitTransactionsAsync(new[] { request }, user);
       if (responseMulti.Txs.Length != 1)
       {
-        throw new Exception("Internal error. Expected exactly 1 transaction in response but got {responseMulti.Txs.Length}");
+        throw new Exception($"Internal error. Expected exactly 1 transaction in response but got {responseMulti.Txs.Length}");
       }
 
       var tx = responseMulti.Txs[0];
@@ -624,7 +637,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     public async Task<SubmitTransactionsResponse> SubmitTransactionsAsync(IEnumerable<SubmitTransaction> requestEnum, UserAndIssuer user)
     {
       var request = requestEnum.ToArray();
-      logger.LogInformation($"Processing {request.Length} incoming transactions");
+      requestSum.Inc(1);
+      if (user != null)
+      {
+        txAuthenticatedUser.Inc(request.Length);
+      }
+      else
+      {
+        txAnonymousUser.Inc(request.Length);
+      }
       // Take snapshot of current metadata and use use it for all transactions
       var info = await blockChainInfo.GetInfoAsync();
       var currentMinerId = await minerId.GetCurrentMinerIdAsync();
@@ -645,10 +666,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();
       HashSet<string> txsToUpdate = new();
-      StringBuilder txLog;
       
       foreach (var oneTx in request)
       {
+        StringBuilder txLog;
         txLog = new();
         if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
         {
@@ -859,12 +880,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             txLog.AppendLine($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
               $"{(okToMine, okToRelay, selectedQuote?.PoliciesDict == null ? "" : string.Join(";", selectedQuote.PoliciesDict.Select(x => x.Key + "=" + x.Value)))}.");
           }
+          logger.LogDebug(txLog.ToString());
         }
         catch (Exception ex)
         {
+          logger.LogInformation(txLog.ToString());
           exception = ex;
         }
-        logger.LogDebug(txLog.ToString());
 
         if (exception != null || colidedWith.Any() || transaction == null || prevOutsErrors.Any())
         {
@@ -970,7 +992,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           insertedTxs.ForEach(x => txsToUpdate.Add(x.ToString()));
         }
 
-         txSendToNode.Inc(transactionsToSubmit.Count);
+        txSentToNode.Inc(transactionsToSubmit.Count);
 
         // Submit all collected transactions in one call 
         (rpcResponse, submitException) = await SendTransactions(transactionsToSubmit, Faults.FaultType.SimulateSendTxsMapi);
@@ -1009,7 +1031,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         responses.AddRange(unableToSubmit);
         result.Txs = responses.ToArray();
         result.FailureCount = result.Txs.Length; // all of the transactions have failed
-
+        txSubmitException.Inc(result.FailureCount);
         return result;
       }
       else // submitted without error
@@ -1112,6 +1134,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         result.Txs = responses.ToArray();
         result.FailureCount = failureCount + submitFailureCount;
+        txResponseFailure.Inc(result.FailureCount);
+        txResponseSuccess.Inc(result.Txs.Length-result.FailureCount);
         return result;
       }
     }
@@ -1346,6 +1370,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 failures: { failures }, submitFailureIgnored: {submitFailureIgnored}, missing inputs: { txsWithMissingInputs.Count }.");
 
       return (failures == 0, txsWithMissingInputs);
+    }
+
+    public SubmitTxStatus GetSubmitTxStatus()
+    {
+      return new SubmitTxStatus(requestSum.Value, txAuthenticatedUser.Value, txAnonymousUser.Value,
+        txSentToNode.Value, txAcceptedByNode.Value, txRejectedByNode.Value, txSubmitException.Value,
+        txResponseSuccess.Value, txResponseFailure.Value);
     }
   }
 }

@@ -37,7 +37,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     static readonly Histogram getTxOutsDuration = Metrics
       .CreateHistogram($"{metricsPrefix}gettxouts_duration_seconds", "Histogram of time spent waiting for gettxouts response from node.");
     static readonly Histogram sendRawTxDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}sendrawtx_duration_seconds", "Histogram of time spent waitng for sendrawtransaction response from node.");
+      .CreateHistogram($"{metricsPrefix}sendrawtx_duration_seconds", "Histogram of time spent waiting for sendrawtransaction response from node.");
 
     public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options)
       : this(nodes, rpcClientFactory, logger, options.Value.RpcClient)
