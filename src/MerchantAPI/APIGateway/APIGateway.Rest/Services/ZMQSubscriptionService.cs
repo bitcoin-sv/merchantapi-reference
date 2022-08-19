@@ -160,13 +160,13 @@ namespace MerchantAPI.APIGateway.Rest.Services
           
           case ZMQTopic.InvalidTx:
             var invalidTxMsg = JsonSerializer.Deserialize<InvalidTxMessage>(msg[0]);
-            logger.LogInformation($"Invalid tx notification for tx {invalidTxMsg.TxId} with reason {invalidTxMsg.RejectionCode} - {invalidTxMsg.RejectionReason}.");
+            logger.LogTrace($"Invalid tx notification for tx {invalidTxMsg.TxId} with reason {invalidTxMsg.RejectionCode} - {invalidTxMsg.RejectionReason}.");
             eventBus.Publish(new InvalidTxDetectedEvent() { CreationDate = clock.UtcNow(), Message = invalidTxMsg }); 
             break;
 
           case ZMQTopic.DiscardedFromMempool:
             var removedFromMempoolMsg = JsonSerializer.Deserialize<RemovedFromMempoolMessage>(msg[0]);
-            logger.LogInformation($"Removed from mempool tx notification for tx {removedFromMempoolMsg.TxId} with reason {removedFromMempoolMsg.Reason}. ColidedWith.TxId = {removedFromMempoolMsg.CollidedWith?.TxId}");
+            logger.LogTrace($"Removed from mempool tx notification for tx {removedFromMempoolMsg.TxId} with reason {removedFromMempoolMsg.Reason}. ColidedWith.TxId = {removedFromMempoolMsg.CollidedWith?.TxId}");
             eventBus.Publish(new RemovedFromMempoolEvent() { CreationDate = clock.UtcNow(), Message = removedFromMempoolMsg });
             break;
 
