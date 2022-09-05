@@ -24,7 +24,7 @@ namespace MerchantAPI.APIGateway.Domain
     public int? RequestTimeoutSec { get; set; } = 100;
   }
 
-  public class Notification
+  public class Notification : IValidatableObject
   {
     [Range(1, int.MaxValue)]
     public int? NotificationIntervalSec { get; set; } = 60;
@@ -50,11 +50,19 @@ namespace MerchantAPI.APIGateway.Domain
     [Required]
     public int? NotificationsRetryCount { get; set; }
 
-    [Required]
-    public int? SlowHostResponseTimeoutMS { get; set; }
+    [Range(100, int.MaxValue)]
+    public int? SlowHostResponseTimeoutMS { get; set; } = 3000;
 
-    [Required]
-    public int? FastHostResponseTimeoutMS { get; set; }
+    [Range(100, int.MaxValue)]
+    public int? FastHostResponseTimeoutMS { get; set; } = 1000;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+      if (SlowHostResponseTimeoutMS <= FastHostResponseTimeoutMS)
+      {
+        yield return new ValidationResult($"Value for {nameof(SlowHostResponseTimeoutMS)} must be greater than {nameof(FastHostResponseTimeoutMS)}.");
+      }
+    }
   }
 
   public class DbConnectionSettings

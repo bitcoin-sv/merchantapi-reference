@@ -116,5 +116,20 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsNotNull(failures);
       Assert.AreEqual("Invalid configuration - Notification settings must be specified.", failures.Single());
     }
+
+    [TestMethod]
+    public void TestNotificationHostResponseTimeout()
+    {
+      AppSettings.Notification.SlowHostResponseTimeoutMS = 1000;
+      AppSettings.Notification.FastHostResponseTimeoutMS = 2000;
+      var failures = validator.Validate(SettingName.Notification, this.AppSettings).Failures;
+      Assert.IsNotNull(failures);
+      Assert.AreEqual("Value for SlowHostResponseTimeoutMS must be greater than FastHostResponseTimeoutMS.", failures.Single());
+
+      AppSettings.Notification.FastHostResponseTimeoutMS = 1000;
+      failures = validator.Validate(SettingName.Notification, this.AppSettings).Failures;
+      Assert.IsNotNull(failures);
+      Assert.AreEqual("Value for SlowHostResponseTimeoutMS must be greater than FastHostResponseTimeoutMS.", failures.Single());
+    }
   }
 }
