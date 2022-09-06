@@ -27,6 +27,9 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
     [JsonPropertyName("acceptnonstdconsolidationinput")]
     public bool AcceptNonStdConsolidationInput { get; set; }
 
+    [JsonPropertyName("warnings")]
+    public string Warnings { get; set; }
+
     // There are additional fields that are not mapped
 
 
