@@ -183,7 +183,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
             Assert.AreEqual(blockChainInfo.BestBlockHeight, response.BlockHeight);
             Assert.AreEqual(blockChainInfo.BestBlockHash, response.BlockHash);
           }
-          if (checkMerkleProofWithMerkleFormat != null)
+          if (checkMerkleProofWithMerkleFormat == null)
+          {
+            Assert.IsNull(response.MerkleProof);
+          }
+          else
           {
             Assert.IsNotNull(response.MerkleProof);
             var jsonMerkleProof = ((JsonElement)response.MerkleProof).GetRawText();
@@ -200,9 +204,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
             }
           }
         }
-        if (checkMerkleProofWithMerkleFormat == null)
+        else
         {
+          Assert.IsNull(response.Confirmations);
           Assert.IsNull(response.MerkleProof);
+          Assert.IsNull(response.BlockHash);
+          Assert.IsNull(response.BlockHeight);
         }
         Assert.AreEqual(0, response.TxSecondMempoolExpiry);
         await AssertTxStatus(response.Txid, txStatus);
