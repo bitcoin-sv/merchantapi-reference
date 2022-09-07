@@ -36,7 +36,8 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 (
   FOR /f "delims=" %%A IN (template-docker-compose.yml) DO (
     SET "line=%%A"
-    "line=!line:{{VERSION}}=%VERSIONPREFIX%!"
+	SET "line=!line:{{VERSION}}=%VERSIONPREFIX%!"
+    ECHO(!line!
   )
 )>Build/docker-compose.yml
 

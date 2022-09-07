@@ -1,0 +1,2 @@
+# eol must be explicitly set for windows image to work
+/src/Deploy/run.sh text eol=lf
