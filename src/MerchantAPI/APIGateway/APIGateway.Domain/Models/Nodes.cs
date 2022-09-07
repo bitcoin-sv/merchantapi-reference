@@ -193,7 +193,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
           error = $"Node version must be at least { requiredNodeVersion }.";
         }
       }
-      return (error == null, error);
+      return (string.IsNullOrEmpty(error), error);
     }
 
     public bool IsZMQNotificationsEndpointValid(Node node, RpcActiveZmqNotification[] notifications, out string error)
