@@ -262,6 +262,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       payloadSubmit = await SubmitTransactionAsync(txHexAnonymous);
       if (dbFaultType == Faults.FaultType.DbBeforeSavingUncommittedState)
       {
+        // we don't know, that user already submitted transaction through mAPI the first time,
+        // because transaction submitted by anonymous user is sent to node and then saved to DB
+        // (for the authenticated user it is already saved before sent to node)
         Assert.AreEqual("failure", payloadSubmit.ReturnResult);
       }
       else

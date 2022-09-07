@@ -1013,8 +1013,10 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           // sendrawtxs only returns unconfirmed ancestors on first call
           // if tx was accepted by a node in a previous submit, sendrawtxs returns no ancestors
           // and we have to get them with GetMempoolAncestors
-          foreach (var (transactionId, _, _, _, _, policyQuote, txstatus) in
-            successfullTxs.Where(x => x.listUnconfirmedAncestors && x.txstatus >= TxStatus.SentToNode && !txsWithAncestors.Contains(x.transactionId)))
+          foreach (var (transactionId, policyQuote, txstatus) in
+            successfullTxs
+              .Where(x => x.listUnconfirmedAncestors && x.txstatus >= TxStatus.SentToNode && !txsWithAncestors.Contains(x.transactionId))
+              .Select(x=> (x.transactionId, x.policyQuote, x.txstatus)))
           {
             var (success, count) = await InsertMissingMempoolAncestors(transactionId, policyQuote != null ? policyQuote.Id : quotes.First().Id);
             if (!success)
