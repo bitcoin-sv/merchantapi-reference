@@ -198,19 +198,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionJson()
     {
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
-      VerifySignature(response);
-
-      rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txC3Hash);
-
-      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-
-      // Check if all fields are set
-      await AssertIsOKAsync (payload, txC3Hash);
-      Assert.AreEqual("", payload.ResultDescription); // Description should be "" (not null)
+      await AssertSubmitTxAsync(txC3Hex, txC3Hash);
     }
 
     [TestMethod]
@@ -218,10 +206,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public async Task SubmitTransactionRejectDontParseTransaction()
     {
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\", \"merkleProof\": true }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK, merkleProof: true);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -235,10 +220,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public async Task SubmitTransactionRejectDontParseBlock()
     {
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\", \"dsCheck\": true }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK, dsCheck: true);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -261,10 +243,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees); // submit tx1 should succeed
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{ tx1.ToHex() }\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx1.GetHash().ToString());
@@ -289,10 +268,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
                           (txLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 80
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees - 1); // submit tx1 should fail
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{ tx1.ToHex() }\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
       VerifySignature(response);
 
       Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
@@ -303,10 +279,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx2 = CreateTransaction(tx0, txLength, 0, minRequiredFees + 1); // submit tx2 should succeed
 
-      reqContent = new StringContent($"{{ \"rawtx\": \"{ tx2.ToHex() }\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      response = await SubmitTxToMapiAsync(tx2.ToHex(), HttpStatusCode.OK); ;
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx2.GetHash());
@@ -338,10 +311,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, dataLength, minRequiredFees); // submit tx1 should succeed
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{ tx1.ToHex() }\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx1.GetHash().ToString());
@@ -371,10 +341,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees - 1); // submit tx1 should fail
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{ tx1.ToHex() }\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
       VerifySignature(response);
 
       Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
@@ -386,10 +353,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx2 = CreateTransaction(tx0, txLength, 0, minRequiredFees + 1); // submit tx2 should succeed
 
-      reqContent = new StringContent($"{{ \"rawtx\": \"{ tx2.ToHex() }\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      response = await SubmitTxToMapiAsync(tx2.ToHex(), HttpStatusCode.OK);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx2.GetHash().ToString());
@@ -421,10 +385,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, dataLength, minRequiredFees); // submit tx1 should succeed
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{ tx1.ToHex() }\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx1.GetHash().ToString());
@@ -519,15 +480,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var feeQuotes = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null);
       Assert.AreEqual(1, feeQuotes.Count()); 
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
       using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(feeQuoteRepositoryMock.QuoteExpiryMinutes)))
       {
         feeQuotes = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null);
         Assert.AreEqual(1, feeQuotes.Count()); // should return current
 
-        var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+        var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
         VerifySignature(response);
 
         rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txZeroFeeHash);
@@ -536,7 +494,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
         // Check if all fields are set
         await AssertIsOKAsync (payload, txZeroFeeHash);
       }
-
     }
 
     [TestMethod]
@@ -548,15 +505,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var feeQuotes = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null);
       Assert.AreEqual(1, feeQuotes.Count()); // current feeQuote is valid now
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
       using (MockedClock.NowIs(new DateTime(2020, 9, 1, 12, 6, 0))) // go back in time
       {
         feeQuotes = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null);
         Assert.AreEqual(2, feeQuotes.Count());
 
-        var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+        var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
         VerifySignature(response);
 
         rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txZeroFeeHash);
@@ -574,11 +528,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       AddMockNode(1);
       Assert.AreEqual(2, Nodes.GetNodes().Count());
 
-
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txC3Hash);
@@ -598,10 +548,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       rpcClientFactoryMock.DisconnectNode("mocknode0");
 
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode1:sendrawtransactions/", "mocknode1:sendrawtransactions/" + txC3Hash);
@@ -621,17 +568,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       rpcClientFactoryMock.DisconnectNode("mocknode0");
       
-
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txC3Hex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-
       // fetch blockchain info while one node is sitll available and then last connected node
       _ = BlockChainInfo.GetInfoAsync();
 
       rpcClientFactoryMock.DisconnectNode("mocknode1");
 
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -643,10 +585,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionZeroFeeJson()
     {
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
       VerifySignature(response);
 
       Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
@@ -664,10 +603,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [OverrideSetting("AppSettings:CheckFeeDisabled", true)]
     public async Task SubmitTransactionJsonCheckFeeDisabled()
     {
-      var reqContent = new StringContent($"{{ \"rawtx\": \"{txZeroFeeHex}\" }}");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
       VerifySignature(response);
 
       Assert.AreEqual(1, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
@@ -681,11 +617,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionsJson()
     {
-      var reqContent = new StringContent($"[ {{ \"rawtx\": \"{txC3Hex}\" }}, {{ \"rawtx\": \"{txZeroFeeHex}\" }},  {{ \"rawtx\": \"{tx2Hex}\" }}]");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, HttpStatusCode.OK);
+      var response = await SubmitTxsToMapiAsync(HttpStatusCode.OK);
       VerifySignature(response);
-
 
       await Assert2ValidAnd1InvalidAsync(response.response.ExtractPayload<SubmitTransactionsResponseViewModel>());
     }

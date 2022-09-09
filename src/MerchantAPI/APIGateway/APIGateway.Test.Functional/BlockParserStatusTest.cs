@@ -3,7 +3,7 @@
 
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.APIStatus;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

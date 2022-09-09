@@ -7,6 +7,7 @@ using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Rest.ViewModels.APIStatus;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging;

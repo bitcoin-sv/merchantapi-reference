@@ -91,6 +91,16 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return defaultValue;
     }
 
+    private T GetPolicyValueIgnoreZeroValue<T>(string policyName, T defaultValue)
+    {
+      var v = GetPolicyValue(policyName, defaultValue);
+      if (v.Equals(default(T)))
+      {
+        return defaultValue;
+      }
+      return v;
+    }
+
 
     public ConsolidationTxParameters GetMergedConsolidationTxParameters(ConsolidationTxParameters consolidationTxParameters)
     {
@@ -99,7 +109,10 @@ namespace MerchantAPI.APIGateway.Domain.Models
         Version = consolidationTxParameters.Version,
         MinConsolidationFactor = GetPolicyValue(ConsolidationPolicies.MinConsolidationFactor, consolidationTxParameters.MinConsolidationFactor),
         MaxConsolidationInputScriptSize = GetPolicyValue(ConsolidationPolicies.MaxConsolidationInputScriptSize, consolidationTxParameters.MaxConsolidationInputScriptSize),
-        MinConfConsolidationInput = GetPolicyValue(ConsolidationPolicies.MinConfConsolidationInput, consolidationTxParameters.MinConfConsolidationInput),
+        // Bitcoind for now ignores value 0 for confirmations and uses the default value of 6. Utxos must be confirmed.
+        // If this changes: CollectPreviousOutputs that sets IsStandard = true must be updated.
+        // We can not use results from getutxos from node, because node does not yet have this output.
+        MinConfConsolidationInput = GetPolicyValueIgnoreZeroValue(ConsolidationPolicies.MinConfConsolidationInput, consolidationTxParameters.MinConfConsolidationInput),
         AcceptNonStdConsolidationInput = GetPolicyValue(ConsolidationPolicies.AcceptNonStdConsolidationInput, consolidationTxParameters.AcceptNonStdConsolidationInput)
       };
     }

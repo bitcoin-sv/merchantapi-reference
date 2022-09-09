@@ -16,7 +16,7 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 3,
+  "id": 11,
   "links": [],
   "panels": [
     {
@@ -34,7 +34,7 @@
         "y": 0
       },
       "hiddenSeries": false,
-      "id": 8,
+      "id": 12,
       "legend": {
         "avg": false,
         "current": false,
@@ -131,7 +131,7 @@
         "y": 0
       },
       "hiddenSeries": false,
-      "id": 2,
+      "id": 13,
       "legend": {
         "avg": false,
         "current": false,
@@ -174,7 +174,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Total number of transactions submitted by client",
+      "title": "Total number of requests submitted by client",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -231,7 +231,7 @@
         "y": 9
       },
       "hiddenSeries": false,
-      "id": 4,
+      "id": 14,
       "legend": {
         "alignAsTable": false,
         "avg": false,
@@ -261,32 +261,249 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(merchantapi_mapi_txsendtonode_counter[1m])",
+          "expr": "rate(merchantapi_mapi_tx_authenticated_user_counter[1m])",
           "hide": false,
           "interval": "",
-          "legendFormat": "transactions send to node",
+          "legendFormat": "transactions submitted by authenticated users",
           "refId": "A"
         },
         {
-          "expr": "rate(merchantapi_mapi_acceptedbynode_counter[1m])",
+          "expr": "rate(merchantapi_mapi_tx_anonymous_user_counter[1m])",
           "hide": false,
           "interval": "",
-          "legendFormat": "transactions accepted by node",
+          "legendFormat": "transactions submitted by anonymous users",
           "refId": "B"
-        },
-        {
-          "expr": "rate(merchantapi_mapi_rejectedbynode_counter[1m])",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "transactions rejected by node",
-          "refId": "C"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Total number of transactions send, accepted and rejected by node",
+      "title": "Total number of transactions submitted by client",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:1175",
+          "decimals": 2,
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:1176",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "cacheTimeout": null,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "mAPI",
+      "decimals": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "hiddenSeries": false,
+      "id": 15,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pluginVersion": "6.7.6",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(merchantapi_mapi_tx_response_success_counter[1m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "success responses",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(merchantapi_mapi_tx_response_failure_counter[1m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "failure responses",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Total number of mAPI responses",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:1178",
+          "decimals": 2,
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:1179",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "cacheTimeout": null,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "mAPI",
+      "decimals": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "hiddenSeries": false,
+      "id": 16,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pluginVersion": "6.7.6",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "rate(merchantapi_mapi_tx_sent_to_node_counter[1m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "transactions sent to node",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(merchantapi_mapi_tx_accepted_by_node_counter[1m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "transactions accepted by node",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(merchantapi_mapi_tx_rejected_by_node_counter[1m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "transactions rejected by node",
+          "refId": "C"
+        },
+		{
+          "expr": "rate(merchantapi_mapi_tx_submit_exception_counter[1m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "transactions with submit exception",
+          "refId": "D"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Total number of transactions sent to node and node responses",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -341,7 +558,7 @@
         "y": 9
       },
       "hiddenSeries": false,
-      "id": 6,
+      "id": 17,
       "legend": {
         "avg": false,
         "current": false,
@@ -369,13 +586,13 @@
         {
           "expr": "rate(merchantapi_rpcmulticlient_gettxouts_duration_seconds_sum [1m])",
           "interval": "",
-          "legendFormat": "getutxo response",
+          "legendFormat": "gettxouts response",
           "refId": "A"
         },
         {
-          "expr": "rate(merchantapi_rpcmulticlient_sendrawtx_duration_seconds_sum [1m])",
+          "expr": "rate(merchantapi_rpcmulticlient_sendrawtxs_duration_seconds_sum [1m])",
           "interval": "",
-          "legendFormat": "sendrawtransaction response",
+          "legendFormat": "sendrawtransactions response",
           "refId": "B"
         }
       ],
@@ -448,7 +665,7 @@
         "x": 0,
         "y": 18
       },
-      "id": 10,
+      "id": 18,
       "interval": null,
       "links": [],
       "mappingType": 1,
@@ -539,7 +756,7 @@
         "y": 18
       },
       "hiddenSeries": false,
-      "id": 12,
+      "id": 19,
       "legend": {
         "avg": false,
         "current": false,

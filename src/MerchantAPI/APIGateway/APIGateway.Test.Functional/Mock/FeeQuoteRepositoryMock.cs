@@ -111,6 +111,10 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       if (!filtered.Any())
       {
         var quote = GetCurrentFeeQuoteByIdentityFromLoadedFeeQuotes(feeQuoteIdentity);
+        if (quote == null)
+        {
+          return null;
+        }
         return new List<FeeQuote>() { quote };
       }
       return filtered;

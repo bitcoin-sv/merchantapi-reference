@@ -111,7 +111,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         List<(string, string)> queryParams = new()
         {
           ("defaultDsCheck", dsCheck.ToString()),
-          ("defaultCallbackUrl", "https://test.domain")
+          ("defaultCallbackUrl", Common.Test.CallbackFunctionalTests.Url)
         };
         url = PrepareQueryParams(url, queryParams);
       }
