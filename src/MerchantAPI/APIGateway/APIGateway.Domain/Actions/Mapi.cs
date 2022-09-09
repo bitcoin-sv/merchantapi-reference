@@ -1249,13 +1249,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       // split processing into smaller batches
       int nBatches = (int)Math.Ceiling((double)txs.Length / batchSize);
       int submitSuccessfulCount = 0;
+      int submitFailureIgnored = 0;
       List<long> txsWithMissingInputs = new();
-      int n = 0;
       logger.LogInformation($"ResubmitMissingTransactions: missing { txs.Length } -> nBatches: {nBatches}, batchsize: {batchSize}");
 
       // we have to submit all txs in order
       // if node accepted tx2 before tx1, tx1 can be resubmitted successfully in the next resubmit round
-      while (n < nBatches)
+      for (int n=0; n < nBatches; n++)
       {
         var txsToSubmit = txs.Skip(n * batchSize).Take(batchSize).ToArray();
         (byte[] transaction, bool allowhighfees, bool dontCheckFee, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions;
@@ -1281,10 +1281,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             }
             catch (Exception ex)
             {
-              logger.LogDebug($"ResubmitMissingTransactions: Error fetching inputs ({ ex.Message })");
+              logger.LogDebug($"ResubmitMissingTransactions: Error fetching inputs ({ex.Message})");
             }
           }
           transactions = txsToSubmit.Where(x => !txsWithMissingInputs.Contains(x.TxInternalId)).Select(x => (x.TxPayload, false, x.OkToMine, false, x.PoliciesDict)).ToArray();
+          if (!transactions.Any())
+          {
+            continue;
+          }
         }
         else
         {
@@ -1299,7 +1303,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         else
         {
           // update successful resubmits
-          var (submitFailureCount, transformed) = TransformRpcResponse(rpcResponse,
+          var (_, transformed) = TransformRpcResponse(rpcResponse,
             txsToSubmit.Select(x => (x.TxExternalId.ToString(), Array.Empty<string>())).ToArray());
           var successfullTxs = txsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.TxExternalId.ToString()));
           submitSuccessfulCount += successfullTxs.Count();
@@ -1318,12 +1322,24 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           txsWithMissingInputs.AddRange(txsToSubmit.Where(x => transformed.Any(
             y => y.ReturnResult == ResultCodes.Failure && NodeRejectCode.MapiMissingInputs.Contains(y.ResultDescription) && y.Txid == x.TxExternalId.ToString())
           ).Select(x => x.TxInternalId));
-        }
-        n++;
-      }
 
-      int failures = txs.Length - submitSuccessfulCount - txsWithMissingInputs.Count;
-      logger.LogInformation($"ResubmitMempoolTransactions: resubmitted { txs.Length } txs = successful: { submitSuccessfulCount}, failures: { failures }, missing inputs: { txsWithMissingInputs.Count }.");
+          foreach (var response in transformed.Where
+            (
+            x => x.ReturnResult == ResultCodes.Failure &&
+            !(NodeRejectCode.MapiMissingInputs.Contains(x.ResultDescription) ||
+              NodeRejectCode.MapiRetryCodesAndReasons.Any(y => x.ResultDescription.Contains(y)))
+            )
+          )
+          {
+            // unexpected failures (e.g. node settings changed) - this failure will probably persist on resubmit
+            logger.LogWarning($"ResubmitMempoolTransactions: {response.Txid} failed with {response.ResultDescription}. Ignored.");
+            submitFailureIgnored++;
+          }
+        }
+      }
+      int failures = txs.Length - submitSuccessfulCount - submitFailureIgnored - txsWithMissingInputs.Count;
+      logger.LogInformation(@$"ResubmitMempoolTransactions: resubmitted { txs.Length } txs = successful: { submitSuccessfulCount}, 
+failures: { failures }, submitFailureIgnored: {submitFailureIgnored}, missing inputs: { txsWithMissingInputs.Count }.");
 
       return (failures == 0, txsWithMissingInputs);
     }
