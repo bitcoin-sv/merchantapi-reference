@@ -2,8 +2,6 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Text.Json.Serialization;
 
 namespace MerchantAPI.Common.BitcoinRpc.Responses
@@ -21,8 +19,8 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
     [JsonPropertyName("maxconsolidationinputscriptsize")]
     public long MaxConsolidationInputScriptSize { get; set; }
 
-    [JsonPropertyName("minconsolidationinputmaturity")]
-    public long MinConsolidationInputMaturity { get; set; }
+    [JsonPropertyName("minconfconsolidationinput")]
+    public long MinConfConsolidationInput { get; set; }
 
     [JsonPropertyName("acceptnonstdconsolidationinput")]
     public bool AcceptNonStdConsolidationInput { get; set; }

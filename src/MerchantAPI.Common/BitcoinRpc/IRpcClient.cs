@@ -64,7 +64,9 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     Task<string> SubmitBlock(byte[] block, CancellationToken? token = null);
 
-    Task<string[]> GetRawMempool(CancellationToken? token = null); // non-verbose options currently not supported
+    Task<string[]> GetRawMempool(CancellationToken? token = null); // verbose options currently not supported
+
+    Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null); // non-verbose options currently not supported
 
     Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
                                                       int totalTimeoutSec,
