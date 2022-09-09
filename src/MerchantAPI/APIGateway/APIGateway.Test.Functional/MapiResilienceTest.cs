@@ -53,42 +53,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
        base.TestCleanup();
     }
 
-    public async Task SubmitTxModeNormal(string txHex, string txHash, string expectedResult="success", string expectedDescription="")
+    public async Task SubmitTxModeNormalAsync(string txHex, string txHash, string expectedResult="success", string expectedDescription="")
     {
       mapiMock.ClearMode();
-      var nCallsBeforeSubmit = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count();
-
-      var response = await SubmitTxToMapiAsync(txHex, HttpStatusCode.OK);
-      VerifySignature(response);
-      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-      // Check if all fields are set
-      await AssertIsOKAsync(payload, txHash, expectedResult, expectedDescription);
-
-      if (expectedResult == "success" && expectedDescription != NodeRejectCode.ResultAlreadyKnown)
-      {
-        var calls = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/" + txHash);
-        Assert.AreEqual(nCallsBeforeSubmit + 1, calls.Count());
-      }
-      else
-      {
-        Assert.AreEqual(nCallsBeforeSubmit, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count());
-      }
-    }
-
-    private async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxToMapiAsync(string txHex, HttpStatusCode expectedStatusCode, bool dsCheck = false, bool merkleProof = false, string merkleFormat="", string customCallbackUrl = "")
-    {
-      var reqContent = GetJsonRequestContent(txHex, merkleProof, dsCheck, merkleFormat, customCallbackUrl);
-
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedStatusCode);
-    }
-
-    private async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxsToMapiAsync(HttpStatusCode expectedStatusCode)
-    {
-      var reqContent = new StringContent($"[ {{ \"rawtx\": \"{txC3Hex}\" }}, {{ \"rawtx\": \"{txZeroFeeHex}\" }},  {{ \"rawtx\": \"{tx2Hex}\" }}]");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, expectedStatusCode);
+      await AssertSubmitTxAsync(txHex, txHash, expectedResult, expectedDescription);
     }
 
     [TestMethod]
@@ -102,7 +70,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertIsOKAsync(payload, txC3Hash, "failure", "Error while submitting transactions to the node");
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
 
 
@@ -159,7 +127,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertIsOKAsync(payload, txC3Hash, "success");
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash, "success", NodeRejectCode.ResultAlreadyKnown);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash, "success", NodeRejectCode.ResultAlreadyKnown);
     }
 
     [DataRow(false)]
@@ -180,7 +148,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertTxStatus(txC3Hash, TxStatus.Accepted);
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash, expectedDescription: NodeRejectCode.ResultAlreadyKnown);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash, expectedDescription: NodeRejectCode.ResultAlreadyKnown);
     }
 
     [DataRow(false)]
@@ -208,7 +176,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         await AssertTxStatus(txC3Hash, TxStatus.NotPresentInDb);
       }
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
 
     [DataRow(false)]
@@ -438,7 +406,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await AssertIsOKAsync(payload, txC3Hash, "failure", 
         NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]));
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
 
     [DataRow(Faults.SimulateSendTxsResponse.NodeReturnsNonStandard)]

@@ -20,6 +20,7 @@ using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Exceptions;
 using System.Diagnostics;
 using Prometheus;
+using MerchantAPI.APIGateway.Domain.Models.APIStatus;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
