@@ -342,7 +342,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
           Version = 101001000,
           MinConsolidationFactor = 20,
           MaxConsolidationInputScriptSize = 150,
-          MinConsolidationInputMaturity = 6,
+          MinConfConsolidationInput = 6,
           AcceptNonStdConsolidationInput = false
         };
     }

@@ -35,9 +35,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.TestInitialize();
       mapiMock = server.Services.GetRequiredService<IMapi>() as MapiMock;
       mempoolChecker = server.Services.GetRequiredService<IMempoolChecker>();
-
-      PublishBlockHashToEventBus(rpcClient0.GetBestBlockHashAsync().Result);
-      WaitUntilEventBusIsIdle();
+      if (rpcClient0 != null)
+      {
+        PublishBlockHashToEventBus(rpcClient0.GetBestBlockHashAsync().Result);
+        WaitUntilEventBusIsIdle();
+      }
     }
 
 
@@ -296,6 +298,33 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // resubmitted even if no block
       mapiMock.ClearMode();
       success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
+      Assert.IsTrue(success);
+    }
+
+    [SkipNodeStart]
+    [TestMethod]
+    public async Task ResubmitToNodeWithDifferentSetting()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      var node0 = CreateAndStartNode(0, argumentList: new() { "-maxscriptsizepolicy=100" });
+      rpcClient0 = node0.RpcClient;
+      SetupChain(rpcClient0);
+      PublishBlockHashToEventBus(rpcClient0.GetBestBlockHashAsync().Result);
+      WaitUntilEventBusIsIdle();
+      // created scriptSize has around 105bytes
+      var txList = new List<Tx>();
+      var (txHex, txId) = CreateNewTransaction();
+      txList.Add(CreateNewTx(txId, txHex, false, null, false));
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
+
+      var payloadSubmit = await SubmitTransactionAsync(txHex);
+      Assert.AreEqual("failure", payloadSubmit.ReturnResult);
+      var mempoolTx = await rpcClient0.GetRawMempool();
+      Assert.AreEqual(0, mempoolTx.Length);
+      Assert.AreEqual(1, (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTx)).Length);
+
+      bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsTrue(success);
     }
 
