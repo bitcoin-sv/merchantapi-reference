@@ -10,6 +10,7 @@ using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
+using MerchantAPI.Common.Test;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -52,42 +53,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
        base.TestCleanup();
     }
 
-    public async Task SubmitTxModeNormal(string txHex, string txHash, string expectedResult="success", string expectedDescription="")
+    public async Task SubmitTxModeNormalAsync(string txHex, string txHash, string expectedResult="success", string expectedDescription="")
     {
       mapiMock.ClearMode();
-      var nCallsBeforeSubmit = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count();
-
-      var response = await SubmitTxToMapiAsync(txHex, HttpStatusCode.OK);
-      VerifySignature(response);
-      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-      // Check if all fields are set
-      await AssertIsOKAsync(payload, txHash, expectedResult, expectedDescription);
-
-      if (expectedResult == "success" && expectedDescription != NodeRejectCode.ResultAlreadyKnown)
-      {
-        var calls = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/" + txHash);
-        Assert.AreEqual(nCallsBeforeSubmit + 1, calls.Count());
-      }
-      else
-      {
-        Assert.AreEqual(nCallsBeforeSubmit, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count());
-      }
-    }
-
-    private async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxToMapiAsync(string txHex, HttpStatusCode expectedStatusCode, bool dsCheck = false, bool merkleProof = false, string merkleFormat="", string customCallbackUrl = "")
-    {
-      var reqContent = GetJsonRequestContent(txHex, merkleProof, dsCheck, merkleFormat, customCallbackUrl);
-
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-
-      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedStatusCode);
-    }
-
-    private async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxsToMapiAsync(HttpStatusCode expectedStatusCode)
-    {
-      var reqContent = new StringContent($"[ {{ \"rawtx\": \"{txC3Hex}\" }}, {{ \"rawtx\": \"{txZeroFeeHex}\" }},  {{ \"rawtx\": \"{tx2Hex}\" }}]");
-      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
-      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransactions, Client, reqContent, expectedStatusCode);
+      await AssertSubmitTxAsync(txHex, txHash, expectedResult, expectedDescription);
     }
 
     [TestMethod]
@@ -101,7 +70,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertIsOKAsync(payload, txC3Hash, "failure", "Error while submitting transactions to the node");
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
 
 
@@ -158,7 +127,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertIsOKAsync(payload, txC3Hash, "success");
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash, "success", NodeRejectCode.ResultAlreadyKnown);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash, "success", NodeRejectCode.ResultAlreadyKnown);
     }
 
     [DataRow(false)]
@@ -179,7 +148,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       await AssertTxStatus(txC3Hash, TxStatus.Accepted);
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash, expectedDescription: NodeRejectCode.ResultAlreadyKnown);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash, expectedDescription: NodeRejectCode.ResultAlreadyKnown);
     }
 
     [DataRow(false)]
@@ -207,7 +176,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         await AssertTxStatus(txC3Hash, TxStatus.NotPresentInDb);
       }
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
 
     [DataRow(false)]
@@ -300,6 +269,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(true, tx.MerkleProof);
         Assert.AreEqual("TSC", tx.MerkleFormat);
         Assert.IsNotNull(tx.CallbackUrl);
+        Assert.IsTrue(tx.SetPolicyQuote);
       }
       else
       {
@@ -317,6 +287,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(false, tx.MerkleProof);
         Assert.AreEqual(null, tx.MerkleFormat);
         Assert.IsNull(tx.CallbackUrl);
+        Assert.IsFalse(tx.SetPolicyQuote);
       }
     }
 
@@ -326,6 +297,56 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("failure", payload.ReturnResult);
       Assert.AreEqual("Transaction already submitted with different parameters.", payload.ResultDescription);
+    }
+
+    [DataRow(TxStatus.NodeRejected)]
+    [DataRow(TxStatus.SentToNode)]
+    [DataRow(TxStatus.UnknownOldTx)]
+    [DataRow(TxStatus.Accepted)]
+    [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
+    [TestMethod]
+    public async Task SubmitSameTransactionTestWarningsAsync(int txStatus)
+    {
+      await LoadFeeQuotesFromJsonAndInsertToDbAsync("feeQuotesWithIdentity.json");
+      RestAuthentication = MockedIdentityBearerAuthentication;
+
+      var (txHex1, txId1) = (txC3Hex, txC3Hash);
+
+      // Store tx to database before submitting it to the mAPI
+      List<Domain.Models.Tx> txToInsert = new()
+      {
+        new Domain.Models.Tx()
+        {
+          TxPayload = HelperTools.HexStringToByteArray(txHex1),
+          TxExternalId = new uint256(txId1),
+          ReceivedAt = DateTime.UtcNow,
+          MerkleProof = false,
+          DSCheck = true,
+          CallbackUrl = CallbackFunctionalTests.Url,
+          TxStatus = txStatus,
+          PolicyQuoteId = 2
+        }
+      };
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false);
+
+      var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, true);
+      VerifySignature(response);
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      Assert.AreEqual("success", payload.ReturnResult);
+      Assert.IsTrue(payload.Warnings.Any());
+      Assert.AreEqual(Warning.MissingDSNT, payload.Warnings.Single());
+    }
+
+    [DataRow(TxStatus.NodeRejected)]
+    [DataRow(TxStatus.SentToNode)]
+    [DataRow(TxStatus.UnknownOldTx)]
+    [DataRow(TxStatus.Accepted)]
+    [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
+    [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
+    [TestMethod]
+    public async Task SubmitSameTransactionTestWarningsAndResubmitAsync(int txStatus)
+    {
+      await SubmitSameTransactionTestWarningsAsync(txStatus);
     }
 
     [TestMethod]
@@ -357,6 +378,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("success", payload.ReturnResult);
+      Assert.IsTrue(payload.Warnings.Any());
+      Assert.AreEqual(Warning.MissingDSNT, payload.Warnings.Single());
 
       var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
       Assert.AreEqual(TxStatus.Accepted, tx.TxStatus);
@@ -383,7 +406,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await AssertIsOKAsync(payload, txC3Hash, "failure", 
         NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]));
 
-      await SubmitTxModeNormal(txC3Hex, txC3Hash);
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
 
     [DataRow(Faults.SimulateSendTxsResponse.NodeReturnsNonStandard)]
@@ -445,6 +468,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           ReceivedAt = DateTime.UtcNow,
           MerkleProof = false,
           DSCheck = false,
+          CallbackUrl = CallbackFunctionalTests.Url,
           TxStatus = testStatus,
           PolicyQuoteId = policyQuoteId
         }
@@ -464,6 +488,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
             ReceivedAt = DateTime.UtcNow,
             MerkleProof = false,
             DSCheck = false,
+            CallbackUrl = CallbackFunctionalTests.Url,
             TxStatus = TxStatus.SentToNode,
             PolicyQuoteId = policyQuoteId
           }
@@ -482,6 +507,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           ReceivedAt = DateTime.UtcNow,
           MerkleProof = false,
           DSCheck = false,
+          CallbackUrl = CallbackFunctionalTests.Url,
           TxStatus = TxStatus.Accepted,
           PolicyQuoteId = policyQuoteId,
           UpdateTx = (bearerAuthentication && inserted.Length > 0) ? Domain.Models.Tx.UpdateTxMode.TxStatusAndResubmittedAt : Domain.Models.Tx.UpdateTxMode.Insert
@@ -494,11 +520,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
-      Assert.AreEqual("success", payload.ReturnResult);
+      if (dbAuthenticated == bearerAuthentication)
+      {
+        Assert.AreEqual("success", payload.ReturnResult);
 
-      var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
-      Assert.AreEqual(testStatus, tx.TxStatus);
-      Assert.AreEqual(policyQuoteId, tx.PolicyQuoteId);
+        var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
+        Assert.AreEqual(testStatus, tx.TxStatus);
+        Assert.AreEqual(policyQuoteId, tx.PolicyQuoteId);
+      }
+      else
+      {
+        Assert.AreEqual("failure", payload.ReturnResult);
+        Assert.AreEqual("Transaction already submitted with different parameters.", payload.ResultDescription);
+      }
     }
 
     [DataRow(false)]
@@ -566,6 +600,37 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Check if all fields are set
       await AssertIsOKAsync(payload, txZeroFeeHash);
+    }
+
+    [TestMethod]
+    [OverrideSetting("AppSettings:ResubmitKnownTransactions", true)]
+    public async Task ResubmitTxWithCheckFeeDisabledAndUnconfirmedAncestorsCallAsync()
+    {
+      // tx has ListUnconfirmedAncestors = true on submit
+      var (txHex, txId) = (txC3Hex, txC3Hash);
+
+      // Store tx to database before submitting it to the mAPI
+      List<Domain.Models.Tx> txToInsert = new()
+      {
+        new Domain.Models.Tx()
+        {
+          TxPayload = HelperTools.HexStringToByteArray(txHex),
+          TxExternalId = new uint256(txId),
+          ReceivedAt = DateTime.UtcNow,
+          MerkleProof = false,
+          DSCheck = true,
+          CallbackUrl = CallbackFunctionalTests.Url,
+          TxStatus = TxStatus.Accepted,
+          PolicyQuoteId = 1,
+          SetPolicyQuote = false // is set to false when CheckFeeDisabled
+        }
+      };
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false);
+
+      var response = await SubmitTxToMapiAsync(txHex, HttpStatusCode.OK, true);
+      VerifySignature(response);
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      Assert.AreEqual("success", payload.ReturnResult);
     }
 
     [TestMethod]

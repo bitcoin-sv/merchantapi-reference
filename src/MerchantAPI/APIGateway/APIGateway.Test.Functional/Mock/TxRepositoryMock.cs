@@ -5,7 +5,6 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.Common.Clock;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -92,7 +91,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
     public Task<Tx> GetTransactionAsync(byte[] txId)
     {
-      throw new NotImplementedException();
+      var tx = _txs.GetValueOrDefault(new NBitcoin.uint256(txId), null);
+      return Task.FromResult(tx);
     }
 
     public Task<long?> GetTransactionInternalIdAsync(byte[] txId)

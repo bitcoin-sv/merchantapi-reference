@@ -78,6 +78,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var txWithDSCheck = (await txRepository.GetTxsForDSCheckAsync(new[] { removedTxId }, false)).ToArray();
         if (txWithDSCheck.Any())
         {
+          logger.LogInformation($"RemovedFromMempoolEvent for tx {removedTxId} with reason CollisionInBlockTx and txWithDSCheck.");
           // Try to insert the block into DB. If block is already present in DB nothing will be done
           await blockParser.NewBlockDiscoveredAsync(new NewBlockDiscoveredEvent() { CreationDate = clock.UtcNow(),  BlockHash = e.Message.BlockHash });
 
@@ -98,6 +99,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             eventBus.Publish(notificationEvent);
           }
         }
+        else
+        {
+          // mAPI logs every invalid transaction notification - even if this txid is not related to the transactions processed by mAPI.
+          // There can be a lot of such transactions.
+          logger.LogDebug($"RemovedFromMempoolEvent for tx {removedTxId} with reason CollisionInBlockTx.");
+        }
       }
     }
 
@@ -108,6 +115,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         if (e.Message.CollidedWith != null && e.Message.CollidedWith.Length > 0)
         {
+          logger.LogInformation($"InvalidTxDetected {e.Message.TxId} with CollidedWith and rejectionCode {e.Message.RejectionCode}.");
           var collisionTxList = e.Message.CollidedWith.Select(t => new uint256(t.TxId).ToBytes());
           var txsWithDSCheck = (await txRepository.GetTxsForDSCheckAsync(collisionTxList, true)).ToArray();
           if (txsWithDSCheck.Any())

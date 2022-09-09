@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test.Clock;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -110,7 +111,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         List<(string, string)> queryParams = new()
         {
           ("defaultDsCheck", dsCheck.ToString()),
-          ("defaultCallbackUrl", "https://test.domain")
+          ("defaultCallbackUrl", Common.Test.CallbackFunctionalTests.Url)
         };
         url = PrepareQueryParams(url, queryParams);
       }
@@ -175,7 +176,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
     protected async Task<(string, string, int)> CreateUnconfirmedAncestorChainAsync(
-      string txHex1, string txId1, int length, int sendToMAPIRate, bool sendLastToMAPI = false, CancellationToken? cancellationToken = null, HttpStatusCode expectedCode = HttpStatusCode.OK)
+      string txHex1, string txId1, int length, int sendToMAPIRate, bool sendLastToMAPI = false, CancellationToken? cancellationToken = null, HttpStatusCode expectedCode = HttpStatusCode.OK, bool expectAlreadyInMempool = false)
     {
       var curTxHex = txHex1;
       var curTxId = txId1;
@@ -198,16 +199,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
         }
         else
         {
-          _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(curTxHex), true, false, cancellationToken);
+          if (expectAlreadyInMempool)
+          {
+            var tx_result = await Assert.ThrowsExceptionAsync<RpcException>(
+              () => node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(curTxHex), true, false, cancellationToken));
+            Assert.AreEqual("Transaction already in the mempool", tx_result.Message);
+          }
+          else
+          {
+            _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(curTxHex), true, false, cancellationToken);
+          }
         }
       }
 
       return (curTxHex, curTxId, mapiTxCount);
     }
 
-    protected async Task ValidateTxInputsAsync(string txHex, string txId = null, bool presentOnDB = true)
+    protected async Task ValidateTxInputsAsync(string lastTxHex, string txId = null, bool presentOnDB = true)
     {
-      Transaction.TryParse(txHex, Network.RegTest, out Transaction tx);
+      // Create another transaction but don't submit it
+      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
+      var curTxCoin = new Coin(lastTx, 0);
+      var (curTxHex, _) = CreateNewTransaction(curTxCoin, new Money(1000L));
+
+      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction tx);
       foreach (var txInput in tx.Inputs)
       {
         var prevOut = await TxRepositoryPostgres.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);

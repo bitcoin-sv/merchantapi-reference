@@ -924,7 +924,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // txstatus sentToNode is reserved for authenticated users
       // after policyQuote for anonymous user is inserted response is still BadRequest
       (var policyQuote, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, GetItemToCreate(), HttpStatusCode.Created);
-      getEntry = await GetDeleteTxsAsync(HttpStatusCode.BadRequest, null, policyQuote.Id);
+      await GetDeleteTxsAsync(HttpStatusCode.BadRequest, null, policyQuote.Id);
       await DeleteTxsAsync(HttpStatusCode.BadRequest, null, policyQuote.Id);
 
       // no policyQuotes with MockedIdentity
@@ -1037,9 +1037,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    protected virtual string PrepareTxsUrl(IList<(string, string)> queryParams)
+    protected string PrepareTxsUrl(IList<(string, string)> queryParams)
     {
-      return PrepareQueryParams(MapiServer.ApiFeeQuoteTxsUrl, queryParams);
+      return PrepareQueryParams(MapiServer.ApiUnconfirmedTxsUrl, queryParams);
     }
   }
 }

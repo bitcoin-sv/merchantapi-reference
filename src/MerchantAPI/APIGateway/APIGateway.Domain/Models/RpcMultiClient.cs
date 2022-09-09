@@ -37,7 +37,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     static readonly Histogram getTxOutsDuration = Metrics
       .CreateHistogram($"{metricsPrefix}gettxouts_duration_seconds", "Histogram of time spent waiting for gettxouts response from node.");
     static readonly Histogram sendRawTxDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}sendrawtx_duration_seconds", "Histogram of time spent waitng for sendrawtransaction response from node.");
+      .CreateHistogram($"{metricsPrefix}sendrawtxs_duration_seconds", "Histogram of time spent waiting for sendrawtransactions response from node.");
 
     public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options)
       : this(nodes, rpcClientFactory, logger, options.Value.RpcClient)
@@ -268,6 +268,11 @@ namespace MerchantAPI.APIGateway.Domain.Models
     public Task<string[]> GetRawMempool(CancellationToken? token = null)
     {
       return GetFirstSuccessfulAsync(x => x.GetRawMempool(token));
+    }
+
+    public Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null)
+    {
+      return GetFirstSuccessfulAsync(x => x.GetMempoolAncestors(txId, token));
     }
 
     enum GroupType

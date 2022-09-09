@@ -27,8 +27,10 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       this.CurrentHighestBlockHash = domain.CurrentHighestBlockHash;
       this.CurrentHighestBlockHeight = domain.CurrentHighestBlockHeight;
       this.TxSecondMempoolExpiry = domain.TxSecondMempoolExpiry;
+      this.Warnings = domain.Warnings;
       this.ConflictedWith = domain.ConflictedWith?.Select(t => new SubmitTransactionConflictedTxResponseViewModel(t)).ToArray();
     }
+
     [JsonPropertyName("apiVersion")]
     public string ApiVersion { get; set; }
 
@@ -56,6 +58,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     [JsonPropertyName("txSecondMempoolExpiry")]
     public long TxSecondMempoolExpiry { get; set; } // in minutes 
+
+    [JsonPropertyName("warnings")]
+    public string[] Warnings { get; set; }
 
     [JsonPropertyName("conflictedWith")]
     public SubmitTransactionConflictedTxResponseViewModel[] ConflictedWith { get; set; }

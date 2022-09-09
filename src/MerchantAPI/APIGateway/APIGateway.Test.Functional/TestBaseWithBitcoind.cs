@@ -99,9 +99,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
-    public BitcoindProcess CreateAndStartNode(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, string zmqNotificationsEndpoint = null)
+    public BitcoindProcess CreateAndStartNode(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, List<string> argumentList = null, string zmqNotificationsEndpoint = null)
     {
-      var bitcoind = StartBitcoindWithZmq(nodeIndex, nodesToConnect, zmqIndex, zmqIp);
+      var bitcoind = StartBitcoindWithZmq(nodeIndex, nodesToConnect, zmqIndex, zmqIp, argumentList);
 
       var node = new Node(nodeIndex, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a test node #{nodeIndex}",
         zmqNotificationsEndpoint, (int)NodeStatus.Connected, null, null);
@@ -155,13 +155,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     static readonly string commonTestPrefix = typeof(TestBaseWithBitcoind).Namespace + ".";
     static readonly int bitcoindInternalPathLength = "regtest/blocks/index/MANIFEST-00000".Length + 10;
 
-    public BitcoindProcess StartBitcoind(int nodeIndex, BitcoindProcess[] nodesToConnect = null)
+    public BitcoindProcess StartBitcoind(int nodeIndex, BitcoindProcess[] nodesToConnect = null, List<string> argumentList = null)
     {
 
-      return StartBitcoindWithZmq(nodeIndex, nodesToConnect);
+      return StartBitcoindWithZmq(nodeIndex, nodesToConnect, argumentList: argumentList);
     }
 
-    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost)
+    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, List<string> argumentList = null)
     {
 
       string testPerfix = TestContext.FullyQualifiedTestClassName;
@@ -181,7 +181,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         bitcoindFullPath,
         dataDirRoot,
         nodeIndex, hostIp, zmqIndex ?? nodeIndex, zmqIp, loggerFactory,
-        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect);
+        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect, argumentList);
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }
@@ -389,7 +389,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       string[] mempoolTxs;
       do
       {
-        await Task.Delay(100);
+        await Task.Delay(100, token);
         mempoolTxs = await node.RpcClient.GetRawMempool(token);
       } while (!mempoolTxs.Contains(txId));
     }
