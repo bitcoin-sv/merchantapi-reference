@@ -42,6 +42,25 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    public async Task GetFeeQuote()
+    {
+      // some fields are filled by calling node
+      var response = await Get<SignedPayloadViewModel>(
+        Client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.OK);
+      var payload = response.ExtractPayload<FeeQuoteViewModelGet>();
+      Assert.IsNotNull(payload);
+
+      // generate block to make sure cached info version is not enough
+      await node0.RpcClient.GenerateAsync(1);
+
+      // test node unreachable
+      StopBitcoind(node0);
+      response = await Get<SignedPayloadViewModel>(
+        Client, MapiServer.ApiMapiQueryFeeQuote, HttpStatusCode.ServiceUnavailable);
+      Assert.IsNull(response);
+    }
+
+    [TestMethod]
     public async Task SubmitTransaction()
     {
       var (txHex, txId) = CreateNewTransaction();
@@ -54,6 +73,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var txFromNode = await rpcClient0.GetRawTransactionAsBytesAsync(txId);
 
       Assert.AreEqual(txHex, HelperTools.ByteToHexString(txFromNode));
+
+      // generate block to make sure cached info version is not enough
+      await node0.RpcClient.GenerateAsync(1);
+
+      // test node unreachable
+      var (txHex2, _) = CreateNewTransaction();
+      StopBitcoind(node0);
+      payload = await SubmitTransactionAsync(txHex2,
+        expectedHttpStatusCode: HttpStatusCode.ServiceUnavailable, expectedHttpMessage: "Failed to connect to node(s).");
+      Assert.IsNull(payload);
     }
 
     [TestMethod]
@@ -366,6 +395,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       q2 = await QueryTransactionStatus(txHash, true, MerkleFormat.TSC);
 
       await AssertQueryTxAsync(q2, txHash, "success", confirmations: 1, checkMerkleProofWithMerkleFormat: MerkleFormat.TSC);
+      
+      // test node unreachable
+      StopBitcoind(node0);
+      var payload = await QueryTransactionStatus(txHash, 
+        expectedCode: HttpStatusCode.ServiceUnavailable, expectedHttpMessage: "Failed to connect to node(s).");
+      Assert.IsNull(payload);
     }
 
 
