@@ -116,6 +116,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       else
       {
         argumentList = defaultParams.Split(" ").Concat(argumentList).ToList();
+        if (argumentList.Count(x => x.Contains("debug")) > 1)
+        {
+          argumentList.Remove("-debug");
+        }
       }
 
       argumentList.AddRange(

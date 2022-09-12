@@ -10,7 +10,7 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 {
   public interface ITxRepository : IFaultTxRepository
   {
-    Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true);
+    Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false);
 
     Task<long?> InsertOrUpdateBlockAsync(Block block);
 

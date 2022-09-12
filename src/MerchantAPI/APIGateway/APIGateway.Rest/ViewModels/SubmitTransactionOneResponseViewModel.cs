@@ -18,6 +18,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       Txid = domain.Txid;
       ReturnResult = domain.ReturnResult ?? "";
       ResultDescription = domain.ResultDescription ?? "";
+      Warnings = domain.Warnings;
       ConflictedWith = domain.ConflictedWith?.Select(t => new SubmitTransactionConflictedTxResponseViewModel(t)).ToArray();
     }
 
@@ -29,6 +30,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     [JsonPropertyName("resultDescription")]
     public string ResultDescription { get; set; }
+
+    [JsonPropertyName("warnings")]
+    public string[] Warnings { get; set; }
 
     [JsonPropertyName("conflictedWith")]
     public SubmitTransactionConflictedTxResponseViewModel[] ConflictedWith { get; set; }

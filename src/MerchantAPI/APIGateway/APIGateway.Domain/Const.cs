@@ -36,6 +36,8 @@ namespace MerchantAPI.APIGateway.Domain
 
     public const long Megabyte = 1024 * 1024;
 
+    public const string DSNT_IDENTIFIER = "64736e74";
+
     public class FeeType
     {
       public const string Standard = "standard";
@@ -72,6 +74,11 @@ namespace MerchantAPI.APIGateway.Domain
     public const string TSC = "TSC";
 
     public static readonly string[] ValidFormats = { TSC };
+  }
+
+  public static class Warning
+  {
+    public const string MissingDSNT = "Missing DSNT output.";
   }
 
   public static class TxStatus
@@ -121,6 +128,7 @@ namespace MerchantAPI.APIGateway.Domain
     };
 
     public const string MapiRetryMempoolError = "Mempool error, retry again later.";
+    public const string UnconfirmedAncestorsError = "Transaction is already present in db, but unconfirmed ancestors are missing, retry again.";
 
     public static string MapiRetryMempoolErrorWithDetails(string rejectCodeAndReason)
     {

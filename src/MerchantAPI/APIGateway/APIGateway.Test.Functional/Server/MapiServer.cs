@@ -7,9 +7,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
   {
     public const string ApiNodeUrl = "/api/v1/node";    
     public const string ApiFeeQuoteConfigUrl = "/api/v1/feequote";
-    public const string ApiFeeQuoteTxsUrl = "/api/v1/feequote/delete/txs";
     public const string ApiPolicyQuoteConfigUrl = "/api/v1/policyquote";
-    public const string ApiPolicyQuoteTxsUrl = "/api/v1/policyquote/delete/txs";
+    public const string ApiUnconfirmedTxsUrl = "/api/v1/unconfirmedtxs";
     public const string TestFaultUrl = "/test/v1/fault";
     public const string ApiMapiQueryFeeQuote = "mapi/feequote/";
     public const string ApiMapiSubmitTransaction= "mapi/tx/";

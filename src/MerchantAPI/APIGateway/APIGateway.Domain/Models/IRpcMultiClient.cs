@@ -33,6 +33,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
                                                       int totalTimeoutSec,
                                                       IEnumerable<(string Tx, int N)> dsTx);
     Task<string[]> GetRawMempool(CancellationToken? token = null);
+    Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null);
     IRpcClient[] GetRpcClients();
 
   }

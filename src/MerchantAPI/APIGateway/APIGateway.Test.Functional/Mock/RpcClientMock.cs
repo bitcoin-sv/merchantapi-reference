@@ -342,7 +342,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
           Version = 101001000,
           MinConsolidationFactor = 20,
           MaxConsolidationInputScriptSize = 150,
-          MinConsolidationInputMaturity = 6,
+          MinConfConsolidationInput = 6,
           AcceptNonStdConsolidationInput = false
         };
     }
@@ -499,6 +499,22 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         return r;
       }
       return Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// Note: RpcClientMock always returns empty GetMempoolAncestors
+    /// </summary>
+    /// <param name="txId"></param>
+    /// <param name="token"></param>
+    /// <returns></returns>
+    public async Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null)
+    {
+      var r = await SimulateCallAsync<RpcGetMempoolAncestors>();
+      if (r != null)
+      {
+        return r;
+      }
+      return new RpcGetMempoolAncestors() { Transactions = new() };
     }
 
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid, 

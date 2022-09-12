@@ -5,7 +5,6 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
-using MerchantAPI.Common.Clock;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -92,7 +91,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
     public Task<Tx> GetTransactionAsync(byte[] txId)
     {
-      throw new NotImplementedException();
+      var tx = _txs.GetValueOrDefault(new NBitcoin.uint256(txId), null);
+      return Task.FromResult(tx);
     }
 
     public Task<long?> GetTransactionInternalIdAsync(byte[] txId)
@@ -171,12 +171,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new NotImplementedException();
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
     {
       return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs);
     }
 
-    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
     {
       if ((areUnconfirmedAncestors && transactions.Any()) || (insertTxInputs && transactions.Any(x => x.DSCheck)))
       {
@@ -207,6 +207,11 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         _txs[tx.TxExternalId] = tx;
 
         await faultInjection.FailAfterSavingUncommittedStateAsync(faultComponent);
+
+        if (returnInsertedTransactions)
+        {
+          ids.Add(tx.TxExternalIdBytes);
+        }
       }
       return ids.ToArray();
     }

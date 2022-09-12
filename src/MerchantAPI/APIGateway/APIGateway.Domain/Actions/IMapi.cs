@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.APIStatus;
 using MerchantAPI.Common.Authentication;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
@@ -15,5 +16,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     Task<SubmitTransactionsResponse> SubmitTransactionsAsync(IEnumerable<SubmitTransaction> request, UserAndIssuer user);
     Task<QueryTransactionStatusResponse> QueryTransactionAsync(string id, bool merkleProof, string merkleFormat);
     Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 1000);
+    SubmitTxStatus GetSubmitTxStatus();
   }
 }

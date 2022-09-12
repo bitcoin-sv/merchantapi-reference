@@ -65,7 +65,13 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public int TxStatus { get; set; }
 
-    public bool UpdateTx { get; set; }
+    public enum UpdateTxMode
+    {
+      Insert,
+      TxStatusAndResubmittedAt,
+      UpdateTx
+    }
+    public UpdateTxMode UpdateTx { get; set; } = UpdateTxMode.Insert;
 
     public long? PolicyQuoteId { get; set; }
 

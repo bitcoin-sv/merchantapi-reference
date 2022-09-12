@@ -2,12 +2,14 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -121,6 +123,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionsWithSameInput(bool dsCheck)
     {
+      var mapi = server.Services.GetRequiredService<IMapi>();
+      var oldStatus = mapi.GetSubmitTxStatus();
+      loggerTest.LogInformation("OldStatus:" + oldStatus.PrepareForLogging());
+
       var tx0 = CreateNewTransactionTx();
 
       // Create two transactions with same input
@@ -138,6 +144,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var failedTx = payload.Txs.Single(x => x.ReturnResult == "failure");
       Assert.IsTrue(failedTx.ResultDescription == "18 txn-double-spend-detected" ||
                     failedTx.ResultDescription == "258 txn-mempool-conflict");
+      // all three txs are sent to node, one rejected
+      var status = mapi.GetSubmitTxStatus();
+      Assert.AreEqual(oldStatus.Request + 1, status.Request);
+      Assert.AreEqual(oldStatus.TxAuthenticatedUser, status.TxAuthenticatedUser);
+      Assert.AreEqual(oldStatus.TxAnonymousUser + 3, status.TxAnonymousUser);
+      Assert.AreEqual(oldStatus.Tx + 3, status.Tx);
+      Assert.AreEqual(status.Tx / status.Request, status.AvgBatch);
+      Assert.AreEqual(oldStatus.TxSentToNode + 3, status.TxSentToNode);
+      Assert.AreEqual(oldStatus.TxAcceptedByNode + 2, status.TxAcceptedByNode);
+      Assert.AreEqual(oldStatus.TxRejectedByNode + 1, status.TxRejectedByNode);
+      Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
+      Assert.AreEqual(oldStatus.TxResponseSuccess + 2, status.TxResponseSuccess);
+      Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
+      Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
 
     [TestMethod]
@@ -517,6 +538,29 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
       Assert.AreEqual(1, notifications.Length);
       Assert.IsNotNull(notifications.Single().DoubleSpendTxId);
+    }
+
+    public async Task TestTwoNodesWithDifferentSettings()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      var node1 = StartBitcoind(1, new BitcoindProcess[] { node0 }, argumentList: new() { "-maxscriptsizepolicy=100" });
+
+      await SyncNodesBlocksAsync(cts.Token, node0, node1);
+
+      // created scriptSize has around 105bytes
+      (string txHex, string txHash) = CreateNewTransaction();
+      var tx_result = await Assert.ThrowsExceptionAsync<RpcException>(
+       () => node1.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex), true, false, cts.Token));
+       Assert.AreEqual("64: non-mandatory-script-verify-flag (Script is too big)", tx_result.Message);
+
+      var payloadSubmit = await SubmitTransactionAsync(txHex);
+      Assert.AreEqual("success", payloadSubmit.ReturnResult);
+      // only node0 accepted the tx
+      var mempoolTxs = await node0.RpcClient.GetRawMempool();
+      Assert.AreEqual(1, mempoolTxs.Length);
+      mempoolTxs = await node1.RpcClient.GetRawMempool();
+      Assert.AreEqual(0, mempoolTxs.Length);
     }
   }
 }

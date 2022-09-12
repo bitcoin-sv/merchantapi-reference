@@ -43,9 +43,11 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       faultManager.Clear();
 
-      FaultTrigger trigger = new();
-      trigger.Type = faultType;
-      trigger.SimulateSendTxsResponse = newMode;
+      FaultTrigger trigger = new()
+      {
+        Type = faultType,
+        SimulateSendTxsResponse = newMode
+      };
 
       faultManager.Add(trigger);
     }
@@ -62,10 +64,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       }
       faultManager.Clear();
 
-      FaultTrigger trigger = new();
-      trigger.Type = faultType;
-      trigger.DbFaultComponent = faultComponent;
-      trigger.DbFaultMethod = faultMethod;
+      FaultTrigger trigger = new()
+      {
+        Type = faultType,
+        DbFaultComponent = faultComponent,
+        DbFaultMethod = faultMethod
+      };
 
       faultManager.Add(trigger);
     }
