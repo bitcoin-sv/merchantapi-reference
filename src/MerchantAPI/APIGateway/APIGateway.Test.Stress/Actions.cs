@@ -170,13 +170,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public static async Task<(Tx[] missingTxs, TimeSpan elapsedTime)> GetMissingTransactionsAsync(string mapiDBConnectionString, string[] mempoolTxs)
     {
-      var watch = Stopwatch.StartNew();
       using var connection = new NpgsqlConnection(mapiDBConnectionString);
       RetryUtils.Exec(() => connection.Open());
 
       Console.WriteLine($"There is {mempoolTxs.Length} transactions present in mempool.");
+      var watch = Stopwatch.StartNew();
       var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(connection, mempoolTxs, DateTime.MaxValue);
-
       watch.Stop();
       Console.WriteLine($"Number of transactions, that are missing in mempool: {txs.Length}. DB query took: {watch.Elapsed}.");
       return (txs, watch.Elapsed);
@@ -184,9 +183,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public static async Task CleanUpTxHandler(string mapiDBConnectionStringDDL)
     {
-      var watch = Stopwatch.StartNew();
       using var connection = new NpgsqlConnection(mapiDBConnectionStringDDL);
       RetryUtils.Exec(() => connection.Open());
+      var watch = Stopwatch.StartNew();
 
       (int blocks, long txs, int mempoolTxs) = await TxRepositoryPostgres.CleanUpTxAsync(connection, DateTime.MaxValue, DateTime.MaxValue, null);
 
