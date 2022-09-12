@@ -27,6 +27,14 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       Confirmations = domain.Confirmations;
       MinerId = domain.MinerID;
       TxSecondMempoolExpiry = domain.TxSecondMempoolExpiry;
+      if (domain.MerkleFormat == MerkleFormat.TSC)
+      {
+        MerkleProof = domain.MerkleProof2;
+      }
+      else
+      {
+        MerkleProof = domain.MerkleProof;
+      }
     }
 
 
@@ -59,5 +67,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     [JsonPropertyName("txSecondMempoolExpiry")]
     public int TxSecondMempoolExpiry { get; set; }
+
+    [JsonPropertyName("merkleProof")]
+    public object MerkleProof { get; set; }
   }
 }

@@ -130,8 +130,10 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     {
       byte[] objectBytes = null;
       using var ms = new MemoryStream();
-      BitcoinStream s = new(ms, true);
-      s.MaxArraySize = unchecked((int)uint.MaxValue);
+      BitcoinStream s = new(ms, true)
+      {
+        MaxArraySize = unchecked((int)uint.MaxValue)
+      };
 
       try
       {
@@ -152,8 +154,10 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       using FileStream fs = File.Create(fileName);
 
-      BitcoinStream s = new(fs, true);
-      s.MaxArraySize = unchecked((int)uint.MaxValue); // NBitcoin internally casts to uint when comparing
+      BitcoinStream s = new(fs, true)
+      {
+        MaxArraySize = unchecked((int)uint.MaxValue) // NBitcoin internally casts to uint when comparing
+      };
 
       b.ReadWrite(s);
 

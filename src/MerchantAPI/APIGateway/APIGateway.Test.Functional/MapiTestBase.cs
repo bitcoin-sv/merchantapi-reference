@@ -131,28 +131,5 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await AssertTxStatus(tx2Hash, TxStatus.Accepted);
     }
 
-    protected async Task AssertQueryTxAsync(QueryTransactionStatusResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
-    {
-      Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
-      Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
-      Assert.AreEqual(expectedTxId, response.Txid);
-      Assert.AreEqual(expectedResult, response.ReturnResult);
-      Assert.AreEqual(expectedDescription, response.ResultDescription);
-
-      Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
-      var blockChainInfo = await BlockChainInfo.GetInfoAsync();
-      Assert.AreEqual(blockChainInfo.BestBlockHeight, response.BlockHeight);
-      Assert.AreEqual(blockChainInfo.BestBlockHash, response.BlockHash);
-      Assert.AreEqual(0, response.TxSecondMempoolExpiry);
-
-      if (expectedResult == "success")
-      {
-        await AssertTxStatus(response.Txid, TxStatus.Accepted);
-      }
-      else
-      {
-        await AssertTxStatus(response.Txid, TxStatus.NotPresentInDb);
-      }
-    }
   }
 }
