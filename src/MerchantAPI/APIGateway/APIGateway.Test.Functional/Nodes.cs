@@ -38,7 +38,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Nodes.CreateNodeAsync(new Node("node1", 0, "mocked", "mocked", null, null));
 
       rpcClientFactoryMock.AssertEqualAndClear(
-        "node1:getnetworkinfo", "node1:activezmqnotifications");
+        "node1:getnetworkinfo", "node1:dumpparameters", "node1:activezmqnotifications");
 
       // We are able to retrieve a node
       Assert.IsNotNull(Nodes.GetNode("node1:0"));

@@ -48,7 +48,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, int zmqIndex, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null) :
+    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, int zmqIndex, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null, List<string> argumentList = null) :
       this(hostIp, bitcoindFullPath, Path.Combine(dataDirRoot, "node" + nodeIndex),
         18444 + nodeIndex,
         18332 + nodeIndex,
@@ -56,7 +56,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
         28333 + zmqIndex,
         loggerFactory,
         httpClientFactory,
-        nodesToConnect: nodesToConnect)
+        nodesToConnect: nodesToConnect,
+        argumentList: argumentList)
     {
 
     }

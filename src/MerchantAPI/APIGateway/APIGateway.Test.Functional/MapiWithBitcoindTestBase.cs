@@ -5,6 +5,7 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test.Clock;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -16,6 +17,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -84,15 +86,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return (tx1.ToHex(), tx1.GetHash().ToString());
     }
 
-    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "", HttpStatusCode expectedHttpStatusCode = HttpStatusCode.OK)
+    public async Task<SubmitTransactionResponseViewModel> SubmitTransactionAsync(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "",
+          HttpStatusCode expectedHttpStatusCode = HttpStatusCode.OK, string expectedHttpMessage = null)
     {
       // Send transaction
       var reqContent = GetJsonRequestContent(txHex, merkleProof, dsCheck, merkleFormat);
 
-      var response =
+      var (response, message) =
         await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedHttpStatusCode);
 
-      return response.response?.ExtractPayload<SubmitTransactionResponseViewModel>();
+      await CheckHttpResponseMessageDetailAsync(message, expectedHttpMessage);
+
+      return response?.ExtractPayload<SubmitTransactionResponseViewModel>();
     }
 
     public async Task<SubmitTransactionsResponseViewModel> SubmitTransactionsAsync(string[] txHexList, bool dsCheck = false, bool merkleProof = false)
@@ -130,10 +135,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
 
-    protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId)
+    protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId, bool? merkleProof=null, string merkleFormat=null)
     {
+      List<(string, string)> queryParams = new();
+      if (merkleProof != null)
+      {
+        queryParams.Add(("merkleProof", merkleProof.Value.ToString()));
+      }
+      if (merkleFormat != null)
+      {
+        queryParams.Add(("merkleFormat", merkleFormat));
+      }
+
+      var url = PrepareQueryParams(MapiServer.ApiMapiQueryTransactionStatus + txId, queryParams);
       var response = await Get<SignedPayloadViewModel>(
-        Client, MapiServer.ApiMapiQueryTransactionStatus + txId, HttpStatusCode.OK);
+        Client, url, HttpStatusCode.OK);
 
       return response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
     }
@@ -144,7 +160,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       string expectedResult = "success",
       string expectedDescription = null,
       long? confirmations = null,
-      int txStatus = TxStatus.Accepted)
+      string checkMerkleProofWithMerkleFormat = null,
+      int txStatus = TxStatus.Accepted,
+      bool checkBestBlock = true)
     {
       Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
@@ -159,11 +177,40 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         if (confirmations != null)
         {
-          var blockChainInfo = await BlockChainInfo.GetInfoAsync();
-          Assert.AreEqual(blockChainInfo.BestBlockHeight, response.BlockHeight);
-          Assert.AreEqual(blockChainInfo.BestBlockHash, response.BlockHash);
+          if (checkBestBlock)
+          {
+            var blockChainInfo = await BlockChainInfo.GetInfoAsync();
+            Assert.AreEqual(blockChainInfo.BestBlockHeight, response.BlockHeight);
+            Assert.AreEqual(blockChainInfo.BestBlockHash, response.BlockHash);
+          }
+          if (checkMerkleProofWithMerkleFormat == null)
+          {
+            Assert.IsNull(response.MerkleProof);
+          }
+          else
+          {
+            Assert.IsNotNull(response.MerkleProof);
+            var jsonMerkleProof = ((JsonElement)response.MerkleProof).GetRawText();
+            if (checkMerkleProofWithMerkleFormat == MerkleFormat.TSC)
+            {
+              RpcGetMerkleProof2 merkleProof2 = JsonSerializer.Deserialize<RpcGetMerkleProof2>(jsonMerkleProof);
+              Assert.AreEqual(response.Txid, merkleProof2.TxOrId);
+            }
+            else
+            {
+              RpcGetMerkleProof merkleProof = JsonSerializer.Deserialize<RpcGetMerkleProof>(jsonMerkleProof);
+              Assert.AreEqual(response.Txid, merkleProof.TxOrId);
+              Assert.AreEqual(response.BlockHash, merkleProof.Target.Hash);
+            }
+          }
         }
-
+        else
+        {
+          Assert.IsNull(response.Confirmations);
+          Assert.IsNull(response.MerkleProof);
+          Assert.IsNull(response.BlockHash);
+          Assert.IsNull(response.BlockHeight);
+        }
         Assert.AreEqual(0, response.TxSecondMempoolExpiry);
         await AssertTxStatus(response.Txid, txStatus);
       }
@@ -203,6 +250,31 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       return (curTxHex, curTxId, mapiTxCount);
+    }
+
+    protected async Task AddNodeAndWait(BitcoindProcess node, BitcoindProcess addNode, int currentConnectionCount, bool syncNodes = true, CancellationToken cancellationToken = default)
+    {
+      await node.RpcClient.AddNodeAsync(addNode.Host, addNode.P2Port);
+
+      while (await node.RpcClient.GetConnectionCountAsync(cancellationToken) == currentConnectionCount)
+      {
+        await Task.Delay(100, cancellationToken);
+      }
+
+      if (syncNodes)
+      {
+        await SyncNodesBlocksAsync(cancellationToken, addNode, node);
+      }
+    }
+
+    protected async Task DisconnectNodeAndWait(BitcoindProcess node, BitcoindProcess addNode, int currentConnectionCount, CancellationToken cancellationToken = default)
+    {
+      await node.RpcClient.DisconnectNodeAsync(addNode.Host, addNode.P2Port);
+
+      while (await node.RpcClient.GetConnectionCountAsync(cancellationToken) > (currentConnectionCount - 1))
+      {
+        await Task.Delay(100, cancellationToken);
+      }
     }
   }
 }

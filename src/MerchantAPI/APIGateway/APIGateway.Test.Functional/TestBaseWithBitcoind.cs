@@ -99,9 +99,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
-    public BitcoindProcess CreateAndStartNode(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, string zmqNotificationsEndpoint = null)
+    public BitcoindProcess CreateAndStartNode(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, string zmqNotificationsEndpoint = null, List<string> argumentList = null)
     {
-      var bitcoind = StartBitcoindWithZmq(nodeIndex, nodesToConnect, zmqIndex, zmqIp);
+      var bitcoind = StartBitcoindWithZmq(nodeIndex, nodesToConnect, zmqIndex, zmqIp, argumentList);
 
       var node = new Node(nodeIndex, bitcoind.Host, bitcoind.RpcPort, bitcoind.RpcUser, bitcoind.RpcPassword, $"This is a test node #{nodeIndex}",
         zmqNotificationsEndpoint, (int)NodeStatus.Connected, null, null);
@@ -161,7 +161,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return StartBitcoindWithZmq(nodeIndex, nodesToConnect);
     }
 
-    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost)
+    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, List<string> argumentList = null)
     {
 
       string testPerfix = TestContext.FullyQualifiedTestClassName;
@@ -181,7 +181,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         bitcoindFullPath,
         dataDirRoot,
         nodeIndex, hostIp, zmqIndex ?? nodeIndex, zmqIp, loggerFactory,
-        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect);
+        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect, argumentList);
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }

@@ -347,6 +347,16 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         };
     }
 
+    public async Task<RpcDumpParameters> DumpParametersAsync(CancellationToken? token = null)
+    {
+      var r = await SimulateCallAsync<RpcDumpParameters>();
+      if (r != null)
+      {
+        return r;
+      }
+      return new RpcDumpParameters();
+    }
+
     public async Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<RpcGetTxOuts>();

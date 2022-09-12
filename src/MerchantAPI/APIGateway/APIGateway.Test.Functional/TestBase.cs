@@ -590,5 +590,15 @@ namespace MerchantAPI.APIGateway.Test.Functional
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
       return reqContent;
     }
+
+    protected async Task CheckHttpResponseMessageDetailAsync(HttpResponseMessage message, string expectedHttpMessage = null)
+    {
+      if (expectedHttpMessage != null)
+      {
+        var json = System.Text.Json.JsonDocument.Parse(await message.Content.ReadAsStringAsync());
+        var details = json.RootElement.GetProperty("detail").GetString();
+        Assert.AreEqual(expectedHttpMessage, details);
+      }
+    }
   }
 }

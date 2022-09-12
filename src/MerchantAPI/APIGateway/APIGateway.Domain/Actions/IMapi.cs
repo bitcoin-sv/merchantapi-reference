@@ -13,7 +13,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
   {
     Task<SubmitTransactionResponse> SubmitTransactionAsync(SubmitTransaction request, UserAndIssuer user);
     Task<SubmitTransactionsResponse> SubmitTransactionsAsync(IEnumerable<SubmitTransaction> request, UserAndIssuer user);
-    Task<QueryTransactionStatusResponse> QueryTransactionAsync(string id);
+    Task<QueryTransactionStatusResponse> QueryTransactionAsync(string id, bool merkleProof, string merkleFormat);
     Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 1000);
   }
 }
