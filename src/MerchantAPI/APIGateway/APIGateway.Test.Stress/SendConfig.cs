@@ -16,6 +16,9 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public int TxIndex { get; set; } = 1;
 
+    [Range(0, int.MaxValue)]
+    public int Skip { get; set; } = 0;
+
     public long? Limit { get; set; }
 
     public int BatchSize { get; set; } = 100;
@@ -26,6 +29,8 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public int GenerateBlockPeriodMs { get; set; } = 500;
 
+    public int GetRawMempoolEveryNTxs { get; set; } = 0;
+
     public string CsvComment { get; set; }
 
     [Required]
@@ -34,13 +39,27 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContextRoot)
     {
-      if (Limit.HasValue && BatchSize > Limit)
+      if (Limit.HasValue && Skip > Limit)
       {
-        yield return new ValidationResult($"{ nameof(BatchSize) } must be smaller than { nameof(Limit) }.");
+        yield return new ValidationResult($"{ nameof(Skip) } must be smaller than { nameof(Limit) }.");
       }
-      if (Limit.HasValue && StartGenerateBlocksAtTx > -1 && StartGenerateBlocksAtTx > Limit)
+      if (Limit.HasValue && BatchSize > (Limit - Skip))
       {
-        yield return new ValidationResult($"GenerateBlocks will not run - { nameof(StartGenerateBlocksAtTx)} must be smaller than Limit.");
+        yield return new ValidationResult(@$"{ nameof(BatchSize) }({ BatchSize }) must be smaller than
+{ nameof(Limit) } - { nameof(Skip) }({ Limit - Skip }).");
+      }
+      if (Limit.HasValue && StartGenerateBlocksAtTx > -1)
+      {
+        if (StartGenerateBlocksAtTx < Skip)
+        {
+          yield return new ValidationResult(@$"GenerateBlocks will not run - { nameof(StartGenerateBlocksAtTx)}({ StartGenerateBlocksAtTx }) must 
+be bigger than { nameof(Skip) }({ Skip }).");
+        }
+        if (StartGenerateBlocksAtTx > Limit)
+        {
+          yield return new ValidationResult(@$"GenerateBlocks will not run - { nameof(StartGenerateBlocksAtTx)}({ StartGenerateBlocksAtTx }) must 
+be smaller than { nameof(Limit) }({ Limit }).");
+        }
       }
       if (GenerateBlockPeriodMs < 0)
       {
@@ -50,14 +69,28 @@ namespace MerchantAPI.APIGateway.Test.Stress
       {
         if (!MapiConfig.MapiUrl.EndsWith("/"))
         {
-          yield return new ValidationResult($"MapiUrl must end with '/'");
+          yield return new ValidationResult($"MapiUrl must end with '/'.");
         }
+      }
+      if (MapiConfig.Callback != null && MapiConfig.TestResilience != null)
+      {
+        yield return new ValidationResult($"Choose one option from {nameof(MapiConfig.Callback)} and {nameof(MapiConfig.TestResilience)}.");
       }
       if (MapiConfig.Callback != null)
       {
         var validationContext = new ValidationContext(MapiConfig.Callback, serviceProvider: null, items: null);
         var validationResults = new List<ValidationResult>();
         Validator.TryValidateObject(MapiConfig.Callback, validationContext, validationResults, true);
+        foreach (var x in validationResults)
+        {
+          yield return x;
+        }
+      }
+      if (MapiConfig.TestResilience != null)
+      {
+        var validationContext = new ValidationContext(MapiConfig.TestResilience, serviceProvider: null, items: null);
+        var validationResults = new List<ValidationResult>();
+        Validator.TryValidateObject(MapiConfig.TestResilience, validationContext, validationResults, true);
         foreach (var x in validationResults)
         {
           yield return x;
@@ -86,25 +119,30 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
     public bool RearrangeNodes { get; set; }
 
-    public string BitcoindHost { get; set; }
+    public string AddFeeQuotesFromJsonFile { get; set; }
 
-    public string BitcoindZmqEndpointIp { get; set; }
+    public string NodeHost { get; set; }
+
+    public string NodeZMQNotificationsEndpoint { get; set; }
 
     public CallbackConfig Callback { get; set; }
+
+    public TestResilienceConfig TestResilience { get; set; }
   }
+
   public class CallbackConfig : IValidatableObject
   {
     [Required]
     public string Url { get; set; }
 
-    public int? AddRandomNumberToHost { get; set; }
+    public int? AddRandomNumberToPort { get; set; }
 
     public string CallbackToken { get; set; }
 
     public string CallbackEncryption { get; set; }
 
     public bool StartListener { get; set; }
- 
+
     public int IdleTimeoutMS { get; set; } = 30_000;
 
     public CallbackHostConfig[] Hosts { get; set; }
@@ -133,6 +171,15 @@ namespace MerchantAPI.APIGateway.Test.Stress
       }
     }
 
+  }
+
+  public class TestResilienceConfig
+  {
+    [Required]
+    public string AddFaultsFromJsonFile { get; set; }
+    [Required]
+    public string DBConnectionString { get; set; }
+    public bool ResubmitWithoutFaults { get; set; }
   }
 
   public class CallbackHostConfig

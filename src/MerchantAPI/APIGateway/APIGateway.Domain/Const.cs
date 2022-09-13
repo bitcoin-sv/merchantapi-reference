@@ -95,7 +95,7 @@ namespace MerchantAPI.APIGateway.Domain
     public const int MissingInputsMaxRetriesReached = 2;
 
     public static readonly int[] MapiSuccessTxStatuses =
-      { UnknownOldTx ,Accepted, MissingInputsMaxRetriesReached };
+      { UnknownOldTx, Accepted, MissingInputsMaxRetriesReached };
   }
 
   public static class NodeRejectCode

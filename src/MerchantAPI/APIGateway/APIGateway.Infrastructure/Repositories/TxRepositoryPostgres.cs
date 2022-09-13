@@ -905,6 +905,11 @@ LIMIT 1;
     public async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
     {
       using var connection = await GetDbConnectionAsync();
+      return await GetMissingTransactionsAsync(connection, mempoolTxs, resubmittedAt ?? clock.UtcNow());
+    }
+
+    public static async Task<Tx[]> GetMissingTransactionsAsync(NpgsqlConnection connection, string[] mempoolTxs, DateTime resubmittedBefore)
+    {
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdTempTable = @"
@@ -926,20 +931,19 @@ LIMIT 1;
 
       await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
 
-      var resubmittedBefore = resubmittedAt ?? clock.UtcNow();
       string cmdText = @$"
 WITH resubmitTxs as
 ((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
 FROM tx
 JOIN FeeQuote fq ON fq.id = tx.policyQuoteId
-WHERE txstatus = { TxStatus.Accepted } AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false)
+WHERE txstatus = {TxStatus.Accepted} AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false)
 EXCEPT
 (SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
  FROM Tx
  INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
  INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
  JOIN FeeQuote fq ON fq.id = policyQuoteId
- WHERE txstatus = { TxStatus.Accepted } 
+ WHERE txstatus = {TxStatus.Accepted} 
 AND submittedAt < @resubmittedBefore 
 AND unconfirmedancestor = false 
 AND Block.OnActiveChain = true))

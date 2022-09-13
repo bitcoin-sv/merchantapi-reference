@@ -22,7 +22,7 @@ One way to access bitcoind from mAPI container is to use docker.internal.host (y
 (on Linux you need to provide the following run flag: --add-host=host.docker.internal:host-gateway, check https://stackoverflow.com/questions/48546124/what-is-linux-equivalent-of-host-docker-internal/61001152).
 
 You can override zmqEndpoint set on bitcoind when adding/updating node through REST API, by setting the zmqnotificationsendpoint.
-For the local node (from bitcoindConfig) you can set it with -bitcoindZmqEndpointIp.
+For the local node (from bitcoindConfig) you can set it with -nodeZMQNotificationsEndpoint.
 
 Running -clearDb:
 If you want to run clearDb command you must add port mapping for merchant-gateway-database to docker-compose.yml (ports).
@@ -30,21 +30,28 @@ If you want to run clearDb command you must add port mapping for merchant-gatewa
 *** SendConfig options ***
 - filename: File containing transactions to send.
 - txIndex: Specifies a zero based index of column that contains hex encoded transaction in a file (default=1).
+- skip: Specifies how many transactions should be skipped from the file (default=0).
 - limit: Only submit up to the specified number of transactions from transaction file (optional).
 - batchSize: Number of transactions submitted in one call (default=100).
 - threads: Number of concurrent threads that will be used to submitting transactions. When using multiple threads, make sure that transactions in the file are not dependent on each other (default=1).
 - startGenerateBlocksAtTx: Start with transactions submit and block generating when the certain number of transactions is submitted (optional).
 - generateBlockPeriodMs: Periodically call generate block on node (default=500). The number of blocks in the database can be different from generate block calls (you can filter blocks inserted to the block table by column blocktime).
+- getRawMempoolEveryNTxs: Call RPC GetRawMempool after approximately every N submitted transactions (optional). Results are written to statsMempool.csv. You can test mempoolChecker, if you start stressTool with database, that already contains transactions.
 - csvComment: Fill column comment in csv file (optional).
 - mapiConfig:
   - authorization: Authorization header used when submitting transactions.
   - mapiUrlURL: Used for submitting transactions. Example: "http://localhost:5000/".
   - rearrangeNodes: Delete local node (from bitcoindConfig) on mAPI (if exists) and add it again if set to true, otherwise user has to take care for it by himself.
-  - bitcoindHost: Use if local node (from bitcoindConfig) is unreachable from mAPI (override default "127.0.0.1").
-  - bitcoindZmqEndpointIp: Use when you need to override local node's default zmqEndpointIp.
+  - addFeeQuotesFromJsonFile: Add feeQuotes from file (optional).
+  - nodeHost: Use if local node (the one from the bitcoindConfig) is unreachable from mAPI (override default "127.0.0.1").
+  - nodeZMQNotificationsEndpoint: Use when you need to override local node's default zmqEndpoint.
+  - testResilience: Specify, if you want to test resilience. The mempoolChecker should be enabled.  
+    - addFaultsFromJsonFile: Add faults, that you want to trigger, from json file. You must enable fault injection in mAPI's config.
+    - DBConnectionString: Connection string with read only access.
+    - resubmitWithoutFaults: Submit transactions, clear faults and then resubmit again (default=false).
   - callback: Specify, if you want to trigger callbacks
     - url: Url that will process double spend and merkle proof notifications. When present, transactions will be submitted with MerkleProof and DsCheck set to true. Example: "http://localhost:2000/callbacks".
-    - addRandomNumberToHost: When specified, a random number between 1 and  AddRandomNumberToHost will be appended to host name specified in Url when submitting each batch of transactions. This is useful for testing callbacks toward different hosts.
+    - addRandomNumberToPort: When specified, a random number between 1 and  AddRandomNumberToPort will be appended to host port specified in Url when submitting each batch of transactions. This is useful for testing callbacks toward different hosts.
     - callbackToken: Full authorization header that mAPI should use when performing callbacks.
     - callbackEncryption: Encryption parameters used when performing callbacks.
     - startListener: Start a listener that will listen to callbacks on port specified by Url. When specified, error will be reported if not all callbacks are received.
