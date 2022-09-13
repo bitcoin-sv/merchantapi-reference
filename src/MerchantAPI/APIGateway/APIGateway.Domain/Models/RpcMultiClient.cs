@@ -79,7 +79,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       if (!result.Any())
       {
-        throw new BadRequestException("No nodes available"); 
+        throw new ServiceUnavailableException("No nodes available");
       }
 
       return result;
@@ -104,8 +104,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
           // try with the next node
         }
       }
-
-      throw lastError ?? new Exception("No nodes available"); 
+      throw lastError ?? new ServiceUnavailableException("No nodes available");
     }
 
     async Task<Task<T>[]> GetAll<T>(Func<IRpcClient, Task<T>> call)
@@ -138,19 +137,31 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return tasks;
 
     }
+
     async Task<T[]> GetAllWithoutErrors<T>(Func<IRpcClient, Task<T>> call, bool throwIfEmpty = true)
     {
       var tasks = await GetAll(call);
-
 
       var successful = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
 
       if (throwIfEmpty && !successful.Any())
       {
-        throw new BadRequestException($"None of the nodes returned successful response. First error: {tasks[0].Exception} ");
+        var firstException = ExtractFirstException(tasks);
+        if (firstException.GetBaseException() is RpcException)
+        {
+          throw new DomainException($"None of the nodes returned successful response.", new Exception($"First error: {firstException}"));
+        }
+        throw new ServiceUnavailableException("Failed to connect to node(s).", new Exception($"First error: {firstException}"));
       }
 
       return successful;
+    }
+
+    private static AggregateException ExtractFirstException<T>(Task<T>[] tasks)
+    {
+      // Try to extract exception, preferring RpcExceptions
+      return tasks.FirstOrDefault(t => t.Exception?.GetBaseException() is RpcException)?.Exception
+        ?? tasks.FirstOrDefault(t => t.Exception != null)?.Exception;
     }
 
     /// <summary>
@@ -164,30 +175,29 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       var tasks = await GetAll(call);
 
+      var successful = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
+     
+      var firstException = ExtractFirstException(tasks);
 
-      var sucesfull = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
-
-      // Try to extract exception, preferring RpcExceptions 
-      var firstException =
-        tasks.FirstOrDefault(t => t.Exception?.GetBaseException() is RpcException)?.Exception
-        ?? tasks.FirstOrDefault(t => t.Exception != null)?.Exception;
-
-      if (firstException != null && !sucesfull.Any()) // return error if there are no successful responses
+      if (firstException != null && !successful.Any()) // return error if there are no successful responses
       {
-
-        return (default, true, firstException);
+        if (firstException.GetBaseException() is RpcException)
+        {
+          return (default, true, firstException);
+        }
+        throw new ServiceUnavailableException("Failed to connect to node(s).", new Exception($"First error: {firstException}"));
       }
 
-      if (sucesfull.Length > 1)
+      if (successful.Length > 1)
       {
-        var firstSuccesfullJson = JsonSerializer.Serialize(sucesfull.First());
-        if (sucesfull.Skip(0).Any(x => JsonSerializer.Serialize(x) != firstSuccesfullJson))
+        var firstSuccesfullJson = JsonSerializer.Serialize(successful.First());
+        if (successful.Skip(0).Any(x => JsonSerializer.Serialize(x) != firstSuccesfullJson))
         {
           return (default, false, firstException);
         }
       }
 
-      return (sucesfull.First(), true, firstException);
+      return (successful.First(), true, firstException);
     }
 
     public Task<byte[]> GetRawTransactionAsBytesAsync(string txId)
@@ -212,10 +222,6 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       var r = await GetAllWithoutErrors(c => c.GetBlockchainInfoAsync());
 
-      if (!r.Any())
-      {
-        throw new BadRequestException("No working nodes are available");
-      }
       return r;
     }
 
@@ -457,7 +463,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       using (sendRawTxDuration.NewTimer())
       {
-        okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions), throwIfEmpty: true);
+        okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions));
       }
 
       // Extract results from nodes that successfully processed the request and merge them together:

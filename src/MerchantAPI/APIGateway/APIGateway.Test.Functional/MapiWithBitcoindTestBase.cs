@@ -136,7 +136,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return response.response.ExtractPayload<SubmitTransactionsResponseViewModel>();
     }
 
-    protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId, bool? merkleProof=null, string merkleFormat=null)
+    protected async Task<QueryTransactionStatusResponseViewModel> QueryTransactionStatus(string txId, bool? merkleProof=null, string merkleFormat=null,
+      HttpStatusCode expectedCode = HttpStatusCode.OK, string expectedHttpMessage = null)
     {
       List<(string, string)> queryParams = new();
       if (merkleProof != null)
@@ -149,10 +150,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       var url = PrepareQueryParams(MapiServer.ApiMapiQueryTransactionStatus + txId, queryParams);
-      var response = await Get<SignedPayloadViewModel>(
-        Client, url, HttpStatusCode.OK);
+      var (response, message) = await GetWithHttpResponseReturned<SignedPayloadViewModel>(
+        Client, url, expectedCode);
 
-      return response.ExtractPayload<QueryTransactionStatusResponseViewModel>();
+      await CheckHttpResponseMessageDetailAsync(message, expectedHttpMessage);
+
+      return response?.ExtractPayload<QueryTransactionStatusResponseViewModel>();
     }
 
     protected async Task AssertQueryTxAsync(
