@@ -68,11 +68,11 @@ namespace MerchantAPI.Common.Exceptions
 
   public class ServiceUnavailableException : HttpResponseException
   {
-    public ServiceUnavailableException(string message) : base(HttpStatusCode.NotFound, message) { }
+    public ServiceUnavailableException(string message) : base(HttpStatusCode.ServiceUnavailable, message) { }
 
-    public ServiceUnavailableException(string message, Exception ex) : base(HttpStatusCode.NotFound, message, ex) { }
+    public ServiceUnavailableException(string message, Exception ex) : base(HttpStatusCode.ServiceUnavailable, message, ex) { }
 
-    public ServiceUnavailableException(string message, long executionTime) : base(HttpStatusCode.NotFound, message, executionTime) { }
+    public ServiceUnavailableException(string message, long executionTime) : base(HttpStatusCode.ServiceUnavailable, message, executionTime) { }
   }
 }
 
