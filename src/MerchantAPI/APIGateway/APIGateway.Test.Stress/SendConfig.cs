@@ -69,14 +69,28 @@ be smaller than { nameof(Limit) }({ Limit }).");
       {
         if (!MapiConfig.MapiUrl.EndsWith("/"))
         {
-          yield return new ValidationResult($"MapiUrl must end with '/'");
+          yield return new ValidationResult($"MapiUrl must end with '/'.");
         }
+      }
+      if (MapiConfig.Callback != null && MapiConfig.TestResilience != null)
+      {
+        yield return new ValidationResult($"Choose one option from {nameof(MapiConfig.Callback)} and {nameof(MapiConfig.TestResilience)}.");
       }
       if (MapiConfig.Callback != null)
       {
         var validationContext = new ValidationContext(MapiConfig.Callback, serviceProvider: null, items: null);
         var validationResults = new List<ValidationResult>();
         Validator.TryValidateObject(MapiConfig.Callback, validationContext, validationResults, true);
+        foreach (var x in validationResults)
+        {
+          yield return x;
+        }
+      }
+      if (MapiConfig.TestResilience != null)
+      {
+        var validationContext = new ValidationContext(MapiConfig.TestResilience, serviceProvider: null, items: null);
+        var validationResults = new List<ValidationResult>();
+        Validator.TryValidateObject(MapiConfig.TestResilience, validationContext, validationResults, true);
         foreach (var x in validationResults)
         {
           yield return x;
@@ -112,6 +126,8 @@ be smaller than { nameof(Limit) }({ Limit }).");
     public string NodeZMQNotificationsEndpoint { get; set; }
 
     public CallbackConfig Callback { get; set; }
+
+    public TestResilienceConfig TestResilience { get; set; }
   }
 
   public class CallbackConfig : IValidatableObject
@@ -155,6 +171,15 @@ be smaller than { nameof(Limit) }({ Limit }).");
       }
     }
 
+  }
+
+  public class TestResilienceConfig
+  {
+    [Required]
+    public string AddFaultsFromJsonFile { get; set; }
+    [Required]
+    public string DBConnectionString { get; set; }
+    public bool ResubmitWithoutFaults { get; set; }
   }
 
   public class CallbackHostConfig

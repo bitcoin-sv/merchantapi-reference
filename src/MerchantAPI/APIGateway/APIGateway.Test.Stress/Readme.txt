@@ -45,6 +45,10 @@ If you want to run clearDb command you must add port mapping for merchant-gatewa
   - addFeeQuotesFromJsonFile: Add feeQuotes from file (optional).
   - nodeHost: Use if local node (the one from the bitcoindConfig) is unreachable from mAPI (override default "127.0.0.1").
   - nodeZMQNotificationsEndpoint: Use when you need to override local node's default zmqEndpoint.
+  - testResilience: Specify, if you want to test resilience. The mempoolChecker should be enabled.  
+    - addFaultsFromJsonFile: Add faults, that you want to trigger, from json file. You must enable fault injection in mAPI's config.
+    - DBConnectionString: Connection string with read only access.
+    - resubmitWithoutFaults: Submit transactions, clear faults and then resubmit again (default=false).
   - callback: Specify, if you want to trigger callbacks
     - url: Url that will process double spend and merkle proof notifications. When present, transactions will be submitted with MerkleProof and DsCheck set to true. Example: "http://localhost:2000/callbacks".
     - addRandomNumberToPort: When specified, a random number between 1 and  AddRandomNumberToPort will be appended to host port specified in Url when submitting each batch of transactions. This is useful for testing callbacks toward different hosts.

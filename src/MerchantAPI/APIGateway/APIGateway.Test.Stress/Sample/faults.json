@@ -1,0 +1,15 @@
+﻿[
+  {
+    "id": "dbFault",
+    "type": "DbBeforeSavingUncommittedState",
+    "dbFaultComponent": "MapiAfterSendToNode",
+    "faultMethod": "Exception",
+    "faultProbability": 25
+  },
+  {
+    "id": "simulateSendTxsResponseFault",
+    "type": "SimulateSendTxsMapi",
+    "simulateSendTxsResponse": "NodeFailsAfterSendRawTxs",
+    "faultProbability": 50
+  }
+]

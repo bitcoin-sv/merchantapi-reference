@@ -29,6 +29,11 @@
           "callbackFailurePercent": 0
         }
       ]
+    },
+    "testResilience": {
+      "addFaultsFromJsonFile": "Sample\\faults.json",
+      "DBConnectionString": "Server=localhost;Port=5432;User Id=merchant; Password=merchant;Database=merchant_gateway;",
+      "resubmitWithoutFaults": true
     }
   },
   "bitcoindConfig": {
