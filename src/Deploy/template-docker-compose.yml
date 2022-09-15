@@ -57,7 +57,7 @@ services:
       - AppSettings__MinerIdServer__Url=${MINERID_SERVER_URL}
       - AppSettings__MinerIdServer__Alias=${MINERID_SERVER_ALIAS}
       - AppSettings__MinerIdServer__Authentication=${MINERID_SERVER_AUTHENTICATION}
-      - AppSettings__MinerIdServer__RequestTimeoutSec =${MINERID_SERVER_REQUEST_TIMEOUT_SEC}
+      - AppSettings__MinerIdServer__RequestTimeoutSec=${MINERID_SERVER_REQUEST_TIMEOUT_SEC}
       - AppSettings__Notification__NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
       - AppSettings__Notification__InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
       - AppSettings__Notification__InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}

@@ -40,4 +40,4 @@ COPY ["Deploy/run.sh", "."]
 
 RUN chmod +x run.sh
 
-ENTRYPOINT ["./run.sh"]
+ENTRYPOINT ["sh","./run.sh"]
