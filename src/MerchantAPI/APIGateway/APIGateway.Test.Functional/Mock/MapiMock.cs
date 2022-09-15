@@ -19,7 +19,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
   public class MapiMock : Mapi
   {
     public MapiMock(
-      IRpcMultiClient rpcMultiClient, 
+      IRpcMultiClient rpcMultiClient,
       IFeeQuoteRepository feeQuoteRepository,
       IBlockChainInfo blockChainInfo,
       IMinerId minerId,
@@ -28,8 +28,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       IClock clock,
       IOptions<AppSettings> appSettingOptions,
       IFaultManager faultManager,
-      IFaultInjection faultInjection)
-      : base(rpcMultiClient, feeQuoteRepository, blockChainInfo, minerId, txRepository, logger, clock, appSettingOptions, faultManager, faultInjection)
+      IFaultInjection faultInjection,
+      CustomMetrics customMetrics)
+      : base(rpcMultiClient, feeQuoteRepository, blockChainInfo, minerId, txRepository, logger, clock, appSettingOptions, faultManager, faultInjection, customMetrics)
     {
     }
 

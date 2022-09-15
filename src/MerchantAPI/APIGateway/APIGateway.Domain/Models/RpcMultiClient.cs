@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Exceptions;
@@ -14,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBitcoin.Crypto;
 using Prometheus;
+using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
@@ -31,25 +33,20 @@ namespace MerchantAPI.APIGateway.Domain.Models
     readonly IRpcClientFactory rpcClientFactory;
     readonly ILogger logger;
     readonly RpcClientSettings rpcClientSettings;
+    readonly RpcMultiClientMetrics rpcMultiClientMetrics;
 
-    static readonly string metricsPrefix = "merchantapi_rpcmulticlient_";
-
-    static readonly Histogram getTxOutsDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}gettxouts_duration_seconds", "Histogram of time spent waiting for gettxouts response from node.");
-    static readonly Histogram sendRawTxDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}sendrawtxs_duration_seconds", "Histogram of time spent waiting for sendrawtransactions response from node.");
-
-    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options)
-      : this(nodes, rpcClientFactory, logger, options.Value.RpcClient)
+    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options, CustomMetrics customMetrics)
+      : this(nodes, rpcClientFactory, logger, options.Value.RpcClient, customMetrics)
     {
     }
 
-    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, RpcClientSettings rpcClientSettings)
+    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, RpcClientSettings rpcClientSettings, CustomMetrics customMetrics)
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.logger = logger;
       this.rpcClientSettings = rpcClientSettings;
+      this.rpcMultiClientMetrics = customMetrics?.rpcMultiClientMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
     }
 
     static void ShuffleArray<T>(T[] array)
@@ -258,7 +255,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList)
     {
-      using (getTxOutsDuration.NewTimer())
+      using (rpcMultiClientMetrics.getTxOutsDuration.NewTimer())
       {
         return GetFirstSuccessfulAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
       }
@@ -461,7 +458,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       var allTxs = transactions.Select(x => Hashes.DoubleSHA256(x.transaction).ToString()).ToArray();
       RpcSendTransactions[] okResults = null;
 
-      using (sendRawTxDuration.NewTimer())
+      using (rpcMultiClientMetrics.sendRawTxsDuration.NewTimer())
       {
         okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions));
       }

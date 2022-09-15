@@ -112,6 +112,7 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddSingleton<HostUnknownTxCache>();
       services.AddSingleton<ITransactionRequestsCheck, TransactionRequestsCheck>();
       services.AddSingleton<IHostBanList, HostBanList>();
+      services.AddSingleton<CustomMetrics>();
       services.AddScoped<CheckHostActionFilter>();
       services.AddScoped<HttpsRequiredAttribute>();
 
