@@ -36,15 +36,15 @@ namespace MerchantAPI.APIGateway.Rest.Database
       {
         var connectionStringBuilder = new NpgsqlConnectionStringBuilder
         {
-          ConnectionString = dbConnectionStringDDL
+          ConnectionString = dbConnectionStringDDL,
+          CommandTimeout = startupCommandTimeoutMinutes.Value * 60
         };
-        connectionStringBuilder.CommandTimeout = startupCommandTimeoutMinutes.Value * 60;
         dbConnectionStringDDL = connectionStringBuilder.ToString();
         connectionStringBuilder = new NpgsqlConnectionStringBuilder
         {
-          ConnectionString = dbConnectionStringMaster
+          ConnectionString = dbConnectionStringMaster,
+          CommandTimeout = startupCommandTimeoutMinutes.Value * 60
         };
-        connectionStringBuilder.CommandTimeout = startupCommandTimeoutMinutes.Value * 60;
         dbConnectionStringMaster = connectionStringBuilder.ToString();
       }
 
