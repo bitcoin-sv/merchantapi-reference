@@ -46,7 +46,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.logger = logger;
       this.rpcClientSettings = rpcClientSettings;
-      this.rpcMultiClientMetrics = customMetrics?.rpcMultiClientMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      rpcMultiClientMetrics = customMetrics?.rpcMultiClientMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
     }
 
     static void ShuffleArray<T>(T[] array)

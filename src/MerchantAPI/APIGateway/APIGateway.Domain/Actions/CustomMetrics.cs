@@ -10,10 +10,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     const string METRICS_PREFIX_MAPI = "merchantapi_mapi_";
     const string METRICS_PREFIX_BLOCKPARSER = "merchantapi_blockparser_";
     const string METRICS_PREFIX_RPCMULTICLIENT = "merchantapi_rpcmulticlient_";
+    const string METRICS_PREFIX_NOTIFICATIONS = "merchantapi_notificationshandler_";
 
     public readonly MapiMetrics mapiMetrics;
     public readonly BlockParserMetrics blockParserMetrics;
     public readonly RpcMultiClientMetrics rpcMultiClientMetrics;
+    public readonly NotificationsMetrics notificationsMetrics;
 
     public abstract class IClassWithMetrics
     {
@@ -97,11 +99,28 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
     }
 
+    public class NotificationsMetrics : IClassWithMetrics
+    {
+      public override string MetricsPrefix => METRICS_PREFIX_NOTIFICATIONS;
+
+      public readonly Counter successfulCallbacks;
+      public readonly Counter failedCallbacks;
+      public readonly Histogram callbackDuration;
+
+      public NotificationsMetrics()
+      {
+        successfulCallbacks = CreateCounter("successful_callbacks_counter", "Number of successful callbacks.");
+        failedCallbacks = CreateCounter("failed_callbacks_counter", "Number of failed callbacks.");
+        callbackDuration = CreateHistogram("callback_duration_seconds", "Total duration of callbacks.");
+      }
+    }
+
     public CustomMetrics()
     {
       mapiMetrics = new();
       blockParserMetrics = new();
       rpcMultiClientMetrics = new();
+      notificationsMetrics = new();
     }
   }
 }

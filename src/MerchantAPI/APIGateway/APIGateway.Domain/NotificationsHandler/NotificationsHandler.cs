@@ -22,6 +22,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
 
 namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
 {
@@ -36,22 +37,12 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     private readonly IClock clock;
 
     readonly NotificationScheduler notificationScheduler;
-
-    static readonly string metricsPrefix = "merchantapi_notificationshandler_";
-
-    static readonly Counter successfulCallbacks = Metrics
-      .CreateCounter($"{metricsPrefix}successfulcallbacks_counter", "Number of successful callbacks.");
-
-    static readonly Counter failedCallbacks = Metrics
-      .CreateCounter($"{metricsPrefix}failedcallbacks_counter", "Number of failed callbacks.");
-
-    static readonly Histogram callbackDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}callback_duration_seconds", "Histogram total duration of callbacks.");
+    readonly NotificationsMetrics notificationsMetrics;
 
     private const string CALLBACK_REASON_PLACEHOLDER = "{callbackreason}";
 
     public NotificationsHandler(ILogger<NotificationsHandler> logger, INotificationServiceHttpClientFactory httpClientFactory, IOptions<AppSettings> options, 
-                                ITxRepository txRepository, IRpcMultiClient rpcMultiClient, IMinerId minerId, IClock clock)
+                                ITxRepository txRepository, IRpcMultiClient rpcMultiClient, IMinerId minerId, IClock clock, CustomMetrics customMetrics)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -64,6 +55,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
                                                         notificationSettings.MaxNotificationsInBatch.Value, notificationSettings.NoOfSavedExecutionTimes.Value,
                                                         notificationSettings.SlowHostThresholdInMs.Value);
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+      notificationsMetrics = customMetrics?.notificationsMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)
@@ -165,7 +157,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
         var restClient = new RestClient(url, callbackToken, client);
         var notificationTimeout = new TimeSpan(0, 0, 0, 0, requestTimeout);
 
-        using (callbackDuration.NewTimer())
+        using (notificationsMetrics.callbackDuration.NewTimer())
         {
           if (string.IsNullOrEmpty(callbackEncryption))
           {
@@ -176,13 +168,13 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
             _ = await restClient.PostOctetStream("", MapiEncryption.Encrypt(payload, callbackEncryption), requestTimeout: notificationTimeout, token: stoppingToken);
           }
         }
-        successfulCallbacks.Inc();
+        notificationsMetrics.successfulCallbacks.Inc();
 
         logger.LogDebug($"Successfully sent notification to '{url}', with execution time of '{stopwatch.ElapsedMilliseconds}'ms");
       }
       catch (Exception ex)
       {
-        failedCallbacks.Inc();
+        notificationsMetrics.failedCallbacks.Inc();
         errMessage = ex.GetBaseException().Message;
         logger.LogError($"Callback failed for host {hostURI.Host}. Error: {ex.GetBaseException().Message}");
       }
