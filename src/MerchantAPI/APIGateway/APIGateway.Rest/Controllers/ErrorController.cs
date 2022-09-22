@@ -85,5 +85,11 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     {
       return Problem(dumpStack: false);
     }
+
+    [Route("/submiterror")]
+    public IActionResult SubmitError()
+    {
+      return Problem(dumpStack: false);
+    }
   }
 }

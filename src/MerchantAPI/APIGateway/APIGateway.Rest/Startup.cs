@@ -34,6 +34,8 @@ using MerchantAPI.APIGateway.Domain.Cache;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Prometheus;
+using Microsoft.AspNetCore.Http;
+using System.Net;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -262,6 +264,11 @@ namespace MerchantAPI.APIGateway.Rest
       else
       {
         app.UseExceptionHandler("/error");
+        // we need separate handler so that we can filter submit errors from other
+        app.UseWhen(context => context.Request.Method == "POST" && context.Request.Path.StartsWithSegments("/mapi"), subApp =>
+        {
+          subApp.UseExceptionHandler("/submiterror");
+        });
       }
 
       app.Use(async (context, next) =>
