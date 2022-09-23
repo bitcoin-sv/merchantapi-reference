@@ -10,6 +10,7 @@ using MerchantAPI.APIGateway.Rest.ViewModels.Faults;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test;
 using Microsoft.AspNetCore.TestHost;
@@ -25,6 +26,7 @@ using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static MerchantAPI.Common.BitcoinRpc.Responses.RpcSendTransactions;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -410,6 +412,34 @@ namespace MerchantAPI.APIGateway.Test.Functional
         NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]));
 
       await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
+    }
+
+    [TestMethod]
+    public async Task SubmitTxJsonNodeReturnsMempoolErrorWithMoreInfo()
+    {
+      // check that MempoolFull is classified as retryable
+      // even when node returns reason with additional information
+      var (code, reason) = NodeRejectCode.MempoolFullCodeAndReason;
+      var rpcResult = new RpcSendTransactions();
+      List<RpcInvalidTx> txsInvalid = new();
+      RpcInvalidTx txInvalid = new()
+      {
+        RejectCode = code,
+        RejectReason = $"{ reason } Removed: {txC3Hash}",
+        Txid = txC3Hash
+      };
+      txsInvalid.Add(txInvalid);
+      rpcResult.Invalid = txsInvalid.ToArray();
+
+      rpcClientFactoryMock.SetUpPredefinedResponse(("mocknode0:sendrawtransactions", rpcResult));
+
+      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      //  mAPI must return error as MapiRetryMempoolError 
+      await AssertIsOKAsync(payload, txC3Hash, "failure",
+        NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.CombineRejectCodeAndReason(txInvalid.RejectCode, txInvalid.RejectReason)));
     }
 
     [DataRow(Faults.SimulateSendTxsResponse.NodeReturnsNonStandard)]
