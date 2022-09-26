@@ -7,12 +7,14 @@ using MerchantAPI.Common.Clock;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Prometheus;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -26,6 +28,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly ITxRepository txRepository;
     readonly IClock clock;
     readonly AppSettings appSettings;
+    readonly MempoolCheckerMetrics mempoolCheckerMetrics;
 
     bool success;
     static Dictionary<long, int> txsRetries = new();
@@ -34,7 +37,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public bool ExecuteCheckMempoolAndResubmitTxs => !appSettings.DontParseBlocks.Value && !appSettings.MempoolCheckerDisabled.Value;
 
-    public MempoolChecker(ILogger<MempoolChecker> logger, IRpcMultiClient rpcMultiClient, IBlockChainInfo blockChainInfo, IMapi mapi, IBlockParser blockParser, ITxRepository txRepository, IClock clock, IOptions<AppSettings> options)
+    public MempoolChecker(
+      ILogger<MempoolChecker> logger,
+      IRpcMultiClient rpcMultiClient,
+      IBlockChainInfo blockChainInfo,
+      IMapi mapi,
+      IBlockParser blockParser,
+      ITxRepository txRepository,
+      IClock clock,
+      IOptions<AppSettings> options,
+      CustomMetrics customMetrics)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
@@ -44,6 +56,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       appSettings = options.Value;
+      mempoolCheckerMetrics = customMetrics?.mempoolCheckerMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
       success = false;
     }
 
@@ -79,15 +92,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           logger.LogWarning("CheckMempoolAndResubmitTxs failed: " + ex.Message);
           success = false;
+          mempoolCheckerMetrics.exceptionsOnResubmit.Inc();
         }
 
         if (success)
         {
           await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerIntervalSec.Value), stoppingToken);
+          mempoolCheckerMetrics.successfulResubmits.Inc();
         }
         else
         {
           await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerUnsuccessfulIntervalSec.Value), stoppingToken);
+          mempoolCheckerMetrics.unsuccessfulResubmits.Inc();
         }
       }
     }
@@ -125,8 +141,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           return false;
         }
 
-        var stopwatch = Stopwatch.StartNew();
-
         lock (lockObj)
         {
           if (ResubmitInProcess)
@@ -136,45 +150,27 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }
           ResubmitInProcess = true;
         }
+        var stopwatch = Stopwatch.StartNew();
 
         var info = await blockChainInfo.GetInfoAsync();
         var blockparserStatus = blockParser.GetBlockParserStatus();
         bool isBlockParserIdle = true;
         if (blockparserStatus.BlocksQueued > 0 || blockparserStatus.LastBlockHash != info.BestBlockHash)
         {
-          logger.LogDebug("MempoolChecker: blockparsing is processing blocks.");
+          logger.LogDebug("MempoolChecker: blockparser is processing blocks.");
           isBlockParserIdle = false;
         }
-        var rpcClients = rpcMultiClient.GetRpcClients();
-        var txsWithMissingInputsSet = new HashSet<long>();
-        bool finalSuccess = true;
-        foreach (var rpcClient in rpcClients)
-        {
-          using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
-          var mempoolCalledAt = clock.UtcNow();
 
-          var mempoolTxs = await rpcClient.GetRawMempool(cts.Token);
-          logger.LogInformation($"{ rpcClient } has { mempoolTxs.Length } txs in mempool.");
-
-          var (resubmitSuccess, txsWithMissingInputs) = await mapi.ResubmitMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
-          if (txsWithMissingInputs != null)
-          {
-            txsWithMissingInputsSet.UnionWith(txsWithMissingInputs);
-          }
-          finalSuccess &= resubmitSuccess;
-        }
-
-        logger.LogDebug($"TxsWithMissingInputs count: { txsWithMissingInputsSet.Count } .");
-        await ArrangeTxsWithMissingInputsAsync(txsWithMissingInputsSet.ToList());
+        var resubmitSuccess = await ResubmitTransactionsToNodes();
 
         lock (lockObj)
         {
           ResubmitInProcess = false;
         }
+        stopwatch.Stop();
+        logger.LogInformation($"MempoolChecker: resubmit finished with '{ nameof(resubmitSuccess) }'={ resubmitSuccess }, '{ nameof(isBlockParserIdle) }'={ isBlockParserIdle }, took { stopwatch.ElapsedMilliseconds } ms.");
 
-        logger.LogInformation($"MempoolChecker: resubmit finished with '{ nameof(finalSuccess) }'={ finalSuccess }, '{ nameof(isBlockParserIdle) }'={ isBlockParserIdle }, took { stopwatch.ElapsedMilliseconds } ms.");
-
-        return finalSuccess && isBlockParserIdle;
+        return resubmitSuccess && isBlockParserIdle;
       }
       catch (Exception)
       {
@@ -184,6 +180,36 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         throw;
       }
+    }
+
+    private async Task<bool> ResubmitTransactionsToNodes()
+    {
+      var rpcClients = rpcMultiClient.GetRpcClients();
+      var txsWithMissingInputsSet = new HashSet<long>();
+      bool finalSuccess = true;
+      foreach (var rpcClient in rpcClients)
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
+        var mempoolCalledAt = clock.UtcNow();
+        string[] mempoolTxs;
+        using (mempoolCheckerMetrics.getRawMempoolDuration.NewTimer())
+        {
+          mempoolTxs = await rpcClient.GetRawMempool(cts.Token);
+        }
+        logger.LogInformation($"{rpcClient} has {mempoolTxs.Length} txs in mempool.");
+        mempoolCheckerMetrics.txInMempool.Set(mempoolTxs.Length);
+
+        var (resubmitSuccess, txsWithMissingInputs) = await mapi.ResubmitMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
+        if (txsWithMissingInputs != null)
+        {
+          txsWithMissingInputsSet.UnionWith(txsWithMissingInputs);
+        }
+        finalSuccess &= resubmitSuccess;
+      }
+
+      logger.LogDebug($"TxsWithMissingInputs count: {txsWithMissingInputsSet.Count} .");
+      await ArrangeTxsWithMissingInputsAsync(txsWithMissingInputsSet.ToList());
+      return finalSuccess;
     }
 
     private async Task ArrangeTxsWithMissingInputsAsync(List<long> txsWithMissingInputs)
@@ -196,6 +222,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       var txsWithMaxMissingInputs = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolCheckerMissingInputsRetries).ToList();
       logger.LogDebug($"TxsWithMaxMissingInputs count: { txsWithMaxMissingInputs.Count } .");
+      mempoolCheckerMetrics.txMissingInputsMax.Inc(txsWithMaxMissingInputs.Count);
       await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateMissingInputs, txsWithMaxMissingInputs.Select(x => new Tx
       {
         TxInternalId = x.Key,

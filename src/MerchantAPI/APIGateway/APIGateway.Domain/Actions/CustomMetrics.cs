@@ -11,11 +11,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     const string METRICS_PREFIX_BLOCKPARSER = "merchantapi_blockparser_";
     const string METRICS_PREFIX_RPCMULTICLIENT = "merchantapi_rpcmulticlient_";
     const string METRICS_PREFIX_NOTIFICATIONS = "merchantapi_notificationshandler_";
+    const string METRICS_PREFIX_MEMPOOLCHECKER = "merchantapi_mempoolchecker_";
 
     public readonly MapiMetrics mapiMetrics;
     public readonly BlockParserMetrics blockParserMetrics;
     public readonly RpcMultiClientMetrics rpcMultiClientMetrics;
     public readonly NotificationsMetrics notificationsMetrics;
+    public readonly MempoolCheckerMetrics mempoolCheckerMetrics;
 
     public abstract class IClassWithMetrics
     {
@@ -115,12 +117,45 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
     }
 
+    public class MempoolCheckerMetrics : IClassWithMetrics
+    {
+      public override string MetricsPrefix => METRICS_PREFIX_MEMPOOLCHECKER;
+
+      public readonly Counter successfulResubmits;
+      public readonly Counter unsuccessfulResubmits;
+      public readonly Counter exceptionsOnResubmit;
+
+      public readonly Histogram getRawMempoolDuration;
+      public readonly Gauge txInMempool;
+      public readonly Histogram getMissingTransactionsDuration;
+      public readonly Counter txMissing;
+      public readonly Counter txResponseSuccess;
+      public readonly Counter txResponseFailure;
+      public readonly Counter txMissingInputsMax;
+
+      public MempoolCheckerMetrics()
+      {
+        successfulResubmits = CreateCounter("successful_resubmit_counter", "Number of all successful resubmits.");
+        unsuccessfulResubmits = CreateCounter("unsuccessful_resubmit_counter", "Number of all unsuccessful or interrupted resubmits.");
+        exceptionsOnResubmit = CreateCounter("exceptions_resubmit_counter", "Number of resubmits that interrupted with exception.");
+
+        getRawMempoolDuration = CreateHistogram("getrawmempool_duration_seconds", "Histogram of time spent waiting for getrawmempool response from node.");
+        txInMempool = CreateGauge("tx_in_mempool", "Number of transactions is mempool.");
+        getMissingTransactionsDuration = CreateHistogram("getmissingtransactions_duration_seconds", "Histogram of database execution time for the query which transactions must be resubmitted.");
+        txMissing = CreateCounter("tx_missing_counter", "Number of missing transactions, that are resent to node.");
+        txResponseSuccess = CreateCounter("tx_response_success_counter", "Number of transactions with success response.");
+        txResponseFailure = CreateCounter("tx_response_failure_counter", "Number of transactions with failure response.");
+        txMissingInputsMax = CreateCounter("tx_missing_inputs_max_counter", "Number of transactions that reached MempoolCheckerMissingInputsRetries.");
+      }
+    }
+
     public CustomMetrics()
     {
       mapiMetrics = new();
       blockParserMetrics = new();
       rpcMultiClientMetrics = new();
       notificationsMetrics = new();
+      mempoolCheckerMetrics = new();
     }
   }
 }

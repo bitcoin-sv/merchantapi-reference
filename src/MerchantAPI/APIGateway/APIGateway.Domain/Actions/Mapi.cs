@@ -26,6 +26,8 @@ using System.Text;
 using MerchantAPI.APIGateway.Domain.Models.APIStatus;
 using System.Collections.ObjectModel;
 using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
+using NBitcoin.RPC;
+using Prometheus;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -43,6 +45,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     protected readonly IFaultManager faultManager;
     protected readonly IFaultInjection faultInjection;
     readonly MapiMetrics mapiMetrics;
+    readonly MempoolCheckerMetrics mempoolCheckerMetrics;
 
     static class ResultCodes
     {
@@ -87,6 +90,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.faultManager = faultManager ?? throw new ArgumentNullException(nameof(faultManager));
       this.faultInjection = faultInjection ?? throw new ArgumentNullException(nameof(faultInjection));
       mapiMetrics = customMetrics?.mapiMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      mempoolCheckerMetrics = customMetrics?.mempoolCheckerMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
     }
 
 
@@ -1260,14 +1264,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public virtual async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 1000)
     {
-      var txs = await txRepository.GetMissingTransactionsAsync(mempoolTxs, resubmittedAt);
-
+      Tx[] txs;
+      using (mempoolCheckerMetrics.getMissingTransactionsDuration.NewTimer())
+      {
+        txs = await txRepository.GetMissingTransactionsAsync(mempoolTxs, resubmittedAt);
+      }
       // split processing into smaller batches
       int nBatches = (int)Math.Ceiling((double)txs.Length / batchSize);
       int submitSuccessfulCount = 0;
       int submitFailureIgnored = 0;
       List<long> txsWithMissingInputs = new();
       logger.LogInformation($"ResubmitMissingTransactions: missing {txs.Length} -> nBatches: {nBatches}, batchsize: {batchSize}");
+      mempoolCheckerMetrics.txMissing.Inc(txs.Length);
 
       // we have to submit all txs in order
       // if node accepted tx2 before tx1, tx1 can be resubmitted successfully in the next resubmit round
@@ -1356,6 +1364,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       int failures = txs.Length - submitSuccessfulCount - submitFailureIgnored - txsWithMissingInputs.Count;
       logger.LogInformation(@$"ResubmitMempoolTransactions: resubmitted {txs.Length} txs = successful: {submitSuccessfulCount}, 
 failures: {failures}, submitFailureIgnored: {submitFailureIgnored}, missing inputs: {txsWithMissingInputs.Count}.");
+      mempoolCheckerMetrics.txResponseSuccess.Inc(submitSuccessfulCount);
+      mempoolCheckerMetrics.txResponseFailure.Inc(failures);
 
       return (failures == 0, txsWithMissingInputs);
     }
