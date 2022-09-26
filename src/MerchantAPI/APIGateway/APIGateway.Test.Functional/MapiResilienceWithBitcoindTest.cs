@@ -485,9 +485,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await DisconnectNodeAndWait(node1, node0, 1, cts.Token);
 
       // generate forks of different length that will trigger safe mode
-      await node1.RpcClient.GenerateAsync(90);
+      await node1.RpcClient.GenerateAsync(900);
 
-      await node0.RpcClient.GenerateAsync(30);
+      await node0.RpcClient.GenerateAsync(300);
 
       await AddNodeAndWait(node1, node0, 0, syncNodes: false, cancellationToken: cts.Token);
 
@@ -514,7 +514,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         networkInfo = await node0.RpcClient.GetNetworkInfoAsync(token: cts.Token);
       }
       while (networkInfo.Warnings.Contains(
-        "Warning: The network does not appear to fully agree!", StringComparison.OrdinalIgnoreCase)
+        "Warning: The network does not appear to", StringComparison.OrdinalIgnoreCase)
       );
 
       var payloadSubmitSuccess = await SubmitTransactionAsync(txHex);
