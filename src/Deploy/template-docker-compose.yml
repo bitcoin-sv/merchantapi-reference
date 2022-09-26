@@ -36,7 +36,7 @@ services:
       - AppSettings__CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
       - AppSettings__CleanUpTxAfterMempoolExpiredDays=${CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS}
       - AppSettings__CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
-      - AppSettings__MempoolCheckerEnabled=${MEMPOOL_CHECKER_ENABLED}
+      - AppSettings__MempoolCheckerDisabled=${MEMPOOL_CHECKER_DISABLED}
       - AppSettings__MempoolCheckerIntervalSec=${MEMPOOL_CHECKER_INTERVAL_SEC}
       - AppSettings__MempoolCheckerUnsuccessfulIntervalSec=${MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC}
       - AppSettings__MempoolCheckerBlockParserQueuedMax=${MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX}
