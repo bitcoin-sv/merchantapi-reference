@@ -10,6 +10,7 @@ using MerchantAPI.APIGateway.Rest.ViewModels.Faults;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
+using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test;
@@ -67,7 +68,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeFailsWhenSendRawTxs);
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.InternalServerError);
+      var response = await SubmitTxToMapiAsync(txC3Hex, expectedStatusCode: HttpStatusCode.InternalServerError);
       Assert.IsNull(response.response);
       await CheckHttpResponseMessageDetailAsync(response.httpResponse,
         "Error while submitting transactions to the node - no response or error returned.");
@@ -123,7 +124,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       mapiMock.SimulateMode(Faults.SimulateSendTxsResponse.NodeFailsAfterSendRawTxs);
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
@@ -144,7 +145,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
       mapiMock.SimulateDbFault(Faults.FaultType.DbAfterSavingUncommittedState, Faults.DbFaultComponent.MapiAfterSendToNode);
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.InternalServerError);
+      var response = await SubmitTxToMapiAsync(txC3Hex, expectedStatusCode: HttpStatusCode.InternalServerError);
       var faultmanager = server.Services.GetRequiredService<IFaultManager>();
       var fault = faultmanager.GetList().Single();
       await CheckHttpResponseMessageDetailAsync(response.httpResponse, $"Fault (no name) id {fault.Id}");
@@ -168,7 +169,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
       mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, Faults.DbFaultComponent.MapiAfterSendToNode);
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.InternalServerError);
+      var response = await SubmitTxToMapiAsync(txC3Hex, expectedStatusCode: HttpStatusCode.InternalServerError);
 
       Assert.IsNull(response.response);
 
@@ -263,7 +264,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       if (txStatus == TxStatus.NodeRejected)
       {
-        var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, true, true, "TSC");
+        var response = await SubmitTxToMapiAsync(txHex1, true, true, "TSC");
         VerifySignature(response);
         var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
         Assert.AreEqual("success", payload.ReturnResult);
@@ -279,11 +280,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       else
       {
         // parameter changed - submit should fail
-        var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK);
+        var response = await SubmitTxToMapiAsync(txHex1);
         AssertSubmitTxFailedBecauseOfDifferentParams(response);
-        response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, dsCheck: true, customCallbackUrl: null);
+        response = await SubmitTxToMapiAsync(txHex1, dsCheck: true, customCallbackUrl: null);
         AssertSubmitTxFailedBecauseOfDifferentParams(response);
-        response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, merkleProof: true, customCallbackUrl: null);
+        response = await SubmitTxToMapiAsync(txHex1, merkleProof: true, customCallbackUrl: null);
         AssertSubmitTxFailedBecauseOfDifferentParams(response);
 
         var tx = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txId1).ToBytes());
@@ -334,7 +335,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       };
       await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false);
 
-      var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, true);
+      var response = await SubmitTxToMapiAsync(txHex1, true);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("success", payload.ReturnResult);
@@ -379,7 +380,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       RestAuthentication = MockedIdentityBearerAuthentication;
 
-      var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK, true, true);
+      var response = await SubmitTxToMapiAsync(txHex1, true, true);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("success", payload.ReturnResult);
@@ -403,7 +404,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       mapiMock.SimulateMode(mockMode);
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -433,7 +434,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       rpcClientFactoryMock.SetUpPredefinedResponse(("mocknode0:sendrawtransactions", rpcResult));
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -550,7 +551,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       inserted =  await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToUpdateAfterSentNoded, false, true, true);
       Assert.IsTrue(inserted.Length == 0);
 
-      var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txHex1);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       if (dbAuthenticated == bearerAuthentication)
@@ -607,7 +608,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         RestAuthentication = MockedIdentityBearerAuthentication;
       }
 
-      var response = await SubmitTxToMapiAsync(txHex1, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txHex1);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("failure", payload.ReturnResult);
@@ -660,7 +661,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       };
       await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txToInsert, false);
 
-      var response = await SubmitTxToMapiAsync(txHex, HttpStatusCode.OK, true);
+      var response = await SubmitTxToMapiAsync(txHex, true);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       Assert.AreEqual("success", payload.ReturnResult);
@@ -691,7 +692,68 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Get<FaultTriggerViewModelGet[]>(Client, MapiServer.TestFaultUrl, HttpStatusCode.InternalServerError);
 
       // submit works normally
-      await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      await SubmitTxToMapiAsync(txC3Hex);
+    }
+
+    [TestMethod]
+    public async Task TestSafeModeException()
+    {
+      /*
+       Safe mode is automatically triggered if all of these criteria are satisfied:
+       1. The distance between the current tip and the last common block header of the fork 
+          is smaller than the safemodemaxforkdistance (default=1000).
+       2. The length of the fork is greater than safemodeminforklength (default=3).
+       3. The total proof of work of the fork tip is greater than the minimum fork proof of work (POW). 
+
+       Since integration test with real bitcoind was a flaky test, we only use the test with mocked rpcClient now. 
+       */
+      var node0 = NodeRepository.GetNodes().First();
+      AddMockNode(1);
+      var node1 = NodeRepository.GetNodes().Last();
+
+      var sendrawtxsException = "Safe mode: Warning: The network does not appear to agree with the local blockchain! Still waiting for block data for more details.";
+      var getnetworkinfo = new RpcGetNetworkInfo
+      {
+        Version = 101001000,
+        MinConsolidationFactor = 20,
+        MaxConsolidationInputScriptSize = 150,
+        MinConfConsolidationInput = 6,
+        AcceptNonStdConsolidationInput = false,
+        Warnings = "Warning: The network does not appear to agree with the local blockchain! Still waiting for block data for more details."
+      };
+      // mock safe mode
+      rpcClientFactoryMock.SetUpPredefinedResponse(
+        ("mocknode0:sendrawtransactions", new RpcException(0, sendrawtxsException, node0.Host)),
+        ("mocknode1:sendrawtransactions", new RpcException(0, sendrawtxsException, node1.Host)),
+        ("mocknode0:getnetworkinfo", getnetworkinfo),
+        ("mocknode1:getnetworkinfo", getnetworkinfo)
+      );
+
+      RpcGetNetworkInfo networkInfo = await RpcMultiClient.GetAnyNetworkInfoAsync();
+      // warning can differentiate between different bitcoid versions
+      Assert.IsTrue(networkInfo.Warnings.Contains(
+        "Warning: The network does not appear to", StringComparison.OrdinalIgnoreCase)); 
+
+      await SubmitTxToMapiAsync(txC3Hex, expectedStatusCode: HttpStatusCode.InternalServerError,
+        expectedHttpMessage: "Error while submitting transactions to the node - no response or error returned.");
+
+      // by generating blocks we get node1 out from safe mode
+      // in mock we don't keep blocks separated per node so we just clear predefined responses
+      rpcClientFactoryMock.SetUpPredefinedResponse(
+        ("mocknode0:sendrawtransactions", new RpcException(0, sendrawtxsException, node0.Host)),
+        ("mocknode0:getnetworkinfo", getnetworkinfo)
+      );
+      var response = await SubmitTxToMapiAsync(txC3Hex);
+
+      VerifySignature(response);
+
+      Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count());
+      Assert.AreEqual(1, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode1:sendrawtransactions/").Count());
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      // Check if all fields are set
+      await AssertIsOKAsync(payload, txC3Hash);
     }
   }
 }

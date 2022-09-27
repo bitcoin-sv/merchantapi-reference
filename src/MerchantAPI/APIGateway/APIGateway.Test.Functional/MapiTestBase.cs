@@ -136,13 +136,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await AssertTxStatus(tx2Hash, TxStatus.Accepted);
     }
 
-    protected async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxToMapiAsync(string txHex, HttpStatusCode expectedStatusCode, bool dsCheck = false, bool merkleProof = false, string merkleFormat = "", string customCallbackUrl = "")
+    protected async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxToMapiAsync(string txHex, bool dsCheck = false, bool merkleProof = false, string merkleFormat = "", string customCallbackUrl = "",
+      HttpStatusCode expectedStatusCode = HttpStatusCode.OK, string expectedHttpMessage = null)
     {
       var reqContent = GetJsonRequestContent(txHex, merkleProof, dsCheck, merkleFormat, customCallbackUrl);
 
       reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
-      return await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedStatusCode);
+      var (response, message) = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiSubmitTransaction, Client, reqContent, expectedStatusCode);
+
+      await CheckHttpResponseMessageDetailAsync(message, expectedHttpMessage);
+
+      return (response, message);
     }
 
     protected async Task<(SignedPayloadViewModel response, HttpResponseMessage httpResponse)> SubmitTxsToMapiAsync(HttpStatusCode expectedStatusCode)
@@ -156,7 +161,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var nCallsBeforeSubmit = rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count();
 
-      var response = await SubmitTxToMapiAsync(txHex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txHex);
       VerifySignature(response);
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       // Check if all fields are set

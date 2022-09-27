@@ -123,7 +123,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Setup 2nd chain 30 blocks long that will not be downloaded completely
       // (blockHeight=10 will be saved, blockheight=9 must not be saved)
       int splitHeight = 1;
-      var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(splitHeight), Network.Main);
+      var nextBlock = Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(splitHeight), Network.Main);
       uint256[] forkBlockHashes = CreateForkAsync(Tx2Hex, nextBlock, 30);
       blockInDb = await TxRepositoryPostgres.GetBlockAsync(forkBlockHashes.Last().ToBytes());
       Assert.AreEqual(30, blockInDb.BlockHeight);
@@ -203,8 +203,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var (blockCount, _) = await CreateAndPublishNewBlockAsync(rpcClient, null, null);
 
-      NBitcoin.Block forkBlock = null;
-      var nextBlock = NBitcoin.Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);
+      Block forkBlock = null;
+      var nextBlock = Block.Load(await rpcClient.GetBlockByHeightAsBytesAsync(0), Network.Main);
       var pubKey = nextBlock.Transactions.First().Outputs.First().ScriptPubKey.GetDestinationPublicKeys().First();
       // tx1 will be mined in block 1 and the notification has to be sent only once (1 insert into txBlock)
       var tx1 = Transaction.Parse(Tx1Hex, Network.Main);
