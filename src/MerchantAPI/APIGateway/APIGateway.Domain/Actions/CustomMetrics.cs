@@ -140,7 +140,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         exceptionsOnResubmit = CreateCounter("exceptions_resubmit_counter", "Number of resubmits that interrupted with exception.");
 
         getRawMempoolDuration = CreateHistogram("getrawmempool_duration_seconds", "Histogram of time spent waiting for getrawmempool response from node.");
-        txInMempool = CreateGauge("tx_in_mempool", "Number of transactions is mempool.");
+        txInMempool = CreateGauge("tx_in_mempool", "Number of transactions in mempool.");
         getMissingTransactionsDuration = CreateHistogram("getmissingtransactions_duration_seconds", "Histogram of database execution time for the query which transactions must be resubmitted.");
         txMissing = CreateCounter("tx_missing_counter", "Number of missing transactions, that are resent to node.");
         txResponseSuccess = CreateCounter("tx_response_success_counter", "Number of transactions with success response.");

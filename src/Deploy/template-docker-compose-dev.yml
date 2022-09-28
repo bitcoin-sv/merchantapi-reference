@@ -13,7 +13,7 @@ services:
     ports:
       - 9080:9090
     volumes:
-      - ../Prometheus:/etc/prometheus
+      - ../prometheus:/etc/prometheus
     command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -33,9 +33,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ../Grafana/Provisioning/Datasources:/etc/grafana/provisioning/datasources
-      - ../Grafana/Provisioning/Dashboards:/etc/grafana/provisioning/dashboards
-      - ../Grafana/Dashboards:/var/lib/grafana/dashboards
+      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ../grafana/dashboards:/var/lib/grafana/dashboards
 
 volumes:
   mapi-volume:  
