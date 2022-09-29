@@ -7,7 +7,6 @@ using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
 using MerchantAPI.Common.Test.Clock;
 using Microsoft.AspNetCore.TestHost;
@@ -463,62 +462,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // first txInput is not present in GetMempoolAncestors response
       await ValidateTxInputsAsync(txHex1, txId1, presentOnDB: false);
       await ValidateTxInputsAsync(lastTxHex, lastTxId);
-    }
-
-    [TestMethod]
-    public async Task TestSafeModeException()
-    {
-      /*
-       Safe mode is automatically triggered if all of these criteria are satisfied:
-       1. The distance between the current tip and the last common block header of the fork 
-          is smaller than the safemodemaxforkdistance (default=1000).
-       2. The length of the fork is greater than safemodeminforklength (default=3).
-       3. The total proof of work of the fork tip is greater than the minimum fork proof of work (POW). 
-       */
-      using CancellationTokenSource cts = new(30000);
-
-      // startup another node and link it to the first node, but not with startup argument
-      var node1 = StartBitcoind(1);
-      // sync blocks
-      await AddNodeAndWait(node1, node0, 0, cancellationToken: cts.Token);
-
-      await DisconnectNodeAndWait(node1, node0, 1, cts.Token);
-
-      // generate forks of different length that will trigger safe mode
-      await node1.RpcClient.GenerateAsync(90);
-
-      await node0.RpcClient.GenerateAsync(30);
-
-      await AddNodeAndWait(node1, node0, 0, syncNodes: false, cancellationToken: cts.Token);
-
-      // nodes are connected but not synced
-      var blockCount0 = await node0.RpcClient.GetBlockCountAsync(token: cts.Token);
-      var blockCount1 = await node1.RpcClient.GetBlockCountAsync(token: cts.Token);
-      loggerTest.LogInformation($"BlockCount0:{blockCount0}, blockCount1:{blockCount1}");
-      Assert.AreNotEqual(blockCount0, blockCount1);
-
-      var (txHex, txHash) = CreateNewTransaction();
-
-      var payloadSubmitFail = await SubmitTransactionAsync(
-        txHex, expectedHttpStatusCode: System.Net.HttpStatusCode.InternalServerError,
-        expectedHttpMessage: "Error while submitting transactions to the node - no response or error returned.");
-      Assert.IsNull(payloadSubmitFail);
-
-      RpcGetNetworkInfo networkInfo = null;
-      networkInfo = await node0.RpcClient.GetNetworkInfoAsync(token: cts.Token);
-      loggerTest.LogInformation($"GetNetworkInfo Warnings:{networkInfo.Warnings}");
-      do
-      {
-        // by generating blocks we get out from safe mode
-        await node0.RpcClient.GenerateAsync(10);
-        networkInfo = await node0.RpcClient.GetNetworkInfoAsync(token: cts.Token);
-      }
-      while (networkInfo.Warnings.Contains(
-        "Warning: The network does not appear to fully agree!", StringComparison.OrdinalIgnoreCase)
-      );
-
-      var payloadSubmitSuccess = await SubmitTransactionAsync(txHex);
-      Assert.AreEqual("success", payloadSubmitSuccess.ReturnResult);
     }
   }
 }

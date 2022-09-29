@@ -206,7 +206,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public async Task SubmitTransactionRejectDontParseTransaction()
     {
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK, merkleProof: true);
+      var response = await SubmitTxToMapiAsync(txC3Hex, merkleProof: true);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -220,7 +220,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public async Task SubmitTransactionRejectDontParseBlock()
     {
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK, dsCheck: true);
+      var response = await SubmitTxToMapiAsync(txC3Hex, dsCheck: true);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -243,7 +243,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees); // submit tx1 should succeed
 
-      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex());
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx1.GetHash().ToString());
@@ -268,7 +268,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
                           (txLength * fee.MiningFee.Satoshis) / fee.MiningFee.Bytes); // 80
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees - 1); // submit tx1 should fail
 
-      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex());
       VerifySignature(response);
 
       Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
@@ -279,7 +279,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx2 = CreateTransaction(tx0, txLength, 0, minRequiredFees + 1); // submit tx2 should succeed
 
-      response = await SubmitTxToMapiAsync(tx2.ToHex(), HttpStatusCode.OK); ;
+      response = await SubmitTxToMapiAsync(tx2.ToHex()); ;
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx2.GetHash());
@@ -311,7 +311,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, dataLength, minRequiredFees); // submit tx1 should succeed
 
-      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex());
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx1.GetHash().ToString());
@@ -341,7 +341,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, 0, minRequiredFees - 1); // submit tx1 should fail
 
-      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex());
       VerifySignature(response);
 
       Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
@@ -353,7 +353,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx2 = CreateTransaction(tx0, txLength, 0, minRequiredFees + 1); // submit tx2 should succeed
 
-      response = await SubmitTxToMapiAsync(tx2.ToHex(), HttpStatusCode.OK);
+      response = await SubmitTxToMapiAsync(tx2.ToHex());
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx2.GetHash().ToString());
@@ -385,7 +385,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var tx1 = CreateTransaction(tx0, txLength, dataLength, minRequiredFees); // submit tx1 should succeed
 
-      var response = await SubmitTxToMapiAsync(tx1.ToHex(), HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(tx1.ToHex());
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + tx1.GetHash().ToString());
@@ -485,7 +485,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         feeQuotes = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null);
         Assert.AreEqual(1, feeQuotes.Count()); // should return current
 
-        var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
+        var response = await SubmitTxToMapiAsync(txZeroFeeHex);
         VerifySignature(response);
 
         rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txZeroFeeHash);
@@ -510,7 +510,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         feeQuotes = feeQuoteRepositoryMock.GetValidFeeQuotesByIdentity(null);
         Assert.AreEqual(2, feeQuotes.Count());
 
-        var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
+        var response = await SubmitTxToMapiAsync(txZeroFeeHex);
         VerifySignature(response);
 
         rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txZeroFeeHash);
@@ -528,7 +528,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       AddMockNode(1);
       Assert.AreEqual(2, Nodes.GetNodes().Count());
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode0:sendrawtransactions/", "mocknode0:sendrawtransactions/" + txC3Hash);
@@ -548,7 +548,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       rpcClientFactoryMock.DisconnectNode("mocknode0");
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex);
       VerifySignature(response);
 
       rpcClientFactoryMock.AllCalls.AssertContains("mocknode1:sendrawtransactions/", "mocknode1:sendrawtransactions/" + txC3Hash);
@@ -573,7 +573,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       rpcClientFactoryMock.DisconnectNode("mocknode1");
 
-      var response = await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txC3Hex);
       VerifySignature(response);
 
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
@@ -585,7 +585,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task SubmitTransactionZeroFeeJson()
     {
-      var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txZeroFeeHex);
       VerifySignature(response);
 
       Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee
@@ -603,7 +603,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [OverrideSetting("AppSettings:CheckFeeDisabled", true)]
     public async Task SubmitTransactionJsonCheckFeeDisabled()
     {
-      var response = await SubmitTxToMapiAsync(txZeroFeeHex, HttpStatusCode.OK);
+      var response = await SubmitTxToMapiAsync(txZeroFeeHex);
       VerifySignature(response);
 
       Assert.AreEqual(1, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls, to submit txs since we do not pay enough fee

@@ -301,7 +301,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
     public async Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token = null)
     {
-      var txId = NBitcoin.Transaction.Parse(HelperTools.ByteToHexString(transaction), Network.Main).GetHash()
+      var txId = Transaction.Parse(HelperTools.ByteToHexString(transaction), Network.Main).GetHash()
         .ToString();
 
       var r = await SimulateCallAsync<string>(txId);
@@ -318,7 +318,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     {
       var txIds = 
         string.Join('/',txs.Select(x =>
-        NBitcoin.Transaction.Parse(HelperTools.ByteToHexString(x.transaction), Network.Main).GetHash().ToString()).ToArray());
+        Transaction.Parse(HelperTools.ByteToHexString(x.transaction), Network.Main).GetHash().ToString()).ToArray());
 
       var r = await SimulateCallAsync<RpcSendTransactions>(txIds);
       if (r != null)

@@ -109,7 +109,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       catch (Exception rpcException)
       {
         // Double spend will throw txn-mempool-conflict exception
-        Assert.AreEqual("258: txn-mempool-conflict", rpcException.Message);
+        Assert.IsTrue(rpcException.Message.StartsWith("258: txn-mempool-conflict"));
       }
 
       // InvalidTx event should be fired

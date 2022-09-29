@@ -172,7 +172,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // which of them fails and why depends on threads execution
       var failedTx = payload.Txs.Single(x => x.ReturnResult == "failure");
       Assert.IsTrue(failedTx.ResultDescription == "18 txn-double-spend-detected" ||
-                    failedTx.ResultDescription == "258 txn-mempool-conflict");
+                    failedTx.ResultDescription.StartsWith("258 txn-mempool-conflict"));
       // all three txs are sent to node, one rejected
       var status = mapi.GetSubmitTxStatus();
       Assert.AreEqual(oldStatus.Request + 1, status.Request);

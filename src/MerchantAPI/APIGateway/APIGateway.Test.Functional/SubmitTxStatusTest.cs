@@ -117,7 +117,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var oldStatus = mapi.GetSubmitTxStatus();
       RestAuthentication = MockedIdentityBearerAuthentication;
-      await SubmitTxToMapiAsync(txC3Hex, HttpStatusCode.InternalServerError);
+      await SubmitTxToMapiAsync(txC3Hex, expectedStatusCode: HttpStatusCode.InternalServerError);
 
       var status = mapi.GetSubmitTxStatus();
       Assert.AreEqual(oldStatus.Request + 1, status.Request);

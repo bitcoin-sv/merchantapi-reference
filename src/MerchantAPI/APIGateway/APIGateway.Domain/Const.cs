@@ -133,9 +133,14 @@ namespace MerchantAPI.APIGateway.Domain
     public static string MapiRetryMempoolErrorWithDetails(string rejectCodeAndReason)
     {
       return $"{ MapiRetryMempoolError } (details: {rejectCodeAndReason})";
-    } 
+    }
 
-    public static readonly HashSet<string> MapiMissingInputs = new()
+    public static bool IsResponseOfTypeMissingInputs(string resultDescription)
+    {
+      return MapiMissingInputs.Any(x => resultDescription.StartsWith(x));
+    }
+
+    static readonly HashSet<string> MapiMissingInputs = new()
     {
       CombineRejectCodeAndReason(Invalid, "missing-inputs"),
       CombineRejectCodeAndReason(Conflict, "txn-mempool-conflict"),

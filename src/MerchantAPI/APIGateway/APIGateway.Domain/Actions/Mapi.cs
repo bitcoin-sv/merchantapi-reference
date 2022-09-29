@@ -470,7 +470,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 Txid = invalid.Txid,
                 ReturnResult = ResultCodes.Failure,
                 ResultDescription =
-                 NodeRejectCode.MapiRetryCodesAndReasons.Contains(rejectCodeAndReason) ? 
+                 NodeRejectCode.MapiRetryCodesAndReasons.Any(x => rejectCodeAndReason.StartsWith(x)) ?
                  NodeRejectCode.MapiRetryMempoolErrorWithDetails(rejectCodeAndReason) : rejectCodeAndReason,
                 ConflictedWith = invalid.CollidedWith?.Select(t =>
                   new SubmitTransactionConflictedTxResponse
@@ -1354,14 +1354,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
           // we allow certain errors
           txsWithMissingInputs.AddRange(txsToSubmit.Where(x => transformed.Any(
-            y => y.ReturnResult == ResultCodes.Failure && NodeRejectCode.MapiMissingInputs.Contains(y.ResultDescription) && y.Txid == x.TxExternalId.ToString())
+            y => y.ReturnResult == ResultCodes.Failure && NodeRejectCode.IsResponseOfTypeMissingInputs(y.ResultDescription) && y.Txid == x.TxExternalId.ToString())
           ).Select(x => x.TxInternalId));
 
           foreach (var response in transformed.Where
             (
             x => x.ReturnResult == ResultCodes.Failure &&
-            !(NodeRejectCode.MapiMissingInputs.Contains(x.ResultDescription) ||
-              NodeRejectCode.MapiRetryCodesAndReasons.Any(y => x.ResultDescription.Contains(y)))
+            !(NodeRejectCode.IsResponseOfTypeMissingInputs(x.ResultDescription) ||
+               x.ResultDescription.StartsWith(NodeRejectCode.MapiRetryMempoolError))
             )
           )
           {
