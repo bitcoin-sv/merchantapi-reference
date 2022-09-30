@@ -5,6 +5,8 @@ services:
   merchant-gateway-database:    
 
   merchant-gateway-api:    
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   prometheus:
     image: prom/prometheus:latest
