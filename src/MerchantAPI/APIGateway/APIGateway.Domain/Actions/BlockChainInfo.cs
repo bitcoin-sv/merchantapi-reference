@@ -9,6 +9,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.Logging;
+using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -23,14 +24,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     BlockChainInfoData cachedBlockChainInfo;
     readonly IRpcMultiClient rpcMultiClient;
     private readonly IClock clock;
+    readonly MapiMetrics mapiMetrics;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
-    public BlockChainInfo(IRpcMultiClient rpcMultiClient, ILogger<BlockChainInfo> logger, IEventBus eventBus, IClock clock)
+    public BlockChainInfo(IRpcMultiClient rpcMultiClient, ILogger<BlockChainInfo> logger, IEventBus eventBus, IClock clock, CustomMetrics customMetrics)
       : base(logger, eventBus)
     {
       this.rpcMultiClient= rpcMultiClient?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       lastRefreshedAt = clock.UtcNow();
+      mapiMetrics = customMetrics?.mapiMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
     }
     public async Task<BlockChainInfoData> GetInfoAsync()
     {
@@ -52,7 +55,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             new ConsolidationTxParameters(networkInfoTask.Result)
           );
           lastRefreshedAt = clock.UtcNow();
+          mapiMetrics.anyBitcoindResponding.Set(1);
         }
+      }
+      catch
+      {
+        mapiMetrics.anyBitcoindResponding.Set(0);
+        throw;
       }
       finally
       {

@@ -25,7 +25,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 4,
+  "id": 2,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -71,7 +71,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 8,
         "x": 0,
         "y": 0
       },
@@ -92,7 +92,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.5",
+      "pluginVersion": "9.1.6",
       "targets": [
         {
           "datasource": {
@@ -107,74 +107,6 @@
       ],
       "title": "mAPI status",
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PA618D2ED2AA00801"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 50
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 7,
-        "x": 6,
-        "y": 0
-      },
-      "id": 27,
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "9.1.5",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PA618D2ED2AA00801"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "sum(max_over_time(http_requests_received_total{code=~\"5.*\", action=\"SubmitError\"}[$__rate_interval])) / sum(max_over_time(http_requests_received_total{controller=\"Mapi\", method=\"POST\"}[$__rate_interval])) * 100",
-          "instant": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Error 500/all responses",
-      "type": "gauge"
     },
     {
       "datasource": {
@@ -205,8 +137,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 13,
+        "w": 7,
+        "x": 8,
         "y": 0
       },
       "id": 25,
@@ -225,7 +157,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "9.1.5",
+      "pluginVersion": "9.1.6",
       "targets": [
         {
           "datasource": {
@@ -271,8 +203,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 7,
-        "x": 17,
+        "w": 9,
+        "x": 15,
         "y": 0
       },
       "id": 29,
@@ -290,7 +222,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.5",
+      "pluginVersion": "9.1.6",
       "targets": [
         {
           "datasource": {
@@ -305,6 +237,88 @@
         }
       ],
       "title": "All transactions counter",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PA618D2ED2AA00801"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "index": 0,
+                  "text": "No nodes or all unresponsive"
+                },
+                "1": {
+                  "index": 1,
+                  "text": "Responsive"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 4
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PA618D2ED2AA00801"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "merchantapi_mapi_any_bitcoind_responding",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Nodes",
       "type": "stat"
     },
     {
@@ -367,9 +381,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
+        "h": 9,
+        "w": 18,
+        "x": 6,
         "y": 4
       },
       "id": 19,
@@ -415,6 +429,74 @@
       ],
       "title": "Average number of errors returned to customer",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PA618D2ED2AA00801"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 8
+      },
+      "id": 27,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "9.1.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PA618D2ED2AA00801"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(max_over_time(http_requests_received_total{code=~\"5.*\", action=\"SubmitError\"}[$__rate_interval])) / sum(max_over_time(http_requests_received_total{controller=\"Mapi\", method=\"POST\"}[$__rate_interval])) * 100",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Error 500/all responses",
+      "type": "gauge"
     },
     {
       "datasource": {
@@ -480,7 +562,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 13
       },
       "id": 13,
       "options": {
@@ -601,7 +683,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 13
       },
       "id": 23,
       "options": {
@@ -681,7 +763,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -697,7 +780,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 22
       },
       "id": 14,
       "links": [],
@@ -801,7 +884,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -816,7 +900,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 21
+        "y": 22
       },
       "id": 21,
       "options": {
@@ -890,11 +974,13 @@
           "decimals": 4,
           "links": [],
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -910,7 +996,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 30
+        "y": 31
       },
       "id": 12,
       "options": {
@@ -998,11 +1084,13 @@
           "decimals": 2,
           "links": [],
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1018,7 +1106,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 30
+        "y": 31
       },
       "id": 15,
       "links": [],
@@ -1125,7 +1213,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1141,7 +1230,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 39
+        "y": 40
       },
       "id": 16,
       "links": [],
@@ -1262,7 +1351,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1278,7 +1368,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 39
+        "y": 40
       },
       "id": 17,
       "options": {
@@ -1324,7 +1414,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": false,
+  "refresh": "10s",
   "schemaVersion": 37,
   "style": "dark",
   "tags": [],
@@ -1332,8 +1422,8 @@
     "list": []
   },
   "time": {
-    "from": "2022-09-22T02:40:03.856Z",
-    "to": "2022-09-22T08:40:03.856Z"
+    "from": "now-3h",
+    "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1352,6 +1442,6 @@
   "timezone": "",
   "title": "Transactions submission",
   "uid": "oBmrquJnk",
-  "version": 37,
+  "version": 3,
   "weekStart": ""
 }

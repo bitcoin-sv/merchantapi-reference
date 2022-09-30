@@ -187,17 +187,42 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var rpcClients = rpcMultiClient.GetRpcClients();
       var txsWithMissingInputsSet = new HashSet<long>();
       bool finalSuccess = true;
+      int mempoolCount = 0;
       foreach (var rpcClient in rpcClients)
       {
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(appSettings.RpcClient.RpcGetRawMempoolTimeoutMinutes.Value));
         var mempoolCalledAt = clock.UtcNow();
-        string[] mempoolTxs;
-        using (mempoolCheckerMetrics.getRawMempoolDuration.NewTimer())
+        string[] mempoolTxs = Array.Empty<string>(); ;
+        try
         {
-          mempoolTxs = await rpcClient.GetRawMempool(cts.Token);
+          using (mempoolCheckerMetrics.getRawMempoolDuration.NewTimer())
+          {
+            mempoolTxs = await rpcClient.GetRawMempool(cts.Token);
+          }
         }
-        logger.LogInformation($"{rpcClient} has {mempoolTxs.Length} txs in mempool.");
-        mempoolCheckerMetrics.txInMempool.Set(mempoolTxs.Length);
+        catch
+        {
+          throw;
+        }
+        finally
+        {
+          if (mempoolCount == 0)
+          {
+            // reset values from previous mempoolChecker run here
+            mempoolCheckerMetrics.maxTxInMempool.Set(mempoolTxs.Length);
+            mempoolCheckerMetrics.minTxInMempool.Set(mempoolTxs.Length);
+          }
+        }
+        mempoolCount = mempoolTxs.Length;
+        logger.LogInformation($"{rpcClient} has {mempoolCount} txs in mempool.");
+        if (mempoolCheckerMetrics.maxTxInMempool.Value < mempoolCount)
+        {
+          mempoolCheckerMetrics.maxTxInMempool.Set(mempoolCount);
+        }
+        if (mempoolCheckerMetrics.minTxInMempool.Value > mempoolCount)
+        {
+          mempoolCheckerMetrics.minTxInMempool.Set(mempoolCount);
+        }
 
         var (resubmitSuccess, txsWithMissingInputs) = await mapi.ResubmitMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
         if (txsWithMissingInputs != null)

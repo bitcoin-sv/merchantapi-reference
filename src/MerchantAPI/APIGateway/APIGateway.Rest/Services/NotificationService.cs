@@ -2,6 +2,7 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.APIGateway.Domain.Repositories;
@@ -13,6 +14,7 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
 
 namespace MerchantAPI.APIGateway.Rest.Services
 {
@@ -24,10 +26,11 @@ namespace MerchantAPI.APIGateway.Rest.Services
   {
     public const string ClientName = "Notification.Service.Http.Client";
     readonly IHttpClientFactory factory;
+
     public NotificationServiceHttpClientFactoryDefault(IHttpClientFactory defaultFactory)
     {
       this.factory = defaultFactory ?? throw new ArgumentNullException(nameof(defaultFactory));
-      
+
     }
 
     public HttpClient CreateClient(string clientName)
@@ -45,13 +48,15 @@ namespace MerchantAPI.APIGateway.Rest.Services
     readonly ITxRepository txRepository;
     readonly Notification notificationSettings;
     EventBusSubscription<NewNotificationEvent> newNotificationEventSubscription;
+    readonly NotificationsMetrics notificationsMetrics;
 
     public NotificationService(IOptionsMonitor<AppSettings> options, ILogger<NotificationService> logger, 
-                               IEventBus eventBus, INotificationsHandler notificationsHandler, ITxRepository txRepository) : base(logger, eventBus)
+                               IEventBus eventBus, INotificationsHandler notificationsHandler, ITxRepository txRepository, CustomMetrics customMetrics) : base(logger, eventBus)
     {
       this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       notificationSettings = options.CurrentValue.Notification;
+      notificationsMetrics = customMetrics?.notificationsMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
     }
 
 
@@ -92,7 +97,8 @@ namespace MerchantAPI.APIGateway.Rest.Services
       {
         var waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount.Value, skipRecords, NoOfRecordsBatch);
         int numOfNotifications = waitingNotifications.Count;
-        
+        notificationsMetrics.notificationsWithError.IncTo(numOfNotifications);
+
         // We reached the end of failed notifications...let's start from the beginning again
         if (numOfNotifications == 0 && skipRecords > 0)
         {

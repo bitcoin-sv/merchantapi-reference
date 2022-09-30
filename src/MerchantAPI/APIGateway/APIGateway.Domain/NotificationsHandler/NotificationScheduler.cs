@@ -35,6 +35,8 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     readonly int maxNotificationsInBatch;
     readonly ILogger logger;
 
+    public int AllNotificationsCount => notificationsQueue.GetNotificationCount(null);
+
     public NotificationScheduler(ILogger logger, int maxNumberOfSlowNotifications, int maxInstantNotificationsQueueSize,
                                       int maxNotificationsInBatch, int maxNoOfSavedExecutionTimes, int slowHttpClientThresholdInMs)
     {

@@ -134,6 +134,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
           {
             logger.LogCritical(ex, "Error while trying to process notification events");
           }
+          notificationsMetrics.notificationsInQueue.Set(notificationScheduler.AllNotificationsCount);
           stoppingToken.ThrowIfCancellationRequested();
         }
       }
@@ -168,13 +169,10 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
             _ = await restClient.PostOctetStream("", MapiEncryption.Encrypt(payload, callbackEncryption), requestTimeout: notificationTimeout, token: stoppingToken);
           }
         }
-        notificationsMetrics.successfulCallbacks.Inc();
-
         logger.LogDebug($"Successfully sent notification to '{url}', with execution time of '{stopwatch.ElapsedMilliseconds}'ms");
       }
       catch (Exception ex)
       {
-        notificationsMetrics.failedCallbacks.Inc();
         errMessage = ex.GetBaseException().Message;
         logger.LogError($"Callback failed for host {hostURI.Host}. Error: {ex.GetBaseException().Message}");
       }
@@ -290,6 +288,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       catch (Exception ex)
       {
         logger.LogError($"Unable to prepare notification for {new uint256(notification.TxExternalId)}. Error: {ex.GetBaseException().Message}");
+        notificationsMetrics.failedCallbacks.Inc();
         await txRepository.SetNotificationErrorAsync(notification.TxExternalId, notification.NotificationType, ex.GetBaseException().Message, ++notification.ErrorCount);
         return false;
       }
@@ -297,11 +296,13 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       var errMessage = await SendNotificationAsync(client, notification, requestTimeout, stoppingToken);
       if (errMessage == null)
       {
+        notificationsMetrics.successfulCallbacks.Inc();
         await txRepository.SetNotificationSendDateAsync(notification.NotificationType, notification.TxInternalId, notification.BlockInternalId, notification.DoubleSpendTxId, clock.UtcNow());
         return true;
       }
       else
-      { 
+      {
+        notificationsMetrics.failedCallbacks.Inc();
         await txRepository.SetNotificationErrorAsync(notification.TxExternalId, notification.NotificationType, errMessage, ++notification.ErrorCount);
         return false;
       }

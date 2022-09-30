@@ -45,6 +45,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       public override string MetricsPrefix => METRICS_PREFIX_MAPI;
 
+      public readonly Gauge anyBitcoindResponding;
       public readonly Counter requestSum;
       public readonly Counter txAuthenticatedUser;
       public readonly Counter txAnonymousUser;
@@ -57,6 +58,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       public MapiMetrics()
       {
+        anyBitcoindResponding = CreateGauge("any_bitcoind_responding", "Status 1 if any bitcoind is responding.");
         requestSum = CreateCounter("request_counter", "Number of processed requests.");
         txAuthenticatedUser = CreateCounter("tx_authenticated_user_counter", "Number of transactions submitted by authenticated users.");
         txAnonymousUser = CreateCounter("tx_anonymous_user_counter", "Number of transactions submitted by anonymous users.");
@@ -108,12 +110,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       public readonly Counter successfulCallbacks;
       public readonly Counter failedCallbacks;
       public readonly Histogram callbackDuration;
+      public readonly Gauge notificationsInQueue;
+      public readonly Gauge notificationsWithError;
 
       public NotificationsMetrics()
       {
         successfulCallbacks = CreateCounter("successful_callbacks_counter", "Number of successful callbacks.");
         failedCallbacks = CreateCounter("failed_callbacks_counter", "Number of failed callbacks.");
         callbackDuration = CreateHistogram("callback_duration_seconds", "Total duration of callbacks.");
+        notificationsInQueue = CreateGauge("notification_in_queue", "Queued notifications.");
+        notificationsWithError = CreateGauge("notification_with_error", "Notifications with error that are not queued, but processed separately.");
       }
     }
 
@@ -126,7 +132,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       public readonly Counter exceptionsOnResubmit;
 
       public readonly Histogram getRawMempoolDuration;
-      public readonly Gauge txInMempool;
+      public readonly Gauge minTxInMempool;
+      public readonly Gauge maxTxInMempool;
       public readonly Histogram getMissingTransactionsDuration;
       public readonly Counter txMissing;
       public readonly Counter txResponseSuccess;
@@ -140,7 +147,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         exceptionsOnResubmit = CreateCounter("exceptions_resubmit_counter", "Number of resubmits that interrupted with exception.");
 
         getRawMempoolDuration = CreateHistogram("getrawmempool_duration_seconds", "Histogram of time spent waiting for getrawmempool response from node.");
-        txInMempool = CreateGauge("tx_in_mempool", "Number of transactions in mempool.");
+        minTxInMempool = CreateGauge("min_tx_in_mempool", "Minumum number of transactions in mempool per node.");
+        maxTxInMempool = CreateGauge("max_tx_in_mempool", "Maximum number of transactions in mempool per node.");
         getMissingTransactionsDuration = CreateHistogram("getmissingtransactions_duration_seconds", "Histogram of database execution time for the query which transactions must be resubmitted.");
         txMissing = CreateCounter("tx_missing_counter", "Number of missing transactions, that are resent to node.");
         txResponseSuccess = CreateCounter("tx_response_success_counter", "Number of transactions with success response.");
