@@ -12,7 +12,6 @@ using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -104,6 +103,53 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
       };
 
+    private static RpcSendTransactions CreateKnownResponse(string txId)
+    {
+      return new RpcSendTransactions
+      {
+        Known = new[]
+        {
+          txId
+        },
+        Evicted = Array.Empty<string>(),
+        Invalid = Array.Empty<RpcSendTransactions.RpcInvalidTx>(),
+        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
+      };
+    }
+
+    private static RpcSendTransactions CreateEvictedResponse(string txId)
+    {
+      return new RpcSendTransactions
+      {
+        Evicted = new[]
+        {
+          txId
+        },
+        Known = Array.Empty<string>(),
+        Invalid = Array.Empty<RpcSendTransactions.RpcInvalidTx>(),
+        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
+      };
+    }
+
+    private static RpcSendTransactions CreateInvalidResponse(string txId, int? rejectCode = null, string rejectReason = null)
+    {
+      return new RpcSendTransactions
+      {
+        Invalid = new[]
+          {
+            new RpcSendTransactions.RpcInvalidTx
+            {
+              Txid = txId,
+              RejectCode = rejectCode,
+              RejectReason = rejectReason
+            }
+          },
+        Known = Array.Empty<string>(),
+        Evicted = Array.Empty<string>(),
+        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
+      };
+    }
+
     [TestInitialize]
     public void Initialize()
     {
@@ -113,7 +159,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public async Task GetBlockChainInfoShouldReturnOldestBLock()
+    public async Task GetBlockChainInfoShouldReturnOldestBlock()
     {
 
       var responses = rpcClientFactoryMock.PredefinedResponse;
@@ -217,70 +263,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       },
         node0Response,
         node1Response);
-
     }
 
     [TestMethod]
-    public void SendRawTransationsTestMixedResults()
+    public void SendRawTransactionsTestMixedResults()
     {
-
-      // Test Known, Evicted combination
+      // Test Known, Error
       TestMixedTxC1(
-        new RpcSendTransactions
-        {
-          Known = new[]
-          {
-            txC1Hash
-          }
-        },
-
-        new RpcSendTransactions
-        {
-          Evicted = new[]
-          {
-            txC1Hash
-          }
-        }
+        CreateKnownResponse(txC1Hash),
+        CreateInvalidResponse(txC1Hash)
       );
 
-      // Test OK, Evicted
+      // Test OK, Error
       TestMixedTxC1(
         new RpcSendTransactions(), // Empty results means everything was accepted
-
-        new RpcSendTransactions
-        {
-          Evicted = new[]
-          {
-            txC1Hash
-          }
-        }
+        CreateInvalidResponse(txC1Hash)
       );
 
-      // Test OK, Error combination
+      // Test Error, Evicted combination
       TestMixedTxC1(
-        new RpcSendTransactions
-        {
-          Invalid = new[]
-          {
-            new RpcSendTransactions.RpcInvalidTx
-            {
-              Txid = txC1Hash
-            }
-          }
-        },
-
-        new RpcSendTransactions
-        {
-          Evicted = new[]
-          {
-            txC1Hash
-          }
-        }
+        CreateInvalidResponse(txC1Hash),
+        CreateEvictedResponse(txC1Hash)
       );
     }
 
     [TestMethod]
-    public void SendRawTransationsOK()
+    public void SendRawTransactionsOK()
     {
       ExecuteAndCheckSendTransactions(
         new[] {txC1Hex},
@@ -303,44 +311,92 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public void SendRawTransationsInvalid()
+    public void SendRawTransactionsKnown()
     {
-      // Empty response means, that everything was accepted
-      var invalidResponse =
-        new RpcSendTransactions
-        {
-          Known = Array.Empty<string>(),
-          Evicted = Array.Empty<string>(),
+      var knownResponse = CreateKnownResponse(txC1Hash);
+      var evictedResponse = CreateEvictedResponse(txC1Hash);
 
-          Invalid = new[]
-          {
-            new RpcSendTransactions.RpcInvalidTx
-            {
-              Txid = txC1Hash
-            }
-          },
-          Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
-        };
-
+      // Test OK, Known combination
       ExecuteAndCheckSendTransactions(
-        new [] {txC1Hex},
-        invalidResponse,
-        invalidResponse,
-        invalidResponse);
+        new[] { txC1Hex },
+        knownResponse,
+        okResponse,
+        knownResponse);
+
+      // Test Known, Evicted
+      ExecuteAndCheckSendTransactions(
+        new[] { txC1Hex },
+        evictedResponse,
+        knownResponse,
+        evictedResponse);
     }
 
     [TestMethod]
-    public void SendRawTransationsMultiple()
+    public void SendRawTransactionsInvalid()
     {
+      var invalidResponse = CreateInvalidResponse(txC1Hash);
 
+      ExecuteAndCheckSendTransactions(
+        new[] { txC1Hex },
+        invalidResponse,
+        invalidResponse,
+        invalidResponse);
+
+      // Test error1, error2
+      var invalidResponse2 = CreateInvalidResponse(txC1Hash, rejectCode: NodeRejectCode.Invalid);
+      ExecuteAndCheckSendTransactions(
+        new[] { txC1Hex },
+        invalidResponse,
+        invalidResponse,
+        invalidResponse2);
+    }
+
+    [TestMethod]
+    public void SendRawTransactionsInvalidWithAlreadyKnown()
+    {
+      var alreadyKnownResponse = CreateInvalidResponse(txC1Hash, rejectCode: NodeRejectCode.AlreadyKnown);
+      var knownResponse = CreateKnownResponse(txC1Hash);
+      var evictedResponse = CreateEvictedResponse(txC1Hash);
+
+      ExecuteAndCheckSendTransactions(
+        new[] { txC1Hex },
+        knownResponse,
+        alreadyKnownResponse,
+        alreadyKnownResponse);
+
+      // Test OK, AlreadyKnown combination
+      ExecuteAndCheckSendTransactions(
+        new[] { txC1Hex },
+        knownResponse,
+        okResponse,
+        alreadyKnownResponse);
+
+      // Test AlreadyKnown, Evicted
+      ExecuteAndCheckSendTransactions(
+        new[] { txC1Hex },
+        evictedResponse,
+        alreadyKnownResponse,
+        evictedResponse);
+      
+      // Test AlreadyKnown, Error
+      TestMixedTxC1(
+        alreadyKnownResponse,
+         CreateInvalidResponse(
+           txC1Hash, 
+           NodeRejectCode.MempoolFullCodeAndReason.code,
+           NodeRejectCode.MempoolFullCodeAndReason.reason)
+      );
+    }
+
+    [TestMethod]
+    public void SendRawTransactionsMultiple()
+    {
       // txc1 is accepted
       // txc2 is invalid
       // txc3 has mixed result
 
-      // Test Known, Evicted combination
       ExecuteAndCheckSendTransactions(
         new [] { txC1Hex, txC2Hex, txC3Hex },
-
 
         new RpcSendTransactions
         {
@@ -367,49 +423,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
         },
 
-
-      new RpcSendTransactions
-      {
-        Known = Array.Empty<string>(),
-        Evicted = Array.Empty<string>(),
-
-        Invalid = new[]
-        {
-          new RpcSendTransactions.RpcInvalidTx
-          {
-            Txid = txC2Hash,
-            RejectReason = "txc2RejectReason",
-            RejectCode =  1
-          }
-        },
         // tx3 is accepted here (so we do not have it in results)
-        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
+        CreateInvalidResponse(txC2Hash, 1, "txc2RejectReason"),
 
-      },
-
-
-      new RpcSendTransactions
-      {
-        Known = Array.Empty<string>(),
-        Evicted = Array.Empty<string>(),
-
-        Invalid = new[]
+        new RpcSendTransactions
         {
-          new RpcSendTransactions.RpcInvalidTx
-          {
-            Txid = txC2Hash
-          },
-          new RpcSendTransactions.RpcInvalidTx
-          {
-            Txid = txC3Hash, // tx3 is rejected here
-            RejectReason = "txc3RejectReason", // Reason and code get overwritten with Mixed result message
-            RejectCode =  1
-          }
-        },
-        Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
-      });
+          Known = Array.Empty<string>(),
+          Evicted = Array.Empty<string>(),
 
-   }
+          Invalid = new[]
+          {
+            new RpcSendTransactions.RpcInvalidTx
+            {
+              Txid = txC2Hash
+            },
+            new RpcSendTransactions.RpcInvalidTx
+            {
+              Txid = txC3Hash, // tx3 is rejected here
+              RejectReason = "txc3RejectReason", // Reason and code get overwritten with Mixed result message
+              RejectCode =  1
+            }
+          },
+          Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
+        });
+    }
 
     [TestMethod]
     public async Task QueryTransactionStatusOK()

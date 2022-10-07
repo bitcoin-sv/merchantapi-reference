@@ -6,6 +6,7 @@ using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Rest.Controllers;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -30,6 +31,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       Initialize(mockedServices: true);
       banList = server.Services.GetRequiredService<IHostBanList>();
+
+      LoadFeeQuotesFromJsonAndInsertToDbAsync().Wait();
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockWithDBInsertStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     [TestCleanup]
@@ -41,7 +49,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     private async Task InsertTXAsync()
     {
       var txList = new List<Tx>() { CreateNewTx(txC0Hash, txC0Hex, false, null, true) };
-      await TxRepositoryPostgres.InsertTxsAsync(txList, false);
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
     }
 
     [TestMethod]

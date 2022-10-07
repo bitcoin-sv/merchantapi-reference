@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+    <Description>mAPI Common Test Library is collection of classes used by Merchant API and related products.</Description>
+    <Copyright>Copyright(c) 2020 Bitcoin Association.</Copyright>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="5.0.9" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MerchantAPI.Common\MerchantAPI.Common.csproj" />
+  </ItemGroup>
+
+</Project>

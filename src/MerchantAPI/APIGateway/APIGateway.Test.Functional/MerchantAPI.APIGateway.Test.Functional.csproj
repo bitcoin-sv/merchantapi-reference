@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MerchantAPI.Common.Test" Version="1.5.0-beta-dev7" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="5.0.9" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="2.2.6" />
@@ -17,9 +16,12 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="NBitcoin.Altcoins" Version="3.0.4" />
+    <PackageReference Include="Serilog.Extensions.Logging.File" Version="2.0.0" />
+    <PackageReference Include="Serilog.Settings.AppSettings" Version="2.2.2" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Common\MerchantAPI.Common.Test\MerchantAPI.Common.Test.csproj" />
     <ProjectReference Include="..\APIGateway.Database\APIGateway.Database.csproj" />
     <ProjectReference Include="..\APIGateway.Domain\MerchantAPI.APIGateway.Domain.csproj" />
     <ProjectReference Include="..\APIGateway.Rest\MerchantAPI.APIGateway.Rest.csproj" />

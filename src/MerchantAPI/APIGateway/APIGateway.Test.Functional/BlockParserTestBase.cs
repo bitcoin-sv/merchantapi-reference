@@ -1,9 +1,12 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.DataEncoders;
@@ -34,13 +37,18 @@ namespace MerchantAPI.APIGateway.Test.Functional
     virtual public void TestInitialize()
     {
       base.Initialize(mockedServices: true);
-      var mockNode = new Node(0, "mockNode0", 0, "mockuserName", "mockPassword", "This is a mock node",
-        null, (int)NodeStatus.Connected, null, null);
 
-      _ = Nodes.CreateNodeAsync(mockNode).Result;
+      AddMockNode(0);
 
       var node = NodeRepository.GetNodes().First();
       RpcClient = rpcClientFactoryMock.Create(node.Host, node.Port, node.Username, node.Password);
+
+      LoadFeeQuotesFromJsonAndInsertToDbAsync().Wait();
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockWithDBInsertStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     [TestCleanup]
@@ -50,7 +58,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       rpcClientFactoryMock.CleanupBigBlocks();
     }
 
-    protected async Task<List<Tx>> CreateAndInsertTxAsync(bool merkleProof, bool dsCheck, int? limit = null, string[] hashes = null)
+    protected async Task<List<Tx>> CreateAndInsertTxAsync(bool merkleProof, bool dsCheck, int? limit = null, string[] hashes = null, int txStatus = TxStatus.Accepted)
     {
       if (hashes == null)
       {
@@ -64,10 +72,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       List<Tx> txList = new();
       for (int i = 0; i < limit; i++)
       {
-        txList.Add(CreateNewTx(hashes[i], hexes[i], merkleProof, null, dsCheck));
+        txList.Add(CreateNewTx(hashes[i], hexes[i], merkleProof, null, dsCheck, txStatus));
       }
 
-      await TxRepositoryPostgres.InsertTxsAsync(txList, false);
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
 
       return txList;
     }

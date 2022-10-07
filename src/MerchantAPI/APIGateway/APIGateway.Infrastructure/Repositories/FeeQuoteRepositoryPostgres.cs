@@ -75,20 +75,19 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 
     public FeeQuote GetFeeQuoteById(long feeQuoteId)
     {
-      return GetFeeQuoteById(feeQuoteId, false);
+      return GetFeeQuoteById(feeQuoteId, null);
     }
 
-    public FeeQuote GetFeeQuoteById(long feeQuoteId, bool orderByFeeAmountDesc)
+    public FeeQuote GetFeeQuoteById(long feeQuoteId, bool? orderByFeeAmountDesc)
     {
-      string selectFeeQuote = @"
+      string selectFeeQuote = $@"
               SELECT * FROM FeeQuote feeQuote
-              JOIN Fee fee ON feeQuote.id=fee.feeQuote " +
-              (!orderByFeeAmountDesc ?
-                  "JOIN FeeAmount feeAmount ON fee.id=feeAmount.fee" :
-                  "JOIN (SELECT * FROM FeeAmount ORDER BY feeAmount.id DESC) feeAmount ON fee.id=feeAmount.fee "
-              ) +
-              " WHERE feeQuote.id = @id;";
-
+              JOIN Fee fee ON feeQuote.id=fee.feeQuote 
+              JOIN FeeAmount feeAmount ON fee.id=feeAmount.fee 
+              WHERE feeQuote.id = @id
+              { (!orderByFeeAmountDesc.HasValue ? "" :
+              $"ORDER BY feeAmount.id { (orderByFeeAmountDesc.Value ? "DESC" : "ASC") }") }
+              ;";
       return GetFeeQuotesDb(selectFeeQuote, new { id = feeQuoteId }).SingleOrDefault();
     }
 
@@ -353,8 +352,7 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
     {
       using var connection = new NpgsqlConnection(connectionString);
       RetryUtils.Exec(() => connection.Open());
-      string cmdText =
-        "TRUNCATE feeamount, fee, feequote; ALTER SEQUENCE feequote_id_seq RESTART WITH 1;";
+      string cmdText = "TRUNCATE feeamount, fee, feequote CASCADE; ALTER SEQUENCE feequote_id_seq RESTART WITH 1;";
       connection.Execute(cmdText, null);
 
       lock (cache)

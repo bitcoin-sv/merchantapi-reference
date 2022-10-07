@@ -37,7 +37,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
     static readonly Histogram getTxOutsDuration = Metrics
       .CreateHistogram($"{metricsPrefix}gettxouts_duration_seconds", "Histogram of time spent waiting for gettxouts response from node.");
     static readonly Histogram sendRawTxDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}sendrawtx_duration_seconds", "Histogram of time spent waitng for sendrawtransaction response from node.");
+      .CreateHistogram($"{metricsPrefix}sendrawtxs_duration_seconds", "Histogram of time spent waiting for sendrawtransactions response from node.");
 
     public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options)
       : this(nodes, rpcClientFactory, logger, options.Value.RpcClient)
@@ -64,7 +64,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       }
     }
 
-    IRpcClient[] GetRpcClients()
+    public IRpcClient[] GetRpcClients()
     {
       var result = nodes.GetNodes().Select(
         n => rpcClientFactory.Create(
@@ -79,14 +79,14 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       if (!result.Any())
       {
-        throw new BadRequestException("No nodes available"); 
+        throw new ServiceUnavailableException("No nodes available");
       }
 
       return result;
 
     }
 
-    async Task<T> GetFirstSucesfullAsync<T>(Func<IRpcClient, Task<T>> call)
+    async Task<T> GetFirstSuccessfulAsync<T>(Func<IRpcClient, Task<T>> call)
     {
       Exception lastError = null;
       var rpcClients = GetRpcClients();
@@ -104,8 +104,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
           // try with the next node
         }
       }
-
-      throw lastError ?? new Exception("No nodes available"); 
+      throw lastError ?? new ServiceUnavailableException("No nodes available");
     }
 
     async Task<Task<T>[]> GetAll<T>(Func<IRpcClient, Task<T>> call)
@@ -138,19 +137,31 @@ namespace MerchantAPI.APIGateway.Domain.Models
       return tasks;
 
     }
+
     async Task<T[]> GetAllWithoutErrors<T>(Func<IRpcClient, Task<T>> call, bool throwIfEmpty = true)
     {
       var tasks = await GetAll(call);
-
 
       var successful = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
 
       if (throwIfEmpty && !successful.Any())
       {
-        throw new BadRequestException($"None of the nodes returned successful response. First error: {tasks[0].Exception} ");
+        var firstException = ExtractFirstException(tasks);
+        if (firstException.GetBaseException() is RpcException)
+        {
+          throw new DomainException($"None of the nodes returned successful response.", new Exception($"First error: {firstException}"));
+        }
+        throw new ServiceUnavailableException("Failed to connect to node(s).", new Exception($"First error: {firstException}"));
       }
 
       return successful;
+    }
+
+    private static AggregateException ExtractFirstException<T>(Task<T>[] tasks)
+    {
+      // Try to extract exception, preferring RpcExceptions
+      return tasks.FirstOrDefault(t => t.Exception?.GetBaseException() is RpcException)?.Exception
+        ?? tasks.FirstOrDefault(t => t.Exception != null)?.Exception;
     }
 
     /// <summary>
@@ -160,39 +171,38 @@ namespace MerchantAPI.APIGateway.Domain.Models
     ///  error - first error 
     /// JsonSerializer is used to check of responses are the same
     /// </summary>
-    async Task<(T firstOkResult, bool allOkTheSame, Exception firstError)> GetAllSucesfullCheckTheSame<T>(Func<IRpcClient, Task<T>> call)
+    async Task<(T firstOkResult, bool allOkTheSame, Exception firstError)> GetAllSuccessfulCheckTheSame<T>(Func<IRpcClient, Task<T>> call)
     {
       var tasks = await GetAll(call);
 
+      var successful = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
+     
+      var firstException = ExtractFirstException(tasks);
 
-      var sucesfull = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
-
-      // Try to extract exception, preferring RpcExceptions 
-      var firstException =
-        tasks.FirstOrDefault(t => t.Exception?.GetBaseException() is RpcException)?.Exception
-        ?? tasks.FirstOrDefault(t => t.Exception != null)?.Exception;
-
-      if (firstException != null && !sucesfull.Any()) // return error if there are no successful responses
+      if (firstException != null && !successful.Any()) // return error if there are no successful responses
       {
-
-        return (default, true, firstException);
+        if (firstException.GetBaseException() is RpcException)
+        {
+          return (default, true, firstException);
+        }
+        throw new ServiceUnavailableException("Failed to connect to node(s).", new Exception($"First error: {firstException}"));
       }
 
-      if (sucesfull.Length > 1)
+      if (successful.Length > 1)
       {
-        var firstSuccesfullJson = JsonSerializer.Serialize(sucesfull.First());
-        if (sucesfull.Skip(0).Any(x => JsonSerializer.Serialize(x) != firstSuccesfullJson))
+        var firstSuccesfullJson = JsonSerializer.Serialize(successful.First());
+        if (successful.Skip(0).Any(x => JsonSerializer.Serialize(x) != firstSuccesfullJson))
         {
           return (default, false, firstException);
         }
       }
 
-      return (sucesfull.First(), true, firstException);
+      return (successful.First(), true, firstException);
     }
 
     public Task<byte[]> GetRawTransactionAsBytesAsync(string txId)
     {
-      return GetFirstSucesfullAsync(c => c.GetRawTransactionAsBytesAsync(txId));
+      return GetFirstSuccessfulAsync(c => c.GetRawTransactionAsBytesAsync(txId));
     }
     public async Task<RpcGetBlockchainInfo> GetBestBlockchainInfoAsync()
     {
@@ -212,57 +222,63 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       var r = await GetAllWithoutErrors(c => c.GetBlockchainInfoAsync());
 
-      if (!r.Any())
-      {
-        throw new BadRequestException("No working nodes are available");
-      }
       return r;
     }
 
     public Task<RpcGetMerkleProof> GetMerkleProofAsync(string txId, string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetMerkleProofAsync(txId, blockHash));
+      return GetFirstSuccessfulAsync(x => x.GetMerkleProofAsync(txId, blockHash));
     }
 
     public Task<RpcGetMerkleProof2> GetMerkleProof2Async(string blockHash, string txId)
     {
-      return GetFirstSucesfullAsync(x => x.GetMerkleProof2Async(blockHash, txId));
+      return GetFirstSuccessfulAsync(x => x.GetMerkleProof2Async(blockHash, txId));
     }
 
     public Task<RpcBitcoinStreamReader> GetBlockAsStreamAsync(string blockHash, CancellationToken? token = null)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockAsStreamAsync(blockHash, token));
+      return GetFirstSuccessfulAsync(x => x.GetBlockAsStreamAsync(blockHash, token));
     }
 
     public Task<RpcGetBlockHeader> GetBlockHeaderAsync(string blockHash)
     {
-      return GetFirstSucesfullAsync(x => x.GetBlockHeaderAsync(blockHash));
+      return GetFirstSuccessfulAsync(x => x.GetBlockHeaderAsync(blockHash));
     }
 
 
     public Task<(RpcGetRawTransaction firstOkResult, bool allOkTheSame, Exception firstError)> GetRawTransactionAsync(string id)
     {
-      return GetAllSucesfullCheckTheSame(c => c.GetRawTransactionAsync(id));
+      return GetAllSuccessfulCheckTheSame(c => c.GetRawTransactionAsync(id));
     }
 
     public Task<RpcGetNetworkInfo> GetAnyNetworkInfoAsync()
     {
-      return GetFirstSucesfullAsync(c => c.GetNetworkInfoAsync(retry: false));
+      return GetFirstSuccessfulAsync(c => c.GetNetworkInfoAsync(retry: false));
     }
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList)
     {
       using (getTxOutsDuration.NewTimer())
       {
-      return GetFirstSucesfullAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
-    }
+        return GetFirstSuccessfulAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
+      }
     }
     
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
                                         int totalTimeoutSec,
                                         IEnumerable<(string Tx, int N)> dsTx)
     {
-      return GetFirstSucesfullAsync(c => c.VerifyScriptAsync(stopOnFirstInvalid, totalTimeoutSec, dsTx));
+      return GetFirstSuccessfulAsync(c => c.VerifyScriptAsync(stopOnFirstInvalid, totalTimeoutSec, dsTx));
+    }
+
+    public Task<string[]> GetRawMempool(CancellationToken? token = null)
+    {
+      return GetFirstSuccessfulAsync(x => x.GetRawMempool(token));
+    }
+
+    public Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null)
+    {
+      return GetFirstSuccessfulAsync(x => x.GetMempoolAncestors(txId, token));
     }
 
     enum GroupType
@@ -272,6 +288,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       Evicted,
       Invalid,
       MixedResult,
+      // order is important - when doing changes check ChooseNewValue
     }
 
     class ResponseCollidedTransaction
@@ -319,7 +336,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
             invalid.Txid, 
             new ResponseTransactionType
             {
-              Type = GroupType.Invalid, 
+              Type = invalid.RejectCode.HasValue && NodeRejectCode.MapiSuccessCodes.Contains(invalid.RejectCode.Value) ? GroupType.Known : GroupType.Invalid, 
               RejectCode = invalid.RejectCode, 
               RejectReason = invalid.RejectReason,
               CollidedWith = invalid.CollidedWith?.Select(t => 
@@ -399,14 +416,19 @@ namespace MerchantAPI.APIGateway.Domain.Models
       ResponseTransactionType oldValue,
       ResponseTransactionType newValue)
     {
-
       if (newValue.Type != oldValue.Type)
       {
+        var maxType = newValue.Type > oldValue.Type ? newValue : oldValue;
+        if (maxType.Type < GroupType.Invalid)
+        {
+          // GroupType: OK < Known < Evicted < Invalid < MixedResult
+          // user should resubmit evicted txs (and lost mempool txs)
+          return maxType;
+        }
         return new ResponseTransactionType { Type = GroupType.MixedResult, RejectCode = null, RejectReason = "Mixed results" };
       }
 
-      return oldValue; // In case of different error messages we still treat the result as Error (not mixed)
-
+      return oldValue; // In case of different error messages we treat the result as Error (not mixed)
     }
 
 
@@ -441,7 +463,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
       using (sendRawTxDuration.NewTimer())
       {
-        okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions), throwIfEmpty: true);
+        okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions));
       }
 
       // Extract results from nodes that successfully processed the request and merge them together:

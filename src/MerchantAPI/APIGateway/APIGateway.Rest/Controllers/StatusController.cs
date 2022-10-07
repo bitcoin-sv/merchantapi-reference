@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MerchantAPI.APIGateway.Rest.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MerchantAPI.APIGateway.Rest.Services;
@@ -13,6 +12,7 @@ using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain;
 using Microsoft.Extensions.Options;
+using MerchantAPI.APIGateway.Rest.ViewModels.APIStatus;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -25,18 +25,21 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
   {
     readonly INodes nodes;
     readonly IBlockParser blockParser;
+    readonly IMapi mapi;
     readonly AppSettings appSettings;
     readonly ZMQSubscriptionService subscriptionService;
 
     public StatusController(
       INodes nodes,
       IBlockParser blockParser,
+      IMapi mapi,
       IOptions<AppSettings> options,
       ZMQSubscriptionService subscriptionService
       )
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
       this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      this.mapi = mapi ?? throw new ArgumentNullException(nameof(mapi));
       appSettings = options.Value;
       this.subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
     }
@@ -67,6 +70,18 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         appSettings.DontInsertTransactions.Value,
         appSettings.DeltaBlockHeightForDoubleSpendCheck.Value,
         appSettings.MaxBlockChainLengthForFork.Value));
+    }
+
+    /// <summary>
+    /// Get submit tx status
+    /// </summary>
+    /// <returns>Submit tx status and description.</returns>
+    [HttpGet]
+    [Route("tx")]
+    public ActionResult<SubmitTxStatusViewModel> SubmitTxStatus()
+    {
+      var status = mapi.GetSubmitTxStatus();
+      return Ok(new SubmitTxStatusViewModel(status));
     }
   }
 }

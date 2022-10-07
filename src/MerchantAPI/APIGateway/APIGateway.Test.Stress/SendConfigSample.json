@@ -8,11 +8,11 @@
   "mapiConfig": {
     "mapiUrl": "https://localhost:5001/",
     "rearrangeNodes": true,
-    "bitcoindHost": "host.docker.internal",
-    "bitcoindZmqEndpointIp": "host.docker.internal",
+    "nodeHost": "host.docker.internal",
+    "nodeZMQNotificationsEndpoint": "tcp://host.docker.internal:28333",
     "callback": {
       "url": "http://localhost:8013/iscallbackUrl?123",
-      "addRandomNumberToHost": 3,
+      "addRandomNumberToPort": 3,
       "callbackToken": "Bearer something",
       "startListener": true,
       "hosts": [
@@ -23,12 +23,17 @@
           "callbackFailurePercent": 0
         },
         {
-          "hostName": "localhost2", // Slow host that never returns errors
+          "hostName": "localhost:8015", // Slow host that never returns errors
           "minCallbackDelayMs": 500,
           "maxCallbackDelayMs": 1500,
           "callbackFailurePercent": 0
         }
       ]
+    },
+    "testResilience": {
+      "addFaultsFromJsonFile": "Sample\\faults.json",
+      "DBConnectionString": "Server=localhost;Port=5432;User Id=merchant; Password=merchant;Database=merchant_gateway;",
+      "resubmitWithoutFaults": true
     }
   },
   "bitcoindConfig": {

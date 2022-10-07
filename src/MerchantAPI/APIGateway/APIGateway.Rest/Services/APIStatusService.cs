@@ -2,7 +2,7 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain.Models;
-using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Rest.ViewModels.APIStatus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
@@ -20,6 +20,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
 
     readonly INodes nodes;
     readonly IBlockParser blockParser;
+    readonly IMapi mapi;
     readonly AppSettings appSettings;
     readonly ZMQSubscriptionService subscriptionService;
     readonly ILogger<APIStatusService> logger;
@@ -28,6 +29,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     public APIStatusService(
       INodes nodes,
       IBlockParser blockParser,
+      IMapi mapi,
       IOptions<AppSettings> options,
       ZMQSubscriptionService subscriptionService,
       ILogger<APIStatusService> logger
@@ -35,6 +37,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
       this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      this.mapi = mapi ?? throw new ArgumentNullException(nameof(mapi));
       appSettings = options.Value;
       this.subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -43,13 +46,13 @@ namespace MerchantAPI.APIGateway.Rest.Services
 
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-      logger.LogInformation($"StatusStats background service is starting");
+      logger.LogInformation($"{nameof(APIStatusService)} is starting.");
       return base.StartAsync(cancellationToken);
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)
     {
-      logger.LogInformation($"StatusStats background service is stopping");
+      logger.LogInformation($"{nameof(APIStatusService)} is stopping.");
       return base.StopAsync(cancellationToken);
     }
 
@@ -90,12 +93,28 @@ $@"** BlockParser Stats **
       }
     }
 
+    private void LogSubmitTxMapiStats()
+    {
+      try
+      {
+        var status = mapi.GetSubmitTxStatus();
+        logger.LogInformation(
+$@"** Submit tx mAPI Stats **
+{status.PrepareForLogging()}");
+      }
+      catch (Exception ex)
+      {
+        logger.LogError($"Exception in LogSubmitTxMapiStats: {ex.Message}");
+      }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
       while (!stoppingToken.IsCancellationRequested)
       {
         LogZMQStats();
         LogBlockParserStats();
+        LogSubmitTxMapiStats();
         await Task.Delay(LOG_PERIOD_MIN * 60 * 1000, stoppingToken);
       }
     }

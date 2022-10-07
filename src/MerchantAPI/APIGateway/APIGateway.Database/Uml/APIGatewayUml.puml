@@ -22,7 +22,13 @@ class Tx {
   callbackEncryption: string
   not_null(merkleProof) : bool
   not_null(dsCheck) :bool
+  not_null(txstatus) :smallint
+  not_null(submittedAt): datetime
+  not_null(okToMine) : bool
+  not_null(policyQuoteId): long
+  not_null(setPolicyQuote) : bool
 }    
+Tx --> "policyQuoteId" FeeQuote
 
 class TxInput {
   primary_key(txInternalId): long
@@ -31,7 +37,7 @@ class TxInput {
   not_null(prev_n) : long
 
 }
-Tx --> "txInternalId" TxInput 
+TxInput --> "txInternalId" Tx
 
 ' After block is parsed we need to process  merkle callback
 ' After block is no longer on active chain we need to check *whole new chain* for double spends (until tx is included on both forks)???

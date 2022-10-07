@@ -17,22 +17,20 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 {
   public class FeeQuoteRepositoryMock : IFeeQuoteRepository
   {
-#pragma warning disable CA2211 // Non-constant fields should not be visible
-    public static double quoteExpiryMinutes;
-#pragma warning restore CA2211 // Non-constant fields should not be visible
-    private List<FeeQuote> _feeQuotes;
+    public string FeeFileName { get; set; } = "feeQuotes.json";
+    public double QuoteExpiryMinutes;
 
-    private readonly IClock clock;
+    readonly IClock clock;
+
+    private string _feeFileName;
+    private List<FeeQuote> _feeQuotes;
 
     public FeeQuoteRepositoryMock(IClock clock)
     {
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
-    public string FeeFileName { get; set; } = "feeQuotes.json";
-
-
-    public string GetFunctionalTestSrcRoot() 
+    private static string GetFunctionalTestSrcRoot()
     {
       string path = Directory.GetCurrentDirectory();
 
@@ -55,22 +53,47 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return _feeQuotes.LastOrDefault(x =>
                  identity?.Identity == x?.Identity && identity?.IdentityProvider == x?.IdentityProvider);
     }
+
+    private void EnsureFeeQuotesAreAvailable()
+    {
+      if (_feeQuotes == null || _feeFileName != FeeFileName)
+      {
+        _feeFileName = FeeFileName;
+        // fill from filename
+        string file = Path.Combine(GetFunctionalTestSrcRoot(), "Mock", "MockQuotes", FeeFileName);
+        string jsonData = File.ReadAllText(file);
+
+        // check json
+        List<FeeQuote> feeQuotes = JsonConvert.DeserializeObject<List<FeeQuote>>(jsonData);
+        feeQuotes.Where(x => x.CreatedAt == DateTime.MinValue).ToList().ForEach(x => x.CreatedAt = x.ValidFrom = clock.UtcNow());
+        _feeQuotes = new List<FeeQuote>();
+        _feeQuotes.AddRange(feeQuotes.OrderBy(x => x.CreatedAt));
+
+        // we must also maintain ids because tx references feeQuoteId
+        int i = 0;
+        foreach (var feeQuote in _feeQuotes)
+        {
+          feeQuote.Id = i++;
+        }
+      }
+    }
+
     public FeeQuote GetCurrentFeeQuoteByIdentity(UserAndIssuer identity)
     {
-      string file = Path.Combine(GetFunctionalTestSrcRoot(), "Mock", "MockQuotes", FeeFileName);
-      string jsonData = File.ReadAllText(file);
-
-      // check json
-      List<FeeQuote> feeQuotes = JsonConvert.DeserializeObject<List<FeeQuote>>(jsonData);
-      feeQuotes.Where(x => x.CreatedAt == DateTime.MinValue).ToList().ForEach(x => x.CreatedAt = x.ValidFrom = clock.UtcNow());
-      _feeQuotes = new List<FeeQuote>();
-      _feeQuotes.AddRange(feeQuotes.OrderBy(x => x.CreatedAt));
+      EnsureFeeQuotesAreAvailable();
       return GetCurrentFeeQuoteByIdentityFromLoadedFeeQuotes(identity);
+    }
+
+    public FeeQuote[] GetAllFeeQuotes()
+    {
+      EnsureFeeQuotesAreAvailable();
+      return _feeQuotes.ToArray();
     }
 
     public FeeQuote GetFeeQuoteById(long feeQuoteId)
     {
-      throw new NotImplementedException();
+      EnsureFeeQuotesAreAvailable();
+      return _feeQuotes.SingleOrDefault(x => x.Id == feeQuoteId);
     }
 
     public IEnumerable<FeeQuote> GetFeeQuotesByIdentity(UserAndIssuer identity)
@@ -80,17 +103,18 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
     public IEnumerable<FeeQuote> GetValidFeeQuotesByIdentity(UserAndIssuer feeQuoteIdentity)
     {
-      if (_feeQuotes == null)
-      {
-        GetCurrentFeeQuoteByIdentity(feeQuoteIdentity); // fill from filename
-      }     
+      EnsureFeeQuotesAreAvailable();
       var filtered = _feeQuotes.Where(x => x.Identity == feeQuoteIdentity?.Identity &&
                                   x.IdentityProvider == feeQuoteIdentity?.IdentityProvider &&
                                   x.ValidFrom <= MockedClock.UtcNow && 
-                                  x.ValidFrom >= MockedClock.UtcNow.AddMinutes(-quoteExpiryMinutes)).ToArray();
+                                  x.ValidFrom >= MockedClock.UtcNow.AddMinutes(-QuoteExpiryMinutes)).ToArray();
       if (!filtered.Any())
       {
         var quote = GetCurrentFeeQuoteByIdentityFromLoadedFeeQuotes(feeQuoteIdentity);
+        if (quote == null)
+        {
+          return null;
+        }
         return new List<FeeQuote>() { quote };
       }
       return filtered;

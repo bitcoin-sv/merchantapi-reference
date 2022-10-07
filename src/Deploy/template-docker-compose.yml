@@ -34,7 +34,13 @@ services:
       - AppSettings__RestAdminAPIKey=${RESTADMIN_APIKEY}
       - AppSettings__DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
       - AppSettings__CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
+      - AppSettings__CleanUpTxAfterMempoolExpiredDays=${CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS}
       - AppSettings__CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
+      - AppSettings__MempoolCheckerEnabled=${MEMPOOL_CHECKER_ENABLED}
+      - AppSettings__MempoolCheckerIntervalSec=${MEMPOOL_CHECKER_INTERVAL_SEC}
+      - AppSettings__MempoolCheckerUnsuccessfulIntervalSec=${MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC}
+      - AppSettings__MempoolCheckerBlockParserQueuedMax=${MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX}
+      - AppSettings__MempoolCheckerMissingInputsRetries=${MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES}
       - AppSettings__CheckFeeDisabled=${CHECK_FEE_DISABLED}
       - AppSettings__WifPrivateKey=${WIF_PRIVATEKEY}
       - AppSettings__DSHostBanTimeSec=${DS_HOST_BAN_TIME_SEC}
@@ -47,6 +53,7 @@ services:
       - AppSettings__DontParseBlocks=${DONT_PARSE_BLOCKS}
       - AppSettings__DontInsertTransactions=${DONT_INSERT_TRANSACTIONS}
       - AppSettings__ResubmitKnownTransactions=${RESUBMIT_KNOWN_TRANSACTIONS}
+      - AppSettings__EnableFaultInjection=${ENABLE_FAULT_INJECTION}
       - AppSettings__MinerIdServer__Url=${MINERID_SERVER_URL}
       - AppSettings__MinerIdServer__Alias=${MINERID_SERVER_ALIAS}
       - AppSettings__MinerIdServer__Authentication=${MINERID_SERVER_AUTHENTICATION}

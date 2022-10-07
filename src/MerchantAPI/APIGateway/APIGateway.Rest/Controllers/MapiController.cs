@@ -178,11 +178,18 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// <summary>
     /// Query transaction status.
     /// </summary>
-    /// <param name="id">The transaction ID (32 byte hash) hex string</param>
+    /// <param name="id">The transaction ID (32 byte hash) hex string.</param>
+    /// <param name="merkleProof">Require merkle proof (default=false).</param>
+    /// <param name="merkleFormat">Merkle format (default="TSC").</param>
     /// <remarks>This endpoint is used to check the current status of a previously submitted transaction.</remarks>
     [HttpGet]
     [Route("tx/{id}")]
-    public async Task<ActionResult<QueryTransactionStatusResponseViewModel>> QueryTransactionStatus(string id)
+    public async Task<ActionResult<QueryTransactionStatusResponseViewModel>> QueryTransactionStatus(
+      string id,
+      [FromQuery]
+      bool merkleProof = false,
+      [FromQuery]
+      string merkleFormat = MerkleFormat.TSC)
     {
       if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out _))
       {
@@ -197,7 +204,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       var result =
         new QueryTransactionStatusResponseViewModel(
-          await mapi.QueryTransaction(id));
+          await mapi.QueryTransactionAsync(id, merkleProof, merkleFormat));
 
       return await SignIfRequiredAsync(result, result.MinerId);
     }
@@ -233,7 +240,8 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     /// </summary>
     /// <param name="callbackUrl">Double spend and merkle proof notification callback endpoint.</param>
     /// <param name="callbackToken">Access token for notification callback endpoint.</param>
-    /// <param name="merkleProof">Require merkle proof</param>
+    /// <param name="merkleProof">Require merkle proof.</param>
+    /// <param name="merkleFormat">Merkle format.</param>
     /// <param name="dsCheck">Check for double spends.</param>
     /// <remarks>This endpoint is used to send a raw transaction to a miner for inclusion in the next block that the miner creates.</remarks>
     [HttpPost]

@@ -32,6 +32,9 @@ namespace MerchantAPI.APIGateway.Domain.Models
     Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
                                                       int totalTimeoutSec,
                                                       IEnumerable<(string Tx, int N)> dsTx);
+    Task<string[]> GetRawMempool(CancellationToken? token = null);
+    Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null);
+    IRpcClient[] GetRpcClients();
 
   }
 }

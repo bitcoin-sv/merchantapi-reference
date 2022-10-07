@@ -192,7 +192,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       {
         throw new Exception($"Mock block with height {blockHeight} not found");
       }
-      var block = blocks.ElementAt((int)blockHeight).Value;
+      var block = blocks.Values.FirstOrDefault(x => x.Height == blockHeight);
 
       return block.BlockData;
     }
@@ -301,7 +301,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
     public async Task<string> SendRawTransactionAsync(byte[] transaction, bool allowhighfees, bool dontCheckFees, CancellationToken? token = null)
     {
-      var txId = NBitcoin.Transaction.Parse(HelperTools.ByteToHexString(transaction), Network.Main).GetHash()
+      var txId = Transaction.Parse(HelperTools.ByteToHexString(transaction), Network.Main).GetHash()
         .ToString();
 
       var r = await SimulateCallAsync<string>(txId);
@@ -318,7 +318,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     {
       var txIds = 
         string.Join('/',txs.Select(x =>
-        NBitcoin.Transaction.Parse(HelperTools.ByteToHexString(x.transaction), Network.Main).GetHash().ToString()).ToArray());
+        Transaction.Parse(HelperTools.ByteToHexString(x.transaction), Network.Main).GetHash().ToString()).ToArray());
 
       var r = await SimulateCallAsync<RpcSendTransactions>(txIds);
       if (r != null)
@@ -342,9 +342,19 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
           Version = 101001000,
           MinConsolidationFactor = 20,
           MaxConsolidationInputScriptSize = 150,
-          MinConsolidationInputMaturity = 6,
+          MinConfConsolidationInput = 6,
           AcceptNonStdConsolidationInput = false
         };
+    }
+
+    public async Task<RpcDumpParameters> DumpParametersAsync(CancellationToken? token = null)
+    {
+      var r = await SimulateCallAsync<RpcDumpParameters>();
+      if (r != null)
+      {
+        return r;
+      }
+      return new RpcDumpParameters();
     }
 
     public async Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
@@ -475,6 +485,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
 
       return ZMQTopic.RequiredZmqTopics.Select(x => new RpcActiveZmqNotification { Address = zmqAddress, Notification = x}).ToArray();
     }
+
+    /// <summary>
+    /// Note: RpcClientMock always returns empty GetRawMempool
+    /// </summary>
+    /// <param name="token"></param>
+    /// <returns></returns>
     public async Task<string[]> GetRawMempool(CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<string[]>();
@@ -483,6 +499,22 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         return r;
       }
       return Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// Note: RpcClientMock always returns empty GetMempoolAncestors
+    /// </summary>
+    /// <param name="txId"></param>
+    /// <param name="token"></param>
+    /// <returns></returns>
+    public async Task<RpcGetMempoolAncestors> GetMempoolAncestors(string txId, CancellationToken? token = null)
+    {
+      var r = await SimulateCallAsync<RpcGetMempoolAncestors>();
+      if (r != null)
+      {
+        return r;
+      }
+      return new RpcGetMempoolAncestors() { Transactions = new() };
     }
 
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid, 

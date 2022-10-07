@@ -28,18 +28,26 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     private ObjectResult Problem(bool dumpStack)
     {
       var ex = HttpContext.Features.Get<IExceptionHandlerPathFeature>().Error;
-      string title = string.Empty;
+      string title = "Internal system error occurred, please retry later";
       var statusCode = (int)HttpStatusCode.InternalServerError;
-      
-      if (ex is DomainException)
+
+      if (ex is HttpResponseException response)
       {
-        title = "Internal system error occurred";
-        statusCode = (int)HttpStatusCode.InternalServerError;
-      }
-      if (ex is BadRequestException)
-      {
-        title = "Bad client request";
-        statusCode = (int)HttpStatusCode.BadRequest;
+        statusCode = response.Status;
+
+        // DomainException same as InternalServerError
+        if (ex is BadRequestException)
+        {
+          title = "Bad client request";
+        }
+        else if (ex is ServiceUnavailableException)
+        {
+          title = "Service unavailable";
+        }
+        else if (ex is NotFoundException)
+        {
+          title = "Not found";
+        }
       }
 
       logger.LogError(ex, "Error while performing operation");

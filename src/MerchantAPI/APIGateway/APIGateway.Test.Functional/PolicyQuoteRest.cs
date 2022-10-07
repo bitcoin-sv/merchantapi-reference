@@ -1,5 +1,6 @@
 ﻿using MerchantAPI.APIGateway.Test.Functional.Server;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -9,5 +10,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
   {
     // test synonymous endpoint
     public override string GetBaseUrl() => MapiServer.ApiPolicyQuoteConfigUrl;
+
   }
 }

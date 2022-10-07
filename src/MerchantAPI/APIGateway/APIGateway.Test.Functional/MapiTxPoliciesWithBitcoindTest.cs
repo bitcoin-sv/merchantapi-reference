@@ -1,6 +1,7 @@
 ﻿// Copyright(c) 2021 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
+using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.Common.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -66,29 +67,42 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("maxtxsizepolicy must be a number", txResponses.Invalid.Single().RejectReason);
     }
 
-    [DataRow("{\"maxtxsizepolicy\": -1}")]
-    [DataRow("{\"datacarriersize\": -1}")]
-    [DataRow("{\"maxscriptsizepolicy\": -1}")]
-    [DataRow("{\"maxscriptnumlengthpolicy\": -1}")]
-    [DataRow("{\"maxstackmemoryusagepolicy\": -1}")]
-    [DataRow("{\"limitancestorcount\": -1}")]
-    [DataRow("{\"limitcpfpgroupmemberscount\": 1}")]
-    [DataRow("{\"acceptnonstdoutputs\": True}")]
-    [DataRow("{\"datacarrier\": 0}")]
-    [DataRow("{\"maxstdtxvalidationduration\": 0}")]
-    [DataRow("{\"maxnonstdtxvalidationduration\": 0}")]
-    [DataRow("{\"minconsolidationfactor\": -1}")]
-    [DataRow("{\"maxconsolidationinputscriptsize\": -1}")]
-    [DataRow("{\"minconfconsolidationinput\": -1}")]
-    [DataRow("{\"acceptnonstdconsolidationinput\": 1}")]
     [TestMethod]
-    public async Task SubmitTransactionWithInvalidPolicy(string policy)
+    public async Task SubmitTransactionWithInvalidPolicy()
     {
-      SetPoliciesForCurrentFeeQuote(policy);
-      var (txHex, _) = CreateNewTransaction();
+      // make additional 7 coins
+      foreach (var coin in GetCoins(base.rpcClient0, 7))
+      {
+        availableCoins.Enqueue(coin);
+      }
 
-      var payloadSubmit = await SubmitTransactionAsync(txHex);
-      Assert.AreEqual("failure", payloadSubmit.ReturnResult);
+      // we don't use DataRow arguments here, because of performance
+      string[] invalidPolicies = new string[] 
+      {
+      "{\"maxtxsizepolicy\": -1}",
+      "{\"datacarriersize\": -1}",
+      "{\"maxscriptsizepolicy\": -1}",
+      "{\"maxscriptnumlengthpolicy\": -1}",
+      "{\"maxstackmemoryusagepolicy\": -1}",
+      "{\"limitancestorcount\": -1}",
+      "{\"limitcpfpgroupmemberscount\": 1}",
+      "{\"acceptnonstdoutputs\": 1}",
+      "{\"datacarrier\": 0}",
+      "{\"maxstdtxvalidationduration\": 0}",
+      "{\"maxnonstdtxvalidationduration\": 0}",
+      "{\"minconsolidationfactor\": -1}",
+      "{\"maxconsolidationinputscriptsize\": -1}",
+      "{\"minconfconsolidationinput\": -1}",
+      "{\"acceptnonstdconsolidationinput\": 1}"
+      };
+      foreach(var policy in invalidPolicies)
+      {
+        SetPoliciesForCurrentFeeQuote(policy);
+        var (txHex, _) = CreateNewTransaction();
+
+        var payloadSubmit = await SubmitTransactionAsync(txHex);
+        Assert.AreEqual("failure", payloadSubmit.ReturnResult);
+      }
     }
 
 
@@ -214,11 +228,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task SubmitTransactionDifferentUsers()
     {
       // unauthorized user has limited maxscriptsizepolicy
-      SetPoliciesForCurrentFeeQuote("{\"maxscriptsizepolicy\": 105 }");
+      SetPoliciesForCurrentFeeQuote("{\"maxscriptsizepolicy\": 100 }");
       // insert same feeQuote as for unauthorized user
       InsertFeeQuote(MockedIdentity);
 
-      (string txHex, string _) = CreateNewTransaction();
+      (string txHex, _) = CreateNewTransaction();
 
       var payloadSubmit = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
@@ -277,7 +291,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, payloadSubmit.FailureCount);
       var txFailure = payloadSubmit.Txs.Single(x => x.ReturnResult == "failure");
       Assert.AreEqual(tx2Id, txFailure.Txid);
-      Assert.AreEqual("64 too-long-mempool-chain", txFailure.ResultDescription);
+      Assert.AreEqual(NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[0]), txFailure.ResultDescription);
     }
 
     [DataRow("{\"skipscriptflags\": [\"MINIMALDATA\"] }")]
@@ -307,5 +321,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
     }
 
+    [TestMethod]
+    public async Task SubmitTransactionMixUnlimitedPoliciesSkipScriptFlags()
+    {
+      (string txHex, string _) = CreateNewTransaction();
+
+      SetPoliciesForCurrentFeeQuote(
+        "{\"maxtxsizepolicy\": 0, \"maxscriptsizepolicy\": 0, \"maxscriptnumlengthpolicy\": 0, " +
+        "\"skipscriptflags\": [\"MINIMALDATA\", \"DERSIG\", \"NULLDUMMY\", \"DISCOURAGE_UPGRADABLE_NOPS\", \"CLEANSTACK\"]}");
+      var payloadSubmit = await SubmitTransactionAsync(txHex);
+      Assert.AreEqual("success", payloadSubmit.ReturnResult);
+    }
   }
 }

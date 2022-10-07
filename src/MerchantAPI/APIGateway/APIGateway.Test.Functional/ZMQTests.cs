@@ -6,11 +6,10 @@ using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
-using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Rest.ViewModels.APIStatus;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Json;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
@@ -25,20 +24,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo2")]
   [TestClass]
-  public class ZMQTests : MapiWithBitcoindTestBase
+  public class ZMQTests : ZMQTestBase
   {
-    public ZMQSubscriptionService zmqService;
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
-      zmqService = server.Services.GetRequiredService<ZMQSubscriptionService>();
-      ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
-      InsertFeeQuote();
-
-      // Wait until all events are processed to avoid race conditions - we need to  finish subscribing to ZMQ before checking for any received notifications
-      WaitUntilEventBusIsIdle(); 
     }
 
     [TestCleanup]
@@ -54,7 +46,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var zmqUnsubscribedSubscription = EventBus.Subscribe<ZMQUnsubscribedEvent>();
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Delete one node and check that event is fired
@@ -70,7 +62,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe new block events
@@ -91,7 +83,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe invalidtx events
@@ -117,7 +109,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       catch (Exception rpcException)
       {
         // Double spend will throw txn-mempool-conflict exception
-        Assert.AreEqual("258: txn-mempool-conflict", rpcException.Message);
+        Assert.IsTrue(rpcException.Message.StartsWith("258: txn-mempool-conflict"));
       }
 
       // InvalidTx event should be fired
@@ -128,11 +120,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, invalidTxEvent.Message.CollidedWith.Length);
       Assert.AreEqual(txId1, invalidTxEvent.Message.CollidedWith[0].TxId);
 
-      WaitUntilEventBusIsIdle();
+      await CheckCallbacksAsync(1, cts.Token);
 
       // Check if callback was received
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -153,6 +144,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchMempoolAndBlockDoubleSpendMessages()
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       var txs = await CatchInMempoolDoubleSpendZMQMessage();
       
       var tx1 = HelperTools.ParseBytesToTransaction(HelperTools.HexStringToByteArray(txs.Item1));
@@ -165,10 +158,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Tx should no longer be in mempool
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(2, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(2, calls.Length);
       var callbackDS = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[1].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
       Assert.AreEqual(CallbackReason.DoubleSpend, callbackDS.CallbackReason);
@@ -180,6 +173,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchDoubleSpendOfMempoolTxByBlockTx()
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
       var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
@@ -208,11 +203,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Tx should no longer be in mempool
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
-
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -225,6 +219,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public async Task CatchDoubleSpendOfBlockTxByBlockTx()
     {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
       // Create two transactions from same input
       var coin = availableCoins.Dequeue();
       var (txHex1, _) = CreateNewTransaction(coin, new Money(1000L));
@@ -248,10 +244,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
 
       loggerTest.LogInformation($"Block b1 {b1Hash} was mined containing tx1 {tx1.GetHash()}");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[0].request);
       var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
@@ -269,11 +265,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if b3 was accepted
       var currentBestBlock = await rpcClient0.GetBestBlockHashAsync();
       Assert.AreEqual(b3.GetHash().ToString(), currentBestBlock , "b3 was not activated");
-      WaitUntilEventBusIsIdle();
 
+      await CheckCallbacksAsync(2, cts.Token);
 
       calls = Callback.Calls;
-      Assert.AreEqual(2, calls.Length);
       signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[1].request);
       var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);
@@ -285,7 +280,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       // Subscribe zmq subscribe, unsubscribe and new block events
@@ -336,7 +331,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var newBlockDiscoveredSubscription = EventBus.Subscribe<NewBlockDiscoveredEvent>();
 
       // Add node to database and emit repository event
-      var node = new Node(0, "localhost", 18332, "user", "password", $"This is a mock node #0",
+      var node = new Node(0, "localhost", 18332, "user", "password", $"This is a test node #0",
         null, (int)NodeStatus.Connected, null, null);
       this.NodeRepository.CreateNode(node);
       EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
@@ -372,30 +367,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(blockHash[0], secondNewBlockArrivedSubscription.BlockHash);
     }
 
-    private async Task RegisterNodesWithServiceAndWait(CancellationToken cancellationToken)
-    {
-      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
-
-      // Register nodes with service
-      RegisterNodesWithService(cancellationToken);
-
-      // Wait for subscription event so we can make sure that service is listening to node
-      _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
-
-      // Unsubscribe from event bus
-      EventBus.TryUnsubscribe(subscribedToZMQSubscription);
-    }
-
-    private void RegisterNodesWithService(CancellationToken cancellationToken)
-    {
-      // Register all nodes with service
-      var nodes = this.NodeRepository.GetNodes();
-      foreach (var node in nodes)
-      {
-        EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
-      }
-    }
-
     [TestMethod]
     public async Task BlockInfoIsUpToDate()
     {
@@ -415,7 +386,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       WaitUntilEventBusIsIdle();
@@ -438,7 +409,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var subscribedToZMQFailed = EventBus.Subscribe<ZMQFailedEvent>();
 
-      await RegisterNodesWithServiceAndWait(cts.Token);
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
       Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
 
       WaitUntilEventBusIsIdle();

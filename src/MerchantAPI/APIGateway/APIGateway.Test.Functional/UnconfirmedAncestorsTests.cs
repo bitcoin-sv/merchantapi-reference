@@ -2,52 +2,37 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Events;
-using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Domain.ViewModels;
-using MerchantAPI.APIGateway.Rest.Services;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
-using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Json;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
-using NBitcoin.Altcoins;
 
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo2")]
   [TestClass]
-  public class UnconfirmedAncestorsTestss : MapiWithBitcoindTestBase
+  public class UnconfirmedAncestorsTests : ZMQTestBase
   {
-    public ZMQSubscriptionService zmqService;
-    private ITxRepository txRepository;
+    MapiMock mapiMock;
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
-      zmqService = server.Services.GetRequiredService<ZMQSubscriptionService>();
-      txRepository = server.Services.GetRequiredService<ITxRepository>();
-
-      ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
-      InsertFeeQuote();
-
-      // Wait until all events are processed to avoid race conditions - we need to  finish subscribing to ZMQ before checking for any received notifications
-      WaitUntilEventBusIsIdle();
+      mapiMock = server.Services.GetRequiredService<IMapi>() as MapiMock;
     }
 
     [TestCleanup]
@@ -56,59 +41,34 @@ namespace MerchantAPI.APIGateway.Test.Functional
       base.TestCleanup();
     }
 
-    private async Task RegisterNodesWithServiceAndWaitAsync(CancellationToken cancellationToken)
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
-      var subscribedToZMQSubscription = EventBus.Subscribe<ZMQSubscribedEvent>();
-
-      // Register nodes with service
-      RegisterNodesWithService();
-
-      // Wait for subscription event so we can make sure that service is listening to node
-      _ = await subscribedToZMQSubscription.ReadAsync(cancellationToken);
-
-      // Unsubscribe from event bus
-      EventBus.TryUnsubscribe(subscribedToZMQSubscription);
+      // special - we need mAPI with different modes
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartupMapiMock>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
-    private void RegisterNodesWithService()
+    private async Task<(string, string, int)> CreateUnconfirmedAncestorChainWithFaultAsync(
+      string txHex1, string txId1, int length, int sendToMAPIRate, bool sendLastToMAPI = false, bool triggerFault = false, CancellationToken? cancellationToken = null)
     {
-      // Register all nodes with service
-      var nodes = this.NodeRepository.GetNodes();
-      foreach (var node in nodes)
+      if (!triggerFault)
       {
-        EventBus.Publish(new NodeAddedEvent() { CreationDate = DateTime.UtcNow, CreatedNode = node });
+        return await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, length, sendToMAPIRate, sendLastToMAPI, cancellationToken);
       }
+      // we want to test difference between sendrawtxs and getmempoolancestors
+      // if there is an error when saving unconfirmedancestors the first time,
+      // getmempoolancestors is called on the next submit
+      mapiMock.SimulateDbFault(Faults.FaultType.DbBeforeSavingUncommittedState, Faults.DbFaultComponent.MapiUnconfirmedAncestors);
+      await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, length, sendToMAPIRate, sendLastToMAPI, cancellationToken, System.Net.HttpStatusCode.InternalServerError);
+
+      mapiMock.ClearMode();
+
+      return await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, length, sendToMAPIRate, sendLastToMAPI, cancellationToken, expectAlreadyInMempool: true);
     }
 
-    private async Task<(string, string, int)> CreateUnconfirmedAncestorChainAsync(string txHex1, string txId1, int length, int sendToMAPIRate, bool sendLastToMAPI = false, CancellationToken? cancellationToken = null)
-    {
-      var curTxHex = txHex1;
-      var curTxId = txId1;
-      var mapiTxCount = 0;
-      for (int i = 0; i < length; i++)
-      {
-        Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
-        var curTxCoin = new Coin(curTx, 0);
-        (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
-
-        // Submit every sendToMAPIRate tx to mapi with dsCheck
-        if ((sendToMAPIRate != 0 && i % sendToMAPIRate == 0) || (sendLastToMAPI && i == length - 1))
-        {
-          var payload = await SubmitTransactionAsync(curTxHex, true, true);
-          Assert.AreEqual(payload.ReturnResult, "success");
-          mapiTxCount++;
-        }
-        else
-        {
-          _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(curTxHex), true, false, cancellationToken);
-        }
-      }
-
-      return (curTxHex, curTxId, mapiTxCount);
-    }
-   
+    [DataRow(false)]
+    [DataRow(true)]
     [TestMethod]
-    public async Task StoreUnconfirmedParentsOnSubmitTxAsync()
+    public async Task StoreUnconfirmedParentsOnSubmitTxAsync(bool triggerFault)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -124,51 +84,30 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Create chain based on first transaction with last transaction being submited to mAPI
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(txHex1, txId1, 100, 0, true, triggerFault, cts.Token);
 
       // Check that first tx is in database
-      long? txInternalId1 = await TxRepositoryPostgres.GetTransactionInternalIdAsync((new uint256(txId1)).ToBytes());
-      Assert.IsTrue(txInternalId1.HasValue);
-      Assert.AreNotEqual(0, txInternalId1.Value);
-    }
-
-    [TestMethod]
-    public async Task AncestorsAreAlreadyInDBForSecondMAPITxAsync()
-    {
-      using CancellationTokenSource cts = new(cancellationTimeout);
-
-      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
-      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
-
-      // Subscribe invalidtx events
-      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
-
-      // Create and submit first transaction
-      var coin = availableCoins.Dequeue();
-      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
-      var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
-
-      // Create chain based on first transaction with last transaction being submited to mAPI
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 50, 0, true, cts.Token);
-
-      // Create another transaction but don't submit it
-      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
-      var curTxCoin = new Coin(lastTx, 0);
-      var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
+      var tx1 = await TxRepositoryPostgres.GetTransactionAsync((new uint256(txId1)).ToBytes());
+      Assert.IsNotNull(tx1);
+      Assert.AreNotEqual(0, tx1.TxInternalId);
+      Assert.IsTrue(tx1.UnconfirmedAncestor);
+      Assert.AreEqual(DateTime.MinValue, tx1.SubmittedAt);
+      // Check last tx
+      var lastTx = await TxRepositoryPostgres.GetTransactionAsync((new uint256(lastTxId)).ToBytes());
+      Assert.IsNotNull(lastTx);
+      Assert.AreNotEqual(0, lastTx.TxInternalId);
+      Assert.IsFalse(lastTx.UnconfirmedAncestor);
+      Assert.AreNotEqual(DateTime.MinValue, lastTx.SubmittedAt);
 
       // Validate that all of the inputs are already in the database
-      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
-      foreach(var txInput in curTx.Inputs)
-      {        
-        var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
-        Assert.IsNotNull(prevOut);
-        Assert.AreEqual(new uint256(prevOut.TxExternalId).ToString(), lastTxId);
-      }
-
+      await ValidateTxInputsAsync(txHex1, txId1, presentOnDB: !triggerFault);
+      await ValidateTxInputsAsync(lastTxHex, lastTxId);
     }
 
+    [DataRow(false)]
+    [DataRow(true)]
     [TestMethod]
-    public async Task AllAncestorsAreNotInDBForSecondMAPITxIfChainContainsOtherTxsAsync()
+    public async Task AncestorsAreAlreadyInDBForSecondMAPITxAsync(bool triggerFault)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -184,28 +123,46 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Create chain based on first transaction with last transaction being submited to mAPI
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 50, 0, true, cts.Token);
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(txHex1, txId1, 50, 0, true, triggerFault, cts.Token);
+
+      // Validate that all of the inputs are already in the database
+      await ValidateTxInputsAsync(lastTxHex, lastTxId);
+    }
+
+    [DataRow(false)]
+    [DataRow(true)]
+    [TestMethod]
+    public async Task AllAncestorsAreNotInDBForSecondMAPITxIfChainContainsOtherTxsAsync(bool triggerFault)
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      await RegisterNodesWithServiceAndWaitAsync(cts.Token);
+      Assert.AreEqual(1, zmqService.GetActiveSubscriptions().Count());
+
+      // Subscribe invalidtx events
+      var invalidTxDetectedSubscription = EventBus.Subscribe<InvalidTxDetectedEvent>();
+
+      // Create and submit first transaction
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction(coin, new Money(1000L));
+      var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
+
+      // Create chain based on first transaction with last transaction being submited to mAPI
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(txHex1, txId1, 50, 0, true, triggerFault, cts.Token);
 
       // Create another transaction through RPC 
-      (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(lastTxHex, lastTxId, 1, 0, false, cts.Token);
-
-      // Create another transaction but don't submit it
-      Transaction.TryParse(lastTxHex, Network.RegTest, out Transaction lastTx);
-      var curTxCoin = new Coin(lastTx, 0);
-      var (curTxHex, curTxId) = CreateNewTransaction(curTxCoin, new Money(1000L));
+      (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(lastTxHex, lastTxId, 1, 0, false, false, cts.Token);
 
       // Validate that inputs are not already in the database
-      Transaction.TryParse(curTxHex, Network.RegTest, out Transaction curTx);
-      foreach (var txInput in curTx.Inputs)
-      {
-        var prevOut = await txRepository.GetPrevOutAsync(txInput.PrevOut.Hash.ToBytes(), txInput.PrevOut.N);
-        Assert.IsNull(prevOut);
-      }
-
+      await ValidateTxInputsAsync(lastTxHex, lastTxId, false);
     }
 
+    [DataRow(1, false)]
+    [DataRow(1, true)]
+    [DataRow(100, false)]
+    [DataRow(100, true)]
     [TestMethod]
-    public async Task CatchMempoolDSForUnconfirmedParentAsync()
+    public async Task CatchMempoolDSForUnconfirmedParentAsync(int chainLength, bool triggerFault)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -221,7 +178,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Create chain based on first transaction with last transaction being submited to mAPI
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(txHex1, txId1, chainLength, 0, true, triggerFault, cts.Token);
 
       // DS first transaction
       Transaction.TryParse(txHex1, Network.RegTest, out Transaction dsTx);
@@ -235,18 +192,17 @@ namespace MerchantAPI.APIGateway.Test.Functional
       catch (Exception rpcException)
       {
         // Double spend will throw txn-mempool-conflict exception
-        Assert.AreEqual("258: txn-mempool-conflict", rpcException.Message);
+        Assert.IsTrue(rpcException.Message.StartsWith("258: txn-mempool-conflict"));
       }
 
       // InvalidTx event should be fired
       var invalidTxEvent = await invalidTxDetectedSubscription.ReadAsync(cts.Token);
       Assert.AreEqual(InvalidTxRejectionCodes.TxMempoolConflict, invalidTxEvent.Message.RejectionCode);
-      
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       // Check if callback was received 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -254,8 +210,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(-1, callback.BlockHeight);
     }
 
+    [DataRow(false)]
+    [DataRow(true)]
     [TestMethod]
-    public async Task NotifyMempoolDSForAllTxWithDsCheckInChainAsync()
+    public async Task NotifyMempoolDSForAllTxWithDsCheckInChainAsync(bool triggerFault)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -271,7 +229,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Create chain based on first transaction with every 10th transaction being submited to mAPI
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 10, false, cts.Token);
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(txHex1, txId1, 100, 10, false, triggerFault, cts.Token);
 
       // Create ds transaction
       Transaction.TryParse(txHex1, Network.RegTest, out Transaction dsTx);
@@ -285,18 +243,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
       catch (Exception rpcException)
       {
         // Double spend will throw txn-mempool-conflict exception
-        Assert.AreEqual("258: txn-mempool-conflict", rpcException.Message);
+        Assert.IsTrue(rpcException.Message.StartsWith("258: txn-mempool-conflict"));
       }
 
       // InvalidTx event should be fired
       var invalidTxEvent = await invalidTxDetectedSubscription.ReadAsync(cts.Token);
       Assert.AreEqual(InvalidTxRejectionCodes.TxMempoolConflict, invalidTxEvent.Message.RejectionCode);
 
-      WaitUntilEventBusIsIdle();
+      await CheckCallbacksAsync(mapiCount, cts.Token);
 
-      // Check if correct number of callbacks was received
       var calls = Callback.Calls;
-      Assert.AreEqual(mapiCount, calls.Length);
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 
@@ -304,8 +260,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(-1, callback.BlockHeight);
     }
 
+    [DataRow(false)]
+    [DataRow(true)]
     [TestMethod]
-    public async Task CatchDSOfBlockAncestorTxByBlockTxAsync()
+    public async Task CatchDSOfBlockAncestorTxByBlockTxAsync(bool triggerFault)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -324,7 +282,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Create chain based on first transaction
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(txHex1, txId1, 100, 0, true, triggerFault, cts.Token);
 
       var parentBlockHash = await rpcClient0.GetBestBlockHashAsync();
       var parentBlockHeight = (await rpcClient0.GetBlockHeaderAsync(parentBlockHash)).Height;
@@ -332,10 +290,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Mine a new block containing mAPI transaction and its whole unconfirmed ancestor chain 
       var b1Hash = (await rpcClient0.GenerateAsync(1)).Single();
 
-      WaitUntilEventBusIsIdle();
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
       var signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[0].request);
       var notification = HelperTools.JSONDeserialize<CallbackNotificationViewModelBase>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.MerkleProof, notification.CallbackReason);
@@ -350,18 +307,20 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Check if b3 was accepted
       var currentBestBlock = await rpcClient0.GetBestBlockHashAsync();
       Assert.AreEqual(b3.GetHash().ToString(), currentBestBlock, "b3 was not activated");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(2, cts.Token);
 
       calls = Callback.Calls;
-      Assert.AreEqual(2, calls.Length);
       signedJSON = HelperTools.JSONDeserialize<SignedPayloadViewModel>(calls[1].request);
       var dsNotification = HelperTools.JSONDeserialize<CallbackNotificationDoubleSpendViewModel>(signedJSON.Payload);
       Assert.AreEqual(CallbackReason.DoubleSpend, dsNotification.CallbackReason);
       Assert.AreEqual(txIdDS, dsNotification.CallbackPayload.DoubleSpendTxId);
     }
 
+    [DataRow(false)]
+    [DataRow(true)]
     [TestMethod]
-    public async Task CatchDSOfMempoolAncestorTxByBlockTxAsync()
+    public async Task CatchDSOfMempoolAncestorTxByBlockTxAsync(bool triggerFault)
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
 
@@ -382,7 +341,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var response = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
 
       // Create chain based on first transaction with last transaction being sent to mAPI
-      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainAsync(txHex1, txId1, 100, 0, true, cts.Token);
+      var (lastTxHex, lastTxId, mapiCount) = await CreateUnconfirmedAncestorChainWithFaultAsync(txHex1, txId1, 100, 0, true, triggerFault, cts.Token);
 
       var mempoolTxs = await rpcClient0.GetRawMempool();
 
@@ -398,11 +357,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // Tx should no longer be in mempool
       Assert.IsFalse(mempoolTxs2.Contains(txId1), "Submitted tx1 should not be found in mempool");
-      WaitUntilEventBusIsIdle();
+
+      await CheckCallbacksAsync(1, cts.Token);
 
       var calls = Callback.Calls;
-      Assert.AreEqual(1, calls.Length);
-
       var callback = HelperTools.JSONDeserialize<JSONEnvelopeViewModel>(calls[0].request)
         .ExtractPayload<CallbackNotificationDoubleSpendViewModel>();
 

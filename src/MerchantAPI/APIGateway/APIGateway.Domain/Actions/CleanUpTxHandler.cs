@@ -18,6 +18,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     protected readonly ILogger<CleanUpTxHandler> logger;
     protected readonly int cleanUpTxPeriodSec;
     readonly int cleanUpTxAfterDays;
+    readonly int cleanUpTxAfterMempoolExpiredDays;
 
 
     public CleanUpTxHandler(ITxRepository txRepository, ILogger<CleanUpTxHandler> logger, IOptions<AppSettings> options)
@@ -26,6 +27,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       cleanUpTxPeriodSec = options.Value.CleanUpTxPeriodSec.Value;
       cleanUpTxAfterDays = options.Value.CleanUpTxAfterDays.Value;
+      cleanUpTxAfterMempoolExpiredDays = options.Value.CleanUpTxAfterMempoolExpiredDays.Value;
     }
 
 
@@ -45,12 +47,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       try
       {
-        var (blocks, txs) = await txRepository.CleanUpTxAsync(now.AddDays(-cleanUpTxAfterDays));
-        logger.LogInformation($"CleanUpTxHandler: deleted {blocks} blocks and {txs} txs.");
+        var (blocks, txs, mempoolTxs) = await txRepository.CleanUpTxAsync(now.AddDays(-cleanUpTxAfterDays), now.AddDays(-cleanUpTxAfterMempoolExpiredDays));
+        logger.LogInformation($"CleanUpTxHandler: deleted {blocks} blocks, {txs} txs and {mempoolTxs} mempool txs.");
       }
       catch (Exception ex)
       {
-        logger.LogError($"Exception in CleanupHandler: { ex.Message }");
+        logger.LogError($"Exception in CleanUpTxHandler: { ex.Message }");
       }
     }
 

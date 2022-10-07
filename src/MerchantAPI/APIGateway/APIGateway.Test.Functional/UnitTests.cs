@@ -1,12 +1,16 @@
-﻿using MerchantAPI.APIGateway.Domain.Models;
+﻿// Copyright(c) 2021 Bitcoin Association.
+// Distributed under the Open BSV software license, see the accompanying file LICENSE
+
+using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Infrastructure.Repositories;
+using MerchantAPI.APIGateway.Test.Functional.Server;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
 using NBitcoin.Altcoins;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Transactions;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -21,6 +25,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
     virtual public void TestInitialize()
     {
       base.Initialize(mockedServices: true);
+
+      LoadFeeQuotesFromJsonAndInsertToDbAsync().Wait();
+    }
+
+    public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
+    {
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockWithDBInsertStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
     [TestCleanup]
@@ -50,7 +61,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CreateNewTx(tx1.GetHash().ToString(), tx1.ToHex(), false, null, true),
         CreateNewTx(tx2.GetHash().ToString(), tx2.ToHex(), false, null, true)
       };
-      await TxRepositoryPostgres.InsertTxsAsync(txList, false);
+      await TxRepositoryPostgres.InsertOrUpdateTxsAsync(txList, false);
 
       var txs = await TxRepositoryPostgres.GetTxsForDSCheckAsync(new List<byte[]> { tx1.GetHash().ToBytes(), tx2.GetHash().ToBytes() }, true);
 

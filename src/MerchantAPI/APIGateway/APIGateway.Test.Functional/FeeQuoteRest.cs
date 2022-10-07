@@ -5,7 +5,6 @@ using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.ViewModels;
-using MerchantAPI.APIGateway.Test.Functional.Mock;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Test.Clock;
@@ -21,12 +20,13 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Text.Json;
 using MerchantAPI.Common.Json;
+using MerchantAPI.APIGateway.Domain.Models;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   [TestCategory("TestCategoryNo1")]
   [TestClass]
-  public class FeeQuoteRest : CommonRestMethodsBase<FeeQuoteConfigViewModelGet, FeeQuoteViewModelCreate, AppSettings> 
+  public class FeeQuoteRest : CommonRestMethodsBase<FeeQuoteConfigViewModelGet, FeeQuoteViewModelCreate, AppSettings>
   {
     public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
     public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
@@ -38,6 +38,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     public FeeQuoteRepositoryPostgres FeeQuoteRepository { get; private set; }
+    public TxRepositoryPostgres TxRepository { get; private set; }
 
     [TestInitialize]
     public void TestInitialize()
@@ -46,7 +47,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
 
       FeeQuoteRepository = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryPostgres;
-      FeeQuoteRepositoryMock.quoteExpiryMinutes = 10;
+      TxRepository = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryPostgres;
     }
 
     [TestCleanup]
@@ -203,7 +204,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(postPoliciesJsonString, getPoliciesJsonString);
       }
 
-      for (int i=0; i<post.Fees.Length; i++)
+      for (int i = 0; i < post.Fees.Length; i++)
       {
         var postFee = post.Fees[i].ToDomainObject();
         var getFee = get.Fees.Single(x => x.FeeType == postFee.FeeType);
@@ -229,7 +230,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         return url;
       }
-      url = (!url.Contains("?")) ? url += "?" : url += "&"; 
+      url = (!url.Contains("?")) ? url += "?" : url += "&";
       List<string> userParams = new();
       if (userAndIssuer.Identity != null)
       {
@@ -242,7 +243,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return url + String.Join("&", userParams);
     }
 
-    public string UrlForCurrentFeeQuoteKey(UserAndIssuer userAndIssuer, bool anonymous=false)
+    public string UrlForCurrentFeeQuoteKey(UserAndIssuer userAndIssuer, bool anonymous = false)
     {
       string url = GetBaseUrl() + $"?current=true";
       if (anonymous)
@@ -389,7 +390,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    public override async Task Put() 
+    public override async Task Put()
     {
       var entryPost = GetItemToCreate();
       var entryPostKey = ExtractPostKey(entryPost);
@@ -448,7 +449,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
 
       // Try to create it again - it will not fail, because createdAt differs
-      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created); 
+      await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
     }
 
     [TestMethod]
@@ -569,7 +570,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entryPostWithIdentity, getEntries.Single());
 
         // check GET for anonymous
-        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null)+$"&anonymous=true", HttpStatusCode.OK);
+        getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
         Assert.AreEqual(2, getEntries.Length);
 
         // check GET for identity+anonymous
@@ -588,7 +589,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task TestFeeQuotesCurrentAndValidDifferentCreatedAt()
     {
       // arrange
-      var validFrom = new DateTime(2020, 9, 16, 6, (int)FeeQuoteRepositoryMock.quoteExpiryMinutes, 0);
+      var validFrom = new DateTime(2020, 9, 16, 6, (int)AppSettings.QuoteExpiryMinutes, 0);
       using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, 0, 0)))
       {
         var entryPost = GetItemToCreate();
@@ -596,7 +597,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         entryPost.ValidFrom = validFrom;
         await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
       }
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes * 0.8), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 0.8), 0)))
       {
         var entryPost = GetItemToCreate();
         entryPost.Id = 2;
@@ -605,7 +606,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
 
       // act
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes * 0.5), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 0.5), 0)))
       {
         // check GET for anonymous
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
@@ -615,7 +616,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(0, getEntries.Length);
       }
 
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes * 1.2), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 1.2), 0)))
       {
         // check GET for anonymous
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
@@ -625,7 +626,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(2, getEntries.Single().Id);
       }
 
-      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(FeeQuoteRepositoryMock.quoteExpiryMinutes*2.1), 0)))
+      using (MockedClock.NowIs(new DateTime(2020, 9, 16, 6, (int)(AppSettings.QuoteExpiryMinutes * 2.1), 0)))
       {
         // check GET for anonymous
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(null) + $"&anonymous=true", HttpStatusCode.OK);
@@ -654,7 +655,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (entryResponsePost, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
 
       // act
-      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes*2)))
+      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(AppSettings.QuoteExpiryMinutes.Value * 2)))
       {
         // check GET for identity
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlForValidFeeQuotesKey(MockedIdentity), HttpStatusCode.OK);
@@ -691,7 +692,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var (entryResponsePost, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entryPost, HttpStatusCode.Created);
 
       // act
-      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(-FeeQuoteRepositoryMock.quoteExpiryMinutes)))
+      using (MockedClock.NowIs(entryResponsePost.CreatedAt.AddMinutes(-AppSettings.QuoteExpiryMinutes.Value)))
       {
         // check GET for identity & identityProvider
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client, UrlWithIdentity(GetBaseUrl(), MockedIdentity), HttpStatusCode.OK);
@@ -755,14 +756,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var entries = GetItemsToCreate();
 
 
-      entries.Last().ValidFrom = entries.First().ValidFrom.Value.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes/2);
+      entries.Last().ValidFrom = entries.First().ValidFrom.Value.AddMinutes(AppSettings.QuoteExpiryMinutes.Value / 2);
       foreach (var entry in entries)
       {
         // Create new one using POST
         await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, entry, HttpStatusCode.Created);
       }
 
-      using (MockedClock.NowIs(tNow.AddMinutes(-FeeQuoteRepositoryMock.quoteExpiryMinutes)))
+      using (MockedClock.NowIs(tNow.AddMinutes(-AppSettings.QuoteExpiryMinutes.Value)))
       {
         // Should return no results - no feeQuote is yet valid
         var getEntriesInPast = await Get<FeeQuoteConfigViewModelGet[]>(Client,
@@ -779,7 +780,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         CheckWasCreatedFrom(entries[0], getEntries[0]);
       }
 
-      using (MockedClock.NowIs(tNow.AddMinutes((FeeQuoteRepositoryMock.quoteExpiryMinutes / 2) + 1)))
+      using (MockedClock.NowIs(tNow.AddMinutes((AppSettings.QuoteExpiryMinutes.Value / 2) + 1)))
       {
         // We should be able to retrieve both:
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client,
@@ -787,7 +788,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         Assert.AreEqual(2, getEntries.Length);
       }
 
-      using (MockedClock.NowIs(entries.Last().ValidFrom.Value.AddMinutes(FeeQuoteRepositoryMock.quoteExpiryMinutes*2)))
+      using (MockedClock.NowIs(entries.Last().ValidFrom.Value.AddMinutes(AppSettings.QuoteExpiryMinutes.Value * 2)))
       {
         // We should be able to retrieve second:
         var getEntries = await Get<FeeQuoteConfigViewModelGet[]>(Client,
@@ -907,5 +908,138 @@ namespace MerchantAPI.APIGateway.Test.Functional
       _ = new FeeQuoteViewModelCreate(domain);
     }
 
+    [TestMethod]
+    public async Task TestDeleteTxsEmpty()
+    {
+      // no parameters given
+      var getEntry = await GetDeleteTxsAsync(HttpStatusCode.BadRequest, null, null);
+      Assert.IsNull(getEntry);
+      await DeleteTxsAsync(HttpStatusCode.BadRequest, null, null);
+
+      // policyQuote with this id does not exist yet
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.BadRequest, null, 1);
+      Assert.IsNull(getEntry);
+      await DeleteTxsAsync(HttpStatusCode.BadRequest, null, 1);
+
+      // txstatus sentToNode is reserved for authenticated users
+      // after policyQuote for anonymous user is inserted response is still BadRequest
+      (var policyQuote, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, GetItemToCreate(), HttpStatusCode.Created);
+      await GetDeleteTxsAsync(HttpStatusCode.BadRequest, null, policyQuote.Id);
+      await DeleteTxsAsync(HttpStatusCode.BadRequest, null, policyQuote.Id);
+
+      // no policyQuotes with MockedIdentity
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.BadRequest, MockedIdentity, null);
+      Assert.IsNull(getEntry);
+      await DeleteTxsAsync(HttpStatusCode.BadRequest, MockedIdentity, null);
+
+      // policyQuote with id = 1 has no identityProvider
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.BadRequest, MockedIdentity, policyQuote.Id);
+      Assert.IsNull(getEntry);
+      await DeleteTxsAsync(HttpStatusCode.BadRequest, MockedIdentity, policyQuote.Id);
+
+      // after policyQuote with MockedIdentity is inserted, RemoveTxs should be successful
+      (var policyQuoteWithIdentity, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, GetItemToCreateWithIdentity(), HttpStatusCode.Created);
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.OK, MockedIdentity, policyQuoteWithIdentity.Id);
+      Assert.AreEqual(0, getEntry.Count);
+      await DeleteTxsAsync(HttpStatusCode.NoContent, MockedIdentity, policyQuoteWithIdentity.Id);
+    }
+
+    private async Task InsertPolicyQuotesAndTxs(FeeQuoteViewModelCreate feeQuoteViewModelCreate)
+    {
+      (var policyQuote, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, feeQuoteViewModelCreate, HttpStatusCode.Created);
+      (var policyQuote2, _) = await Post<FeeQuoteViewModelCreate, FeeQuoteConfigViewModelGet>(Client, feeQuoteViewModelCreate, HttpStatusCode.Created);
+
+      var txList = new List<Tx>() {
+        // txC0 - txC2 can be deleted by admin
+        TestBase.CreateNewTx(TestBase.txC0Hash, TestBase.txC0Hex, false, null, true, TxStatus.SentToNode, policyQuoteId: policyQuote.Id),
+        TestBase.CreateNewTx(TestBase.txC1Hash, TestBase.txC1Hex, false, null, true, TxStatus.SentToNode, policyQuoteId: policyQuote2.Id),
+        // txC2 is specific (CheckFeeDisabled or ConsolidationTx)
+        TestBase.CreateNewTx(TestBase.txC2Hash, TestBase.txC2Hex, false, null, true, TxStatus.SentToNode, policyQuoteId: policyQuote2.Id, setPolicyQuote: false),
+        // txC3 cannot be deleted by admin, because of the txstatus Mempool
+        TestBase.CreateNewTx(TestBase.txC3Hash, TestBase.txC3Hex, false, null, true, TxStatus.Accepted, policyQuoteId: policyQuote.Id),
+      };
+      await TxRepository.InsertOrUpdateTxsAsync(txList, false);
+    }
+
+
+    [TestMethod]
+    public async Task TestDeleteTxs()
+    {
+      await InsertPolicyQuotesAndTxs(GetItemToCreateWithIdentity());
+
+      // no parameters given (anonymous user)
+      var getEntry = await GetDeleteTxsAsync(HttpStatusCode.BadRequest, null, null);
+      Assert.IsNull(getEntry);
+      await DeleteTxsAsync(HttpStatusCode.BadRequest, null, null);
+
+      // only first tx (txC0) from the list is removed
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.OK, null, 1);
+      Assert.AreEqual(1, getEntry.Count);
+      Assert.AreEqual(TestBase.txC0Hash, getEntry.TxIds.Single());
+      await DeleteTxsAsync(HttpStatusCode.NoContent, null, 1);
+      // check if actually removed
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.OK, null, 1);
+      Assert.AreEqual(0, getEntry.Count);
+
+      // txC1 and txC2 are removed
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.OK, null, 2);
+      Assert.AreEqual(2, getEntry.Count);
+      await DeleteTxsAsync(HttpStatusCode.NoContent, null, 2);
+      // check if actually removed
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.OK, null, 2);
+      Assert.AreEqual(0, getEntry.Count);
+    }
+
+    [DataRow(1, 1L)]
+    [DataRow(2, 2L)]
+    [DataRow(3, null)]
+    [TestMethod]
+    public async Task TestDeleteTxsWithIdentity(int expectedDeletedTxs, long? policyQuoteId)
+    {
+      await InsertPolicyQuotesAndTxs(GetItemToCreateWithIdentity());
+
+      var getEntry = await GetDeleteTxsAsync(HttpStatusCode.OK, MockedIdentity, policyQuoteId);
+      Assert.AreEqual(expectedDeletedTxs, getEntry.Count);
+
+      await DeleteTxsAsync(HttpStatusCode.NoContent, MockedIdentity, policyQuoteId);
+
+      getEntry = await GetDeleteTxsAsync(HttpStatusCode.OK, MockedIdentity, policyQuoteId);
+      Assert.AreEqual(0, getEntry.Count);
+    }
+
+    private string DeleteTxsUrl(UserAndIssuer userAndIssuer, long? id)
+    {
+      IList<(string, string)> queryParams = new List<(string, string)>();
+
+      if (id != null)
+      {
+        queryParams.Add(("policyQuoteId", id.ToString()));
+      }
+      if (userAndIssuer?.Identity != null)
+      {
+        queryParams.Add(("identity", userAndIssuer.Identity));
+      }
+      if (userAndIssuer?.IdentityProvider != null)
+      {
+        queryParams.Add(("identityProvider", userAndIssuer.IdentityProvider));
+      }
+      return PrepareTxsUrl(queryParams);
+    }
+
+    private async Task DeleteTxsAsync(HttpStatusCode expectedStatusCode, UserAndIssuer userAndIssuer, long? id)
+    {
+      await Delete(Client, DeleteTxsUrl(userAndIssuer, id), expectedStatusCode);
+    }
+
+    private async Task<DeleteTxsViewModelGet> GetDeleteTxsAsync(HttpStatusCode expectedStatusCode, UserAndIssuer userAndIssuer, long? id)
+    {
+      return await Get<DeleteTxsViewModelGet>(Client, DeleteTxsUrl(userAndIssuer, id), expectedStatusCode);
+    }
+
+
+    protected string PrepareTxsUrl(IList<(string, string)> queryParams)
+    {
+      return PrepareQueryParams(MapiServer.ApiUnconfirmedTxsUrl, queryParams);
+    }
   }
 }

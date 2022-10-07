@@ -25,8 +25,11 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using NBitcoin.Altcoins;
 using MerchantAPI.Common.Authentication;
-using System.IO;
-using NBitcoin.Crypto;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Mime;
+using MerchantAPI.Common.Clock;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -47,8 +50,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public IEventBus EventBus { get; private set; }
 
-    // Mocks are non-null only when we actually use the,
+    // Mocks are non-null only when we actually use the right startup
     protected FeeQuoteRepositoryMock feeQuoteRepositoryMock;
+    protected TxRepositoryMock txRepositoryMock;
     protected RpcClientFactoryMock rpcClientFactoryMock;
 
     private static readonly double quoteExpiryMinutes = 10;
@@ -115,7 +119,6 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public override string LOG_CATEGORY { get { return "MerchantAPI.APIGateway.Test.Functional"; } }
     public override string DbConnectionString { get { return Configuration["ConnectionStrings:DBConnectionString"]; } }
     public string DbConnectionStringDDL { get { return Configuration["ConnectionStrings:DBConnectionStringDDL"]; } }
-
     public override string GetBaseUrl()
     {
       throw new NotImplementedException();
@@ -124,6 +127,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public override void Initialize(bool mockedServices = false, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
       base.Initialize(mockedServices, overridenSettings);
+
       // setup repositories
       NodeRepository = server.Services.GetRequiredService<INodeRepository>() as NodeRepositoryPostgres;
       TxRepositoryPostgres = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryPostgres;
@@ -141,7 +145,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       rpcClientFactoryMock = server.Services.GetRequiredService<IRpcClientFactory>() as RpcClientFactoryMock;
       feeQuoteRepositoryMock = server.Services.GetRequiredService<IFeeQuoteRepository>() as FeeQuoteRepositoryMock;
-      FeeQuoteRepositoryMock.quoteExpiryMinutes = quoteExpiryMinutes;
+      if (feeQuoteRepositoryMock != null)
+      {
+        feeQuoteRepositoryMock.QuoteExpiryMinutes = quoteExpiryMinutes;
+      }
+      txRepositoryMock = server.Services.GetRequiredService<ITxRepository>() as TxRepositoryMock;
 
       if (rpcClientFactoryMock != null)
       {
@@ -163,15 +171,38 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     public override TestServer CreateServer(bool mockedServices, TestServer serverCallback, string dbConnectionString, IEnumerable<KeyValuePair<string, string>> overridenSettings = null)
     {
-      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString);
+      return new TestServerBase(DbConnectionStringDDL).CreateServer<MapiServer, APIGatewayTestsMockStartup, APIGatewayTestsStartup>(mockedServices, serverCallback, dbConnectionString, overridenSettings);
     }
 
+    protected void AddMockNode(int nodeNumber)
+    {
+      var mockNode = new Node(0, "mockNode" + nodeNumber, 0, "mockuserName", "mockPassword", "This is a mock node #" + nodeNumber,
+        null, (int)NodeStatus.Connected, null, null);
+
+      _ = Nodes.CreateNodeAsync(mockNode).Result;
+    }
 
     public void WaitUntilEventBusIsIdle()
     {
       EventBus.WaitForIdle();
       loggerTest.LogInformation("Waiting for the EventBus to become idle completed");
     }
+
+    public async Task CheckCallbacksAsync(int minCalls, CancellationToken token)
+    {
+      WaitUntilEventBusIsIdle();
+
+      while (!token.IsCancellationRequested)
+      {
+        if (Callback.Calls.Length >= minCalls)
+        {
+          return;
+        }
+        await Task.Delay(100, token);
+      }
+
+    }
+
     public static void RepeatUntilException(Action action, int timeOutSeconds = 10)
     {
       var start = DateTime.UtcNow;
@@ -191,7 +222,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    public Tx CreateNewTx(string txHash, string txHex, bool merkleProof, string merkleFormat, bool dsCheck)
+    public static Tx CreateNewTx(string txHash, string txHex, bool merkleProof, string merkleFormat, bool dsCheck, int txstatus = TxStatus.Accepted, long policyQuoteId = 1, bool setPolicyQuote = true)
     {
       var tx = new Tx
       {
@@ -200,7 +231,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
         MerkleFormat = merkleFormat,
         ReceivedAt = MockedClock.UtcNow,
         TxExternalId = new uint256(txHash),
-        TxPayload = HelperTools.HexStringToByteArray(txHex)
+        TxPayload = HelperTools.HexStringToByteArray(txHex),
+        TxStatus = txstatus,
+        SubmittedAt = MockedClock.UtcNow,
+        PolicyQuoteId = policyQuoteId,
+        OkToMine = txstatus != TxStatus.UnknownOldTx,
+        SetPolicyQuote = txstatus != TxStatus.UnknownOldTx && setPolicyQuote
+        // on db upgrade - txs have UnknownOldTx status, policyQuoteId references default feeQuote,
+        // okToMine and setPolicyQuote are false
       };
       var transaction = HelperTools.ParseBytesToTransaction(tx.TxPayload);
       tx.TxIn = transaction.Inputs.AsIndexedInputs().Select(x => new TxInput
@@ -383,18 +421,45 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    protected void SetPoliciesForCurrentFeeQuote(string policiesJsonString, UserAndIssuer userAndIssuer = null)
+    protected void SetPoliciesForCurrentFeeQuote(string policiesJsonString, UserAndIssuer userAndIssuer = null, bool emptyFeeQuoteRepo = true)
     {
       var feeQuote = FeeQuoteRepository.GetCurrentFeeQuoteByIdentity(userAndIssuer);
-      FeeQuoteRepositoryPostgres.EmptyRepository(DbConnectionStringDDL);
+      if (emptyFeeQuoteRepo)
+      {
+        // ensure that new feeQuote is taken immediately
+        FeeQuoteRepositoryPostgres.EmptyRepository(DbConnectionStringDDL);
+      }
 
       feeQuote.Policies = policiesJsonString;
+      feeQuote.CreatedAt = MockedClock.UtcNow;
+      feeQuote.ValidFrom = feeQuote.CreatedAt;
 
-      using (MockedClock.NowIs(DateTime.UtcNow.AddMinutes(-1)))
+      if (FeeQuoteRepository.InsertFeeQuoteAsync(feeQuote).Result == null)
       {
-        if (FeeQuoteRepository.InsertFeeQuoteAsync(feeQuote).Result == null)
+        throw new Exception("Can not insert test fee quote with policies.");
+      }
+    }
+
+    protected async Task LoadFeeQuotesFromJsonAndInsertToDbAsync(string feeFileName = null)
+    {
+      // load from json file and maintain data on database, because tx table references feeQuote table (for mAPI resilience)
+      var clock = server.Services.GetRequiredService<IClock>();
+      var feeQuoteMock = new FeeQuoteRepositoryMock(clock);
+      if (FeeQuoteRepository == null || feeQuoteRepositoryMock != null)
+      {
+        throw new Exception("Invalid startup used.");
+      }
+      if (feeFileName != null)
+      {
+        feeQuoteMock.FeeFileName = feeFileName;
+      }
+      FeeQuoteRepositoryPostgres.EmptyRepository(DbConnectionStringDDL);
+      foreach (var feeQuote in feeQuoteMock.GetAllFeeQuotes())
+      {
+        var insertedFee = await FeeQuoteRepository.InsertFeeQuoteAsync(feeQuote);
+        if (insertedFee == null)
         {
-          throw new Exception("Can not insert test fee quote with policies.");
+          throw new Exception("Problem with insert feeQuote");
         }
       }
     }
@@ -501,5 +566,39 @@ namespace MerchantAPI.APIGateway.Test.Functional
       loggerTest.LogInformation($"The following wait for event completed successfully: {description}");
     }
 
+    protected async Task AssertTxStatus(string txHash, int expectedTxStatus)
+    {
+      int txStatus;
+      if (TxRepositoryPostgres != null)
+      {
+        txStatus = await TxRepositoryPostgres.GetTransactionStatusAsync(new uint256(txHash).ToBytes());
+      }
+      else
+      {
+        txStatus = await txRepositoryMock.GetTransactionStatusAsync(new uint256(txHash).ToBytes());
+      }
+      Assert.AreEqual(expectedTxStatus, txStatus);
+    }
+
+    protected StringContent GetJsonRequestContent(string txHex, bool merkleProof = false, bool dsCheck = false, string merkleFormat = "", string customCallbackUrl = "")
+    {
+      var reqContent = new StringContent(
+          $"{{ \"rawtx\": \"{txHex}\", \"merkleProof\": {merkleProof.ToString().ToLower()}" +
+          $", \"merkleFormat\": \"{merkleFormat}\", \"dsCheck\": {dsCheck.ToString().ToLower()}, " +
+          $"\"callbackUrl\" : \"{ (string.IsNullOrEmpty(customCallbackUrl) ? CallbackFunctionalTests.Url : customCallbackUrl)}\"}}"
+        );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+      return reqContent;
+    }
+
+    protected async Task CheckHttpResponseMessageDetailAsync(HttpResponseMessage message, string expectedHttpMessage = null)
+    {
+      if (expectedHttpMessage != null)
+      {
+        var json = System.Text.Json.JsonDocument.Parse(await message.Content.ReadAsStringAsync());
+        var details = json.RootElement.GetProperty("detail").GetString();
+        Assert.AreEqual(expectedHttpMessage, details);
+      }
+    }
   }
 }

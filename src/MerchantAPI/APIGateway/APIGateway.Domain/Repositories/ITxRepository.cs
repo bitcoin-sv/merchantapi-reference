@@ -8,11 +8,13 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.APIGateway.Domain.Repositories
 {
-  public interface ITxRepository
+  public interface ITxRepository : IFaultTxRepository
   {
-    Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors);
+    Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false);
 
-    Task<long?> InsertBlockAsync(Block block);
+    Task<long?> InsertOrUpdateBlockAsync(Block block);
+
+    Task<bool> SetOnActiveChainBlockAsync(long blockHeight, byte[] blockHash);
 
     Task InsertTxBlockAsync(IList<long> txInternalId, long blockInternalId);
 
@@ -56,15 +58,21 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     
     Task<Block> GetBlockAsync(byte[] blockHash);
 
-    Task<bool> TransactionExistsAsync(byte[] txId);
-    
+    Task<Tx> GetTransactionAsync(byte[] txId);
+
+    Task<int> GetTransactionStatusAsync(byte[] txId);
+
+    Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null);
+
+    Task UpdateTxStatus(IList<byte[]> txExternalIds, int txstatus);
+
     Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch);
 
     Task<byte[]> GetDoublespendTxPayloadAsync(string notificationType, long txInternalId);
 
     Task<long?> GetTransactionInternalIdAsync(byte[] txId);
 
-    Task<(int blocks, long txs)> CleanUpTxAsync(DateTime fromDate);
+    Task<(int blocks, long txs, int mempoolTxs)> CleanUpTxAsync(DateTime fromDate, DateTime mempoolExpiredDate);
 
     Task<PrevTxOutput> GetPrevOutAsync(byte[] prevOutTxId, long prevOutN);
 
@@ -73,5 +81,9 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
     Task<Block[]> GetUnparsedBlocksAsync();
 
     Task<bool> CheckIfBlockWasParsedAsync(long blockInternalId);
+
+    Task<Tx[]> GetTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes);
+
+    Task<int> DeleteTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes);
   }
 }

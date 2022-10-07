@@ -193,6 +193,5 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
 
       return CreatedAtAction(nameof(GetFeeQuoteById), new { id = returnResult.Id }, returnResult);
     }
-
   }
 }

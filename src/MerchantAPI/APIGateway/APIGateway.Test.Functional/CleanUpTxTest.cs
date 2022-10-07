@@ -2,6 +2,7 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain;
+using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Test.Functional.CleanUpTx;
 using MerchantAPI.Common.Json;
@@ -23,6 +24,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
   {
     readonly int cancellationTimeout = 30000; // 30 seconds
     int cleanUpTxAfterDays;
+    int cleanUpTxAfterMempoolExpiredDays;
     CleanUpTxWithPauseHandlerForTest cleanUpTxService;
 
     [TestInitialize]
@@ -32,6 +34,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       cleanUpTxService = server.Services.GetRequiredService<CleanUpTxWithPauseHandlerForTest>();
       cleanUpTxAfterDays = AppSettings.CleanUpTxAfterDays.Value;
+      cleanUpTxAfterMempoolExpiredDays = AppSettings.CleanUpTxAfterMempoolExpiredDays.Value;
     }
 
     [TestCleanup]
@@ -133,8 +136,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     private async Task CheckTxListNotPresentInDbAsync(List<Tx> txList)
     {
-      await CheckTxNotPresentInDbAsync(Tx1Hash, txList[0].TxInternalId);
-      await CheckTxNotPresentInDbAsync(Tx2Hash, txList[1].TxInternalId);
+      foreach(var tx in txList)
+      {
+        await CheckTxNotPresentInDbAsync(tx.TxExternalId.ToString(), tx.TxInternalId);
+      }
     }
 
     private async Task CheckBlockNotPresentInDb(uint256 blockHash)
@@ -168,23 +173,47 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     }
 
-
+    [DataRow(TxStatus.NodeRejected)]
+    [DataRow(TxStatus.SentToNode)]
+    [DataRow(TxStatus.UnknownOldTx)]
+    [DataRow(TxStatus.Accepted)]
+    [DataRow(TxStatus.MissingInputsMaxRetriesReached)]
     [TestMethod]
-    public async Task TxWithoutBlockCheckCleanUp()
+    public async Task TxWithoutBlockCheckCleanUp(int txStatus)
     {
       //arrange
       cleanUpTxService.Pause();
       var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
-      (List<Tx> txList, _) = await CreateAndInsertTxWithMempoolAsync(addBlocks: false);
+
+      var txList = await CreateAndInsertTxAsync(false, false, txStatus: txStatus);
 
       using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterDays)))
       {
         await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
 
-        // check if everything in db was cleared
-        await CheckTxListNotPresentInDbAsync(txList);
+        if (txStatus == TxStatus.Accepted)
+        {
+          await CheckTxListPresentInDbAsync(txList, false);
+        }
+        else
+        {
+          await CheckTxListNotPresentInDbAsync(txList);
+        }
+
+        cleanUpTxService.Pause();
       }
 
+      // we clean up txs with mempool status later
+      if (txStatus == TxStatus.Accepted)
+      {
+        using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))
+        {
+          await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
+
+          // check if everything in db was cleared
+          await CheckTxListNotPresentInDbAsync(txList);
+        }
+      }
     }
 
     [TestMethod]
@@ -258,13 +287,19 @@ namespace MerchantAPI.APIGateway.Test.Functional
       {
         await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
 
-        // check if everything in db was cleared
+        // check if everything on active chain was cleared
         await CheckBlockNotPresentInDb(firstBlockHash);
-        await CheckTxListNotPresentInDbAsync(txList);
+        await CheckTxListNotPresentInDbAsync(txList.Where(x => x.TxExternalId != new uint256(Tx2Hash)).ToList());
+        await CheckTxPresentInDbAsync(Tx2Hash);
       }
 
-    }
+      using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))
+      {
+        await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
 
+        await CheckTxListNotPresentInDbAsync(txList.Where(x => x.TxExternalId == new uint256(Tx2Hash)).ToList());
+      }
+    }
 
 
     [TestMethod]
@@ -279,8 +314,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var doubleSpendTx = Transaction.Parse(Tx2Hex, Network.Main);
       List<byte[]> dsTxId = new()
       {
-          doubleSpendTx.GetHash().ToBytes()
-        };
+        doubleSpendTx.GetHash().ToBytes()
+      };
       var txsWithDSCheck = (await TxRepositoryPostgres.GetTxsForDSCheckAsync(dsTxId, true)).ToArray();
 
       var txPayload = HelperTools.HexStringToByteArray(tx2Hex);
@@ -290,6 +325,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
           dsTx.TxInternalId,
           dsTx.TxExternalIdBytes,
           txPayload);
+        Assert.AreEqual(TxStatus.Accepted, await TxRepositoryPostgres.GetTransactionStatusAsync(dsTx.TxExternalIdBytes));
       }
       var doubleSpends = (await TxRepositoryPostgres.GetTxsToSendMempoolDSNotificationsAsync()).ToList();
       Assert.AreEqual(1, doubleSpends.Count);
@@ -310,8 +346,54 @@ namespace MerchantAPI.APIGateway.Test.Functional
         await CheckBlockNotPresentInDb(firstBlockHash);
         await CheckTxListNotPresentInDbAsync(txList);
       }
-
     }
 
+    [TestMethod]
+    public async Task TestCleanUpWhenResubmitInProcess()
+    {
+      //arrange
+      cleanUpTxService.Pause();
+      var cleanUpTxTriggeredSubscription = EventBus.Subscribe<CleanUpTxTriggeredEvent>();
+
+      Assert.IsNotNull(FeeQuoteRepository.GetFeeQuoteById(1));
+      List<Tx> txList = await CreateAndInsertTxAsync(false, false, 3, txStatus: TxStatus.Accepted);
+
+      var mapi = server.Services.GetRequiredService<IMapi>();
+      var mempoolCalledAt = MockedClock.UtcNow;
+      var mempoolTxs = Array.Empty<string>();
+      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
+      Assert.AreEqual(3, txs.Length);
+
+      //act
+      using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))
+      {
+        await ResumeAndWaitForCleanup(cleanUpTxTriggeredSubscription);
+
+        // check if everything in db was cleared
+        await CheckTxListNotPresentInDbAsync(txList);
+
+        // we consider all txs were successfully submitted to node
+        // but cleanupTx BG service deleted them before update on database
+        // we should get no errors even if we try to update txs that are no longer present
+        await TxRepositoryPostgres.UpdateTxsOnResubmitAsync(null, txs.Select(x => new Tx
+        {
+          // on resubmit we only update submittedAt and txStatus
+          TxInternalId = x.TxInternalId,
+          TxExternalId = x.TxExternalId,
+          SubmittedAt = MockedClock.UtcNow,
+          TxStatus = x.TxStatus,
+          PolicyQuoteId = x.PolicyQuoteId,
+          UpdateTx = Tx.UpdateTxMode.TxStatusAndResubmittedAt
+        }).ToList());
+
+        // update of txsWithMissingInputs should also not raise any error
+        await TxRepositoryPostgres.UpdateTxsOnResubmitAsync(null, txs.Select(x => new Tx
+        {
+          TxInternalId = x.TxInternalId,
+          SubmittedAt = MockedClock.UtcNow,
+          TxStatus = TxStatus.MissingInputsMaxRetriesReached
+        }).ToList());
+      }
+    }
   }
 }

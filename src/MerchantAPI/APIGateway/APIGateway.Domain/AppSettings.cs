@@ -119,7 +119,7 @@ namespace MerchantAPI.APIGateway.Domain
     
     public MinerIdServer MinerIdServer { get; set; }
 
-    public int? MaxBlockChainLengthForFork { get; set; } = 288;
+    public int? MaxBlockChainLengthForFork { get; set; } = 432;
 
     [Range(1, int.MaxValue)]
     public int? ZmqConnectionTestIntervalSec { get; set; } = 60;
@@ -135,8 +135,25 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(1, int.MaxValue)]
     public int? CleanUpTxAfterDays { get; set; } = 3;
 
+    [Range(1, int.MaxValue)]
+    public int? CleanUpTxAfterMempoolExpiredDays { get; set; } = 14;
+
     [Range(600, int.MaxValue)]
     public int? CleanUpTxPeriodSec { get; set; } = 3600;
+
+    public bool? MempoolCheckerDisabled { get; set; } = false;
+
+    [Range(10, int.MaxValue)]
+    public int? MempoolCheckerIntervalSec { get; set; } = 60;
+
+    [Range(1, int.MaxValue)]
+    public int? MempoolCheckerUnsuccessfulIntervalSec { get; set; } = 10;
+
+    [Range(0, int.MaxValue)]
+    public int? MempoolCheckerBlockParserQueuedMax { get; set; } = 0;
+
+    [Range(0, int.MaxValue)]
+    public int? MempoolCheckerMissingInputsRetries { get; set; } = 5;
 
     [Range(1, int.MaxValue)]
     public int DSHostBanTimeSec { get; set; }
@@ -169,6 +186,8 @@ namespace MerchantAPI.APIGateway.Domain
     public bool? DontInsertTransactions { get; set; } = false;
 
     public bool? ResubmitKnownTransactions { get; set; } = false;
+
+    public bool? EnableFaultInjection { get; set; } = false;
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>
@@ -211,6 +230,11 @@ namespace MerchantAPI.APIGateway.Domain
             return ValidateOptionsResult.Fail(error);
           }
         }
+      }
+      if (options.MempoolCheckerUnsuccessfulIntervalSec >= options.MempoolCheckerIntervalSec)
+      {
+        return ValidateOptionsResult.Fail(
+  $"Invalid configuration - {nameof(AppSettings.MempoolCheckerUnsuccessfulIntervalSec)} must be smaller than {nameof(AppSettings.MempoolCheckerIntervalSec)}.");
       }
       if (options.Notification == null)
       {

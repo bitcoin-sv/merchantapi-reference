@@ -5,6 +5,7 @@ using Dapper;
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Cache;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.Json;
@@ -13,23 +14,27 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NBitcoin;
 using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using static MerchantAPI.APIGateway.Domain.Faults;
 using Block = MerchantAPI.APIGateway.Domain.Models.Block;
 
 namespace MerchantAPI.APIGateway.Infrastructure.Repositories
 {
   public class TxRepositoryPostgres : PostgresRepository, ITxRepository
   {
-    private readonly PrevTxOutputCache prevTxOutputCache;
+    readonly IFaultInjection faultInjection;
+    readonly PrevTxOutputCache prevTxOutputCache;
     readonly ILogger<TxRepositoryPostgres> logger;
 
-    public TxRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock, PrevTxOutputCache prevTxOutputCache, ILogger<TxRepositoryPostgres> logger)
+    public TxRepositoryPostgres(IOptions<AppSettings> appSettings, IConfiguration configuration, IClock clock, IFaultInjection faultInjection, PrevTxOutputCache prevTxOutputCache, ILogger<TxRepositoryPostgres> logger)
       : base(appSettings, configuration, clock)
     {
+      this.faultInjection = faultInjection ?? throw new ArgumentNullException(nameof(faultInjection));
       this.prevTxOutputCache = prevTxOutputCache ?? throw new ArgumentNullException(nameof(prevTxOutputCache));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -43,28 +48,51 @@ namespace MerchantAPI.APIGateway.Infrastructure.Repositories
       connection.Execute(cmdText, null);
     }
 
-    public async Task<long?> InsertBlockAsync(Block block)
+    public async Task<long?> InsertOrUpdateBlockAsync(Block block)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
-
       string cmdText = @"
+UPDATE Block SET onActiveChain=false WHERE blockHeight=@blockHeight AND blockhash <> @blockHash;
 INSERT INTO Block (blockTime, blockHash, prevBlockHash, blockHeight, onActiveChain)
 VALUES (@blockTime, @blockHash, @prevBlockHash, @blockHeight, @onActiveChain)
 ON CONFLICT (blockHash) DO NOTHING
 RETURNING blockInternalId;
 ";
-      var blockInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new 
-        { 
-          blockTime = block.BlockTime, 
-          blockHash = block.BlockHash,
-          prevBlockHash = block.PrevBlockHash, 
-          blockHeight = block.BlockHeight, 
-          onActiveChain = block.OnActiveChain
-        });
+
+      var blockInternalId = await connection.ExecuteScalarAsync<long?>(cmdText, new
+      {
+        blockTime = block.BlockTime,
+        blockHash = block.BlockHash,
+        prevBlockHash = block.PrevBlockHash,
+        blockHeight = block.BlockHeight,
+        onActiveChain = block.OnActiveChain
+      });
       await transaction.CommitAsync();
 
       return blockInternalId;
+    }
+
+    public async Task<bool> SetOnActiveChainBlockAsync(long blockHeight, byte[] blockHash)
+    {
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+WITH updated as
+(UPDATE Block SET onActiveChain=false WHERE blockHeight=@blockHeight AND blockhash <> @blockHash RETURNING blockinternalid),
+ updated2 as
+(UPDATE Block SET onActiveChain=true WHERE blockHeight=@blockHeight AND blockhash= @blockHash AND onActiveChain=false RETURNING blockinternalid)
+SELECT 1 from updated LEFT JOIN updated2 on updated.blockinternalid = updated2.blockinternalid
+";
+
+      var updated = await connection.ExecuteScalarAsync<int?>(cmdText, new
+      {
+        blockHeight,
+        blockHash
+      });
+      await transaction.CommitAsync();
+      return updated == 1;
     }
 
     public async Task<int> InsertBlockDoubleSpendAsync(long txInternalId, byte[] blockhash, byte[] dsTxId, byte[] dsTxPayload)
@@ -155,7 +183,8 @@ SELECT t.txInternalId, bin.blockInternalId, bin.txExternalId
 FROM tx t 
 INNER JOIN TxInput tin ON tin.txInternalId = t.txInternalId 
 INNER JOIN BlockTxsWithInputs bin ON tin.prev_n = bin.prev_n and tin.prevTxId = bin.prevTxId
-WHERE t.txExternalId <> bin.txExternalId;
+WHERE t.txExternalId <> bin.txExternalId
+ON CONFLICT (txInternalId, blockInternalId, dsTxId) DO NOTHING
 ";
 
         await transaction.Connection.ExecuteAsync(cmdInsertDS);
@@ -177,14 +206,15 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 ";
 
       var count = await connection.ExecuteAsync(cmdText, new { txInternalId, dsTxId, dsTxPayload });
+
       await transaction.CommitAsync();
 
       return count;
     }
 
     private static void AddToTxImporter(NpgsqlBinaryImporter txImporter, long txInternalId, byte[] txExternalId, byte[] txPayload, DateTime? receivedAt, string callbackUrl,
-                                 string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck, 
-                                 long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor)
+                                 string callbackToken, string callbackEncryption, bool? merkleProof, string merkleFormat, bool? dsCheck,
+                                 long? n, byte[] prevTxId, long? prevN, bool unconfirmedAncestor, int txstatus, DateTime submittedAt, long? policyQuoteId, bool okToMine, bool setPolicyQuote)
     {
       txImporter.StartRow();
 
@@ -202,17 +232,35 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
       txImporter.Write((object)prevTxId ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bytea);
       txImporter.Write((object)prevN ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bigint);
       txImporter.Write((object)unconfirmedAncestor ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Boolean);
+      txImporter.Write(txstatus, NpgsqlTypes.NpgsqlDbType.Smallint);
+      txImporter.Write(submittedAt, NpgsqlTypes.NpgsqlDbType.Timestamp);
+      txImporter.Write((object)policyQuoteId ?? DBNull.Value, NpgsqlTypes.NpgsqlDbType.Bigint);
+      txImporter.Write(okToMine, NpgsqlTypes.NpgsqlDbType.Boolean);
+      txImporter.Write(setPolicyQuote, NpgsqlTypes.NpgsqlDbType.Boolean);
     }
 
-    public async Task InsertTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors)
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
+    {
+      return await InsertOrUpdateTxsAsync(null, transactions, areUnconfirmedAncestors, insertTxInputs, returnInsertedTransactions);
+    }
+
+    public async Task<byte[][]> InsertOrUpdateTxsAsync(Faults.DbFaultComponent? faultComponent, IList<Tx> transactions, bool areUnconfirmedAncestors, bool insertTxInputs = true, bool returnInsertedTransactions = false)
     {
       if (transactions.Count == 0)
-        return;
+      {
+        return Array.Empty<byte[]>();
+      }
 
       if (transactions.Count == 1)
       {
-        await InsertSingleTxAsync(transactions.Single(), areUnconfirmedAncestors);
-        return;
+        var success = await InsertOrUpdateSingleTxAsync(faultComponent, transactions.Single(), areUnconfirmedAncestors, insertTxInputs);
+        if (returnInsertedTransactions && success)
+        {
+          var successfulTx = new byte[1][];
+          successfulTx[0] = transactions.First().TxExternalIdBytes;
+          return successfulTx;
+        }
+        return Array.Empty<byte[]>();
       }
 
       using var connection = await GetDbConnectionAsync();
@@ -224,14 +272,14 @@ ON CONFLICT (txInternalId, dsTxId) DO NOTHING;
 SELECT NEXTVAL('tx_txinternalid_seq') 
 FROM generate_series(1, @transactionsCount)
 ";
-      long[] internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count })).ToArray();
+      long[] internalIds = (await connection.QueryAsync<long>(cmdGenerateIds, new { transactionsCount = transactions.Count(x => x.UpdateTx ==  Tx.UpdateTxMode.Insert) })).ToArray();
 
       using var transaction = await connection.BeginTransactionAsync();
 
       string cmdTempTable = @"
 CREATE TEMPORARY TABLE TxTemp (
 		txInternalId    BIGINT			NOT NULL,
-		txExternalId    BYTEA			NOT NULL,
+		txExternalId    BYTEA,
 		txPayload			  BYTEA,
 		receivedAt			TIMESTAMP,
 		callbackUrl			VARCHAR(1024),    
@@ -243,27 +291,32 @@ CREATE TEMPORARY TABLE TxTemp (
 		n					      BIGINT,
 		prevTxId			  BYTEA,
 		prev_n				  BIGINT,
-    unconfirmedAncestor BOOLEAN
+    unconfirmedAncestor BOOLEAN,
+    txstatus SMALLINT NOT NULL,
+    submittedAt TIMESTAMP,
+    policyQuoteId BIGINT,
+    okToMine BOOLEAN,
+    setPolicyQuote BOOLEAN
 ) ON COMMIT DROP;
 ";
       await transaction.Connection.ExecuteAsync(cmdTempTable);
 
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxTemp (txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, 
-                                                                                      merkleProof, merkleFormat, dsCheck, n, prevTxId, prev_n, unconfirmedAncestor) FROM STDIN (FORMAT BINARY)"))
+                                                                                      merkleProof, merkleFormat, dsCheck, n, prevTxId, prev_n, unconfirmedAncestor, txstatus, submittedAt, policyQuoteId, okToMine, setPolicyQuote) FROM STDIN (FORMAT BINARY)"))
       {
+        int internalIdIndex = 0;
         for (int txIndex = 0; txIndex < transactions.Count; txIndex++)
         {
           var tx = transactions[txIndex];
-          var txInternalId = internalIds[txIndex];
+          var txInternalId = tx.UpdateTx != Tx.UpdateTxMode.Insert ? tx.TxInternalId : internalIds[internalIdIndex++];
           AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, tx.TxPayload, tx.ReceivedAt, tx.CallbackUrl, tx.CallbackToken, tx.CallbackEncryption,
-                          tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors);
-          if (tx.DSCheck || areUnconfirmedAncestors)
+              tx.MerkleProof, tx.MerkleFormat, tx.DSCheck, null, null, null, areUnconfirmedAncestors, tx.TxStatus, tx.SubmittedAt, tx.PolicyQuoteId, tx.OkToMine, tx.SetPolicyQuote);
+          if (insertTxInputs && (tx.DSCheck || areUnconfirmedAncestors))
           {
             int n = 0;
             foreach (var txIn in tx.TxIn)
             {
-              AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false);
-              CachePrevOut(txInternalId, tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
+              AddToTxImporter(txImporter, txInternalId, tx.TxExternalIdBytes, null, null, null, null, null, null, null, null, areUnconfirmedAncestors ? n : txIn.N, txIn.PrevTxId, txIn.PrevN, false, tx.TxStatus, tx.SubmittedAt, null, false, false);
               n++;
             }
           }
@@ -272,13 +325,32 @@ CREATE TEMPORARY TABLE TxTemp (
         await txImporter.CompleteAsync();
       }
 
-
-      string cmdText = @"
-INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor)
-SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor
+      // tx has old txstatus, txTemp has new value
+      // when tx has successful status, we should only change submittedAt and txStatus
+      string cmdText = @$"
+UPDATE Tx
+SET submittedAt = TxTemp.submittedAt, txStatus = TxTemp.txStatus
 FROM TxTemp 
-WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId) "
+WHERE Tx.txExternalId = TxTemp.txExternalId AND 
+TxTemp.txPayload IS NOT NULL AND 
+Tx.txStatus >= { TxStatus.SentToNode };
+UPDATE Tx
+SET txPayload = TxTemp.txPayload, callbackUrl = TxTemp.callbackUrl, callbackToken = TxTemp.callbackToken, 
+callbackEncryption = TxTemp.callbackEncryption, merkleProof = TxTemp.merkleProof, merkleFormat = TxTemp.merkleFormat, 
+dsCheck = TxTemp.dsCheck, unconfirmedAncestor = TxTemp.unconfirmedAncestor, submittedAt = TxTemp.submittedAt, 
+txstatus = TxTemp.txstatus, policyQuoteId = TxTemp.policyQuoteId, okToMine = TxTemp.okToMine, setPolicyQuote = TxTemp.setPolicyQuote 
+FROM TxTemp 
+WHERE Tx.txExternalId = TxTemp.txExternalId AND 
+TxTemp.txPayload IS NOT NULL AND
+Tx.txStatus < { TxStatus.SentToNode };
+"
 ;
+      cmdText += @"
+INSERT INTO Tx(txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
+SELECT txInternalId, txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote
+FROM TxTemp WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId) "
+;
+
       if (areUnconfirmedAncestors)
       {
         cmdText += @"
@@ -288,43 +360,100 @@ WHERE NOT EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId) 
       else
       {
         cmdText += @"
-  AND txPayload IS NOT NULL;
+ AND txPayload IS NOT NULL
+ON CONFLICT (txExternalId) DO NOTHING
+RETURNING txExternalId;
 ";
       }
 
-      cmdText += @"
-INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
-SELECT txInternalId, n, prevTxId, prev_n
-FROM TxTemp
-WHERE EXISTS (Select 1 From Tx Where Tx.txExternalId = TxTemp.txExternalId AND Tx.txInternalId = TxTemp.txInternalId)
-";
-      if (areUnconfirmedAncestors)
+      if (insertTxInputs)
       {
-        cmdText += @"
-  AND unconfirmedAncestor = false;
-";
+        string condition = areUnconfirmedAncestors ? "AND TxTemp.unconfirmedAncestor = false" : "AND TxTemp.txPayload IS NULL";
+        // todo : check Is TxTemp. necessary here since there is only TxTemp in FROM statement?
+        cmdText += @$"
+INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
+(SELECT txInternalId, n, prevTxId, prev_n
+FROM TxTemp 
+WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxTemp.txInternalId) 
+AND TxTemp.txInternalId > 0 { condition })
+ON CONFLICT (txInternalId, n) DO NOTHING;
+
+INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
+(SELECT tx1.txInternalId, TxTemp.n, TxTemp.prevTxId, TxTemp.prev_n
+FROM TxTemp 
+JOIN Tx tx1 ON TxTemp.txExternalid = tx1.txExternalid AND TxTemp.txInternalId = 0 { condition })
+ON CONFLICT (txInternalId, n) DO NOTHING;";
+      }
+      await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
+
+      var inserted = Array.Empty<byte[]>();
+      if (returnInsertedTransactions)
+      {
+        inserted = (await transaction.Connection.QueryAsync<byte[]>(cmdText)).ToArray();
       }
       else
       {
-        cmdText += @"
-  AND txPayload IS NULL;
-";
+        await transaction.Connection.ExecuteAsync(cmdText);
       }
-      await transaction.Connection.ExecuteAsync(cmdText);
+
       await transaction.CommitAsync();
+
+      await faultInjection.FailAfterSavingUncommittedStateAsync(faultComponent);
+
+      foreach (var tx in transactions)
+      {
+        if (insertTxInputs && (tx.DSCheck || areUnconfirmedAncestors))
+        {
+          int n = 0;
+          foreach (var txIn in tx.TxIn)
+          {
+            CachePrevOut(tx.TxExternalIdBytes, areUnconfirmedAncestors ? n : txIn.N);
+            n++;
+          }
+        }
+      }
+
+      return inserted;
     }
 
-    private async Task InsertSingleTxAsync(Tx tx, bool isUnconfirmedAncestor)
+    private async Task<bool> InsertOrUpdateSingleTxAsync(Faults.DbFaultComponent? faultComponent, Tx tx, bool isUnconfirmedAncestor, bool insertTxInputs)
     {
       using var connection = await GetDbConnectionAsync();
       using var transaction = await connection.BeginTransactionAsync();
 
-      string cmdText = @"
-INSERT INTO Tx(txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor)
-VALUES (@txExternalId, @txPayload, @receivedAt, @callbackUrl, @callbackToken, @callbackEncryption, @merkleProof, @merkleFormat, @dsCheck, @unconfirmedAncestor)
+      string cmdText;
+      if (tx.UpdateTx == Tx.UpdateTxMode.Insert)
+      {
+        cmdText = @"
+INSERT INTO Tx(txExternalId, txPayload, receivedAt, callbackUrl, callbackToken, callbackEncryption, merkleProof, merkleFormat, dsCheck, unconfirmedAncestor, submittedAt, txstatus, policyQuoteId, okToMine, setPolicyQuote)
+VALUES (@txExternalId, @txPayload, @receivedAt, @callbackUrl, @callbackToken, @callbackEncryption, @merkleProof, @merkleFormat, @dsCheck, @unconfirmedAncestor, @submittedAt, @txstatus, @policyQuoteId, @okToMine, @setPolicyQuote)
 ON CONFLICT (txExternalId) DO NOTHING
 RETURNING txInternalId;
 ";
+      }
+      else if (tx.UpdateTx == Tx.UpdateTxMode.TxStatusAndResubmittedAt)
+      {
+        cmdText = @$"
+UPDATE Tx
+SET submittedAt = @submittedAt, txStatus = @txStatus
+WHERE txExternalId = @txExternalId AND 
+Tx.txStatus >= { TxStatus.SentToNode }
+RETURNING txInternalId;
+";
+      }
+      else
+      {
+        cmdText = @$"
+UPDATE Tx
+SET txPayload = @txPayload, callbackUrl = @callbackUrl, callbackToken = @callbackToken, 
+callbackEncryption = @callbackEncryption, merkleProof = @merkleProof, merkleFormat = @merkleFormat, 
+dsCheck = @dsCheck, unconfirmedAncestor = @unconfirmedAncestor, policyQuoteId = @policyQuoteId, 
+submittedAt = @submittedAt, txStatus = @txStatus, okToMine = @okToMine, setPolicyQuote = @setPolicyQuote
+WHERE Tx.txExternalId = @txExternalId AND 
+Tx.txStatus < { TxStatus.SentToNode }
+RETURNING txInternalId;
+";
+      }
       var txInternalId = await connection.ExecuteScalarAsync<long>(cmdText, new
       {
         txExternalId = tx.TxExternalIdBytes,
@@ -336,17 +465,23 @@ RETURNING txInternalId;
         merkleProof = tx.MerkleProof,
         merkleFormat = tx.MerkleFormat,
         dsCheck = tx.DSCheck,
-        unconfirmedAncestor = isUnconfirmedAncestor
+        unconfirmedAncestor = isUnconfirmedAncestor,
+        txstatus = tx.TxStatus,
+        submittedAt = tx.SubmittedAt,
+        policyQuoteId = tx.PolicyQuoteId,
+        okToMine = tx.OkToMine,
+        setPolicyQuote = tx.SetPolicyQuote
       });
 
-      if (txInternalId > 0 && tx.DSCheck)
+      if (txInternalId > 0 && insertTxInputs && (tx.DSCheck || isUnconfirmedAncestor))
       {
         int n = 0;
         foreach (var txIn in tx.TxIn)
         {
           cmdText = @"
 INSERT INTO TxInput(txInternalId, n, prevTxId, prev_n)
-VALUES (@txInternalId, @n, @prevTxId, @prev_n);
+VALUES (@txInternalId, @n, @prevTxId, @prev_n)
+ON CONFLICT(txInternalId, n) DO NOTHING
 ";
           await connection.ExecuteAsync(cmdText, new
           {
@@ -355,11 +490,90 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
             prevTxId = txIn.PrevTxId,
             prev_n = txIn.PrevN
           });
-          CachePrevOut(txInternalId, tx.TxExternalIdBytes, isUnconfirmedAncestor ? n : txIn.N);
+          CachePrevOut(tx.TxExternalIdBytes, isUnconfirmedAncestor ? n : txIn.N);
           n++;
         }
       }
+
+      await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
+
       await transaction.CommitAsync();
+
+      await faultInjection.FailAfterSavingUncommittedStateAsync(faultComponent);
+
+      return txInternalId > 0;
+    }
+
+    public async Task UpdateTxsOnResubmitAsync(DbFaultComponent? faultComponent, IList<Tx> transactions)
+    {
+      using var connection = await GetDbConnectionAsync();
+
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText;
+
+      if (transactions.Count == 0)
+      {
+        return;
+      }
+      else if (transactions.Count == 1)
+      {
+        var tx = transactions.Single();
+        cmdText = @"
+UPDATE Tx
+SET submittedAt = @submittedAt, txstatus = @txstatus
+WHERE txInternalId = @txInternalId; "
+;
+        await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
+
+        await transaction.Connection.ExecuteAsync(cmdText, new
+        {
+          txInternalId = tx.TxInternalId,
+          submittedAt = tx.SubmittedAt,
+          txstatus = tx.TxStatus
+        });
+      }
+      else
+      {
+        string cmdTempTable = @"
+CREATE TEMPORARY TABLE TxResubmitTemp (
+  txInternalId    BIGINT			NOT NULL,
+  txstatus SMALLINT,
+  submittedAt TIMESTAMP
+) ON COMMIT DROP;
+";
+        string cmdCopyToTemp = @"COPY TxResubmitTemp (txInternalId, txstatus, submittedAt) FROM STDIN (FORMAT BINARY)";
+
+        await transaction.Connection.ExecuteAsync(cmdTempTable);
+
+        using (var txImporter = transaction.Connection.BeginBinaryImport(cmdCopyToTemp))
+        {
+          foreach (var tx in transactions)
+          {
+            txImporter.StartRow();
+
+            txImporter.Write(tx.TxInternalId, NpgsqlTypes.NpgsqlDbType.Bigint);
+            txImporter.Write(tx.TxStatus, NpgsqlTypes.NpgsqlDbType.Smallint);
+            txImporter.Write(tx.SubmittedAt, NpgsqlTypes.NpgsqlDbType.Timestamp);
+          }
+
+          await txImporter.CompleteAsync();
+        }
+
+        cmdText = @"
+UPDATE Tx
+SET submittedAt = TxResubmitTemp.submittedAt, txstatus = TxResubmitTemp.txstatus
+FROM TxResubmitTemp
+WHERE EXISTS (Select 1 From Tx Where Tx.txInternalId = TxResubmitTemp.txInternalId); ";
+
+        await faultInjection.FailBeforeSavingUncommittedStateAsync(faultComponent);
+
+        await transaction.Connection.ExecuteAsync(cmdText);
+      }
+
+      await transaction.CommitAsync();
+
+      await faultInjection.FailAfterSavingUncommittedStateAsync(faultComponent);
     }
 
     public async Task InsertTxBlockAsync(IList<long> txInternalIds, long blockInternalId)
@@ -369,7 +583,7 @@ VALUES (@txInternalId, @n, @prevTxId, @prev_n);
 
       using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY TxBlock (txInternalId, blockInternalId) FROM STDIN (FORMAT BINARY)"))
       {
-        foreach(var txId in txInternalIds)
+        foreach (var txId in txInternalIds)
         {
           txImporter.StartRow();
 
@@ -409,7 +623,7 @@ INNER JOIN Tx ON t.txinternalid = tx.txinternalid
 WHERE t.DsTxPayload IS NULL
   AND Tx.UnconfirmedAncestor = @unconfirmedAncestors;
 ";
-      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText, new { unconfirmedAncestors } );
+      return await connection.QueryAsync<(byte[] dsTxId, byte[] TxId)>(cmdText, new { unconfirmedAncestors });
     }
 
     public async Task InsertBlockDoubleSpendForAncestorAsync(byte[] ancestorTxId)
@@ -503,7 +717,7 @@ OFFSET @skip ROWS
 FETCH NEXT @fetch ROWS ONLY;
 ";
 
-      return await connection.QueryAsync<NotificationData>(cmdText, new { skip, fetch} );
+      return await connection.QueryAsync<NotificationData>(cmdText, new { skip, fetch });
     }
 
     public async Task<NotificationData> GetTxToSendMerkleProofNotificationAsync(byte[] txId)
@@ -532,10 +746,10 @@ WHERE sentMerkleProofAt IS NULL AND Tx.merkleproof = true AND txExternalId= @txI
     {
       using var connection = await GetDbConnectionAsync();
 
-      string cmdText = @"
+      string cmdText = @$"
 SELECT txInternalId, txExternalId TxExternalIdBytes, merkleProof
 FROM Tx
-WHERE NOT EXISTS 
+WHERE txstatus={ TxStatus.Accepted }  AND NOT EXISTS
 (
   WITH RECURSIVE ancestorBlocks AS 
   (
@@ -568,10 +782,10 @@ WHERE NOT EXISTS
     {
       var distinctItems = new HashSet<TxWithInput>(txWithInputs.Distinct().ToArray());
       HashSet<Tx> txSet = new(distinctItems.Select(x =>
-                                                               {
-                                                                  return new Tx(x);
-                                                               }), new TxComparer());
-      txWithInputs.ExceptWith(txSet.Select(x => new TxWithInput { TxExternalId = x.TxExternalId, N = x.TxIn.Single().N}));
+      {
+        return new Tx(x);
+      }), new TxComparer());
+      txWithInputs.ExceptWith(txSet.Select(x => new TxWithInput { TxExternalId = x.TxExternalId, N = x.TxIn.Single().N }));
       foreach (var tx in txWithInputs)
       {
         if (txSet.TryGetValue(new Tx(tx), out var txFromSet))
@@ -582,7 +796,7 @@ WHERE NOT EXISTS
       return txSet.ToList();
 
     }
-       
+
     public async Task<IEnumerable<Tx>> GetTxsForDSCheckAsync(IEnumerable<byte[]> txExternalIds, bool checkDSAttempt)
     {
       using var connection = await GetDbConnectionAsync();
@@ -655,23 +869,109 @@ FROM block b
 WHERE b.blockhash = @blockHash;
 ";
 
-      var block = await connection.QueryFirstOrDefaultAsync<Block>(cmdText, new { blockHash });
+      var block = await connection.QuerySingleOrDefaultAsync<Block>(cmdText, new { blockHash });
       return block;
     }
 
-    public async Task<bool> TransactionExistsAsync(byte[] txId)
+    public async Task<Tx> GetTransactionAsync(byte[] txId)
     {
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
-SELECT true
+SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.merkleproof, tx.merkleformat, tx.dscheck, tx.callbackurl, tx.unconfirmedancestor, tx.txstatus, tx.receivedAt, tx.submittedAt, tx.policyQuoteId, feequote.identity, feequote.identityprovider, feequote.policies, tx.okToMine, tx.setpolicyquote
+FROM tx
+JOIN FeeQuote feeQuote ON feeQuote.id = tx.policyQuoteId
+WHERE tx.txExternalId = @txId
+LIMIT 1;
+";
+      return (await connection.QueryFirstOrDefaultAsync<Tx>(cmdText, new { txId }));
+    }
+
+    public async Task<int> GetTransactionStatusAsync(byte[] txId)
+    {
+      using var connection = await GetDbConnectionAsync();
+
+      string cmdText = @"
+SELECT txstatus
 FROM tx
 WHERE tx.txexternalid = @txId
 LIMIT 1;
 ";
 
-      var foundTx = await connection.ExecuteScalarAsync<bool>(cmdText, new { txId } );
-      return foundTx;
+      var txstatus = await connection.ExecuteScalarAsync<int?>(cmdText, new { txId });
+      return txstatus == null ? TxStatus.NotPresentInDb : txstatus.Value;
+    }
+
+    public async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
+    {
+      using var connection = await GetDbConnectionAsync();
+      return await GetMissingTransactionsAsync(connection, mempoolTxs, resubmittedAt ?? clock.UtcNow());
+    }
+
+    public static async Task<Tx[]> GetMissingTransactionsAsync(NpgsqlConnection connection, string[] mempoolTxs, DateTime resubmittedBefore)
+    {
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdTempTable = @"
+      CREATE TEMPORARY TABLE MempoolTx (
+          txExternalId    BYTEA   NOT NULL
+      ) ON COMMIT DROP;
+      ";
+      await transaction.Connection.ExecuteAsync(cmdTempTable);
+
+      using (var txImporter = transaction.Connection.BeginBinaryImport(@"COPY MempoolTx (txExternalId) FROM STDIN (FORMAT BINARY)"))
+      {
+        foreach (var tx in mempoolTxs)
+        {
+          txImporter.StartRow();
+          txImporter.Write((new uint256(tx)).ToBytes(), NpgsqlTypes.NpgsqlDbType.Bytea);
+        }
+        await txImporter.CompleteAsync();
+      }
+
+      await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
+
+      string cmdText = @$"
+WITH resubmitTxs as
+((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
+FROM tx
+JOIN FeeQuote fq ON fq.id = tx.policyQuoteId
+WHERE txstatus = {TxStatus.Accepted} AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false)
+EXCEPT
+(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
+ FROM Tx
+ INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
+ INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
+ JOIN FeeQuote fq ON fq.id = policyQuoteId
+ WHERE txstatus = {TxStatus.Accepted} 
+AND submittedAt < @resubmittedBefore 
+AND unconfirmedancestor = false 
+AND Block.OnActiveChain = true))
+SELECT * from resubmitTxs
+LEFT JOIN MempoolTx m ON resubmitTxs.TxExternalIdBytes = m.txExternalId
+WHERE m.txExternalId IS NULL
+ORDER BY resubmitTxs.txInternalId
+";
+
+      var txs = await connection.QueryAsync<Tx>(cmdText, new { resubmittedBefore });
+
+      await transaction.CommitAsync();
+
+      return txs.ToArray();
+    }
+
+    public async Task UpdateTxStatus(IList<byte[]> txExternalIds, int txstatus)
+    {
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @"
+UPDATE Tx SET txStatus=@txstatus
+WHERE txExternalId = ANY(@txExternalIds);
+";
+
+      await connection.ExecuteAsync(cmdText, new { txstatus, txExternalIds });
+      await transaction.CommitAsync();
     }
 
     public async Task<List<NotificationData>> GetNotificationsWithErrorAsync(int errorCount, int skip, int fetch)
@@ -714,7 +1014,7 @@ LIMIT @fetch OFFSET @skip
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = "SELECT dsTxPayload";
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           cmdText += " FROM TxBlockDoublespend ";
@@ -735,7 +1035,7 @@ LIMIT @fetch OFFSET @skip
 
     public async Task SetNotificationSendDateAsync(string notificationType, long txInternalId, long blockInternalId, byte[] dsTxId, DateTime sendDate)
     {
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           await SetBlockDoubleSpendSendDateAsync(txInternalId, blockInternalId, dsTxId, sendDate);
@@ -778,7 +1078,8 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId;
     }
 
 
-    public async Task<long?> GetTransactionInternalIdAsync(byte[] txId) {
+    public async Task<long?> GetTransactionInternalIdAsync(byte[] txId)
+    {
       using var connection = await GetDbConnectionAsync();
 
       string cmdText = @"
@@ -802,6 +1103,7 @@ WHERE txInternalId=@txInternalId AND blockInternalId=@blockInternalId AND dsTxId
 ";
 
       await connection.ExecuteAsync(cmdText, new { txInternalId, blockInternalId, dsTxId, sendDate });
+
       await transaction.CommitAsync();
     }
 
@@ -840,7 +1142,7 @@ WHERE blockInternalId=@blockInternalId;
 
       string cmdText = "UPDATE ";
 
-      switch(notificationType)
+      switch (notificationType)
       {
         case CallbackReason.DoubleSpend:
           cmdText += "TxBlockDoublespend ";
@@ -884,7 +1186,7 @@ SET lastErrorAt=@lastErrorAt, lastErrorDescription=@errorMessage, errorCount=0
 WHERE sentMerkleproofAt IS NULL;
 ";
 
-      await connection.ExecuteAsync(cmdText, new { errorMessage="Unprocessed notification from last run", lastErrorAt = clock.UtcNow() });
+      await connection.ExecuteAsync(cmdText, new { errorMessage = "Unprocessed notification from last run", lastErrorAt = clock.UtcNow() });
       await transaction.CommitAsync();
     }
 
@@ -907,13 +1209,12 @@ WHERE sentMerkleproofAt IS NULL;
     {
       PrevTxOutput foundPrevOut;
       lock (prevTxOutputCache)
-      {        
+      {
         prevTxOutputCache.Cache.TryGetValue($"{HelperTools.ByteToHexString(prevOutTxId)}_{prevOutN}", out foundPrevOut);
       }
       if (foundPrevOut == null)
       {
         using var connection = await GetDbConnectionAsync();
-
         string cmdText = @"
 SELECT tx.txInternalId, tx.txExternalId, txinput.n
 FROM tx 
@@ -941,34 +1242,38 @@ AND txinput.n = @prevOutN;
         .SetSlidingExpiration(TimeSpan.FromMinutes(30));
       prevTxOutputCache.Cache.Set<PrevTxOutput>($"{HelperTools.ByteToHexString(prevTxOutput.TxExternalId)}_{prevTxOutput.N}", prevTxOutput, cacheEntryOptions);
     }
-    private void CachePrevOut(long prevOutInternalTxId, byte[] prevOutTxId, long prevOutN)
+
+    private void CachePrevOut(byte[] prevOutTxId, long prevOutN)
     {
-      CachePrevOut(new PrevTxOutput() { TxInternalId = prevOutInternalTxId, TxExternalId = prevOutTxId, N = prevOutN });
+      CachePrevOut(new PrevTxOutput() { TxExternalId = prevOutTxId, N = prevOutN });
     }
 
-    public async Task<(int blocks, long txs)> CleanUpTxAsync(DateTime lastUpdateBefore)
+    public async Task<(int blocks, long txs, int mempoolTxs)> CleanUpTxAsync(DateTime lastUpdateBefore, DateTime mempoolExpiredDate)
     {
       using var connection = await GetDbConnectionAsync();
-      return await CleanUpTxAsync(connection, lastUpdateBefore);
+      return await CleanUpTxAsync(connection, lastUpdateBefore, mempoolExpiredDate, logger);
     }
-    public static async Task<(int, long)> CleanUpTxAsync(NpgsqlConnection connection, DateTime lastUpdateBefore)
+
+    public static async Task<(int blocks, long txs, int mempoolTxs)> CleanUpTxAsync(NpgsqlConnection connection, DateTime lastUpdateBefore, DateTime mempoolExpiredDate, ILogger<TxRepositoryPostgres> logger = null)
     {
       using var transaction = await connection.BeginTransactionAsync();
-
-      var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS
-        (DELETE FROM Block WHERE blocktime < @lastUpdateBefore RETURNING *)
-        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
 
       long txs = 0;
       int deletedTxs = 0;
 
+      // remove blockchain transactions (parsed by blockparser)
       do
       {
         deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
-        @"WITH deleted AS (
+        @$"WITH deleted AS (
           DELETE FROM Tx
-          WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore limit 100000))
+          WHERE txInternalId = any(array(
+           SELECT tx.txInternalId
+           FROM Tx
+           INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
+           INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
+           WHERE Block.OnActiveChain = true AND receivedAt < @lastUpdateBefore AND tx.txstatus = { TxStatus.Accepted }  
+           limit 100000))
           RETURNING txInternalId
         )
         SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
@@ -977,9 +1282,48 @@ AND txinput.n = @prevOutN;
 
       } while (deletedTxs == 100000);
 
+      var blocks = await transaction.Connection.ExecuteScalarAsync<int>(
+      @"WITH deleted AS
+        (DELETE FROM Block WHERE 
+          (Block.OnActiveChain = true AND blocktime < @lastUpdateBefore)
+          OR
+          (Block.OnActiveChain = false AND blocktime < @mempoolExpiredDate)
+        RETURNING *)
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore, mempoolExpiredDate });
+
+      // remove unsuccessful transactions
+      do
+      {
+        deletedTxs = await transaction.Connection.ExecuteScalarAsync<int>(
+        @$"WITH deleted AS (
+          DELETE FROM Tx
+          WHERE txInternalId = any(array(SELECT txInternalId FROM Tx WHERE receivedAt < @lastUpdateBefore AND txstatus <> { TxStatus.Accepted }  limit 100000))
+          RETURNING txInternalId
+        )
+        SELECT COUNT(*) FROM deleted;", new { lastUpdateBefore });
+
+        txs += deletedTxs;
+
+      } while (deletedTxs == 100000);
+
+      var mempoolTxs = (await transaction.Connection.QueryAsync<byte[]>(
+         @$"WITH deleted AS 
+          (DELETE FROM Tx
+          WHERE receivedAt < @mempoolExpiredDate AND txstatus = { TxStatus.Accepted } RETURNING txExternalId)
+          SELECT * FROM deleted;",
+        new { lastUpdateBefore, mempoolExpiredDate })).ToArray();
+
+      // deleted txs with mempool status should be exceptional
+      // (with stress program we should avoid logging, since there can be too much of them)
+      if (logger != null && mempoolTxs.Length > 0)
+      {
+        logger.LogInformation(
+  $"CleanUpTxAsync: deleted { mempoolTxs.Length } mempool transactions: { string.Join("; ", mempoolTxs.Take(1000).Select(x => new uint256(x).ToString()))}");
+      }
+
       await transaction.CommitAsync();
 
-      return new (blocks, txs);
+      return new(blocks, txs, mempoolTxs.Length);
     }
 
     public async Task<NotificationData[]> GetNotificationsForTestsAsync()
@@ -990,8 +1334,11 @@ AND txinput.n = @prevOutN;
 SELECT txinternalid, dstxid DoubleSpendTxId, 'doubleSpendAttempt' notificationtype
 FROM txmempooldoublespendattempt
 UNION ALL
-SELECT txinternalid, null DoubleSpendTxId, 'merkleProof' notificationtype
-FROM txblock
+SELECT tx.txinternalid, null DoubleSpendTxId, 'merkleProof' notificationtype
+FROM Tx
+INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
+INNER JOIN Block ON block .blockinternalid = TxBlock.blockinternalid 
+WHERE sentMerkleProofAt IS NULL AND merkleProof = true
 UNION ALL
 SELECT txinternalid, dstxid DoubleSpendTxId, 'doubleSpend' notificationtype
 FROM txblockdoublespend
@@ -1027,6 +1374,52 @@ SELECT EXISTS
 WHERE blockInternalId=@blockInternalId AND (parsedForMerkleAt IS NOT NULL OR parsedfordsat IS NOT NULL));
 ";
       return await connection.QuerySingleAsync<bool>(cmdText, new { blockInternalId });
+    }
+
+    public async Task<Tx[]> GetTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes)
+    {
+      if (!feeQuotes.Any())
+      {
+        return Array.Empty<Tx>();
+      }
+      var feeQuotesIds = feeQuotes.Select(x => x.Id).ToArray();
+      using var connection = await GetDbConnectionAsync();
+
+      string cmdText = @$"
+SELECT txInternalId, txExternalId TxExternalIdBytes, policyQuoteId
+FROM Tx WHERE TxStatus = { TxStatus.SentToNode } AND PolicyQuoteId = ANY(@feeQuotesIds);";
+
+
+      var txs = await connection.QueryAsync<Tx>(cmdText, new
+      {
+        feeQuotesIds
+      });
+
+      return txs.ToArray();
+    }
+
+    public async Task<int> DeleteTxsWithFeeQuotesAsync(FeeQuote[] feeQuotes)
+    {
+      if (!feeQuotes.Any())
+      {
+        return 0;
+      }
+      var feeQuotesIds = feeQuotes.Select(x => x.Id).ToArray();
+      using var connection = await GetDbConnectionAsync();
+      using var transaction = await connection.BeginTransactionAsync();
+
+      string cmdText = @$"
+WITH deleted AS
+(DELETE FROM Tx WHERE TxStatus = { TxStatus.SentToNode }  AND PolicyQuoteId = ANY(@feeQuotesIds) RETURNING *)
+SELECT count(*) FROM deleted;
+";
+
+      var txsCount = await connection.ExecuteScalarAsync<int>(cmdText, new
+      {
+        feeQuotesIds
+      });
+      await transaction.CommitAsync();
+      return txsCount;
     }
   }
 }

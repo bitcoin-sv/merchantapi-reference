@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MerchantAPI.Common" Version="1.5.0-beta-dev7" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="5.0.0" />
@@ -16,6 +15,10 @@
     <PackageReference Include="nChain.CreateDB" Version="1.0.0" />
     <PackageReference Include="prometheus-net" Version="5.0.2" />
     <PackageReference Include="Sodium.Core" Version="1.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Common\MerchantAPI.Common\MerchantAPI.Common.csproj" />
   </ItemGroup>
 
 </Project>

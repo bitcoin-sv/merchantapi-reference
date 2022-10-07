@@ -26,13 +26,21 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       base.TestInitialize();
 
-      //make additional 10 coins
-      foreach (var coin in GetCoins(base.rpcClient0, 10))
-      {
-        availableCoins.Enqueue(coin);
-      }
+      GenerateCoins();
+    }
 
-      consolidationParameters = new ConsolidationTxParameters(rpcClient0.GetNetworkInfoAsync().Result);
+    private void GenerateCoins()
+    {
+      if (base.rpcClient0 != null)
+      {
+        //make additional 10 coins
+        foreach (var coin in GetCoins(base.rpcClient0, 10))
+        {
+          availableCoins.Enqueue(coin);
+        }
+
+        consolidationParameters = new ConsolidationTxParameters(rpcClient0.GetNetworkInfoAsync().Result);
+      }
     }
 
     [TestCleanup]
@@ -51,7 +59,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
      RatioInOutScriptSize
     }
 
-    protected async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(ConsolidationReason reason = ConsolidationReason.None)
+    protected async Task<(string txHex, Transaction txId, PrevOut[] prevOuts)> CreateNewConsolidationTx(ConsolidationReason reason = ConsolidationReason.None, int? generateBlocks = null)
     {
       var address = BitcoinAddress.Create(testAddress, Network.RegTest);
       var tx = BCash.Instance.Regtest.CreateTransaction();
@@ -59,7 +67,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       int inCount = 0;
       var OP_NOP_string = "61";
       var key = Key.Parse(testPrivateKeyWif, Network.RegTest);
-      int noBlocks = (int)consolidationParameters.MinConfConsolidationInput - 1;
+      int noBlocks = generateBlocks ?? (int)consolidationParameters.MinConfConsolidationInput - 1;
 
       if (reason == ConsolidationReason.InputMinConf)
       {
@@ -259,6 +267,32 @@ namespace MerchantAPI.APIGateway.Test.Functional
       );
       mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
       Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+    }
+
+    [DataRow(0, 5, 5)]
+    [DataRow(3, 0, 3)]
+    [DataRow(0, 0, 6)]
+    [SkipNodeStart]
+    [TestMethod]
+    public async Task CheckConsolidationTransactionWithZeroConfirmations(int setNodeValue, int setPolicyValue, int expectedMergedValue)
+    {
+      // bitcoind treats value 0 as valid, but ignores it if set as startup argument or with policy
+      var node0 = CreateAndStartNode(0, argumentList: new() { $"-minconfconsolidationinput={setNodeValue}" });
+      var networkInfo = await node0.RpcClient.GetNetworkInfoAsync();
+      Assert.AreEqual(setNodeValue == 0 ? 6 : setNodeValue, networkInfo.MinConfConsolidationInput);
+
+      rpcClient0 = node0.RpcClient;
+      SetupChain(rpcClient0);
+      GenerateCoins();
+      var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.InputMinConf, expectedMergedValue);
+      SetPoliciesForCurrentFeeQuote($"{{ {$"\"minconfconsolidationinput\": {setPolicyValue}"}}}");
+
+      mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
+      Assert.AreEqual(expectedMergedValue, mergedParameters.MinConfConsolidationInput);
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+
+      var payload = await SubmitTransactionAsync(txHex);
+      Assert.AreEqual("success", payload.ReturnResult);
     }
   }
 }

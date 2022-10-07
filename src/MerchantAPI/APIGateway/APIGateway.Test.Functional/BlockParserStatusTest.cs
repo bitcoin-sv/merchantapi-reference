@@ -3,7 +3,7 @@
 
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
-using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.APIStatus;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -17,13 +17,13 @@ namespace MerchantAPI.APIGateway.Test.Functional
   [TestClass]
   public class BlockParserStatusTest : BlockParserTestBase
   {
-    public BlockParser blockParser;
+    public IBlockParser blockParser;
 
     [TestInitialize]
     public override void TestInitialize()
     {
       base.TestInitialize();
-      blockParser = server.Services.GetRequiredService<BlockParser>();
+      blockParser = server.Services.GetRequiredService<IBlockParser>();
       ApiKeyAuthentication = AppSettings.RestAdminAPIKey;
 
       // Wait until all events are processed to avoid race conditions
@@ -223,7 +223,7 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQu
       };
 
       // insert block in DB (simulate successful NewBlockDiscoveredAsync)
-      var blockId = await TxRepositoryPostgres.InsertBlockAsync(dbBlock);
+      var blockId = await TxRepositoryPostgres.InsertOrUpdateBlockAsync(dbBlock);
       dbBlock.BlockInternalId = blockId.Value;
 
       // act

@@ -40,7 +40,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
       string host = "";
       if (headers.TryGetValue("Host", out var hostValues))
       {
-        host = hostValues[0].Split(":")[0]; // chop off port
+        host = hostValues[0];
       }
 
       if (callbackHostConfig != null)
