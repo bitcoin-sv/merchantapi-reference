@@ -36,6 +36,7 @@ using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Prometheus;
 using Microsoft.AspNetCore.Http;
 using System.Net;
+using MerchantAPI.APIGateway.Domain.Metrics;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -114,7 +115,11 @@ namespace MerchantAPI.APIGateway.Rest
       services.AddSingleton<HostUnknownTxCache>();
       services.AddSingleton<ITransactionRequestsCheck, TransactionRequestsCheck>();
       services.AddSingleton<IHostBanList, HostBanList>();
-      services.AddSingleton<CustomMetrics>();
+      services.AddSingleton<BlockParserMetrics>();
+      services.AddSingleton<MapiMetrics>();
+      services.AddSingleton<MempoolCheckerMetrics>();
+      services.AddSingleton<NotificationsMetrics>();
+      services.AddSingleton<RpcMultiClientMetrics>();
       services.AddScoped<CheckHostActionFilter>();
       services.AddScoped<HttpsRequiredAttribute>();
 
@@ -193,8 +198,8 @@ namespace MerchantAPI.APIGateway.Rest
 
       services.AddSwaggerGen(c =>
       {
-        c.SwaggerDoc(SwaggerGroup.API, new OpenApiInfo { Title = "Merchant API", Version = Const.MERCHANT_API_VERSION });
-        c.SwaggerDoc(SwaggerGroup.Admin, new OpenApiInfo { Title = "Merchant API Admin", Version = Const.MERCHANT_API_VERSION });
+        c.SwaggerDoc(SwaggerGroup.API, new OpenApiInfo { Title = "Merchant API", Version = Domain.Const.MERCHANT_API_VERSION });
+        c.SwaggerDoc(SwaggerGroup.Admin, new OpenApiInfo { Title = "Merchant API Admin", Version = Domain.Const.MERCHANT_API_VERSION });
 
         c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
 

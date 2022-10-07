@@ -9,7 +9,7 @@ using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.Logging;
-using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
+using MerchantAPI.APIGateway.Domain.Metrics;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -27,13 +27,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly MapiMetrics mapiMetrics;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
-    public BlockChainInfo(IRpcMultiClient rpcMultiClient, ILogger<BlockChainInfo> logger, IEventBus eventBus, IClock clock, CustomMetrics customMetrics)
+    public BlockChainInfo(IRpcMultiClient rpcMultiClient, ILogger<BlockChainInfo> logger, IEventBus eventBus, IClock clock, MapiMetrics mapiMetrics)
       : base(logger, eventBus)
     {
       this.rpcMultiClient= rpcMultiClient?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       lastRefreshedAt = clock.UtcNow();
-      mapiMetrics = customMetrics?.mapiMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      this.mapiMetrics = mapiMetrics ?? throw new ArgumentNullException(nameof(mapiMetrics));
     }
     public async Task<BlockChainInfoData> GetInfoAsync()
     {

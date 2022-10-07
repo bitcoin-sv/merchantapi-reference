@@ -3,6 +3,7 @@
 
 using MerchantAPI.APIGateway.Domain;
 using MerchantAPI.APIGateway.Domain.Actions;
+using MerchantAPI.APIGateway.Domain.Metrics;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
@@ -29,8 +30,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       IOptions<AppSettings> appSettingOptions,
       IFaultManager faultManager,
       IFaultInjection faultInjection,
-      CustomMetrics customMetrics)
-      : base(rpcMultiClient, feeQuoteRepository, blockChainInfo, minerId, txRepository, logger, clock, appSettingOptions, faultManager, faultInjection, customMetrics)
+      MapiMetrics mapiMetrics,
+      MempoolCheckerMetrics mempoolCheckerMetrics)
+      : base(rpcMultiClient, feeQuoteRepository, blockChainInfo, minerId, txRepository, logger, clock, appSettingOptions, faultManager, faultInjection, mapiMetrics, mempoolCheckerMetrics)
     {
     }
 

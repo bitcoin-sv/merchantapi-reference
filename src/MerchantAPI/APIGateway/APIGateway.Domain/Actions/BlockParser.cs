@@ -20,7 +20,7 @@ using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Exceptions;
 using System.Diagnostics;
 using MerchantAPI.APIGateway.Domain.Models.APIStatus;
-using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
+using MerchantAPI.APIGateway.Domain.Metrics;
 using Prometheus;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
@@ -48,7 +48,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger,
-                       IEventBus eventBus, IOptions<AppSettings> options, IClock clock, CustomMetrics customMetrics)
+                       IEventBus eventBus, IOptions<AppSettings> options, IClock clock, BlockParserMetrics blockParserMetrics)
     : base(logger, eventBus)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
@@ -57,7 +57,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       blockParserStatus = new();
       appSettings = options.Value;
       rpcGetBlockTimeout = TimeSpan.FromMinutes(options.Value.RpcClient.RpcGetBlockTimeoutMinutes.Value);
-      blockParserMetrics = customMetrics?.blockParserMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      this.blockParserMetrics = blockParserMetrics ?? throw new ArgumentNullException(nameof(blockParserMetrics));
     }
 
 

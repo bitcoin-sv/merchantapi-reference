@@ -25,8 +25,7 @@ using NBitcoin.DataEncoders;
 using System.Text;
 using MerchantAPI.APIGateway.Domain.Models.APIStatus;
 using System.Collections.ObjectModel;
-using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
-using NBitcoin.RPC;
+using MerchantAPI.APIGateway.Domain.Metrics;
 using Prometheus;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
@@ -77,7 +76,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       IOptions<AppSettings> appSettingOptions,
       IFaultManager faultManager,
       IFaultInjection faultInjection,
-      CustomMetrics customMetrics)
+      MapiMetrics mapiMetrics,
+      MempoolCheckerMetrics mempoolCheckerMetrics)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
       this.feeQuoteRepository = feeQuoteRepository ?? throw new ArgumentNullException(nameof(feeQuoteRepository));
@@ -89,8 +89,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       appSettings = appSettingOptions.Value;
       this.faultManager = faultManager ?? throw new ArgumentNullException(nameof(faultManager));
       this.faultInjection = faultInjection ?? throw new ArgumentNullException(nameof(faultInjection));
-      mapiMetrics = customMetrics?.mapiMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
-      mempoolCheckerMetrics = customMetrics?.mempoolCheckerMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      this.mapiMetrics = mapiMetrics ?? throw new ArgumentNullException(nameof(mapiMetrics));
+      this.mempoolCheckerMetrics = mempoolCheckerMetrics ?? throw new ArgumentNullException(nameof(mempoolCheckerMetrics));
     }
 
 

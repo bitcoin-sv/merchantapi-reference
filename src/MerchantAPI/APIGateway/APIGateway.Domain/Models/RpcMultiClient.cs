@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Exceptions;
@@ -15,7 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBitcoin.Crypto;
 using Prometheus;
-using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
+using MerchantAPI.APIGateway.Domain.Metrics;
 
 namespace MerchantAPI.APIGateway.Domain.Models
 {
@@ -35,18 +34,18 @@ namespace MerchantAPI.APIGateway.Domain.Models
     readonly RpcClientSettings rpcClientSettings;
     readonly RpcMultiClientMetrics rpcMultiClientMetrics;
 
-    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options, CustomMetrics customMetrics)
-      : this(nodes, rpcClientFactory, logger, options.Value.RpcClient, customMetrics)
+    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, IOptions<AppSettings> options, RpcMultiClientMetrics rpcMultiClientMetrics)
+      : this(nodes, rpcClientFactory, logger, options.Value.RpcClient, rpcMultiClientMetrics)
     {
     }
 
-    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, RpcClientSettings rpcClientSettings, CustomMetrics customMetrics)
+    public RpcMultiClient(INodes nodes, IRpcClientFactory rpcClientFactory, ILogger<RpcMultiClient> logger, RpcClientSettings rpcClientSettings, RpcMultiClientMetrics rpcMultiClientMetrics)
     {
       this.nodes = nodes ?? throw new ArgumentNullException(nameof(nodes));
       this.rpcClientFactory = rpcClientFactory ?? throw new ArgumentNullException(nameof(rpcClientFactory));
       this.logger = logger;
       this.rpcClientSettings = rpcClientSettings;
-      rpcMultiClientMetrics = customMetrics?.rpcMultiClientMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      this.rpcMultiClientMetrics = rpcMultiClientMetrics ?? throw new ArgumentNullException(nameof(rpcMultiClientMetrics));
     }
 
     static void ShuffleArray<T>(T[] array)

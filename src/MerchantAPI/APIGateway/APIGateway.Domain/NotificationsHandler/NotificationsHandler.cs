@@ -22,7 +22,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
+using MerchantAPI.APIGateway.Domain.Metrics;
 
 namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
 {
@@ -42,7 +42,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
     private const string CALLBACK_REASON_PLACEHOLDER = "{callbackreason}";
 
     public NotificationsHandler(ILogger<NotificationsHandler> logger, INotificationServiceHttpClientFactory httpClientFactory, IOptions<AppSettings> options, 
-                                ITxRepository txRepository, IRpcMultiClient rpcMultiClient, IMinerId minerId, IClock clock, CustomMetrics customMetrics)
+                                ITxRepository txRepository, IRpcMultiClient rpcMultiClient, IMinerId minerId, IClock clock, NotificationsMetrics notificationsMetrics)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
                                                         notificationSettings.MaxNotificationsInBatch.Value, notificationSettings.NoOfSavedExecutionTimes.Value,
                                                         notificationSettings.SlowHostThresholdInMs.Value);
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
-      notificationsMetrics = customMetrics?.notificationsMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      this.notificationsMetrics = notificationsMetrics ?? throw new ArgumentNullException(nameof(notificationsMetrics));
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)

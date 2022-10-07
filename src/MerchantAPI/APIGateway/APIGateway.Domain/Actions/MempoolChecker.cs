@@ -14,7 +14,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
+using MerchantAPI.APIGateway.Domain.Metrics;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -46,7 +46,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       ITxRepository txRepository,
       IClock clock,
       IOptions<AppSettings> options,
-      CustomMetrics customMetrics)
+      MempoolCheckerMetrics mempoolCheckerMetrics)
     {
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
@@ -56,7 +56,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       appSettings = options.Value;
-      mempoolCheckerMetrics = customMetrics?.mempoolCheckerMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      this.mempoolCheckerMetrics = mempoolCheckerMetrics ?? throw new ArgumentNullException(nameof(mempoolCheckerMetrics));
       success = false;
     }
 

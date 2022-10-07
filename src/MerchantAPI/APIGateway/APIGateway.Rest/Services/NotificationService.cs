@@ -2,7 +2,6 @@
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
 using MerchantAPI.APIGateway.Domain;
-using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.NotificationsHandler;
 using MerchantAPI.APIGateway.Domain.Repositories;
@@ -14,7 +13,7 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using static MerchantAPI.APIGateway.Domain.Actions.CustomMetrics;
+using MerchantAPI.APIGateway.Domain.Metrics;
 
 namespace MerchantAPI.APIGateway.Rest.Services
 {
@@ -51,12 +50,12 @@ namespace MerchantAPI.APIGateway.Rest.Services
     readonly NotificationsMetrics notificationsMetrics;
 
     public NotificationService(IOptionsMonitor<AppSettings> options, ILogger<NotificationService> logger, 
-                               IEventBus eventBus, INotificationsHandler notificationsHandler, ITxRepository txRepository, CustomMetrics customMetrics) : base(logger, eventBus)
+                               IEventBus eventBus, INotificationsHandler notificationsHandler, ITxRepository txRepository, NotificationsMetrics notificationsMetrics) : base(logger, eventBus)
     {
       this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       notificationSettings = options.CurrentValue.Notification;
-      notificationsMetrics = customMetrics?.notificationsMetrics ?? throw new ArgumentNullException(nameof(customMetrics));
+      this.notificationsMetrics = notificationsMetrics ?? throw new ArgumentNullException(nameof(notificationsMetrics));
     }
 
 
