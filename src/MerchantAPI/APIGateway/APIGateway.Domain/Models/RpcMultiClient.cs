@@ -255,7 +255,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList)
     {
-      using (rpcMultiClientMetrics.getTxOutsDuration.NewTimer())
+      using (rpcMultiClientMetrics.GetTxOutsDuration.NewTimer())
       {
         return GetFirstSuccessfulAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
       }
@@ -458,7 +458,7 @@ namespace MerchantAPI.APIGateway.Domain.Models
       var allTxs = transactions.Select(x => Hashes.DoubleSHA256(x.transaction).ToString()).ToArray();
       RpcSendTransactions[] okResults = null;
 
-      using (rpcMultiClientMetrics.sendRawTxsDuration.NewTimer())
+      using (rpcMultiClientMetrics.SendRawTxsDuration.NewTimer())
       {
         okResults = await GetAllWithoutErrors(c => c.SendRawTransactionsAsync(transactions));
       }

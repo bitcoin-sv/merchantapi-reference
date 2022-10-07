@@ -202,9 +202,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database.");
 
         //increase counter if block height is greater 
-        if ((long)blockParserMetrics.bestBlockHeight.Value < blockHeader.Height)
+        if ((long)blockParserMetrics.BestBlockHeight.Value < blockHeader.Height)
         {
-          blockParserMetrics.bestBlockHeight.IncTo(blockHeader.Height);
+          blockParserMetrics.BestBlockHeight.IncTo(blockHeader.Height);
         }
     
         var dbBlock = new Block
@@ -258,7 +258,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         await semaphoreSlim.WaitAsync();
         try
         {
-          blockParserMetrics.blockParsingQueue.Set(QueueCount);
+          blockParserMetrics.BlockParsingQueue.Set(QueueCount);
           if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
           {
             blockParserStatus.IncrementBlocksDuplicated();
@@ -290,7 +290,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         int txsFound, dsFound;
         ulong bytes;
         
-        using (blockParserMetrics.blockParsingDuration.NewTimer())
+        using (blockParserMetrics.BlockParsingDuration.NewTimer())
         {
           using var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash, cts.Token);
           block = HelperTools.ParseByteStreamToBlock(blockStream);
@@ -308,8 +308,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         blockParserStatus.IncrementBlocksProcessed(e.BlockHash, e.BlockHeight, txsFound, dsFound, bytes,
           block.Transactions.Count, e.CreationDate, blockParseTime, blockDownloadTime);
-        blockParserMetrics.blockParsingQueue.Set(QueueCount);
-        blockParserMetrics.blockParsed.Inc();
+        blockParserMetrics.BlockParsingQueue.Set(QueueCount);
+        blockParserMetrics.BlockParsed.Inc();
       }
       catch (Exception ex)
       {
@@ -329,7 +329,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         try
         {
           blockHashesBeingParsed.Remove(e.BlockHash);
-          blockParserMetrics.blockParsingQueue.Set(QueueCount);
+          blockParserMetrics.BlockParsingQueue.Set(QueueCount);
         }
         finally
         {

@@ -639,14 +639,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     public async Task<SubmitTransactionsResponse> SubmitTransactionsAsync(IEnumerable<SubmitTransaction> requestEnum, UserAndIssuer user)
     {
       var request = requestEnum.ToArray();
-      mapiMetrics.requestSum.Inc(1);
+      mapiMetrics.RequestSum.Inc(1);
       if (user != null)
       {
-        mapiMetrics.txAuthenticatedUser.Inc(request.Length);
+        mapiMetrics.TxAuthenticatedUser.Inc(request.Length);
       }
       else
       {
-        mapiMetrics.txAnonymousUser.Inc(request.Length);
+        mapiMetrics.TxAnonymousUser.Inc(request.Length);
       }
       // Take snapshot of current metadata and use use it for all transactions
       var info = await blockChainInfo.GetInfoAsync();
@@ -993,7 +993,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           insertedTxs.ForEach(x => txsToUpdate.Add(x.ToString()));
         }
 
-        mapiMetrics.txSentToNode.Inc(transactionsToSubmit.Count);
+        mapiMetrics.TxSentToNode.Inc(transactionsToSubmit.Count);
 
         // Submit all collected transactions in one call 
         (rpcResponse, submitException) = await SendTransactions(transactionsToSubmit, Faults.FaultType.SimulateSendTxsMapi);
@@ -1019,7 +1019,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       if (submitException != null)
       {
-        mapiMetrics.txSubmitException.Inc(transactionsToSubmit.Count);
+        mapiMetrics.TxSubmitException.Inc(transactionsToSubmit.Count);
         logger.LogError($"Error while submitting transactions to the node {submitException}");
         // All of the transactions have failed - return error 500 so that user knows, he must retry,
         // but do not expose detailed error message. It might contain internal IPS etc.
@@ -1034,8 +1034,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         responses.AddRange(transformed);
 
         var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
-        mapiMetrics.txAcceptedByNode.Inc(successfullTxs.Count());
-        mapiMetrics.txRejectedByNode.Inc(submitFailureCount);
+        mapiMetrics.TxAcceptedByNode.Inc(successfullTxs.Count());
+        mapiMetrics.TxRejectedByNode.Inc(submitFailureCount);
 
         if (!appSettings.DontInsertTransactions.Value)
         {
@@ -1126,8 +1126,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         result.Txs = responses.ToArray();
         result.FailureCount = failureCount + submitFailureCount;
-        mapiMetrics.txResponseFailure.Inc(result.FailureCount);
-        mapiMetrics.txResponseSuccess.Inc(result.Txs.Length - result.FailureCount);
+        mapiMetrics.TxResponseFailure.Inc(result.FailureCount);
+        mapiMetrics.TxResponseSuccess.Inc(result.Txs.Length - result.FailureCount);
         return result;
       }
     }
@@ -1265,7 +1265,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     public virtual async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 1000)
     {
       Tx[] txs;
-      using (mempoolCheckerMetrics.getMissingTransactionsDuration.NewTimer())
+      using (mempoolCheckerMetrics.GetMissingTransactionsDuration.NewTimer())
       {
         txs = await txRepository.GetMissingTransactionsAsync(mempoolTxs, resubmittedAt);
       }
@@ -1274,8 +1274,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       int submitSuccessfulCount = 0;
       int submitFailureIgnored = 0;
       List<long> txsWithMissingInputs = new();
-      logger.LogInformation($"ResubmitMissingTransactions: missing {txs.Length} -> nBatches: {nBatches}, batchsize: {batchSize}");
-      mempoolCheckerMetrics.txMissing.Inc(txs.Length);
+      logger.LogDebug($"ResubmitMissingTransactions: missing {txs.Length} -> nBatches: {nBatches}, batchsize: {batchSize}");
+      mempoolCheckerMetrics.TxMissing.Inc(txs.Length);
 
       // we have to submit all txs in order
       // if node accepted tx2 before tx1, tx1 can be resubmitted successfully in the next resubmit round
@@ -1364,17 +1364,17 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       int failures = txs.Length - submitSuccessfulCount - submitFailureIgnored - txsWithMissingInputs.Count;
       logger.LogInformation(@$"ResubmitMempoolTransactions: resubmitted {txs.Length} txs = successful: {submitSuccessfulCount}, 
 failures: {failures}, submitFailureIgnored: {submitFailureIgnored}, missing inputs: {txsWithMissingInputs.Count}.");
-      mempoolCheckerMetrics.txResponseSuccess.Inc(submitSuccessfulCount);
-      mempoolCheckerMetrics.txResponseFailure.Inc(failures);
+      mempoolCheckerMetrics.TxResponseSuccess.Inc(submitSuccessfulCount);
+      mempoolCheckerMetrics.TxResponseFailure.Inc(failures);
 
       return (failures == 0, txsWithMissingInputs);
     }
 
     public SubmitTxStatus GetSubmitTxStatus()
     {
-      return new SubmitTxStatus(mapiMetrics.requestSum.Value, mapiMetrics.txAuthenticatedUser.Value, mapiMetrics.txAnonymousUser.Value,
-        mapiMetrics.txSentToNode.Value, mapiMetrics.txAcceptedByNode.Value, mapiMetrics.txRejectedByNode.Value, mapiMetrics.txSubmitException.Value,
-        mapiMetrics.txResponseSuccess.Value, mapiMetrics.txResponseFailure.Value);
+      return new SubmitTxStatus(mapiMetrics.RequestSum.Value, mapiMetrics.TxAuthenticatedUser.Value, mapiMetrics.TxAnonymousUser.Value,
+        mapiMetrics.TxSentToNode.Value, mapiMetrics.TxAcceptedByNode.Value, mapiMetrics.TxRejectedByNode.Value, mapiMetrics.TxSubmitException.Value,
+        mapiMetrics.TxResponseSuccess.Value, mapiMetrics.TxResponseFailure.Value);
     }
   }
 }

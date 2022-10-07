@@ -55,12 +55,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             new ConsolidationTxParameters(networkInfoTask.Result)
           );
           lastRefreshedAt = clock.UtcNow();
-          mapiMetrics.anyBitcoindResponding.Set(1);
+          mapiMetrics.AnyBitcoindResponding.Set(1);
         }
       }
       catch
       {
-        mapiMetrics.anyBitcoindResponding.Set(0);
+        mapiMetrics.AnyBitcoindResponding.Set(0);
         throw;
       }
       finally

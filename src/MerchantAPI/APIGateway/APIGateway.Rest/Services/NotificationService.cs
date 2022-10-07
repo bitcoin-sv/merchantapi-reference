@@ -97,7 +97,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       {
         var waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount.Value, skipRecords, NoOfRecordsBatch);
         int numOfNotifications = waitingNotifications.Count;
-        notificationsMetrics.notificationsWithError.IncTo(numOfNotifications);
+        notificationsMetrics.NotificationsWithError.IncTo(numOfNotifications);
 
         // We reached the end of failed notifications...let's start from the beginning again
         if (numOfNotifications == 0 && skipRecords > 0)

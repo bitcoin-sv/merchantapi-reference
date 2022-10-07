@@ -92,18 +92,18 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           logger.LogWarning("CheckMempoolAndResubmitTxs failed: " + ex.Message);
           success = false;
-          mempoolCheckerMetrics.exceptionsOnResubmit.Inc();
+          mempoolCheckerMetrics.ExceptionsOnResubmit.Inc();
         }
 
         if (success)
         {
           await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerIntervalSec.Value), stoppingToken);
-          mempoolCheckerMetrics.successfulResubmits.Inc();
+          mempoolCheckerMetrics.SuccessfulResubmits.Inc();
         }
         else
         {
           await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerUnsuccessfulIntervalSec.Value), stoppingToken);
-          mempoolCheckerMetrics.unsuccessfulResubmits.Inc();
+          mempoolCheckerMetrics.UnsuccessfulResubmits.Inc();
         }
       }
     }
@@ -137,7 +137,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           // if we resubmit tx that is actually on active chain (but not yet fixed in our db) it is not a problem, 
           // but we don't want to have too much redundant resubmits
-          logger.LogInformation($"blocks2Parse.Length { blocks2Parse.Length } > blockParserQueuedMax{ blockParserQueuedMax }.");
+          logger.LogInformation($"blocks2Parse.Length:{ blocks2Parse.Length } > blockParserQueuedMax:{ blockParserQueuedMax }.");
           return false;
         }
 
@@ -155,7 +155,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var info = await blockChainInfo.GetInfoAsync();
         var blockparserStatus = blockParser.GetBlockParserStatus();
         bool isBlockParserIdle = true;
-        if (blockparserStatus.BlocksQueued > 0 || blockparserStatus.LastBlockHash != info.BestBlockHash)
+        if (blockparserStatus.BlocksQueued > 0)
         {
           logger.LogDebug("MempoolChecker: blockparser is processing blocks.");
           isBlockParserIdle = false;
@@ -195,7 +195,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         string[] mempoolTxs = Array.Empty<string>(); ;
         try
         {
-          using (mempoolCheckerMetrics.getRawMempoolDuration.NewTimer())
+          using (mempoolCheckerMetrics.GetRawMempoolDuration.NewTimer())
           {
             mempoolTxs = await rpcClient.GetRawMempool(cts.Token);
           }
@@ -209,19 +209,19 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           if (mempoolCount == 0)
           {
             // reset values from previous mempoolChecker run here
-            mempoolCheckerMetrics.maxTxInMempool.Set(mempoolTxs.Length);
-            mempoolCheckerMetrics.minTxInMempool.Set(mempoolTxs.Length);
+            mempoolCheckerMetrics.MaxTxInMempool.Set(mempoolTxs.Length);
+            mempoolCheckerMetrics.MinTxInMempool.Set(mempoolTxs.Length);
           }
         }
         mempoolCount = mempoolTxs.Length;
         logger.LogInformation($"{rpcClient} has {mempoolCount} txs in mempool.");
-        if (mempoolCheckerMetrics.maxTxInMempool.Value < mempoolCount)
+        if (mempoolCheckerMetrics.MaxTxInMempool.Value < mempoolCount)
         {
-          mempoolCheckerMetrics.maxTxInMempool.Set(mempoolCount);
+          mempoolCheckerMetrics.MaxTxInMempool.Set(mempoolCount);
         }
-        if (mempoolCheckerMetrics.minTxInMempool.Value > mempoolCount)
+        if (mempoolCheckerMetrics.MinTxInMempool.Value > mempoolCount)
         {
-          mempoolCheckerMetrics.minTxInMempool.Set(mempoolCount);
+          mempoolCheckerMetrics.MinTxInMempool.Set(mempoolCount);
         }
 
         var (resubmitSuccess, txsWithMissingInputs) = await mapi.ResubmitMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
@@ -247,7 +247,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       var txsWithMaxMissingInputs = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolCheckerMissingInputsRetries).ToList();
       logger.LogDebug($"TxsWithMaxMissingInputs count: { txsWithMaxMissingInputs.Count } .");
-      mempoolCheckerMetrics.txMissingInputsMax.Inc(txsWithMaxMissingInputs.Count);
+      mempoolCheckerMetrics.TxMissingInputsMax.Inc(txsWithMaxMissingInputs.Count);
       await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateMissingInputs, txsWithMaxMissingInputs.Select(x => new Tx
       {
         TxInternalId = x.Key,

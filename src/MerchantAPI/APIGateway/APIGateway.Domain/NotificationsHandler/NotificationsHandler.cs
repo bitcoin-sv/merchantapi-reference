@@ -134,7 +134,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
           {
             logger.LogCritical(ex, "Error while trying to process notification events");
           }
-          notificationsMetrics.notificationsInQueue.Set(notificationScheduler.AllNotificationsCount);
+          notificationsMetrics.NotificationsInQueue.Set(notificationScheduler.AllNotificationsCount);
           stoppingToken.ThrowIfCancellationRequested();
         }
       }
@@ -158,7 +158,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
         var restClient = new RestClient(url, callbackToken, client);
         var notificationTimeout = new TimeSpan(0, 0, 0, 0, requestTimeout);
 
-        using (notificationsMetrics.callbackDuration.NewTimer())
+        using (notificationsMetrics.CallbackDuration.NewTimer())
         {
           if (string.IsNullOrEmpty(callbackEncryption))
           {
@@ -288,7 +288,7 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       catch (Exception ex)
       {
         logger.LogError($"Unable to prepare notification for {new uint256(notification.TxExternalId)}. Error: {ex.GetBaseException().Message}");
-        notificationsMetrics.failedCallbacks.Inc();
+        notificationsMetrics.FailedCallbacks.Inc();
         await txRepository.SetNotificationErrorAsync(notification.TxExternalId, notification.NotificationType, ex.GetBaseException().Message, ++notification.ErrorCount);
         return false;
       }
@@ -296,13 +296,13 @@ namespace MerchantAPI.APIGateway.Domain.NotificationsHandler
       var errMessage = await SendNotificationAsync(client, notification, requestTimeout, stoppingToken);
       if (errMessage == null)
       {
-        notificationsMetrics.successfulCallbacks.Inc();
+        notificationsMetrics.SuccessfulCallbacks.Inc();
         await txRepository.SetNotificationSendDateAsync(notification.NotificationType, notification.TxInternalId, notification.BlockInternalId, notification.DoubleSpendTxId, clock.UtcNow());
         return true;
       }
       else
       {
-        notificationsMetrics.failedCallbacks.Inc();
+        notificationsMetrics.FailedCallbacks.Inc();
         await txRepository.SetNotificationErrorAsync(notification.TxExternalId, notification.NotificationType, errMessage, ++notification.ErrorCount);
         return false;
       }
