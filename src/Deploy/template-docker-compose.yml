@@ -36,7 +36,7 @@ services:
       - AppSettings__CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
       - AppSettings__CleanUpTxAfterMempoolExpiredDays=${CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS}
       - AppSettings__CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
-      - AppSettings__MempoolCheckerEnabled=${MEMPOOL_CHECKER_ENABLED}
+      - AppSettings__MempoolCheckerDisabled=${MEMPOOL_CHECKER_DISABLED}
       - AppSettings__MempoolCheckerIntervalSec=${MEMPOOL_CHECKER_INTERVAL_SEC}
       - AppSettings__MempoolCheckerUnsuccessfulIntervalSec=${MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC}
       - AppSettings__MempoolCheckerBlockParserQueuedMax=${MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX}
@@ -57,7 +57,7 @@ services:
       - AppSettings__MinerIdServer__Url=${MINERID_SERVER_URL}
       - AppSettings__MinerIdServer__Alias=${MINERID_SERVER_ALIAS}
       - AppSettings__MinerIdServer__Authentication=${MINERID_SERVER_AUTHENTICATION}
-      - AppSettings__MinerIdServer__RequestTimeoutSec =${MINERID_SERVER_REQUEST_TIMEOUT_SEC}
+      - AppSettings__MinerIdServer__RequestTimeoutSec=${MINERID_SERVER_REQUEST_TIMEOUT_SEC}
       - AppSettings__Notification__NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
       - AppSettings__Notification__InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
       - AppSettings__Notification__InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}

@@ -13,6 +13,7 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using MerchantAPI.APIGateway.Domain.Metrics;
 
 namespace MerchantAPI.APIGateway.Rest.Services
 {
@@ -24,10 +25,11 @@ namespace MerchantAPI.APIGateway.Rest.Services
   {
     public const string ClientName = "Notification.Service.Http.Client";
     readonly IHttpClientFactory factory;
+
     public NotificationServiceHttpClientFactoryDefault(IHttpClientFactory defaultFactory)
     {
       this.factory = defaultFactory ?? throw new ArgumentNullException(nameof(defaultFactory));
-      
+
     }
 
     public HttpClient CreateClient(string clientName)
@@ -45,13 +47,15 @@ namespace MerchantAPI.APIGateway.Rest.Services
     readonly ITxRepository txRepository;
     readonly Notification notificationSettings;
     EventBusSubscription<NewNotificationEvent> newNotificationEventSubscription;
+    readonly NotificationsMetrics notificationsMetrics;
 
     public NotificationService(IOptionsMonitor<AppSettings> options, ILogger<NotificationService> logger, 
-                               IEventBus eventBus, INotificationsHandler notificationsHandler, ITxRepository txRepository) : base(logger, eventBus)
+                               IEventBus eventBus, INotificationsHandler notificationsHandler, ITxRepository txRepository, NotificationsMetrics notificationsMetrics) : base(logger, eventBus)
     {
       this.notificationsHandler = notificationsHandler ?? throw new ArgumentNullException(nameof(notificationsHandler));
       this.txRepository = txRepository ?? throw new ArgumentNullException(nameof(txRepository));
       notificationSettings = options.CurrentValue.Notification;
+      this.notificationsMetrics = notificationsMetrics ?? throw new ArgumentNullException(nameof(notificationsMetrics));
     }
 
 
@@ -92,7 +96,8 @@ namespace MerchantAPI.APIGateway.Rest.Services
       {
         var waitingNotifications = await txRepository.GetNotificationsWithErrorAsync(notificationSettings.NotificationsRetryCount.Value, skipRecords, NoOfRecordsBatch);
         int numOfNotifications = waitingNotifications.Count;
-        
+        notificationsMetrics.NotificationsWithError.IncTo(numOfNotifications);
+
         // We reached the end of failed notifications...let's start from the beginning again
         if (numOfNotifications == 0 && skipRecords > 0)
         {

@@ -19,8 +19,9 @@ using MerchantAPI.Common.Clock;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Exceptions;
 using System.Diagnostics;
-using Prometheus;
 using MerchantAPI.APIGateway.Domain.Models.APIStatus;
+using MerchantAPI.APIGateway.Domain.Metrics;
+using Prometheus;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -38,20 +39,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly SemaphoreSlim semaphoreSlim = new(1, 1);
     readonly BlockParserStatus blockParserStatus;
     readonly TimeSpan rpcGetBlockTimeout;
-    
-    static readonly string metricsPrefix = "merchantapi_blockparser_";
-
-    static readonly Histogram blockParsingDuration = Metrics
-      .CreateHistogram($"{metricsPrefix}blockparsing_duration_seconds", "Histogram of time spent parsing blocks.");
-
-    static readonly Counter bestBlockHeight = Metrics
-      .CreateCounter($"{metricsPrefix}bestblockheight", "Best block height.");
-
-    static readonly Counter blockParsed = Metrics
-      .CreateCounter($"{metricsPrefix}blockparsed_counter", "Number of blocks parsed.");
-
-    static readonly Gauge blockParsingQueue = Metrics
-      .CreateGauge($"{metricsPrefix}blockparsingqueue", "Blocks in queue for parsing.");
+    readonly BlockParserMetrics blockParserMetrics;
 
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
@@ -60,7 +48,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
 
     public BlockParser(IRpcMultiClient rpcMultiClient, ITxRepository txRepository, ILogger<BlockParser> logger,
-                       IEventBus eventBus, IOptions<AppSettings> options, IClock clock)
+                       IEventBus eventBus, IOptions<AppSettings> options, IClock clock, BlockParserMetrics blockParserMetrics)
     : base(logger, eventBus)
     {
       this.rpcMultiClient = rpcMultiClient ?? throw new ArgumentNullException(nameof(rpcMultiClient));
@@ -69,6 +57,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       blockParserStatus = new();
       appSettings = options.Value;
       rpcGetBlockTimeout = TimeSpan.FromMinutes(options.Value.RpcClient.RpcGetBlockTimeoutMinutes.Value);
+      this.blockParserMetrics = blockParserMetrics ?? throw new ArgumentNullException(nameof(blockParserMetrics));
     }
 
 
@@ -213,9 +202,9 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         logger.LogInformation($"Block parser got a new block {e.BlockHash} inserting into database.");
 
         //increase counter if block height is greater 
-        if ((long)bestBlockHeight.Value < blockHeader.Height)
+        if ((long)blockParserMetrics.BestBlockHeight.Value < blockHeader.Height)
         {
-          bestBlockHeight.IncTo(blockHeader.Height);
+          blockParserMetrics.BestBlockHeight.IncTo(blockHeader.Height);
         }
     
         var dbBlock = new Block
@@ -269,7 +258,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         await semaphoreSlim.WaitAsync();
         try
         {
-          blockParsingQueue.Set(QueueCount);
+          blockParserMetrics.BlockParsingQueue.Set(QueueCount);
           if (blockHashesBeingParsed.Any(x => x == e.BlockHash))
           {
             blockParserStatus.IncrementBlocksDuplicated();
@@ -301,7 +290,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         int txsFound, dsFound;
         ulong bytes;
         
-        using (blockParsingDuration.NewTimer())
+        using (blockParserMetrics.BlockParsingDuration.NewTimer())
         {
           using var blockStream = await rpcMultiClient.GetBlockAsStreamAsync(e.BlockHash, cts.Token);
           block = HelperTools.ParseByteStreamToBlock(blockStream);
@@ -319,8 +308,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         blockParserStatus.IncrementBlocksProcessed(e.BlockHash, e.BlockHeight, txsFound, dsFound, bytes,
           block.Transactions.Count, e.CreationDate, blockParseTime, blockDownloadTime);
-        blockParsingQueue.Set(QueueCount);
-        blockParsed.Inc();
+        blockParserMetrics.BlockParsingQueue.Set(QueueCount);
+        blockParserMetrics.BlockParsed.Inc();
       }
       catch (Exception ex)
       {
@@ -340,7 +329,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         try
         {
           blockHashesBeingParsed.Remove(e.BlockHash);
-          blockParsingQueue.Set(QueueCount);
+          blockParserMetrics.BlockParsingQueue.Set(QueueCount);
         }
         finally
         {

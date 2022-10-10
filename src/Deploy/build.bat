@@ -42,7 +42,7 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 )>Build/docker-compose.yml
 
 IF "%release_build%"=="0" (
-  COPY template-docker-compose-dev.yml Build/docker-compose-dev.yml
+  COPY template-docker-compose-dev.yml "Build/docker-compose-dev.yml"
 )
 
 COPY %copy_env%
