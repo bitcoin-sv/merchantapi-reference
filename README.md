@@ -390,30 +390,22 @@ Or see below for building an image from this source kit.
 
     | Parameter | Description |
     | ----------- | ----------- |
+    | **Communication** | |
     | HTTPSPORT | https port where the application will listen/run |
-    | Audience | Token audience |
-    | Algorithm | (optional) Signing algorithm allowed for the token (if not set, **HS256** will be used) |
-    | SymmetricSecurityKey | Symmetric security key that the token should be signed with |
-
-
-    | Parameter | Description |
-    | ----------- | ----------- |
-    | HTTPSPORT | https port where the application will listen/run |
-
-
-    | Parameter | Description |
-    | ----------- | ----------- |
-    | *Communication* | |
     |CERTIFICATEPASSWORD	|Password of the *.pfx file in the config folder|
     |CERTIFICATEFILENAME	|<certificate_file_name.pfx>|
     |RESTADMIN_APIKEY	|Authorization key for accessing administration interface|
     |ENABLEHTTP	|Enables requests through http port when set to True. This should only be used for testing and must be set to False in the production environment in order to maintain security|
     |HTTPPORT	|Http port where the application will listen/run. Default: port 80|
+    | **RPC** | |
+|RPC_CLIENT_REQUEST_TIMEOUT_SEC	| Request timeout for single RPC call (without retries). Default: 60 seconds|
+|RPC_CLIENT_MULTI_REQUEST_TIMEOUT_SEC	|Request timeout for multi-RPC call (with retries). Default: 20 seconds|
+|RPC_CLIENT_NUM_OF_RETRIES	|Maximum number of retries for multi-RPC call. Default: 3|
+|RPC_CLIENT_WAIT_BETWEEN_RETRIES_MS	Wait between multi-RPC calls. Default: 100 milliseconds|
+|RPC_CLIENT_RPC_CALLS_ON_STARTUP_RETRIES	|Number of retries for multi-RPC call on start-up. Default: 3|
+|RPC_CLIENT_RPC_GET_BLOCK_TIMEOUT_MINUTES	|Request timeout for RPC call GetBlock as stream. Default: 10 minutes|
+|RPC_CLIENT_RPC_GET_RAW_MEMPOOL_TIMEOUT_MINUTES	|Request timeout for RPC call GetRawMempool. Default: 2 minutes|
 
-# H1
-## H2
-### H3
-#### H4
 
     | Parameter | Description |
     | ----------- | ----------- |
