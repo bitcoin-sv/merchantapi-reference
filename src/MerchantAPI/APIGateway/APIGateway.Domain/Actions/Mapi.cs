@@ -662,7 +662,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       var responses = new List<SubmitTransactionOneResponse>();
 
-      var transactionsToSubmit = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, List<string> warnings)>();
+      var transactionsToSubmit = new List<TransactionToSubmit>();
 
       int failureCount = 0;
 
@@ -671,324 +671,44 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       foreach (var oneTx in request)
       {
-        StringBuilder txLog = new();
-        if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
+        if (! await ValidateTxAsync(user, oneTx, responses, allTxs, txsToUpdate, transactionsToSubmit, quotes, consolidationParameters))
         {
-          AddFailureResponse(null, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
-
           failureCount++;
-          continue;
-        }
-
-        if ((oneTx.RawTx == null || oneTx.RawTx.Length == 0) && string.IsNullOrEmpty(oneTx.RawTxString))
-        {
-          AddFailureResponse(null, $"{nameof(SubmitTransaction.RawTx)} is required", ref responses);
-
-          failureCount++;
-          continue;
-        }
-
-        if (oneTx.RawTx == null)
-        {
-          try
-          {
-            oneTx.RawTx = HelperTools.HexStringToByteArray(oneTx.RawTxString);
-          }
-          catch (Exception ex)
-          {
-            AddFailureResponse(null, ex.Message, ref responses);
-
-            failureCount++;
-            continue;
-
-          }
-        }
-        uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
-        string txIdString = txId.ToString();
-        txLog.AppendLine($"Processing transaction: {txIdString}");
-
-        if (oneTx.MerkleProof && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
-        {
-          AddFailureResponse(txIdString, $"Transaction requires merkle proof notification but this instance of mAPI does not support callbacks", ref responses);
-
-          failureCount++;
-          continue;
-
-        }
-
-        if (oneTx.DsCheck && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
-        {
-          AddFailureResponse(txIdString, $"Transaction requires double spend notification but this instance of mAPI does not support callbacks", ref responses);
-
-          failureCount++;
-          continue;
-
-        }
-
-        if (allTxs.ContainsKey(txId))
-        {
-          AddFailureResponse(txIdString, "Transaction with this id occurs more than once within request", ref responses);
-
-          failureCount++;
-          continue;
-        }
-
-        var vc = new ValidationContext(oneTx);
-        var errors = oneTx.Validate(vc);
-        if (errors.Any())
-        {
-          AddFailureResponse(txIdString, string.Join(",", errors.Select(x => x.ErrorMessage)), ref responses);
-
-          failureCount++;
-          continue;
-        }
-        allTxs.Add(txId, oneTx.RawTx);
-        bool okToMine = false;
-        bool okToRelay = false;
-        PolicyQuote selectedQuote = null;
-        List<string> warnings = new();
-        var txStatus = await txRepository.GetTransactionStatusAsync(txId.ToBytes());
-
-        if (txStatus > TxStatus.NotPresentInDb)
-        {
-          txsToUpdate.Add(txIdString);
-          // if txstatus NotInDb or NodeRejected, proceed with regular feeQuote calculation
-          if (txStatus != TxStatus.NodeRejected)
-          {
-            // for other skip feeQuote calculation
-            if (txStatus == TxStatus.SentToNode)
-            {
-              logger.LogInformation($"Transaction {txIdString} marked as SentToNode. Will resubmit to node.");
-            }
-            else if (appSettings.ResubmitKnownTransactions.Value)
-            {
-              logger.LogInformation($"Transaction {txIdString} already known (txstatus={txStatus}. Will resubmit to node.");
-            }
-
-            var tx = await txRepository.GetTransactionAsync(txId.ToBytes());
-            if (oneTx.CallbackUrl != tx.CallbackUrl ||
-                oneTx.MerkleProof != tx.MerkleProof ||
-                oneTx.DsCheck != tx.DSCheck ||
-                ((txStatus != TxStatus.UnknownOldTx) && (user?.Identity != tx.Identity || user?.IdentityProvider != tx.IdentityProvider))
-               )
-            {
-              AddFailureResponse(txIdString, "Transaction already submitted with different parameters.", ref responses);
-
-              failureCount++;
-              continue;
-            }
-
-            // check for warnings
-            PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
-            var txParsed = HelperTools.ParseBytesToTransaction(oneTx.RawTx);
-            bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, txParsed);
-            CheckOutputsSumAndValidateDs(txParsed, oneTx.DsCheck, txStatus, warnings);
-
-            if (txStatus == TxStatus.UnknownOldTx)
-            {
-              if (!appSettings.ResubmitKnownTransactions.Value)
-              {
-                responses.Add(new SubmitTransactionOneResponse
-                {
-                  Txid = txIdString,
-                  ReturnResult = ResultCodes.Success,
-                  ResultDescription = NodeRejectCode.ResultAlreadyKnown,
-                  Warnings = warnings.ToArray()
-                });
-                continue;
-              }
-              // we don't have actual user or feeQuote saved for the unknownOldTxs
-              // and we cannot always define feequote (valid feeQuote can be expired or sumPrevOuputs = 0)
-              // so we resend it to node as with dontcheckfees
-              transactionsToSubmit.Add((txIdString, oneTx, false, true, false, null, txStatus, warnings));
-            }
-            else if (txStatus >= TxStatus.Accepted && !appSettings.ResubmitKnownTransactions.Value)
-            {
-              if (listUnconfirmedAncestors)
-              {
-                var (success, count) = await InsertMissingMempoolAncestors(txIdString, tx.PolicyQuoteId.Value);
-                if (!success)
-                {
-                  AddFailureResponse(txIdString, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
-
-                  failureCount++;
-                  continue;
-                }
-              }
-              responses.Add(new SubmitTransactionOneResponse
-              {
-                Txid = txIdString,
-                ReturnResult = ResultCodes.Success,
-                ResultDescription = NodeRejectCode.ResultAlreadyKnown,
-                Warnings = warnings.ToArray()
-              });
-            }
-            else
-            {
-              transactionsToSubmit.Add((txIdString, oneTx, false, tx.OkToMine, listUnconfirmedAncestors, tx.SetPolicyQuote ? policyQuote : null, txStatus, warnings));
-            }
-            continue;
-          }
-        }
-
-        Transaction transaction = null;
-        CollidedWith[] colidedWith = Array.Empty<CollidedWith>();
-        Exception exception = null;
-        string[] prevOutsErrors = Array.Empty<string>();
-        try
-        {
-          transaction = HelperTools.ParseBytesToTransaction(oneTx.RawTx);
-
-          if (transaction.IsCoinBase)
-          {
-            throw new ExceptionWithSafeErrorMessage("Invalid transaction - coinbase transactions are not accepted");
-          }
-          var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, new ReadOnlyDictionary<uint256, byte[]>(allTxs), rpcMultiClient);
-
-          prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
-          colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
-          txLog.AppendLine($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
-
-          if (appSettings.CheckFeeDisabled.Value)
-          {
-            txLog.AppendLine("No checkFees, CheckFeeDisabled.");
-            (okToMine, okToRelay) = (true, true);
-          }
-          else
-          {
-            (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, txStatus, warnings);
-
-            if (warnings.Any())
-            {
-              txLog.AppendLine($"CheckOutputsSumAndValidateDs returned warnings: '{string.Join(",", warnings)}'.");
-            }
-            foreach (var policyQuote in quotes)
-            {
-              if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
-              {
-                txLog.AppendLine($"Determined as ConsolidationTxn.");
-                (okToMine, okToRelay, selectedQuote) = (true, true, policyQuote);
-                break;
-              }
-              var (okToMineTmp, okToRelayTmp) =
-                CheckFees(oneTx.RawTx.LongLength, sumPrevOuputs, sumNewOutputs, dataBytes, policyQuote);
-              if (GetCheckFeesValue(okToMineTmp, okToRelayTmp) > GetCheckFeesValue(okToMine, okToRelay))
-              {
-                // save best combination 
-                (okToMine, okToRelay, selectedQuote) = (okToMineTmp, okToRelayTmp, policyQuote);
-              }
-            }
-            txLog.AppendLine($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
-              $"{(okToMine, okToRelay, selectedQuote?.PoliciesDict == null ? "" : string.Join(";", selectedQuote.PoliciesDict.Select(x => x.Key + "=" + x.Value)))}.");
-          }
-          logger.LogDebug(txLog.ToString());
-        }
-        catch (Exception ex)
-        {
-          logger.LogInformation(txLog.ToString());
-          exception = ex;
-        }
-
-        if (exception != null || colidedWith.Any() || transaction == null || prevOutsErrors.Any())
-        {
-
-          var oneResponse = new SubmitTransactionOneResponse
-          {
-            Txid = txIdString,
-            ReturnResult = ResultCodes.Failure,
-            // Include non null ConflictedWith only if a collision has been detected
-            ConflictedWith = !colidedWith.Any() ? null : colidedWith.Select(
-              x => new SubmitTransactionConflictedTxResponse
-              {
-                Txid = x.TxId,
-                Size = x.Size,
-                Hex = x.Hex,
-              }).ToArray()
-          };
-
-          if (oneResponse.ConflictedWith != null && oneResponse.ConflictedWith.Any(c => c.Txid == oneResponse.Txid))
-          {
-            // Transaction already in the mempool
-            // should result in "success known"
-            (okToMine, okToRelay) = (true, true);
-          }
-          else
-          {
-            if (transaction is null)
-            {
-              oneResponse.ResultDescription = "Can not parse transaction";
-            }
-            else if (exception is ExceptionWithSafeErrorMessage)
-            {
-              oneResponse.ResultDescription = exception.Message;
-            }
-            else if (exception != null)
-            {
-              oneResponse.ResultDescription = "Error fetching inputs";
-            }
-            else
-            {
-              // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
-              oneResponse.ResultDescription = "Missing inputs";
-            }
-            logger.LogError($"Can not calculate fee for {txIdString}. Error: {oneResponse.ResultDescription} Exception: {exception?.ToString() ?? ""}");
-
-
-            responses.Add(oneResponse);
-            failureCount++;
-            continue;
-          }
-        }
-
-        // Transaction was successfully analyzed
-        if (!okToMine && !okToRelay)
-        {
-          AddFailureResponse(txIdString, "Not enough fees", ref responses);
-
-          failureCount++;
-        }
-        else
-        {
-          bool allowHighFees = false;
-          bool dontcheckfee = okToMine;
-          bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, transaction);
-
-          transactionsToSubmit.Add((txIdString, oneTx, allowHighFees, dontcheckfee, listUnconfirmedAncestors, selectedQuote, txStatus, warnings));
         }
       }
 
-      logger.LogTrace($"TransactionsToSubmit: {transactionsToSubmit.Count}: {string.Join("; ", transactionsToSubmit.Select(x => x.transactionId))} ");
+      logger.LogTrace($"TransactionsToSubmit: {transactionsToSubmit.Count}: {string.Join("; ", transactionsToSubmit.Select(x => x.TransactionId))} ");
 
       RpcSendTransactions rpcResponse;
 
       Exception submitException = null;
 
-      var saveTxsBeforeSendToNode = new List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txstatus, List<string> warnings)>();
+      var saveTxsBeforeSendToNode = new List<TransactionToSubmit>();
       if (transactionsToSubmit.Any())
       {
         if (!appSettings.DontInsertTransactions.Value &&
             user != null)
         {
-          saveTxsBeforeSendToNode = transactionsToSubmit.Where(x => x.txstatus < TxStatus.SentToNode).ToList();
+          saveTxsBeforeSendToNode = transactionsToSubmit.Where(x => x.TxStatus < TxStatus.SentToNode).ToList();
           var insertedTxs = (await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiBeforeSendToNode,
             saveTxsBeforeSendToNode.Select(x => new Tx
             {
-              CallbackToken = x.transaction.CallbackToken,
-              CallbackUrl = x.transaction.CallbackUrl,
-              CallbackEncryption = x.transaction.CallbackEncryption,
-              DSCheck = x.transaction.DsCheck,
-              MerkleProof = x.transaction.MerkleProof,
-              MerkleFormat = x.transaction.MerkleFormat,
-              TxExternalId = new uint256(x.transactionId),
-              TxPayload = x.transaction.RawTx,
+              CallbackToken = x.Transaction.CallbackToken,
+              CallbackUrl = x.Transaction.CallbackUrl,
+              CallbackEncryption = x.Transaction.CallbackEncryption,
+              DSCheck = x.Transaction.DsCheck,
+              MerkleProof = x.Transaction.MerkleProof,
+              MerkleFormat = x.Transaction.MerkleFormat,
+              TxExternalId = new uint256(x.TransactionId),
+              TxPayload = x.Transaction.RawTx,
               ReceivedAt = clock.UtcNow(),
-              TxIn = x.transaction.TransactionInputs,
+              TxIn = x.Transaction.TransactionInputs,
               TxStatus = TxStatus.SentToNode,
-              UpdateTx = txsToUpdate.Contains(x.transactionId) ? Tx.UpdateTxMode.UpdateTx : Tx.UpdateTxMode.Insert,
-              PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
-              Policies = x.policyQuote?.Policies,
-              OkToMine = x.dontCheckFees,
-              SetPolicyQuote = x.policyQuote != null
+              UpdateTx = txsToUpdate.Contains(x.TransactionId) ? Tx.UpdateTxMode.UpdateTx : Tx.UpdateTxMode.Insert,
+              PolicyQuoteId = x.PolicyQuote != null ? x.PolicyQuote.Id : quotes.First().Id,
+              Policies = x.PolicyQuote?.Policies,
+              OkToMine = x.DontCheckFees,
+              SetPolicyQuote = x.PolicyQuote != null
             }).ToList(), false, false, true)).Select(x => new uint256(x)).ToList();
           insertedTxs.ForEach(x => txsToUpdate.Add(x.ToString()));
         }
@@ -1003,7 +723,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         // Simulate empty response
         rpcResponse = new RpcSendTransactions();
       }
-
 
       // Initialize common fields
       var result = new SubmitTransactionsResponse
@@ -1029,39 +748,39 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       else // submitted without error
       {
         var (submitFailureCount, transformed) = TransformRpcResponse(rpcResponse,
-          transactionsToSubmit.Select(x => (x.transactionId, x.warnings.ToArray())).ToArray());
+          transactionsToSubmit.Select(x => (x.TransactionId, x.Warnings.ToArray())).ToArray());
 
         responses.AddRange(transformed);
 
-        var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.transactionId));
+        var successfullTxs = transactionsToSubmit.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Success && y.Txid == x.TransactionId));
         mapiMetrics.TxAcceptedByNode.Inc(successfullTxs.Count());
         mapiMetrics.TxRejectedByNode.Inc(submitFailureCount);
 
         if (!appSettings.DontInsertTransactions.Value)
         {
-          logger.LogDebug($"Starting with InsertOrUpdateTxsAsync: {successfullTxs.Count()}: {string.Join("; ", successfullTxs.Select(x => x.transactionId))} (TransactionsToSubmit: {transactionsToSubmit.Count})");
+          logger.LogDebug($"Starting with InsertOrUpdateTxsAsync: {successfullTxs.Count()}: {string.Join("; ", successfullTxs.Select(x => x.TransactionId))} (TransactionsToSubmit: {transactionsToSubmit.Count})");
 
           var watch = System.Diagnostics.Stopwatch.StartNew();
           await txRepository.InsertOrUpdateTxsAsync(Faults.DbFaultComponent.MapiAfterSendToNode, successfullTxs.Select(x => new Tx
           {
-            CallbackToken = x.transaction.CallbackToken,
-            CallbackUrl = x.transaction.CallbackUrl,
-            CallbackEncryption = x.transaction.CallbackEncryption,
-            DSCheck = x.transaction.DsCheck,
-            MerkleProof = x.transaction.MerkleProof,
-            MerkleFormat = x.transaction.MerkleFormat,
-            TxExternalId = new uint256(x.transactionId),
-            TxPayload = x.transaction.RawTx,
+            CallbackToken = x.Transaction.CallbackToken,
+            CallbackUrl = x.Transaction.CallbackUrl,
+            CallbackEncryption = x.Transaction.CallbackEncryption,
+            DSCheck = x.Transaction.DsCheck,
+            MerkleProof = x.Transaction.MerkleProof,
+            MerkleFormat = x.Transaction.MerkleFormat,
+            TxExternalId = new uint256(x.TransactionId),
+            TxPayload = x.Transaction.RawTx,
             ReceivedAt = clock.UtcNow(),
-            TxIn = x.transaction.TransactionInputs,
+            TxIn = x.Transaction.TransactionInputs,
             SubmittedAt = clock.UtcNow(),
-            TxStatus = x.txstatus < TxStatus.UnknownOldTx ? TxStatus.Accepted : x.txstatus,
-            UpdateTx = txsToUpdate.Contains(x.transactionId) ?
-                  (x.txstatus < TxStatus.UnknownOldTx && user == null ? Tx.UpdateTxMode.UpdateTx : Tx.UpdateTxMode.TxStatusAndResubmittedAt) : Tx.UpdateTxMode.Insert,
-            PolicyQuoteId = x.policyQuote != null ? x.policyQuote.Id : quotes.First().Id,
-            Policies = x.policyQuote?.Policies,
-            OkToMine = x.dontCheckFees,
-            SetPolicyQuote = x.policyQuote != null
+            TxStatus = x.TxStatus < TxStatus.UnknownOldTx ? TxStatus.Accepted : x.TxStatus,
+            UpdateTx = txsToUpdate.Contains(x.TransactionId) ?
+                  (x.TxStatus < TxStatus.UnknownOldTx && user == null ? Tx.UpdateTxMode.UpdateTx : Tx.UpdateTxMode.TxStatusAndResubmittedAt) : Tx.UpdateTxMode.Insert,
+            PolicyQuoteId = x.PolicyQuote != null ? x.PolicyQuote.Id : quotes.First().Id,
+            Policies = x.PolicyQuote?.Policies,
+            OkToMine = x.DontCheckFees,
+            SetPolicyQuote = x.PolicyQuote != null
           }).ToList(), false, true);
           // if transaction is sent in parallel in two batches, only the first processed tx is saved
           // maybe we could:
@@ -1098,8 +817,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           // if tx was accepted by a node in a previous submit, sendrawtxs returns no ancestors
           // and we have to get them with GetMempoolAncestors
           var txsWithMissingMempoolAncestors = successfullTxs
-              .Where(x => x.listUnconfirmedAncestors && x.txstatus >= TxStatus.SentToNode && !txsWithAncestors.Contains(x.transactionId))
-              .Select(x => (x.transactionId, x.policyQuote, x.txstatus)).ToArray();
+              .Where(x => x.ListUnconfirmedAncestors && x.TxStatus >= TxStatus.SentToNode && !txsWithAncestors.Contains(x.TransactionId))
+              .Select(x => (x.TransactionId, x.PolicyQuote, x.TxStatus)).ToArray();
           foreach (var (transactionId, policyQuote, txstatus) in txsWithMissingMempoolAncestors)
           {
             var (success, count) = await InsertMissingMempoolAncestors(transactionId, policyQuote != null ? policyQuote.Id : quotes.First().Id);
@@ -1119,8 +838,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
           if (saveTxsBeforeSendToNode.Any())
           {
-            var rejectedTxs = saveTxsBeforeSendToNode.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Failure && y.Txid == x.transactionId));
-            await txRepository.UpdateTxStatus(rejectedTxs.Select(x => new uint256(x.transactionId).ToBytes()).ToArray(), TxStatus.NodeRejected);
+            var rejectedTxs = saveTxsBeforeSendToNode.Where(x => transformed.Any(y => y.ReturnResult == ResultCodes.Failure && y.Txid == x.TransactionId));
+            await txRepository.UpdateTxStatus(rejectedTxs.Select(x => new uint256(x.TransactionId).ToBytes()).ToArray(), TxStatus.NodeRejected);
           }
         }
 
@@ -1130,6 +849,276 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         mapiMetrics.TxResponseSuccess.Inc(result.Txs.Length - result.FailureCount);
         return result;
       }
+    }
+
+    private async Task<bool> ValidateTxAsync(UserAndIssuer user, 
+                                             SubmitTransaction oneTx, 
+                                             List<SubmitTransactionOneResponse> responses, 
+                                             IDictionary<uint256, byte[]> allTxs, 
+                                             HashSet<string> txsToUpdate,
+                                             List<TransactionToSubmit> transactionsToSubmit,
+                                             FeeQuote[] quotes,
+                                             ConsolidationTxParameters consolidationParameters)
+    {
+      StringBuilder txLog = new();
+      if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
+      {
+        AddFailureResponse(null, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
+        return false;
+      }
+
+      if ((oneTx.RawTx == null || oneTx.RawTx.Length == 0) && string.IsNullOrEmpty(oneTx.RawTxString))
+      {
+        AddFailureResponse(null, $"{nameof(SubmitTransaction.RawTx)} is required", ref responses);
+        return false;
+      }
+
+      if (oneTx.RawTx == null)
+      {
+        try
+        {
+          oneTx.RawTx = HelperTools.HexStringToByteArray(oneTx.RawTxString);
+        }
+        catch (Exception ex)
+        {
+          AddFailureResponse(null, ex.Message, ref responses);
+          return false;
+        }
+      }
+      uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
+      string txIdString = txId.ToString();
+      txLog.AppendLine($"Processing transaction: {txIdString}");
+
+      if (oneTx.MerkleProof && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
+      {
+        AddFailureResponse(txIdString, $"Transaction requires merkle proof notification but this instance of mAPI does not support callbacks", ref responses);
+        return false;
+      }
+
+      if (oneTx.DsCheck && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
+      {
+        AddFailureResponse(txIdString, $"Transaction requires double spend notification but this instance of mAPI does not support callbacks", ref responses);
+        return false;
+      }
+
+      if (allTxs.ContainsKey(txId))
+      {
+        AddFailureResponse(txIdString, "Transaction with this id occurs more than once within request", ref responses);
+        return false;
+      }
+
+      var vc = new ValidationContext(oneTx);
+      var errors = oneTx.Validate(vc);
+      if (errors.Any())
+      {
+        AddFailureResponse(txIdString, string.Join(",", errors.Select(x => x.ErrorMessage)), ref responses);
+        return false;
+      }
+      allTxs.Add(txId, oneTx.RawTx);
+      bool okToMine = false;
+      bool okToRelay = false;
+      PolicyQuote selectedQuote = null;
+      List<string> warnings = new();
+      var txStatus = await txRepository.GetTransactionStatusAsync(txId.ToBytes());
+
+      if (txStatus > TxStatus.NotPresentInDb)
+      {
+        txsToUpdate.Add(txIdString);
+        // if txstatus NotInDb or NodeRejected, proceed with regular feeQuote calculation
+        if (txStatus != TxStatus.NodeRejected)
+        {
+          // for other skip feeQuote calculation
+          if (txStatus == TxStatus.SentToNode)
+          {
+            logger.LogInformation($"Transaction {txIdString} marked as SentToNode. Will resubmit to node.");
+          }
+          else if (appSettings.ResubmitKnownTransactions.Value)
+          {
+            logger.LogInformation($"Transaction {txIdString} already known (txstatus={txStatus}. Will resubmit to node.");
+          }
+
+          var tx = await txRepository.GetTransactionAsync(txId.ToBytes());
+          if (oneTx.CallbackUrl != tx.CallbackUrl ||
+              oneTx.MerkleProof != tx.MerkleProof ||
+              oneTx.DsCheck != tx.DSCheck ||
+              ((txStatus != TxStatus.UnknownOldTx) && (user?.Identity != tx.Identity || user?.IdentityProvider != tx.IdentityProvider))
+             )
+          {
+            AddFailureResponse(txIdString, "Transaction already submitted with different parameters.", ref responses);
+            return false;
+          }
+
+          // check for warnings
+          PolicyQuote policyQuote = new() { Id = tx.PolicyQuoteId.Value, Policies = tx.Policies };
+          var txParsed = HelperTools.ParseBytesToTransaction(oneTx.RawTx);
+          bool listUnconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, txParsed);
+          CheckOutputsSumAndValidateDs(txParsed, oneTx.DsCheck, txStatus, warnings);
+
+          if (txStatus == TxStatus.UnknownOldTx)
+          {
+            if (!appSettings.ResubmitKnownTransactions.Value)
+            {
+              responses.Add(new SubmitTransactionOneResponse
+              {
+                Txid = txIdString,
+                ReturnResult = ResultCodes.Success,
+                ResultDescription = NodeRejectCode.ResultAlreadyKnown,
+                Warnings = warnings.ToArray()
+              });
+              return true;
+            }
+            // we don't have actual user or feeQuote saved for the unknownOldTxs
+            // and we cannot always define feequote (valid feeQuote can be expired or sumPrevOuputs = 0)
+            // so we resend it to node as with dontcheckfees
+            transactionsToSubmit.Add(new(txIdString, oneTx, false, true, false, null, txStatus, warnings));
+          }
+          else if (txStatus >= TxStatus.Accepted && !appSettings.ResubmitKnownTransactions.Value)
+          {
+            if (listUnconfirmedAncestors)
+            {
+              var (success, count) = await InsertMissingMempoolAncestors(txIdString, tx.PolicyQuoteId.Value);
+              if (!success)
+              {
+                AddFailureResponse(txIdString, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
+                return false;
+              }
+            }
+            responses.Add(new SubmitTransactionOneResponse
+            {
+              Txid = txIdString,
+              ReturnResult = ResultCodes.Success,
+              ResultDescription = NodeRejectCode.ResultAlreadyKnown,
+              Warnings = warnings.ToArray()
+            });
+          }
+          else
+          {
+            transactionsToSubmit.Add(new (txIdString, oneTx, false, tx.OkToMine, listUnconfirmedAncestors, tx.SetPolicyQuote ? policyQuote : null, txStatus, warnings));
+          }
+          return true;
+        }
+      }
+
+      Transaction transaction = null;
+      CollidedWith[] colidedWith = Array.Empty<CollidedWith>();
+      Exception exception = null;
+      string[] prevOutsErrors = Array.Empty<string>();
+      try
+      {
+        transaction = HelperTools.ParseBytesToTransaction(oneTx.RawTx);
+
+        if (transaction.IsCoinBase)
+        {
+          throw new ExceptionWithSafeErrorMessage("Invalid transaction - coinbase transactions are not accepted");
+        }
+        var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, new ReadOnlyDictionary<uint256, byte[]>(allTxs), rpcMultiClient);
+
+        prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
+        colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
+        txLog.AppendLine($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
+
+        if (appSettings.CheckFeeDisabled.Value)
+        {
+          txLog.AppendLine("No checkFees, CheckFeeDisabled.");
+          (okToMine, okToRelay) = (true, true);
+        }
+        else
+        {
+          (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, txStatus, warnings);
+
+          if (warnings.Any())
+          {
+            txLog.AppendLine($"CheckOutputsSumAndValidateDs returned warnings: '{string.Join(",", warnings)}'.");
+          }
+          foreach (var policyQuote in quotes)
+          {
+            if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
+            {
+              txLog.AppendLine($"Determined as ConsolidationTxn.");
+              (okToMine, okToRelay, selectedQuote) = (true, true, policyQuote);
+              break;
+            }
+            var (okToMineTmp, okToRelayTmp) =
+              CheckFees(oneTx.RawTx.LongLength, sumPrevOuputs, sumNewOutputs, dataBytes, policyQuote);
+            if (GetCheckFeesValue(okToMineTmp, okToRelayTmp) > GetCheckFeesValue(okToMine, okToRelay))
+            {
+              // save best combination 
+              (okToMine, okToRelay, selectedQuote) = (okToMineTmp, okToRelayTmp, policyQuote);
+            }
+          }
+          txLog.AppendLine($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
+            $"{(okToMine, okToRelay, selectedQuote?.PoliciesDict == null ? "" : string.Join(";", selectedQuote.PoliciesDict.Select(x => x.Key + "=" + x.Value)))}.");
+        }
+        logger.LogDebug(txLog.ToString());
+      }
+      catch (Exception ex)
+      {
+        logger.LogInformation(txLog.ToString());
+        exception = ex;
+      }
+
+      if (exception != null || colidedWith.Any() || transaction == null || prevOutsErrors.Any())
+      {
+
+        var oneResponse = new SubmitTransactionOneResponse
+        {
+          Txid = txIdString,
+          ReturnResult = ResultCodes.Failure,
+          // Include non null ConflictedWith only if a collision has been detected
+          ConflictedWith = !colidedWith.Any() ? null : colidedWith.Select(
+            x => new SubmitTransactionConflictedTxResponse
+            {
+              Txid = x.TxId,
+              Size = x.Size,
+              Hex = x.Hex,
+            }).ToArray()
+        };
+
+        if (oneResponse.ConflictedWith != null && oneResponse.ConflictedWith.Any(c => c.Txid == oneResponse.Txid))
+        {
+          // Transaction already in the mempool
+          // should result in "success known"
+          (okToMine, okToRelay) = (true, true);
+        }
+        else
+        {
+          if (transaction is null)
+          {
+            oneResponse.ResultDescription = "Can not parse transaction";
+          }
+          else if (exception is ExceptionWithSafeErrorMessage)
+          {
+            oneResponse.ResultDescription = exception.Message;
+          }
+          else if (exception != null)
+          {
+            oneResponse.ResultDescription = "Error fetching inputs";
+          }
+          else
+          {
+            // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
+            oneResponse.ResultDescription = "Missing inputs";
+          }
+          logger.LogError($"Can not calculate fee for {txIdString}. Error: {oneResponse.ResultDescription} Exception: {exception?.ToString() ?? ""}");
+
+
+          responses.Add(oneResponse);
+          return false;
+        }
+      }
+
+      // Transaction was successfully analyzed
+      if (!okToMine && !okToRelay)
+      {
+        AddFailureResponse(txIdString, "Not enough fees", ref responses);
+        return false;
+      }
+      bool allowHighFees = false;
+      bool dontcheckfee = okToMine;
+      bool unconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, transaction);
+
+      transactionsToSubmit.Add(new(txIdString, oneTx, allowHighFees, dontcheckfee, unconfirmedAncestors, selectedQuote, txStatus, warnings));
+      return true;
     }
 
     private async Task<(bool, int)> InsertMissingMempoolAncestors(string txId, long policyQuoteId)
@@ -1174,11 +1163,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
     private async Task<(RpcSendTransactions, Exception)> SendTransactions(
-      List<(string transactionId, SubmitTransaction transaction, bool allowhighfees, bool dontCheckFees, bool listUnconfirmedAncestors, PolicyQuote policyQuote, int txStatus, List<string> warnings)> transactionsToSubmit,
+      List<TransactionToSubmit> transactionsToSubmit,
       Faults.FaultType faultType)
     {
       return await SendRawTransactions(
-         transactionsToSubmit.Select(x => (x.transaction.RawTx, x.allowhighfees, x.dontCheckFees, x.listUnconfirmedAncestors, x.policyQuote?.PoliciesDict))
+         transactionsToSubmit.Select(x => (x.Transaction.RawTx, x.AllowHighFees, x.DontCheckFees, x.ListUnconfirmedAncestors, x.PolicyQuote?.PoliciesDict))
             .ToArray(), faultType);
     }
 
