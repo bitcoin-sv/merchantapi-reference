@@ -390,7 +390,7 @@ Or see below for building an image from this source kit.
 
     | Parameter | Description |
     | ----------- | ----------- |
-    | **Communication** | |
+    | **Communications** | |
     | HTTPSPORT | https port where the application will listen/run |
     |CERTIFICATEPASSWORD	|Password of the *.pfx file in the config folder|
     |CERTIFICATEFILENAME	|<certificate_file_name.pfx>|
@@ -436,7 +436,21 @@ Or see below for building an image from this source kit.
 |CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS	|Number of days mempool transactions and blocks are kept. Must be the same as node’s config mempoolexpiry. Default: 14 days|
 |CLEAN_UP_TX_AFTER_DAYS	|Number of days transactions and blocks are kept in the database. Default: 3 days|
 |CLEAN_UP_TX_PERIOD_SEC	|Time period of transactions clean-up check. Default: 1 hour|
-
+  | **Notifications** | |
+|NOTIFICATION_NOTIFICATION_INTERVAL_SEC	|Period when background service will retry sending notifications with an error|
+|NOTIFICATION_INSTANT_NOTIFICATION_TASKS	|Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100)|
+|NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE	|Maximum number of notifications waiting in instant queue before any new notifications will be scheduled for (slower) background delivery|
+|NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH	|Maximum number of notifications per host being processed by delivery task at any one time|
+|NOTIFICATION_SLOW_HOST_THRESHOLD_MS	|Callback response time threshold that determines whether host is deemed slow or fast|
+|NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE	|Percent of notification tasks from NOTIFICATION_INSTANT_NOTIFICATION_TASKS that will be reserved for slow hosts|
+|NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES	|Maximum number of callback response times saved for each host. Used to calculate average response time for a host|
+|NOTIFICATION_NOTIFICATIONS_RETRY_COUNT	|Maximum number of retries for failed notifications, before abandoning retries|
+|NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS	|Callback response timeout for slow host|
+|NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS	|Callback response timeout for fast host|
+  | **Policy Quotes** | |
+|CALLBACK_IP_ADDRESSES	|An array of IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote|
+|QUOTE_EXPIRY_MINUTES	|Fee quote expiry period|
+|CHECK_FEE_DISABLED	|Disable fee check|
 
 #### Banning Persistent Hosts
 
@@ -504,34 +518,9 @@ dotnet test
 
 ## Configuration
 
-The following table lists all the configuration settings with mappings to the environment variables. For a description of each setting see `Populate all environment variables` above.
+Set all the environment variables, as described in `Populate all environment variables` above.
 
-  | Application Setting | Environment Variable |
-  | ------------------- | -------------------- |
-  | QuoteExpiryMinutes | QUOTE_EXPIRY_MINUTES |
-  | RestAdminAPIKey | RESTADMIN_APIKEY |
-  | DeltaBlockHeightForDoubleSpendCheck | DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK |
-  | CleanUpTxAfterDays| CLEAN_UP_TX_AFTER_DAYS |
-  | CleanUpTxPeriodSec| CLEAN_UP_TX_PERIOD_SEC |
-  | WifPrivateKey | WIF_PRIVATEKEY |
-  | ZmqConnectionTestIntervalSec | ZMQ_CONNECTION_TEST_INTERVAL_SEC |
-  | **Notification section**|
-  | NotificationIntervalSec | NOTIFICATION_NOTIFICATION_INTERVAL_SEC |
-  | InstantNotificationsTasks | NOTIFICATION_INSTANT_NOTIFICATION_TASKS |
-  | InstantNotificationsQueueSize | NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE |
-  | MaxNotificationsInBatch | NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH |
-  | SlowHostThresholdInMs | NOTIFICATION_SLOW_HOST_THRESHOLD_MS |
-  | InstantNotificationsSlowTaskPercentage | NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE |
-  | NoOfSavedExecutionTimes | NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES |
-  | NotificationsRetryCount | NOTIFICATION_NOTIFICATIONS_RETRY_COUNT |
-  | SlowHostResponseTimeoutMS | NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS |
-  | FastHostResponseTimeoutMS | NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS |
-  | **MinerIdServer section** |
-  | Url | MINERID_SERVER_URL |
-  | Alias | MINERID_SERVER_ALIAS |
-  | Authentication | MINERID_SERVER_AUTHENTICATION |
-
-The following table lists additional configuration settings:
+The following table lists additional configuration connection strings in docker-compose.yml:
 
   | Setting | Description |
   | ------- | ----------- |
