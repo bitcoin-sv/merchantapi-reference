@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.5.0-a.
+Readme v.1.4.9a.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -388,6 +388,11 @@ Or see below for building an image from this source kit.
 
 4. Populate all environment variables in the `.env` file in the target folder:
 
+
+    | Parameter | Description |
+    | ----------- | ----------- |
+|HTTPSPORT	|https port where the application will listen/run|
+
     | Parameter | Description |
     | ----------- | ----------- |
     | CALLBACK_IP_ADDRESSES | An array of DSNT server IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote |
@@ -492,7 +497,7 @@ dotnet test
 
 The following table lists all the configuration settings with mappings to the environment variables. For a description of each setting see `Populate all environment variables` above.
 
-  | Application Setting | Environment variable |
+  | Application Setting | Environment Variable |
   | ------------------- | -------------------- |
   | QuoteExpiryMinutes | QUOTE_EXPIRY_MINUTES |
   | RestAdminAPIKey | RESTADMIN_APIKEY |
