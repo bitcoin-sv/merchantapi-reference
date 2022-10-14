@@ -14,6 +14,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
     public const string ApiMapiSubmitTransaction= "mapi/tx/";
     public const string ApiMapiQueryTransactionStatus = "mapi/tx/";
     public const string ApiMapiSubmitTransactions = "mapi/txs";
+    public const string ApiMapiTxOuts= "mapi/txouts";
     public const string ApiZmqStatusUrl = "/api/v1/status/zmq";
     public const string ApiDSQuery = "dsnt/1/query";
     public const string ApiDSSubmit = "dsnt/1/submit";

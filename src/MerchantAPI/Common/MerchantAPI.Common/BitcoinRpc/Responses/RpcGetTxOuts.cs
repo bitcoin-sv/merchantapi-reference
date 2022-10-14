@@ -3,15 +3,38 @@
 
 using System;
 using System.Text.Json.Serialization;
-using NBitcoin;
 
 namespace MerchantAPI.Common.BitcoinRpc.Responses
 {
   [Serializable]
-  public partial class RpcGetTxOuts
+  public partial class RpcGetTxOuts : IComparable
   {
     [JsonPropertyName("txouts")]
     public PrevOut[] TxOuts { get; set; }
+
+    public int CompareTo(object obj)
+    {
+      if (obj == null)
+      {
+        return 1;
+      }
+      if (obj is not RpcGetTxOuts otherPrevOut)
+      {
+        throw new ArgumentException("Object is not a RpcGetTxOuts");
+      }
+      if (otherPrevOut.TxOuts.Length != TxOuts.Length)
+      {
+        return 1;
+      }
+      for (int i=0; i < TxOuts.Length; i++)
+      {        
+        if (otherPrevOut.TxOuts[i].Error != TxOuts[i].Error)
+        {
+          return 1;
+        }
+      }
+      return 0;
+    }
   }
 
 
@@ -50,16 +73,16 @@ namespace MerchantAPI.Common.BitcoinRpc.Responses
     public string ScriptPubKey { get; set; }
 
     [JsonPropertyName("scriptPubKeyLen")]
-    public long ScriptPubKeyLength { get; set; }
+    public long? ScriptPubKeyLength { get; set; }
 
     [JsonPropertyName("value")]
-    public decimal Value { get; set; }
+    public decimal? Value { get; set; }
 
     [JsonPropertyName("isStandard")]
-    public bool IsStandard { get; set; }
+    public bool? IsStandard { get; set; }
 
     [JsonPropertyName("confirmations")]
-    public long Confirmations { get; set; }
+    public long? Confirmations { get; set; }
   }
 
   [Serializable]

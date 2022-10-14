@@ -187,7 +187,36 @@ namespace MerchantAPI.APIGateway.Domain.Models
       if (successful.Length > 1)
       {
         var firstSuccesfullJson = JsonSerializer.Serialize(successful.First());
-        if (successful.Skip(0).Any(x => JsonSerializer.Serialize(x) != firstSuccesfullJson))
+        if (successful.Skip(1).Any(x => JsonSerializer.Serialize(x) != firstSuccesfullJson))
+        {
+          return (default, false, firstException);
+        }
+      }
+
+      return (successful.First(), true, firstException);
+    }
+
+    async Task<(T firstOkResult, bool allOkTheSame, Exception firstError)> GetAllSuccessfulCompareTheSame<T>(Func<IRpcClient, Task<T>> call)
+    {
+      var tasks = await GetAll(call);
+
+      var successful = tasks.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToArray();
+
+      var firstException = ExtractFirstException(tasks);
+
+      if (firstException != null && !successful.Any()) // return error if there are no successful responses
+      {
+        if (firstException.GetBaseException() is RpcException)
+        {
+          return (default, true, firstException);
+        }
+        throw new ServiceUnavailableException("Failed to connect to node(s).", new Exception($"First error: {firstException}"));
+      }
+
+      if (successful.Length > 1)
+      {
+        var first = successful.First();
+        if (successful.Skip(1).Any(x => Comparer<T>.Default.Compare(successful.First(), x) != 0))
         {
           return (default, false, firstException);
         }
@@ -259,7 +288,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
         return GetFirstSuccessfulAsync(c => c.GetTxOutsAsync(outpoints, fieldList));
       }
     }
-    
+
+    public Task<(RpcGetTxOuts firstOkResult, bool allOkTheSame, Exception firstError)> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, bool includeMempool)
+    {
+      return GetAllSuccessfulCompareTheSame(c => c.GetTxOutsAsync(outpoints, fieldList, includeMempool));
+    }
+
     public Task<RpcVerifyScriptResponse[]> VerifyScriptAsync(bool stopOnFirstInvalid,
                                         int totalTimeoutSec,
                                         IEnumerable<(string Tx, int N)> dsTx)

@@ -188,6 +188,15 @@ namespace MerchantAPI.APIGateway.Domain
     public bool? ResubmitKnownTransactions { get; set; } = false;
 
     public bool? EnableFaultInjection { get; set; } = false;
+
+    public string AllowedTxOutFields { get; set; } = $"{TxOutFields.ScriptPubKeyLen},{TxOutFields.Value},{TxOutFields.IsStandard},{TxOutFields.Confirmations}";
+    public string[] AllowedTxOutFieldsArray
+    {
+      get
+      {
+        return string.IsNullOrEmpty(AllowedTxOutFields) ? null : AllowedTxOutFields?.Split(",").Select(f => f.Trim()).ToArray();
+      }
+    }
   }
 
   public class AppSettingValidator : IValidateOptions<AppSettings>
@@ -228,6 +237,16 @@ namespace MerchantAPI.APIGateway.Domain
           if (ipPort == null)
           {
             return ValidateOptionsResult.Fail(error);
+          }
+        }
+      }
+      if(!string.IsNullOrEmpty(options.AllowedTxOutFields))
+      {
+        foreach(var txOutField in options.AllowedTxOutFieldsArray)
+        {
+          if(!TxOutFields.ValidFields.Any(x => x == txOutField))
+          {
+            return ValidateOptionsResult.Fail($"Invalid configuration - {nameof(AppSettings.AllowedTxOutFields)}: field '{txOutField}' is invalid (valid options: {String.Join(",", TxOutFields.ValidFields)}).");
           }
         }
       }

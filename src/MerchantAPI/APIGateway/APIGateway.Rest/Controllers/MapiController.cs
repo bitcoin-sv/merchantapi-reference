@@ -24,6 +24,7 @@ using MerchantAPI.Common.Clock;
 using MerchantAPI.APIGateway.Rest.Swagger;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Exceptions;
+using System.Collections.Generic;
 
 namespace MerchantAPI.APIGateway.Rest.Controllers
 {
@@ -45,7 +46,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
     readonly IBlockChainInfo blockChainInfo;
     readonly IMinerId minerId;
     readonly IClock clock;
-
+    readonly string[] allowedTxOutFields;
 
     public MapiController(IFeeQuoteRepository feeQuoteRepository, IMapi mapi, ILogger<MapiController> logger, IBlockChainInfo blockChainInfo, IMinerId minerId, IClock clock, IOptions<AppSettings> options)
     {
@@ -57,6 +58,7 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
       quoteExpiryMinutes = options.Value.QuoteExpiryMinutes.Value;
       callbackIPAddressesArray = options.Value.CallbackIPAddressesArray;
+      allowedTxOutFields = options.Value.AllowedTxOutFieldsArray;
     }
 
 
@@ -416,6 +418,57 @@ namespace MerchantAPI.APIGateway.Rest.Controllers
         problemDetail.Title = ex.Message;
         return BadRequest(problemDetail);
       }
+      return await SignIfRequiredAsync(result, result.MinerId);
+    }
+
+    // POST /mapi/txouts
+    /// <summary>
+    /// Get details about an unspent transaction outputs.
+    /// </summary>
+    /// <param name="txOuts">POST list of txouts to query.</param>
+    /// <param name="returnField">Fields to be returned. If omitted, all fields will be returned.</param>
+    /// <param name="includeMempool">Whether to include the mempool.</param>
+    /// <remarks>This endpoint is used to query unspent transaction outputs.</remarks>
+    [HttpPost]
+    [Route("txouts")]
+    public async Task<ActionResult<TxOutsResponseViewModel>> GetTxOuts(
+      TxOutsRequestViewModel[] txOuts,
+      [FromQuery]
+      string[] returnField,
+      [FromQuery]
+      bool includeMempool = true)
+    {
+      string[] selectedFields = allowedTxOutFields;
+      if (!IdentityProviderStore.GetUserAndIssuer(User, Request.Headers, out _))
+      {
+        return Unauthorized("Incorrectly formatted token");
+      }
+
+      if (returnField.Length > 0)
+      {
+        if (returnField.Any(f => !allowedTxOutFields.Any(a => a.ToLower() == f.ToLower())))
+        {
+          var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
+          problemDetail.Title = $"Invalid return field selected. Allowed fields: {string.Join(",", allowedTxOutFields)}.";
+          return BadRequest(problemDetail);
+        }
+        // bitcoind requires correct casing so select from predefined values
+        selectedFields = allowedTxOutFields.Where(a => returnField.Any(f => f.ToLower() == a.ToLower())).ToArray();
+      }
+
+      foreach (var txOut in txOuts)
+      {
+        if (!uint256.TryParse(txOut.TxId, out _))
+        {
+          var problemDetail = ProblemDetailsFactory.CreateProblemDetails(HttpContext, (int)HttpStatusCode.BadRequest);
+          problemDetail.Title = @"Invalid format of TransactionId {txOut.TxId}.";
+          return BadRequest(problemDetail);
+        }
+      }
+
+      var result =
+        new TxOutsResponseViewModel(await mapi.GetTxOutsAsync(txOuts.Select(t => (t.TxId, t.N)), selectedFields, includeMempool));
+
       return await SignIfRequiredAsync(result, result.MinerId);
     }
   }

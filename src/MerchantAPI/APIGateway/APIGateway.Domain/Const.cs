@@ -76,6 +76,17 @@ namespace MerchantAPI.APIGateway.Domain
     public static readonly string[] ValidFormats = { TSC };
   }
 
+  public class TxOutFields
+  {
+    public const string ScriptPubKey = "scriptPubKey";
+    public const string ScriptPubKeyLen = "scriptPubKeyLen";
+    public const string Value = "value";
+    public const string IsStandard = "isStandard";
+    public const string Confirmations = "confirmations";
+
+    public static readonly string[] ValidFields = { ScriptPubKey, ScriptPubKeyLen, Value, IsStandard, Confirmations };
+  }
+
   public static class Warning
   {
     public const string MissingDSNT = "Missing DSNT output.";

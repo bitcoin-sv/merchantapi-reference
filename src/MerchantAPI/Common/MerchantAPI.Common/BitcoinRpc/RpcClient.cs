@@ -212,7 +212,7 @@ namespace MerchantAPI.Common.BitcoinRpc
       return new RpcDumpParameters(dumpparameters);
     }
 
-    public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
+    public Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, bool includeMempool = true, CancellationToken? token = null)
     {
       var param = outpoints.Select(
         x => new GetTxOutsInput
@@ -220,7 +220,7 @@ namespace MerchantAPI.Common.BitcoinRpc
           TxId = x.txId,
           N = x.N
         }).Cast<object>().ToArray();
-      return RequestAsync<RpcGetTxOuts>(token, "gettxouts", param, fieldList, true);
+      return RequestAsync<RpcGetTxOuts>(token, "gettxouts", param, fieldList, includeMempool);
     }
 
     public Task<string> SubmitBlock(byte[] block, CancellationToken? token = null)

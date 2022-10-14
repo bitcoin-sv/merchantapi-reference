@@ -17,5 +17,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     Task<QueryTransactionStatusResponse> QueryTransactionAsync(string id, bool merkleProof, string merkleFormat);
     Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 1000);
     SubmitTxStatus GetSubmitTxStatus();
+    Task<TxOutsResponse> GetTxOutsAsync(IEnumerable<(string txId, long n)> utxos, string[] returnFields, bool includeMempool);
   }
 }

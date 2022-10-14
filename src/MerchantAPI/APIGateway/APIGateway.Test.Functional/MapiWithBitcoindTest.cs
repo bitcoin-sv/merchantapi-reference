@@ -6,6 +6,7 @@ using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Rest.ViewModels;
+using MerchantAPI.APIGateway.Test.Functional.Attributes;
 using MerchantAPI.APIGateway.Test.Functional.Server;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.Json;
@@ -596,6 +597,111 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(1, mempoolTxs.Length);
       mempoolTxs = await node1.RpcClient.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
+    }
+
+    [TestMethod]
+    [OverrideSetting("AppSettings:AllowedTxOutFields", "scriptPubKey,scriptPubKeyLen,value,isStandard,confirmations")]
+    public async Task GetTxOuts()
+    {
+      using CancellationTokenSource cts = new(cancellationTimeout);
+
+      // Create transaction send it and mine block
+      var coin = availableCoins.Dequeue();
+      var (txHex1, txId1) = CreateNewTransaction();
+      _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex1), true, false, cts.Token);
+      await node0.RpcClient.GenerateAsync(1);
+      Transaction.TryParse(txHex1, Network.RegTest, out Transaction tx1);
+
+      // Create transaction that will wait in mempool.
+      var (txHex2, txId2) = CreateNewTransaction();
+      _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex2), true, false, cts.Token);
+
+      // Create transaction that spends tx in mempool. 
+      Transaction.TryParse(txHex2, Network.RegTest, out Transaction tx2);     
+      var tx2Coin = new Coin(tx2, 0);
+      var (txHex3, txId3) = CreateNewTransaction(tx2Coin, new Money(1000L));      
+      _ = await node0.RpcClient.SendRawTransactionAsync(HelperTools.HexStringToByteArray(txHex3), true, false, cts.Token);
+      Transaction.TryParse(txHex3, Network.RegTest, out Transaction tx3);
+
+      // Create fourth transaction that won't be sent to node
+      var (txHex4, txId4) = CreateNewTransaction();
+
+      // Check transactions
+      var reqContent = new StringContent(
+       $"[{{\"txid\":\"{txId1}\", \"n\": 0 }}, {{\"txid\":\"{txId2}\", \"n\": 0 }}, {{\"txid\":\"{txId3}\", \"n\": 0 }}, {{\"txid\":\"{txId4}\", \"n\": 0 }}]"
+     );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiTxOuts, Client, reqContent, HttpStatusCode.OK);
+
+      var responseTxOuts = response.response.ExtractPayload<TxOutsResponseViewModel>();
+      Assert.AreEqual("success", responseTxOuts.ReturnResult);
+      Assert.AreEqual(4, responseTxOuts.TxOuts.Length);
+
+      // First tx is mined with one confirmation
+      Assert.IsNull(responseTxOuts.TxOuts[0].Error);
+      Assert.IsNull(responseTxOuts.TxOuts[0].CollidedWith);
+      Assert.IsTrue(responseTxOuts.TxOuts[0].IsStandard);
+      Assert.AreEqual(1, responseTxOuts.TxOuts[0].Confirmations);
+      Assert.AreEqual(25, responseTxOuts.TxOuts[0].ScriptPubKeyLen);
+      Assert.IsNotNull(responseTxOuts.TxOuts[0].ScriptPubKey);
+      Assert.AreEqual(tx1.Outputs[0].Value.ToDecimal(MoneyUnit.BTC), responseTxOuts.TxOuts[0].Value);
+
+      // Second tx is spent by tx3
+      Assert.IsNotNull(responseTxOuts.TxOuts[1].Error);
+      Assert.IsNotNull(responseTxOuts.TxOuts[1].CollidedWith);
+      Assert.AreEqual("spent", responseTxOuts.TxOuts[1].Error);
+      Assert.AreEqual(txId3, responseTxOuts.TxOuts[1].CollidedWith.TxId);
+
+      // Third tx is in mempool
+      Assert.IsNull(responseTxOuts.TxOuts[2].Error);
+      Assert.IsNull(responseTxOuts.TxOuts[2].CollidedWith);
+      Assert.IsTrue(responseTxOuts.TxOuts[2].IsStandard);
+      Assert.AreEqual(0, responseTxOuts.TxOuts[2].Confirmations);
+      Assert.AreEqual(25, responseTxOuts.TxOuts[2].ScriptPubKeyLen);
+      Assert.AreEqual(tx3.Outputs[0].Value.ToDecimal(MoneyUnit.BTC), responseTxOuts.TxOuts[2].Value);
+
+      // Fourt tx was not sent to node
+      Assert.AreEqual("missing", responseTxOuts.TxOuts[3].Error);
+
+      // Same request but we skip mempool
+      response = await Post<SignedPayloadViewModel>($"{MapiServer.ApiMapiTxOuts}?includeMempool=false", Client, reqContent, HttpStatusCode.OK);
+      responseTxOuts = response.response.ExtractPayload<TxOutsResponseViewModel>();
+      Assert.AreEqual("success", responseTxOuts.ReturnResult);
+      Assert.AreEqual(4, responseTxOuts.TxOuts.Length);
+
+      // First tx is mined with one confirmation
+      Assert.IsNull(responseTxOuts.TxOuts[0].Error);
+      Assert.IsNull(responseTxOuts.TxOuts[0].CollidedWith);
+      Assert.IsTrue(responseTxOuts.TxOuts[0].IsStandard);
+      Assert.AreEqual(1, responseTxOuts.TxOuts[0].Confirmations);
+      Assert.AreEqual(25, responseTxOuts.TxOuts[0].ScriptPubKeyLen);
+      Assert.AreEqual(tx1.Outputs[0].Value.ToDecimal(MoneyUnit.BTC), responseTxOuts.TxOuts[0].Value);
+      // Other txs are missing 
+      Assert.AreEqual("missing", responseTxOuts.TxOuts[1].Error);
+      Assert.AreEqual("missing", responseTxOuts.TxOuts[2].Error);
+      Assert.AreEqual("missing", responseTxOuts.TxOuts[3].Error);
+
+      // Same request but we only request confirmations and ScriptPubKeyLen
+      response = await Post<SignedPayloadViewModel>($"{MapiServer.ApiMapiTxOuts}?returnField=confirmations&returnField=ScriptPubKeyLen", Client, reqContent, HttpStatusCode.OK);
+      responseTxOuts = response.response.ExtractPayload<TxOutsResponseViewModel>();
+      // Tx1 and Tx3 only have confirmations and scriptPubKeyLen set
+      Assert.AreEqual(1, responseTxOuts.TxOuts[0].Confirmations);
+      Assert.AreEqual(25, responseTxOuts.TxOuts[0].ScriptPubKeyLen);
+      Assert.IsNull(responseTxOuts.TxOuts[0].Value);
+      Assert.IsNull(responseTxOuts.TxOuts[0].IsStandard);
+      Assert.IsNull(responseTxOuts.TxOuts[0].ScriptPubKey);      
+      Assert.AreEqual(0, responseTxOuts.TxOuts[2].Confirmations);
+      Assert.AreEqual(25, responseTxOuts.TxOuts[2].ScriptPubKeyLen);
+      Assert.IsNull(responseTxOuts.TxOuts[2].Value);
+      Assert.IsNull(responseTxOuts.TxOuts[2].IsStandard);
+      Assert.IsNull(responseTxOuts.TxOuts[2].ScriptPubKey);
+      // Tx2 and Tx4 return error as before
+      Assert.IsNotNull(responseTxOuts.TxOuts[1].Error);
+      Assert.IsNotNull(responseTxOuts.TxOuts[1].CollidedWith);
+      Assert.AreEqual("spent", responseTxOuts.TxOuts[1].Error);
+      Assert.AreEqual(txId3, responseTxOuts.TxOuts[1].CollidedWith.TxId);
+      Assert.IsNotNull(responseTxOuts.TxOuts[3].Error);
+      Assert.AreEqual("missing", responseTxOuts.TxOuts[3].Error);
     }
   }
 }
