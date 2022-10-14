@@ -388,10 +388,16 @@ Or see below for building an image from this source kit.
 
 4. Populate all environment variables in the `.env` file in the target folder:
 
+### Communications
 
     | Parameter | Description |
     | ----------- | ----------- |
 |HTTPSPORT	|https port where the application will listen/run|
+|CERTIFICATEPASSWORD	|Password of the *.pfx file in the config folder|
+|CERTIFICATEFILENAME	|<certificate_file_name.pfx>|
+|RESTADMIN_APIKEY	|Authorization key for accessing administration interface|
+|ENABLEHTTP	|Enables requests through http port when set to True. This should only be used for testing and must be set to False in the production environment in order to maintain security|
+|HTTPPORT	|Http port where the application will listen/run. Default: port 80|
 
     | Parameter | Description |
     | ----------- | ----------- |
