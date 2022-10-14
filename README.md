@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.0a.
+Readme v.1.5.0-a.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -147,19 +147,15 @@ $ curl -H "Api-Key: [RestAdminAPIKey]" \
             \"fees\": [ \
               { \
                 \"feeType\": \"standard\", \
-                  \"miningFee\": \
-                     { \"satoshis\": 100, \"bytes\": 200 }, \
-                  \"relayFee\": \
-                     { \"satoshis\": 100, \"bytes\": 200 } }, \
+                  \"miningFee\": { \"satoshis\": 100, \"bytes\": 200 }, \
+                  \"relayFee\": { \"satoshis\": 100, \"bytes\": 200 } }, \
                { \"feeType\": \"data\", \
-                  \"miningFee\": \
-                     { \"satoshis\": 100, \"bytes\": 200 }, \
-                  \"relayFee\": \
-                     { \"satoshis\": 100, \"bytes\": 200 } \
+                  \"miningFee\": { \"satoshis\": 100, \"bytes\": 200 }, \
+                  \"relayFee\": { \"satoshis\": 100, \"bytes\": 200 } \
               }], \
             \"policies\": { \
                 \"skipscriptflags\": [\"MINIMALDATA\", \"DERSIG\", \
-                \"NULLDUMMY\", \"CLEANSTACK\"], \
+                  \"NULLDUMMY\", \"CLEANSTACK\"], \
                 \"maxtxsizepolicy\": 99999, \
                 \"datacarriersize\": 100000, \
                 \"maxscriptsizepolicy\": 100000, \
