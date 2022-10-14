@@ -388,7 +388,7 @@ Or see below for building an image from this source kit.
 
 4. Populate all environment variables in the `.env` file in the target folder:
 
-### Communications
+*Communications*
 
     | Parameter | Description |
     | ----------- | ----------- |
