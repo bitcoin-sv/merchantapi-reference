@@ -388,8 +388,6 @@ Or see below for building an image from this source kit.
 
 4. Populate all environment variables in the `.env` file in the target folder:
 
-*Communications*
-
     | Parameter | Description |
     | ----------- | ----------- |
     | HTTPSPORT | https port where the application will listen/run |
@@ -405,7 +403,7 @@ Or see below for building an image from this source kit.
 
     | Parameter | Description |
     | ----------- | ----------- |
-    |HTTPSPORT	|https port where the application will listen/run|
+    | *Communication* | |
     |CERTIFICATEPASSWORD	|Password of the *.pfx file in the config folder|
     |CERTIFICATEFILENAME	|<certificate_file_name.pfx>|
     |RESTADMIN_APIKEY	|Authorization key for accessing administration interface|
