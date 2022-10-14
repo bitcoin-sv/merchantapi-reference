@@ -392,6 +392,19 @@ Or see below for building an image from this source kit.
 
     | Parameter | Description |
     | ----------- | ----------- |
+    | HTTPSPORT | https port where the application will listen/run |
+    | Audience | Token audience |
+    | Algorithm | (optional) Signing algorithm allowed for the token (if not set, **HS256** will be used) |
+    | SymmetricSecurityKey | Symmetric security key that the token should be signed with |
+
+
+    | Parameter | Description |
+    | ----------- | ----------- |
+    | HTTPSPORT | https port where the application will listen/run |
+
+
+    | Parameter | Description |
+    | ----------- | ----------- |
     |HTTPSPORT	|https port where the application will listen/run|
     |CERTIFICATEPASSWORD	|Password of the *.pfx file in the config folder|
     |CERTIFICATEFILENAME	|<certificate_file_name.pfx>|
