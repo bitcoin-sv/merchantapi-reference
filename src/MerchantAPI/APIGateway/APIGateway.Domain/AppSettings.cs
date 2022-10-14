@@ -189,6 +189,8 @@ namespace MerchantAPI.APIGateway.Domain
 
     public bool? EnableFaultInjection { get; set; } = false;
 
+    public bool? EnableMissingParentsResubmission { get; set; } = false;
+
     public string AllowedTxOutFields { get; set; } = $"{TxOutFields.ScriptPubKeyLen},{TxOutFields.Value},{TxOutFields.IsStandard},{TxOutFields.Confirmations}";
     public string[] AllowedTxOutFieldsArray
     {

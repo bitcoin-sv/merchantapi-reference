@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
@@ -45,6 +46,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     protected readonly IFaultInjection faultInjection;
     readonly MapiMetrics mapiMetrics;
     readonly MempoolCheckerMetrics mempoolCheckerMetrics;
+
+    const int PARENT_RESUBMISSION_DEPTH = 100;
 
     static class ResultCodes
     {
@@ -1045,6 +1048,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         else
         {
+          bool reSentParent = false;
           if (transaction is null)
           {
             oneResponse.ResultDescription = "Can not parse transaction";
@@ -1059,14 +1063,33 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }
           else
           {
-            // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
-            oneResponse.ResultDescription = "Missing inputs";
+            mapiMetrics.TxMissingInputs.Inc();
+            int recursionDepth = 0;
+            var missingParentsStopwatch = new Stopwatch();
+            if (appSettings.EnableMissingParentsResubmission.Value && await CheckAndResubmitMissingParents(transaction, recursionDepth))
+            {
+              missingParentsStopwatch.Stop();
+              logger.LogDebug("Successfully resubmited missing parents for transaction {txid}. Time taken: {time}ms", txIdString, missingParentsStopwatch.ElapsedMilliseconds);
+              mapiMetrics.TxReSentMissingInputs.Inc();
+              reSentParent = true;
+              // no need to recheck colidedWith and prevOutsErrors, because if parent tx with outputs is actually missing there can be no collision
+              // and prevOutsErrors was reason why we ended up here anyway to try and resend the parent which was apparently missing
+              (okToMine, okToRelay, selectedQuote, colidedWith, prevOutsErrors) = await ValidateFeesAsync(oneTx, transaction, txIdString, txStatus, allTxs, warnings, quotes, consolidationParameters, txLog);
+            }
+            else
+            {
+              // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
+              oneResponse.ResultDescription = "Missing inputs";
+            }
           }
-          logger.LogError($"Can not calculate fee for {txIdString}. Error: {oneResponse.ResultDescription} Exception: {exception?.ToString() ?? ""}");
 
+          if (!reSentParent)
+          {
+            logger.LogError($"Can not calculate fee for {txIdString}. Error: {oneResponse.ResultDescription} Exception: {exception?.ToString() ?? ""}");
 
-          responses.Add(oneResponse);
-          return false;
+            responses.Add(oneResponse);
+            return false;
+          }
         }
       }
 
@@ -1076,11 +1099,87 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         AddFailureResponse(txIdString, "Not enough fees", ref responses);
         return false;
       }
-      bool allowHighFees = false;
-      bool dontcheckfee = okToMine;
+
       bool unconfirmedAncestors = await FillInputsAndListUnconfirmedAncestorsAsync(oneTx, transaction);
 
-      transactionsToSubmit.Add(new(txIdString, oneTx, allowHighFees, dontcheckfee, unconfirmedAncestors, selectedQuote, txStatus, warnings));
+      transactionsToSubmit.Add(new(txIdString, oneTx, false, okToMine, unconfirmedAncestors, selectedQuote, txStatus, warnings));
+      return true;
+    }
+
+    private async Task<bool> CheckAndResubmitMissingParents(Transaction transaction, int recursionDepth)
+    {
+      if (recursionDepth > PARENT_RESUBMISSION_DEPTH)
+      {
+        logger.LogInformation("Depth of {depth} ancestors exceeded, we will not go deeper in search of parents.", PARENT_RESUBMISSION_DEPTH);
+        return false;
+      }
+
+      recursionDepth++;
+      try
+      {
+        var txOutInquiry = transaction.Inputs.Select(x => (x.PrevOut.Hash.ToString(), (long)x.PrevOut.N)).ToList();
+        var existingTxOuts = await rpcMultiClient.GetTxOutsAsync(txOutInquiry, getTxOutFields);
+        int i = 0;
+        foreach (var txOut in existingTxOuts.TxOuts)
+        {
+          // we are solving only inputs that are missing for this tx...any other errors are already detected and processed by the calling method
+          if (txOut.Error == "missing")
+          {
+            var txId = new uint256(txOutInquiry[i].Item1);
+            // query if the txid is already in the block
+            var (_, allOkTheSame, firstError) = await rpcMultiClient.GetRawTransactionAsync(txId.ToString());
+            if (allOkTheSame && firstError == null)
+            {
+              return true;
+            }
+            var parentTx = await txRepository.GetTransactionAsync(txId.ToBytes());
+            if (parentTx != null)
+            {
+              var tx = HelperTools.ParseBytesToTransaction(parentTx.TxPayload);
+
+              if (await CheckAndResubmitMissingParents(tx, recursionDepth))
+              {
+                var sendResp = await rpcMultiClient.SendRawTransactionsAsync(new (byte[], bool, bool, bool, Dictionary<string, object>)[] 
+                                                                                 { (parentTx.TxPayload, false, parentTx.OkToMine, parentTx.UnconfirmedAncestor, parentTx.PoliciesDict) });
+                var invalidTx = sendResp.Invalid.SingleOrDefault();
+                if (invalidTx != null && invalidTx.RejectCode != NodeRejectCode.AlreadyKnown)
+                {
+                  logger.LogWarning("While resubmiting known and missing transaction {tx}, we got an error it was invalid. ErrorCode '{errorCode}'", tx.GetHash().ToString(), invalidTx.RejectCode);
+                  return false;
+                }
+                if (sendResp.Evicted.Any())
+                {
+                  logger.LogWarning("While resubmiting known and missing transaction {tx}, we got an error that it was evicted", tx.GetHash().ToString());
+                  return false;
+                }
+              }
+              else
+              {
+                return false;
+              }
+            }
+            else
+            {
+              logger.LogWarning("Tried to resubmit transaction which was reported as missing input, but the transaction {txid} is not known to mAPI", txId.ToString());
+              return false;
+            }
+          }
+          else if (string.IsNullOrEmpty(txOut.Error))
+          {
+            return true;
+          }
+          else
+          {
+            return false;
+          }
+          i++;
+        }
+      }
+      catch (Exception ex)
+      {
+        logger.LogError("Failed to resubmit transactions for missing inputs. Error: {error}", ex.GetBaseException().Message);
+        return false;
+      }
       return true;
     }
 
@@ -1099,7 +1198,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       var prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
       var colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
-      txLog.AppendLine($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
+      if (prevOutsErrors.Any() || colidedWith.Any())
+      {
+        logger.LogDebug($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
+
+        return (false, false, selectedQuote, colidedWith, prevOutsErrors);
+      }
 
       if (appSettings.CheckFeeDisabled.Value)
       {

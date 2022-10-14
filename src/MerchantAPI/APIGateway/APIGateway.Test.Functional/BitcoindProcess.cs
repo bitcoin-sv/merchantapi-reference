@@ -12,14 +12,15 @@ using MerchantAPI.Common.BitcoinRpc;
 using Microsoft.Extensions.Logging;
 using MerchantAPI.Common.Tasks;
 using System.Net.Http;
-
+using System.Threading.Tasks;
+using System.ComponentModel;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
   public class BitcoindProcess : IDisposable
   {
     const string defaultParams =
-      "-regtest -logtimemicros -excessiveblocksize=100000000000 -maxstackmemoryusageconsensus=1000000000 -genesisactivationheight=1 -debug -debugexclude=libevent -debugexclude=tor -dsendpointport=5555";
+      "-regtest -logtimemicros -excessiveblocksize=100000000000 -maxstackmemoryusageconsensus=1000000000 -genesisactivationheight=1 -debug -debugexclude=libevent -debugexclude=tor -dsendpointport=5555 -txindex=1";
 
     Process process;
     
@@ -48,7 +49,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       }
     }
 
-    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, int zmqIndex, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null, List<string> argumentList = null) :
+    public BitcoindProcess(string bitcoindFullPath, string dataDirRoot, int nodeIndex, string hostIp, int zmqIndex, string zmqIp, ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory, BitcoindProcess[] nodesToConnect = null, List<string> argumentList = null, bool emptyDataDir = true) :
       this(hostIp, bitcoindFullPath, Path.Combine(dataDirRoot, "node" + nodeIndex),
         18444 + nodeIndex,
         18332 + nodeIndex,
@@ -56,6 +57,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         28333 + zmqIndex,
         loggerFactory,
         httpClientFactory,
+        emptyDataDir,
         nodesToConnect: nodesToConnect,
         argumentList: argumentList)
     {
@@ -237,6 +239,50 @@ namespace MerchantAPI.APIGateway.Test.Functional
           process.Kill();
           if (process.WaitForExit(2000))
             logger.LogError($"BitcoindProcess with pid={process.Id} successfully killed.");
+        }
+
+        RpcClient = null;
+        process.Dispose();
+        process = null;
+        GC.SuppressFinalize(this);
+      }
+    }
+
+    public async Task DisposeAsync()
+    {
+      if (process != null)
+      {
+        if (RpcClient != null)
+        {
+          // Note that bitcoind RPC "stop" call starts the shutdown it does not shutdown the process immediately
+          try
+          {
+            await RpcClient.StopAsync();
+          }
+          catch { }
+        }
+      }
+
+      if (process != null)
+      {
+        if (RpcClient != null)
+        {
+          var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+          // if we requested stop, give it some time to shut down
+          do
+          {
+            await Task.Delay(100);
+          }
+          while (!cts.Token.IsCancellationRequested && !process.HasExited);
+        }
+
+        if (!process.HasExited)
+        {
+          logger.LogError($"BitcoindProcess with pid={process.Id} did not stop. Will kill it.");
+          process.Kill();
+          var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+          await process.WaitForExitAsync(cts.Token);
+          logger.LogError($"BitcoindProcess with pid={process.Id} successfully killed.");
         }
 
         RpcClient = null;

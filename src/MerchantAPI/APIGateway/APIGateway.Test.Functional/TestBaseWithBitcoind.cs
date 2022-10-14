@@ -161,7 +161,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       return StartBitcoindWithZmq(nodeIndex, nodesToConnect, argumentList: argumentList);
     }
 
-    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, List<string> argumentList = null)
+    public BitcoindProcess StartBitcoindWithZmq(int nodeIndex, BitcoindProcess[] nodesToConnect = null, int? zmqIndex = null, string zmqIp = zmqIpLocalhost, List<string> argumentList = null, bool emptyDataDir = true)
     {
 
       string testPerfix = TestContext.FullyQualifiedTestClassName;
@@ -181,7 +181,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         bitcoindFullPath,
         dataDirRoot,
         nodeIndex, hostIp, zmqIndex ?? nodeIndex, zmqIp, loggerFactory,
-        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect, argumentList);
+        server.Services.GetRequiredService<IHttpClientFactory>(), nodesToConnect, argumentList, emptyDataDir);
       bitcoindProcesses.Add(bitcoind);
       return bitcoind;
     }
@@ -195,6 +195,16 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       bitcoind.Dispose();
 
+    }
+
+    public async Task StopBitcoindAsync(BitcoindProcess bitcoind)
+    {
+      if (!bitcoindProcesses.Contains(bitcoind))
+      {
+        throw new Exception($"Can not stop a bitcoind that was not started by {nameof(StartBitcoind)} ");
+      }
+
+      await bitcoind.DisposeAsync();
     }
 
     static Coin GetCoin(IRpcClient rpcClient)

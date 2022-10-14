@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NBitcoin;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -84,6 +85,43 @@ namespace MerchantAPI.APIGateway.Test.Functional
       payload = await SubmitTransactionAsync(txHex2,
         expectedHttpStatusCode: HttpStatusCode.ServiceUnavailable, expectedHttpMessage: "Failed to connect to node(s).");
       Assert.IsNull(payload);
+    }
+
+    [TestMethod]
+    public async Task ResubmitLostParent()
+    {
+      var tx1 = CreateNewTransactionTx(100000);
+      var outCoin = new Coin(tx1.Outputs.AsIndexedOutputs().First());
+      loggerTest.LogInformation("Tx1 {txid}", tx1.GetHash().ToString());
+
+      var tx2 = CreateNewTransactionTx(outCoin, new Money(90000, MoneyUnit.Satoshi));
+      outCoin = new Coin(tx2.Outputs.AsIndexedOutputs().First());
+      loggerTest.LogInformation("Tx2 {txid}", tx2.GetHash().ToString());
+
+
+      var payload = await SubmitTransactionsAsync(new string[] { tx1.ToHex(), tx2.ToHex() });
+      Assert.AreEqual(0, payload.FailureCount);
+
+      string commonTestPrefix = typeof(TestBaseWithBitcoind).Namespace + ".";
+      string testPrefix = TestContext.FullyQualifiedTestClassName[commonTestPrefix.Length..];
+
+      var blockCount = await rpcClient0.GetBlockCountAsync();
+
+      await StopBitcoindAsync(node0);
+      var fileDirRoot = Path.Combine(TestContext.TestRunDirectory, "node0", testPrefix, TestContext.TestName, "node0", "regtest", "mempool.dat");
+      File.Delete(fileDirRoot);
+      node0 = StartBitcoindWithZmq(0, emptyDataDir: false);
+
+      Assert.AreEqual(blockCount, await rpcClient0.GetBlockCountAsync());
+
+      var mempool = await rpcClient0.GetRawMempool();
+      Assert.AreEqual(0, mempool.Length);
+
+      var tx3 = CreateNewTransactionTx(outCoin, new Money(80000, MoneyUnit.Satoshi));
+      loggerTest.LogInformation("Tx3 {txid}", tx3.GetHash().ToString());
+      payload = await SubmitTransactionsAsync(new string[] { tx3.ToHex() });
+
+      Assert.AreEqual(0, payload.FailureCount);
     }
 
     [TestMethod]
@@ -349,7 +387,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = await QueryTransactionStatus(txC1Hash);
 
       await AssertQueryTxAsync(payload, txC1Hash, "failure",
-        "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.");
+        "No such mempool or blockchain transaction. Use gettransaction for wallet transactions.");
     }
 
     [TestMethod]
