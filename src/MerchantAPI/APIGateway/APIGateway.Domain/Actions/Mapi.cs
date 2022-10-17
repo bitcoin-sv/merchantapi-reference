@@ -1,32 +1,32 @@
 ﻿// Copyright(c) 2020 Bitcoin Association.
 // Distributed under the Open BSV software license, see the accompanying file LICENSE
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using NBitcoin;
+using MerchantAPI.APIGateway.Domain.Metrics;
 using MerchantAPI.APIGateway.Domain.Models;
+using MerchantAPI.APIGateway.Domain.Models.APIStatus;
+using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
+using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
-using Microsoft.Extensions.Logging;
-using NBitcoin.Crypto;
-using Transaction = NBitcoin.Transaction;
-using MerchantAPI.Common.Json;
-using System.ComponentModel.DataAnnotations;
 using MerchantAPI.Common.Clock;
-using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.Exceptions;
+using MerchantAPI.Common.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Diagnostics.CodeAnalysis;
-using MerchantAPI.APIGateway.Domain.Models.Faults;
+using NBitcoin;
+using NBitcoin.Crypto;
 using NBitcoin.DataEncoders;
-using System.Text;
-using MerchantAPI.APIGateway.Domain.Models.APIStatus;
-using System.Collections.ObjectModel;
-using MerchantAPI.APIGateway.Domain.Metrics;
 using Prometheus;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Transaction = NBitcoin.Transaction;
 
 namespace MerchantAPI.APIGateway.Domain.Actions
 {
@@ -671,7 +671,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       foreach (var oneTx in request)
       {
-        if (! await ValidateTxAsync(user, oneTx, responses, allTxs, txsToUpdate, transactionsToSubmit, quotes, consolidationParameters))
+        if (!await ValidateTxAsync(user, oneTx, responses, allTxs, txsToUpdate, transactionsToSubmit, quotes, consolidationParameters))
         {
           failureCount++;
         }
@@ -1011,45 +1011,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           throw new ExceptionWithSafeErrorMessage("Invalid transaction - coinbase transactions are not accepted");
         }
-        var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, new ReadOnlyDictionary<uint256, byte[]>(allTxs), rpcMultiClient);
 
-        prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
-        colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
-        txLog.AppendLine($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
-
-        if (appSettings.CheckFeeDisabled.Value)
-        {
-          txLog.AppendLine("No checkFees, CheckFeeDisabled.");
-          (okToMine, okToRelay) = (true, true);
-        }
-        else
-        {
-          (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, txStatus, warnings);
-
-          if (warnings.Any())
-          {
-            txLog.AppendLine($"CheckOutputsSumAndValidateDs returned warnings: '{string.Join(",", warnings)}'.");
-          }
-          foreach (var policyQuote in quotes)
-          {
-            if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
-            {
-              txLog.AppendLine($"Determined as ConsolidationTxn.");
-              (okToMine, okToRelay, selectedQuote) = (true, true, policyQuote);
-              break;
-            }
-            var (okToMineTmp, okToRelayTmp) =
-              CheckFees(oneTx.RawTx.LongLength, sumPrevOuputs, sumNewOutputs, dataBytes, policyQuote);
-            if (GetCheckFeesValue(okToMineTmp, okToRelayTmp) > GetCheckFeesValue(okToMine, okToRelay))
-            {
-              // save best combination 
-              (okToMine, okToRelay, selectedQuote) = (okToMineTmp, okToRelayTmp, policyQuote);
-            }
-          }
-          txLog.AppendLine($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
-            $"{(okToMine, okToRelay, selectedQuote?.PoliciesDict == null ? "" : string.Join(";", selectedQuote.PoliciesDict.Select(x => x.Key + "=" + x.Value)))}.");
-        }
-        logger.LogDebug(txLog.ToString());
+        (okToMine, okToRelay, selectedQuote, colidedWith, prevOutsErrors) = await ValidateFeesAsync(oneTx, transaction, txIdString, txStatus, allTxs, warnings, quotes, consolidationParameters, txLog);
       }
       catch (Exception ex)
       {
@@ -1119,6 +1082,60 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       transactionsToSubmit.Add(new(txIdString, oneTx, allowHighFees, dontcheckfee, unconfirmedAncestors, selectedQuote, txStatus, warnings));
       return true;
+    }
+
+    private async Task<(bool, bool, PolicyQuote, CollidedWith[], string[])> ValidateFeesAsync(SubmitTransaction oneTx, 
+                                                       Transaction transaction, 
+                                                       string txIdString, 
+                                                       int txStatus, 
+                                                       IDictionary<uint256, byte[]> allTxs, 
+                                                       List<string> warnings, FeeQuote[] quotes,
+                                                       ConsolidationTxParameters consolidationParameters, 
+                                                       StringBuilder txLog)
+    {
+      bool okToMine = false, okToRelay = false;
+      PolicyQuote selectedQuote = null;
+      var (sumPrevOuputs, prevOuts) = await CollectPreviousOuputs(transaction, new ReadOnlyDictionary<uint256, byte[]>(allTxs), rpcMultiClient);
+
+      var prevOutsErrors = prevOuts.Where(x => !string.IsNullOrEmpty(x.Error)).Select(x => x.Error).ToArray();
+      var colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
+      txLog.AppendLine($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
+
+      if (appSettings.CheckFeeDisabled.Value)
+      {
+        txLog.AppendLine("No checkFees, CheckFeeDisabled.");
+        (okToMine, okToRelay) = (true, true);
+      }
+      else
+      {
+        (Money sumNewOutputs, long dataBytes) = CheckOutputsSumAndValidateDs(transaction, oneTx.DsCheck, txStatus, warnings);
+
+        if (warnings.Any())
+        {
+          txLog.AppendLine($"CheckOutputsSumAndValidateDs returned warnings: '{string.Join(",", warnings)}'.");
+        }
+        foreach (var policyQuote in quotes)
+        {
+          if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
+          {
+            txLog.AppendLine($"Determined as ConsolidationTxn.");
+            (okToMine, okToRelay, selectedQuote) = (true, true, policyQuote);
+            break;
+          }
+          var (okToMineTmp, okToRelayTmp) =
+            CheckFees(oneTx.RawTx.LongLength, sumPrevOuputs, sumNewOutputs, dataBytes, policyQuote);
+          if (GetCheckFeesValue(okToMineTmp, okToRelayTmp) > GetCheckFeesValue(okToMine, okToRelay))
+          {
+            // save best combination 
+            (okToMine, okToRelay, selectedQuote) = (okToMineTmp, okToRelayTmp, policyQuote);
+          }
+        }
+        txLog.AppendLine($"Finished with CheckFees calculation for {txIdString} and {quotes.Length} quotes: " +
+          $"{(okToMine, okToRelay, selectedQuote?.PoliciesDict == null ? "" : string.Join(";", selectedQuote.PoliciesDict.Select(x => x.Key + "=" + x.Value)))}.");
+      }
+      logger.LogDebug(txLog.ToString());
+
+      return (okToMine, okToRelay, selectedQuote, colidedWith, prevOutsErrors);
     }
 
     private async Task<(bool, int)> InsertMissingMempoolAncestors(string txId, long policyQuoteId)
