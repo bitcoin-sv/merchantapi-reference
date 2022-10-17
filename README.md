@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9a.
+Readme v.1.4.9b.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -409,12 +409,14 @@ Or see below for building an image from this source kit.
 |ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC	|Timeout for ZMQ subscription service RPC request calls. Default: 5 seconds|
 |ZMQ_STATS_LOG_PERIOD_MIN	|Periodically log ZMQ statistics about nodes and subscriptions every n minutes. Default: 10 minutes|
 |ZMQ_CONNECTION_TEST_INTERVAL_SEC	|How often the ZMQ subscription service tests that the connection with the node is still alive. Default: 60 seconds|
-    | **MinerId** | |
+    | **Responses** | |
 |WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
 |MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
 |MINERID_SERVER_ALIAS	|Alias to be used when communicating with the endpoint|
 |MINERID_SERVER_AUTHENTICATION	|HTTP authentication header that will be used to when communicating with the endpoint, this should include the Bearer authentication keyword, for example:Bearer 2b4a73f333b0aa1a1dfb52….421d78e2efe183df9|
 |MINERID_SERVER_REQUEST_TIMEOUT_SEC	REST |request timeout for minerId. Default: 100 seconds|
+|MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES	|How often transactions with missing inputs should be resubmitted. Default: 5|
+
     | **Mempool Checker** | |
 |MEMPOOL_CHECKER_DISABLED	|Disable mempoolChecker service. Default: false|
 |MEMPOOL_CHECKER_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit missing transactions if successful on previous try (errors “Missing inputs” and “Already known” are treated as success). Default: 60 (minimum 10)|
@@ -433,8 +435,8 @@ Or see below for building an image from this source kit.
 |DBCONNECTION_STARTUP_COMMAND_TIMEOUT_MINUTES	|If not null, override command timeout for the start-up database scripts execution - if null, the default command timeout is 30 seconds. Default: null|
 |DBCONNECTION_OPEN_CONNECTION_TIMEOUT_SEC	|Database open connection timeout. Default: 30 seconds|
 |DBCONNECTION_OPEN_CONNECTION_MAX_RETRIES	|Database open connection max retries - unless timeout is exceeded. Default: 3|
-|CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS	|Number of days mempool transactions and blocks are kept. Must be the same as node’s config mempoolexpiry. Default: 14 days|
-|CLEAN_UP_TX_AFTER_DAYS	|Number of days transactions and blocks are kept in the database. Default: 3 days|
+|CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS	|Number of days mempool transactions and blocks that are not on the active blockchain are kept. Must be the same as node’s config mempoolexpiry. Default: 14 days|
+|CLEAN_UP_TX_AFTER_DAYS	|Number of days transactions and blocks that are on the active blockchain are kept in the database. Default: 3 days|
 |CLEAN_UP_TX_PERIOD_SEC	|Time period of transactions clean-up check. Default: 1 hour|
   | **Notifications** | |
 |NOTIFICATION_NOTIFICATION_INTERVAL_SEC	|Period when background service will retry sending notifications with an error|
@@ -526,8 +528,8 @@ The following table lists additional configuration connection strings in docker-
   | ------- | ----------- |
   | **ConnectionStrings section** |
   | DBConnectionString | connection string for CRUD access to PostgreSQL database |
-  | DBConnectionStringDDL | is the same as DBConnectionString, but with a user that is owner of the database |
-  | DBConnectionStringMaster | is the same as DBConnectionString, but with a user that has admin privileges (usually postgres) |
+  | DBConnectionStringDDL | is the same as DBConnectionString, but with a database owner |
+  | DBConnectionStringMaster | is the same as DBConnectionString, but with a database owner that has admin privileges (usually postgres) |
 
 ## Configuration with standalone database server
 
@@ -535,8 +537,8 @@ mAPI can be configured to use a standalone Postgres database instead of mapi-db 
 
   | Setting | Description |
   | ------- | ----------- |
-  | ConnectionStrings:DBConnectionString | connection string to a user that has mapi_crud role granted |
-  | ConnectionStrings:DBConnectionStringDDL | connection string to a user that has DDL privileges |
+  | ConnectionStrings:DBConnectionString | connection string to a user who has mapi_crud role granted |
+  | ConnectionStrings:DBConnectionStringDDL | connection string to a user who has DDL privileges |
 
 An additional requirement is the existence of a mapi_crud role.
 
