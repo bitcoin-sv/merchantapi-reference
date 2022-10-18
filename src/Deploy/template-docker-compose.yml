@@ -26,6 +26,10 @@ services:
       - ConnectionStrings__DBConnectionString=Server=merchant-gateway-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_gateway;
       - ConnectionStrings__DBConnectionStringDDL=Server=merchant-gateway-database;Port=5432;User Id=merchantddl;Password=merchant;Database=merchant_gateway;
       - ConnectionStrings__DBConnectionStringMaster=Server=merchant-gateway-database;Port=5432;User Id=postgres;Password=postgres;Database=merchant_gateway;
+      - Logging__LogLevel__Default=${LOG_LEVEL_DEFAULT}
+      - Logging__LogLevel__Microsoft=${LOG_LEVEL_MICROSOFT}
+      - Logging__LogLevel__Microsoft.Hosting.Lifetime=${LOG_LEVEL_MICROSOFT_HOSTING_LIFETIME}
+      - Logging__LogLevel__System.Net.Http.HttpClient=${LOG_LEVEL_HTTPCLIENT}
       - AppSettings__QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
       - AppSettings__CallbackIPAddresses=${CALLBACK_IP_ADDRESSES}
       - AppSettings__ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
