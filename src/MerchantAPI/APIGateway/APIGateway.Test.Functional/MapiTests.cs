@@ -16,6 +16,8 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Threading.Tasks;
+using MerchantAPI.Common.Test;
+using MerchantAPI.APIGateway.Test.Functional.Mock;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -657,6 +659,48 @@ namespace MerchantAPI.APIGateway.Test.Functional
       await Assert2ValidAnd1InvalidAsync(response.response.ExtractPayload<SubmitTransactionsResponseViewModel>());
     }
 
+    [TestMethod]
+    public async Task TxOutsReturnsSameNumberOfTxOutsAsRequested()
+    {
+      rpcClientFactoryMock.SetUpTransaction(txC0Hex, txC1Hex, txC2Hex);
 
+      var reqContent = new StringContent(
+        $"[{{\"txid\":\"{txC0Hash}\", \"n\": 0 }}, {{\"txid\":\"{txC1Hash}\", \"n\": 0 }}, {{\"txid\":\"{txC2Hash}\", \"n\": 0 }}, {{\"txid\":\"{txC3Hash}\", \"n\": 0 }}]"
+      );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiTxOuts, Client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      var responseTxOuts = response.response.ExtractPayload<TxOutsResponseViewModel>();
+      Assert.AreEqual("success", responseTxOuts.ReturnResult);
+      Assert.AreEqual(4, responseTxOuts.TxOuts.Length);
+      Assert.IsNull(responseTxOuts.TxOuts[0].Error);
+      Assert.IsNull(responseTxOuts.TxOuts[1].Error);
+      Assert.IsNull(responseTxOuts.TxOuts[2].Error);
+      Assert.AreEqual("missing", responseTxOuts.TxOuts[3].Error);
+    }
+
+    [TestMethod]
+    public async Task TxOutsReturnsMixedResultWhenOneOfTheNodesIsMissingTx ()
+    {
+      rpcClientFactoryMock.SetUpTransaction(txC0Hex, txC1Hex);
+
+      AddMockNode(1);
+      Assert.AreEqual(2, Nodes.GetNodes().Count());
+
+      rpcClientFactoryMock.IgnoreTransactionOnNode(Nodes.GetNodes().First().Host, txC1Hash);
+
+      var reqContent = new StringContent(
+        $"[{{\"txid\":\"{txC0Hash}\", \"n\": 0 }}, {{\"txid\":\"{txC1Hash}\", \"n\": 0 }}]"
+      );
+      reqContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+      var response = await Post<SignedPayloadViewModel>(MapiServer.ApiMapiTxOuts, Client, reqContent, HttpStatusCode.OK);
+      VerifySignature(response);
+
+      var responseTxOuts = response.response.ExtractPayload<TxOutsResponseViewModel>();
+
+      Assert.AreEqual("failure", responseTxOuts.ReturnResult);
+      Assert.AreEqual("Mixed results", responseTxOuts.ResultDescription);
+    }
   }
 }

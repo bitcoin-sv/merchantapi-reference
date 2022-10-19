@@ -406,11 +406,11 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           return false;
         }
-        if (!consolidationParameters.AcceptNonStdConsolidationInput && !item.output.IsStandard)
+        if (!consolidationParameters.AcceptNonStdConsolidationInput && !item.output.IsStandard.Value)
         {
           return false;
         }
-        sumScriptPubKeySizesTxInputs += item.output.ScriptPubKeyLength;
+        sumScriptPubKeySizesTxInputs += item.output.ScriptPubKeyLength.Value;
       }
 
       long sumScriptPubKeySizesTxOutputs = transaction.Outputs.Sum(x => x.ScriptPubKey.Length);
@@ -1376,5 +1376,55 @@ failures: {failures}, submitFailureIgnored: {submitFailureIgnored}, missing inpu
         mapiMetrics.TxSentToNode.Value, mapiMetrics.TxAcceptedByNode.Value, mapiMetrics.TxRejectedByNode.Value, mapiMetrics.TxSubmitException.Value,
         mapiMetrics.TxResponseSuccess.Value, mapiMetrics.TxResponseFailure.Value);
     }
+
+    public async Task<TxOutsResponse> GetTxOutsAsync(IEnumerable<(string txId, long n)> utxos, string[] returnFields, bool includeMempool)
+    {
+      var currentMinerId = await minerId.GetCurrentMinerIdAsync();
+
+      var (result, allTheSame, exception) = await rpcMultiClient.GetTxOutsAsync(utxos, returnFields, includeMempool);
+
+      if (exception != null && result == null) // only report errors none of the nodes return result or if we got RpcException
+      {
+        return new TxOutsResponse
+        {
+          Timestamp = clock.UtcNow(),
+          ReturnResult = "failure",
+          ResultDescription = GetSafeExceptionDescription(exception),
+          MinerID = currentMinerId,
+        };
+      }
+
+      // report mixed errors if we got mixed result or if we got some successful results and some RpcException.
+      // Ordinary exception might indicate connectivity problems, so we skip them
+      if (!allTheSame || (exception as AggregateException)?.GetBaseException() is RpcException)
+      {
+        return new TxOutsResponse
+        {
+          Timestamp = clock.UtcNow(),
+          ReturnResult = "failure",
+          ResultDescription = "Mixed results",
+          MinerID = currentMinerId,
+        };
+      }
+
+      return new TxOutsResponse
+      {
+        Timestamp = clock.UtcNow(),
+        ReturnResult = "success",
+        ResultDescription = null,
+        MinerID = currentMinerId,
+        TxOuts = result.TxOuts.Select(t => new TxOutResponse()
+        {
+          Error = t.Error,
+          CollidedWith = t.CollidedWith == null ? null : new TxOutCollidedWith() { TxId = t.CollidedWith.TxId, Size = t.CollidedWith.Size, Hex = t.CollidedWith.Hex },
+          ScriptPubKey = t.ScriptPubKey,
+          ScriptPubKeyLen = t.ScriptPubKeyLength,
+          Value = t.Value,
+          IsStandard = t.IsStandard,
+          Confirmations = t.Confirmations
+        }).ToArray()
+      };
+    }
+
   }
 }

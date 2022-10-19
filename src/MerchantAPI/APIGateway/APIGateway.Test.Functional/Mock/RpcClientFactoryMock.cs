@@ -42,6 +42,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     readonly ConcurrentDictionary<string, object> doNotTraceMethods = new(StringComparer.InvariantCultureIgnoreCase);
     readonly IList<(string, int)> validScriptCombinations = new List<(string, int)>();
     
+    readonly ConcurrentDictionary<string, HashSet<string>> ignoredTransactions = new();
 
     public RpcClientFactoryMock()
     {
@@ -177,7 +178,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return new RpcClientMock(AllCalls, host, port, username, password, mockedZMQNotificationsEndpoint,
         transactions,
         blocks, disconnectedNodes, doNotTraceMethods, PredefinedResponse,
-        validScriptCombinations);
+        validScriptCombinations,
+        ignoredTransactions.ContainsKey(host) ? ignoredTransactions[host]: new HashSet<string>());
     }
 
     /// <summary>
@@ -222,6 +224,15 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     public void DisconnectNode(string nodeId)
     {
       disconnectedNodes.TryAdd(nodeId,null);
+    }
+
+    public void IgnoreTransactionOnNode(string nodeId, string txId)
+    {
+      if (!ignoredTransactions.ContainsKey(nodeId))
+      {
+        ignoredTransactions[nodeId] = new HashSet<string>();
+      }
+      ignoredTransactions[nodeId].Add(txId);
     }
 
     public void ReconnectNode(string nodeId)

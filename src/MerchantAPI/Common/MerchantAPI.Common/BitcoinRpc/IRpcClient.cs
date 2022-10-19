@@ -60,7 +60,7 @@ namespace MerchantAPI.Common.BitcoinRpc
 
     Task<RpcDumpParameters> DumpParametersAsync(CancellationToken? token = null);
 
-    Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null);
+    Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, bool includeMempool = true, CancellationToken? token = null);
 
     Task<string> SubmitBlock(byte[] block, CancellationToken? token = null);
 

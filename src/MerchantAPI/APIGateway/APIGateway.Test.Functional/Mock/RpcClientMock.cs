@@ -29,6 +29,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
     readonly ConcurrentDictionary<string, object> disconnectedNodes;
     readonly ConcurrentDictionary<string, object> doNotTraceMethods;
     readonly IList<(string, int)> validScriptCombinations;
+    readonly HashSet<string> ignoredTransactions;
 
     // Key is nodeID:memberName value is value that should be returned to the caller
     private readonly ConcurrentDictionary<string, object> predefinedResponse;
@@ -55,7 +56,8 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       ConcurrentDictionary<string, object> disconnectedNodes,
       ConcurrentDictionary<string, object> doNotTraceMethods,
       ConcurrentDictionary<string, object> predefinedResponse,
-      IList<(string, int)> validScriptCombinations
+      IList<(string, int)> validScriptCombinations,
+      HashSet<string> ignoredTransactions
       )
     {
       this.callList = callList;
@@ -66,6 +68,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       this.doNotTraceMethods = doNotTraceMethods;
       this.predefinedResponse = predefinedResponse;
       this.validScriptCombinations = validScriptCombinations;
+      this.ignoredTransactions = ignoredTransactions;
     }
 
     public RpcClientMock(RpcCallList callList, string host, int port, string username, string password, string zmqAddress,
@@ -74,8 +77,9 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         ConcurrentDictionary<string, object> disconnectedNodes,
         ConcurrentDictionary<string, object> doNotTraceMethods,
         ConcurrentDictionary<string, object> predefinedResponse,
-        IList<(string, int)> validScriptCombinations
-    ) : this(callList, host, port, username, password, transactions, blocks, disconnectedNodes, doNotTraceMethods, predefinedResponse, validScriptCombinations)
+        IList<(string, int)> validScriptCombinations,
+        HashSet<string> ignoredTransactions
+    ) : this(callList, host, port, username, password, transactions, blocks, disconnectedNodes, doNotTraceMethods, predefinedResponse, validScriptCombinations, ignoredTransactions)
     {
       this.zmqAddress = zmqAddress;
     }
@@ -87,7 +91,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
         throw new HttpRequestException($"Node '{nodeId}' can not be reached (simulating error)");
       }
     }
-        
+
     /// <summary>
     /// Throws if node is disconnected. Records successful call in call lists.
     /// Return non null if predefined result should be returned to called
@@ -325,6 +329,14 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       {
         return r;
       }
+      else
+      {        
+        foreach(var tx in txs)
+        {
+          var txId = Transaction.Load(tx.transaction, Network.Main).GetHash(); // might not handle very large transactions
+          transactions.TryAdd(txId, tx.transaction);          
+        }
+      }
 
       return new RpcSendTransactions(); // empty response means that everything was accepted
     }
@@ -357,7 +369,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       return new RpcDumpParameters();
     }
 
-    public async Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, CancellationToken? token = null)
+    public async Task<RpcGetTxOuts> GetTxOutsAsync(IEnumerable<(string txId, long N)> outpoints, string[] fieldList, bool includeMempool=true, CancellationToken? token = null)
     {
       var r = await SimulateCallAsync<RpcGetTxOuts>();
       if (r != null)
@@ -370,7 +382,7 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       {
 
         PrevOut result = null;
-        if (transactions.TryGetValue(new uint256(txId), out var foundTx))
+        if (transactions.TryGetValue(new uint256(txId), out var foundTx) && !ignoredTransactions.Contains(txId))
         {
           var outputs = HelperTools.ParseBytesToTransaction(foundTx).Outputs;
           if (N < outputs.Count)
