@@ -1412,6 +1412,134 @@
       ],
       "title": "Average time spent waiting for response from node",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PA618D2ED2AA00801"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 100,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PA618D2ED2AA00801"
+          },
+          "editorMode": "builder",
+          "expr": "merchantapi_mapi_tx_missing_inputs_counter",
+          "legendFormat": "Missing inputs",
+          "range": true,
+          "refId": "MIssing inputs"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PA618D2ED2AA00801"
+          },
+          "editorMode": "builder",
+          "expr": "merchantapi_mapi_tx_resent_missing_inputs_counter",
+          "hide": false,
+          "legendFormat": "Parent was resent",
+          "range": true,
+          "refId": "Resent parents"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PA618D2ED2AA00801"
+          },
+          "editorMode": "builder",
+          "expr": "merchantapi_mapi_tx_was_mined_missing_inputs_counter",
+          "hide": false,
+          "legendFormat": "Already in block",
+          "range": true,
+          "refId": "Already mined"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PA618D2ED2AA00801"
+          },
+          "editorMode": "builder",
+          "expr": "merchantapi_mapi_tx_invalid_block_missing_inputs_counter",
+          "hide": false,
+          "legendFormat": "Invalid block",
+          "range": true,
+          "refId": "Mined in invalid block"
+        }
+      ],
+      "title": "Missing inputs status",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",

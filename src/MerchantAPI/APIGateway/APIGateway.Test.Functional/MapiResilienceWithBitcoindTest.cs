@@ -264,7 +264,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
         // we don't know, that user already submitted transaction through mAPI the first time,
         // because transaction submitted by anonymous user is sent to node and then saved to DB
         // (for the authenticated user it is already saved before sent to node)
-        Assert.AreEqual("failure", payloadSubmit.ReturnResult);
+        // but it will still return success because we will discover this tx inside the block and mark it
+        // as successfull
+        Assert.AreEqual("success", payloadSubmit.ReturnResult);
       }
       else
       {

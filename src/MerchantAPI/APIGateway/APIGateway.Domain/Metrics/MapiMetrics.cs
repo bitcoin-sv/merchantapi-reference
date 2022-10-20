@@ -21,6 +21,8 @@ namespace MerchantAPI.APIGateway.Domain.Metrics
     public Counter TxResponseFailure { init; get; }
     public Counter TxMissingInputs { init; get; }
     public Counter TxReSentMissingInputs { init; get; }
+    public Counter TxWasMinedMissingInputs { init; get; }
+    public Counter TxInvalidBlockMissingInputs { init; get; }
 
     public MapiMetrics()
     {
@@ -36,6 +38,8 @@ namespace MerchantAPI.APIGateway.Domain.Metrics
       TxResponseFailure = CreateCounter("tx_response_failure_counter", "Number of failure responses.");
       TxMissingInputs = CreateCounter("tx_missing_inputs_counter", "Number of transactions with missing inputs.");
       TxReSentMissingInputs = CreateCounter("tx_resent_missing_inputs_counter", "Number of transactions which reported missing inputs had its inputs resent.");
+      TxWasMinedMissingInputs = CreateCounter("tx_was_mined_missing_inputs_counter", "Number of transactions which reported missing inputs and were discovered as mined.");
+      TxInvalidBlockMissingInputs = CreateCounter("tx_invalid_block_missing_inputs_counter", "Number of transactions which reported missing inputs and were discovered in a block that was not on active chain.");
     }
   }
 }

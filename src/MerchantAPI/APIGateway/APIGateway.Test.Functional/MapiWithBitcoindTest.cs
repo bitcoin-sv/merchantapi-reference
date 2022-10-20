@@ -125,6 +125,29 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    public async Task InsertAlreadyMinedTxAsync()
+    {
+      var tx1 = CreateNewTransactionTx(100000);
+      
+      await rpcClient0.SendRawTransactionAsync(tx1.ToBytes(), true, true);
+
+      var blockHash = (await GenerateBlockAndWaitForItToBeInsertedInDBAsync()).ToString();
+
+      var payload = await SubmitTransactionsAsync(new string[] { tx1.ToHex() });
+      Assert.AreEqual(0, payload.FailureCount);
+      Assert.AreEqual("success", payload.Txs.Single().ReturnResult);
+
+      WaitUntilEventBusIsIdle();
+      var dbTx = await TxRepositoryPostgres.GetTransactionAsync(tx1.GetHash().ToBytes());
+      Assert.IsNotNull(dbTx);
+      Assert.AreEqual(TxStatus.UnknownOldTx, dbTx.TxStatus);
+      var block = (await TxRepositoryPostgres.GetBlocksByTxIdAsync(dbTx.TxInternalId)).Single();
+      Assert.AreEqual(blockHash, new uint256(block.BlockHash).ToString());
+      var notification = await TxRepositoryPostgres.GetTxToSendMerkleProofNotificationAsync(tx1.GetHash().ToBytes());
+      Assert.IsNull(notification);
+    }
+
+    [TestMethod]
     public async Task SubmitTransactionWithNegativeOutput()
     {
       var tx = CreateNewTransactionTx();

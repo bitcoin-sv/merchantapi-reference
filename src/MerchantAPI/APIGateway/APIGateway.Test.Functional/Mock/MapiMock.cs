@@ -9,6 +9,7 @@ using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.EventBus;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
@@ -27,12 +28,14 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       ITxRepository txRepository,
       ILogger<Mapi> logger,
       IClock clock,
+      IBlockParser blockParser,
       IOptions<AppSettings> appSettingOptions,
       IFaultManager faultManager,
       IFaultInjection faultInjection,
+      IEventBus eventBus,
       MapiMetrics mapiMetrics,
       MempoolCheckerMetrics mempoolCheckerMetrics)
-      : base(rpcMultiClient, feeQuoteRepository, blockChainInfo, minerId, txRepository, logger, clock, appSettingOptions, faultManager, faultInjection, mapiMetrics, mempoolCheckerMetrics)
+      : base(rpcMultiClient, feeQuoteRepository, blockChainInfo, minerId, txRepository, logger, clock, appSettingOptions, faultManager, faultInjection, blockParser, eventBus, mapiMetrics, mempoolCheckerMetrics)
     {
     }
 
