@@ -36,11 +36,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly IRpcMultiClient rpcMultiClient;
     readonly IClock clock;
     readonly List<string> blockHashesBeingParsed = new();
-    readonly SemaphoreSlim semaphoreSlim = new(1, 1);
+    readonly SemaphoreSlim parseBlockSemaphore = new(1, 1);
+    readonly SemaphoreSlim insertTxSemaphore = new(1, 1);
     readonly BlockParserStatus blockParserStatus;
     readonly TimeSpan rpcGetBlockTimeout;
     readonly BlockParserMetrics blockParserMetrics;
-
+    
     EventBusSubscription<NewBlockDiscoveredEvent> newBlockDiscoveredSubscription;
     EventBusSubscription<NewBlockAvailableInDB> newBlockAvailableInDBSubscription;
 
@@ -86,7 +87,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     }
 
 
-    private async Task<int> InsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
+    private async Task<int> FindAndInsertTxBlockLinkAsync(NBitcoin.Block block, long blockInternalId)
     {
       var txsToCheck = await txRepository.GetTxsNotInCurrentBlockChainAsync(blockInternalId);
       var txIdsFromBlock = new HashSet<uint256>(block.Transactions.Select(x => x.GetHash(Const.NBitcoinMaxArraySize)));
@@ -94,19 +95,31 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       // Generate a list of transactions that are present in the last block and are also present in our database without a link to existing block
       var txsToLinkToBlock = txsToCheck.Where(x => txIdsFromBlock.Contains(x.TxExternalId)).ToArray();
 
-      await txRepository.InsertTxBlockAsync(txsToLinkToBlock.Select(x => x.TxInternalId).ToList(), blockInternalId);
-      foreach (var transactionForMerkleProofCheck in txsToLinkToBlock.Where(x => x.MerkleProof).ToArray())
-      {
-        var notificationEvent = new NewNotificationEvent()
-        {
-          CreationDate = clock.UtcNow(),
-          NotificationType = CallbackReason.MerkleProof,
-          TransactionId = transactionForMerkleProofCheck.TxExternalIdBytes
-        };
-        eventBus.Publish(notificationEvent);
-      }
-      await txRepository.SetBlockParsedForMerkleDateAsync(blockInternalId);
+      return await InsertTxBlockLinkAsync(txsToLinkToBlock, blockInternalId);
+    }
 
+    public async Task<int> InsertTxBlockLinkAsync(Tx[] txsToLinkToBlock, long blockInternalId)
+    {
+      try
+      {
+        insertTxSemaphore.Wait();
+        await txRepository.InsertTxBlockAsync(txsToLinkToBlock.Select(x => x.TxInternalId).ToList(), blockInternalId);
+        foreach (var transactionForMerkleProofCheck in txsToLinkToBlock.Where(x => x.MerkleProof).ToArray())
+        {
+          var notificationEvent = new NewNotificationEvent()
+          {
+            CreationDate = clock.UtcNow(),
+            NotificationType = CallbackReason.MerkleProof,
+            TransactionId = transactionForMerkleProofCheck.TxExternalIdBytes
+          };
+          eventBus.Publish(notificationEvent);
+        }
+        await txRepository.SetBlockParsedForMerkleDateAsync(blockInternalId);
+      }
+      finally
+      {
+        insertTxSemaphore.Release();
+      }
       return txsToLinkToBlock.Length;
     }
 
@@ -122,7 +135,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         TxExternalIdBytes = x.TxId,
         PrevTxId = x.TxInput.PrevOut.Hash.ToBytes(),
         Prev_N = x.TxInput.PrevOut.N
-      });
+      }).ToArray();
 
       // Insert raw data and let the database queries find double spends
       await txRepository.CheckAndInsertBlockDoubleSpendAsync(allTransactionInputs, appSettings.DeltaBlockHeightForDoubleSpendCheck.Value, blockInternalId);
@@ -255,7 +268,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     {
       try
       {
-        await semaphoreSlim.WaitAsync();
+        await parseBlockSemaphore.WaitAsync();
         try
         {
           blockParserMetrics.BlockParsingQueue.Set(QueueCount);
@@ -278,7 +291,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         finally
         {
-          semaphoreSlim.Release();
+          parseBlockSemaphore.Release();
         }
 
         logger.LogInformation($"Block parser retrieved a new block {e.BlockHash} from database. Parsing it.");
@@ -297,7 +310,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           bytes = (ulong)blockStream.TotalBytesRead;
           blockDownloaded = DateTime.UtcNow;
 
-          txsFound = await InsertTxBlockLinkAsync(block, e.BlockDBInternalId);
+          txsFound = await FindAndInsertTxBlockLinkAsync(block, e.BlockDBInternalId);
           dsFound = await TransactionsDSCheckAsync(block, e.BlockDBInternalId);
         }
 
@@ -325,7 +338,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       }
       finally
       {
-        await semaphoreSlim.WaitAsync();
+        await parseBlockSemaphore.WaitAsync();
         try
         {
           blockHashesBeingParsed.Remove(e.BlockHash);
@@ -333,7 +346,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         finally
         {
-          semaphoreSlim.Release();
+          parseBlockSemaphore.Release();
         }
       }
     }

@@ -4,12 +4,14 @@
 using MerchantAPI.APIGateway.Domain.Metrics;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.Models.APIStatus;
+using MerchantAPI.APIGateway.Domain.Models.Events;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using MerchantAPI.APIGateway.Domain.Repositories;
 using MerchantAPI.Common.Authentication;
 using MerchantAPI.Common.BitcoinRpc;
 using MerchantAPI.Common.BitcoinRpc.Responses;
 using MerchantAPI.Common.Clock;
+using MerchantAPI.Common.EventBus;
 using MerchantAPI.Common.Exceptions;
 using MerchantAPI.Common.Json;
 using Microsoft.Extensions.Logging;
@@ -40,6 +42,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly IMinerId minerId;
     readonly ILogger<Mapi> logger;
     readonly ITxRepository txRepository;
+    readonly IBlockParser blockParser;
+    readonly IEventBus eventBus;
     protected readonly IClock clock;
     readonly AppSettings appSettings;
     protected readonly IFaultManager faultManager;
@@ -79,6 +83,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       IOptions<AppSettings> appSettingOptions,
       IFaultManager faultManager,
       IFaultInjection faultInjection,
+      IBlockParser blockParser,
+      IEventBus eventBus,
       MapiMetrics mapiMetrics,
       MempoolCheckerMetrics mempoolCheckerMetrics)
     {
@@ -94,6 +100,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       this.faultInjection = faultInjection ?? throw new ArgumentNullException(nameof(faultInjection));
       this.mapiMetrics = mapiMetrics ?? throw new ArgumentNullException(nameof(mapiMetrics));
       this.mempoolCheckerMetrics = mempoolCheckerMetrics ?? throw new ArgumentNullException(nameof(mempoolCheckerMetrics));
+      this.blockParser = blockParser ?? throw new ArgumentNullException(nameof(blockParser));
+      this.eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
     }
 
 
@@ -1063,23 +1071,37 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }
           else
           {
-            mapiMetrics.TxMissingInputs.Inc();
             int recursionDepth = 0;
-            var missingParentsStopwatch = new Stopwatch();
-            if (appSettings.EnableMissingParentsResubmission.Value && await CheckAndResubmitMissingParents(transaction, recursionDepth))
+            if (!appSettings.DontParseBlocks.Value && await CheckIfTransactionIsMined(oneTx, transaction))
             {
-              missingParentsStopwatch.Stop();
-              logger.LogDebug("Successfully resubmited missing parents for transaction {txid}. Time taken: {time}ms", txIdString, missingParentsStopwatch.ElapsedMilliseconds);
-              mapiMetrics.TxReSentMissingInputs.Inc();
-              reSentParent = true;
-              // no need to recheck colidedWith and prevOutsErrors, because if parent tx with outputs is actually missing there can be no collision
-              // and prevOutsErrors was reason why we ended up here anyway to try and resend the parent which was apparently missing
-              (okToMine, okToRelay, selectedQuote, colidedWith, prevOutsErrors) = await ValidateFeesAsync(oneTx, transaction, txIdString, txStatus, allTxs, warnings, quotes, consolidationParameters, txLog);
+              mapiMetrics.TxWasMinedMissingInputs.Inc();
+              responses.Add(new SubmitTransactionOneResponse
+              {
+                Txid = txIdString,
+                ReturnResult = ResultCodes.Success,
+                ResultDescription = "Transaction already mined into block"
+              });
+              return true;
             }
             else
             {
-              // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
-              oneResponse.ResultDescription = "Missing inputs";
+              var missingParentsStopwatch = new Stopwatch();
+              if (appSettings.EnableMissingParentsResubmission.Value && await CheckAndResubmitMissingParents(transaction, recursionDepth))
+              {
+                missingParentsStopwatch.Stop();
+                logger.LogDebug("Successfully resubmited missing parents for transaction {txid}. Time taken: {time}ms", txIdString, missingParentsStopwatch.ElapsedMilliseconds);
+                mapiMetrics.TxReSentMissingInputs.Inc();
+                reSentParent = true;
+                // no need to recheck colidedWith and prevOutsErrors, because if parent tx with outputs is actually missing there can be no collision
+                // and prevOutsErrors was reason why we ended up here anyway to try and resend the parent which was apparently missing
+                (okToMine, okToRelay, selectedQuote, colidedWith, prevOutsErrors) = await ValidateFeesAsync(oneTx, transaction, txIdString, txStatus, allTxs, warnings, quotes, consolidationParameters, txLog);
+              }
+              else
+              {
+                mapiMetrics.TxMissingInputs.Inc();
+                // return "Missing inputs" regardless of error returned from gettxouts (which is usually "missing")
+                oneResponse.ResultDescription = "Missing inputs";
+              }
             }
           }
 
@@ -1104,6 +1126,117 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       transactionsToSubmit.Add(new(txIdString, oneTx, false, okToMine, unconfirmedAncestors, selectedQuote, txStatus, warnings));
       return true;
+    }
+
+    private async Task<bool> CheckIfTransactionIsMined(SubmitTransaction submitTx, Transaction transaction)
+    { 
+      try
+      {
+        var txId = transaction.GetHash();
+        var txIdString = txId.ToString();
+        var (nodeTransaction, allOk, error) = await rpcMultiClient.GetRawTransactionAsync(txIdString);
+        if (!allOk || error != null)
+        {
+          logger.LogWarning("Transaction {txId} was not found inside blockchain. Error: {error}", txIdString, error);
+          return false;
+        }
+        if (nodeTransaction.Blockhash == null)
+        {
+          logger.LogInformation("Transaction {txid} was found in mempool", txIdString);
+          return false;
+        }
+
+        var dbBlock = await txRepository.GetBlockAsync(new uint256(nodeTransaction.Blockhash).ToBytes());
+        if (dbBlock == null)
+        {
+          // Block is not yet present in DB, let's get it directly from the node and let's try to insert it here
+          var blockHeader = await rpcMultiClient.GetBlockHeaderAsync(nodeTransaction.Blockhash);
+          if (blockHeader.Confirmations == -1)
+          {
+            mapiMetrics.TxInvalidBlockMissingInputs.Inc();
+            logger.LogWarning("Transaction {txid} was found in block {blockhash}, but the block is not on active chain.", txIdString, nodeTransaction.Blockhash);
+            return false;
+          }
+          else
+          {
+            // block is on active chain but mAPI didn't store it yet to DB so we have to do it now
+            var blockToInsert = new Models.Block
+            {
+              BlockHash = new uint256(nodeTransaction.Blockhash).ToBytes(),
+              BlockHeight = blockHeader.Height,
+              BlockTime = HelperTools.GetEpochTime(blockHeader.Time),
+              OnActiveChain = true,
+              PrevBlockHash = blockHeader.Previousblockhash == null ? uint256.Zero.ToBytes() : new uint256(blockHeader.Previousblockhash).ToBytes()
+            };
+
+            var blockId = await txRepository.InsertOrUpdateBlockAsync(blockToInsert);
+            if (blockId == null)
+            {
+              // Block was inserted by Block parser before we managed to insert it, so we read it again from DB
+              dbBlock = await txRepository.GetBlockAsync(new uint256(nodeTransaction.Blockhash).ToBytes());
+            }
+            {
+              var newBlockEvent = new NewBlockAvailableInDB()
+              {
+                CreationDate = clock.UtcNow(),
+                BlockHash = new uint256(blockToInsert.BlockHash).ToString(),
+                BlockDBInternalId = blockId.Value,
+                BlockHeight = blockToInsert.BlockHeight
+              };
+
+              eventBus.Publish(newBlockEvent);
+              dbBlock = new Models.Block
+              {
+                OnActiveChain = true,
+                BlockInternalId = blockId.Value
+              };
+            }
+          }
+        }
+        if (!dbBlock.OnActiveChain)
+        {
+          logger.LogWarning("Transaction {txid} was found in block {blockhash}, but the block is not on active chain.", txIdString, nodeTransaction.Blockhash);
+          return false;
+        }
+
+        if (!appSettings.DontInsertTransactions.Value)
+        {
+          // We take first feeQuote because it's irrelevant which one we take, since the tx is already in the block
+          var feeQuote = feeQuoteRepository.GetCurrentFeeQuotes().First();
+          await FillInputsAndListUnconfirmedAncestorsAsync(submitTx, transaction);
+
+          var tx = new Tx
+          {
+            CallbackEncryption = submitTx.CallbackEncryption,
+            CallbackToken = submitTx.CallbackToken,
+            CallbackUrl = submitTx.CallbackUrl,
+            DSCheck = submitTx.DsCheck,
+            MerkleFormat = submitTx.MerkleFormat,
+            MerkleProof = submitTx.MerkleProof,
+            OkToMine = true,
+            PolicyQuoteId = feeQuote.Id,
+            ReceivedAt = DateTime.UtcNow,
+            SubmittedAt = DateTime.UtcNow,
+            TxExternalId = txId,
+            TxIn = submitTx.TransactionInputs,
+            TxPayload = submitTx.RawTx,
+            UpdateTx = Tx.UpdateTxMode.Insert,
+            TxStatus = TxStatus.UnknownOldTx
+          };
+
+          // Insert the transaction and the link to the block for merklee prof notifications
+          await txRepository.InsertOrUpdateTxsAsync(new Tx[] { tx }, false, true);
+          var txDb = await txRepository.GetTransactionAsync(txId.ToBytes());
+          await blockParser.InsertTxBlockLinkAsync(new Tx[] { txDb }, dbBlock.BlockInternalId);
+        }
+
+        return true;
+      }
+      catch(Exception ex)
+      {
+        logger.LogError("Error while trying to do a lookup for transaction in the node. Error: {error}", ex.GetBaseException().Message);
+        return false;
+      }
     }
 
     private async Task<bool> CheckAndResubmitMissingParents(Transaction transaction, int recursionDepth)
