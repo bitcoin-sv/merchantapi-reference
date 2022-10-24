@@ -9,7 +9,7 @@ namespace MerchantAPI.APIGateway.Domain
 {
   public class Const
   {
-    public const string MERCHANT_API_VERSION = "1.4.0";
+    public const string MERCHANT_API_VERSION = "1.5.0";
 
     public readonly static string MERCHANT_API_BUILD_VERSION = GetBuildVersion();
     private static string GetBuildVersion()
