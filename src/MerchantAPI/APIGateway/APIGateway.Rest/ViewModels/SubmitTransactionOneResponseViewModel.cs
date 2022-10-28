@@ -19,6 +19,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
       ReturnResult = domain.ReturnResult ?? "";
       ResultDescription = domain.ResultDescription ?? "";
       Warnings = domain.Warnings;
+      FailureRetryable = domain.FailureRetryable;
       ConflictedWith = domain.ConflictedWith?.Select(t => new SubmitTransactionConflictedTxResponseViewModel(t)).ToArray();
     }
 
@@ -33,6 +34,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     [JsonPropertyName("warnings")]
     public string[] Warnings { get; set; }
+
+    [JsonPropertyName("failureRetryable")]
+    public bool FailureRetryable { get; set; }
 
     [JsonPropertyName("conflictedWith")]
     public SubmitTransactionConflictedTxResponseViewModel[] ConflictedWith { get; set; }

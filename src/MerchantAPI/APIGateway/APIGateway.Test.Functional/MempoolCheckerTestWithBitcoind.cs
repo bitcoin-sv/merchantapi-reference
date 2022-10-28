@@ -280,6 +280,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         NodeRejectCode.MapiRetryMempoolErrorWithDetails(
           NodeRejectCode.MapiRetryCodesAndReasons[(int)Faults.SimulateSendTxsResponse.NodeReturnsMempoolFull - 1]),
         payloadSubmit.ResultDescription);
+      Assert.IsTrue(payloadSubmit.FailureRetryable);
 
       // not in mempool, because inserted directly into DB
       var txList = new List<Tx>

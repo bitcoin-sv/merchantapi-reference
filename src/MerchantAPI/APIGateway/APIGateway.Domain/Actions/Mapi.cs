@@ -462,13 +462,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             else
             {
               var rejectCodeAndReason = NodeRejectCode.CombineRejectCodeAndReason(invalid.RejectCode, invalid.RejectReason);
+              var isMempoolError = NodeRejectCode.MapiRetryCodesAndReasons.Any(x => rejectCodeAndReason.StartsWith(x));
               responses.Add(new SubmitTransactionOneResponse
               {
                 Txid = invalid.Txid,
                 ReturnResult = ResultCodes.Failure,
                 ResultDescription =
-                 NodeRejectCode.MapiRetryCodesAndReasons.Any(x => rejectCodeAndReason.StartsWith(x)) ?
-                 NodeRejectCode.MapiRetryMempoolErrorWithDetails(rejectCodeAndReason) : rejectCodeAndReason,
+                 isMempoolError ? NodeRejectCode.MapiRetryMempoolErrorWithDetails(rejectCodeAndReason) : rejectCodeAndReason,
                 ConflictedWith = invalid.CollidedWith?.Select(t =>
                   new SubmitTransactionConflictedTxResponse
                   {
@@ -476,7 +476,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                     Size = t.Size,
                     Hex = t.Hex
                   }
-                ).ToArray()
+                ).ToArray(),
+                FailureRetryable = isMempoolError
               });
 
               failed++;
@@ -498,7 +499,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               // This only happens if mempool is full and contain no P2P transactions (which have low priority)
               ResultDescription = NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.Evicted),
               Warnings = allSubmitedTxIds.Single(x => x.tx == evicted).warnings,
-
+              FailureRetryable = true
             });
             failed++;
           }
@@ -532,7 +533,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           {
             Txid = txId,
             ReturnResult = ResultCodes.Success,
-            Warnings = warnings
+            Warnings = warnings,
+            FailureRetryable = false
           });
 
         }
@@ -625,6 +627,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         CurrentHighestBlockHeight = responseMulti.CurrentHighestBlockHeight,
         TxSecondMempoolExpiry = responseMulti.TxSecondMempoolExpiry,
         Warnings = tx.Warnings,
+        FailureRetryable = tx.FailureRetryable,
         ConflictedWith = tx.ConflictedWith
       };
     }
@@ -635,13 +638,14 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       return (okToMine ? 2 : 0) + (okToRelay ? 1 : 0);
     }
 
-    private static void AddFailureResponse(string txId, string errMessage, ref List<SubmitTransactionOneResponse> responses)
+    private static void AddFailureResponse(string txId, string errMessage, ref List<SubmitTransactionOneResponse> responses, bool failureRetryable = false)
     {
       var oneResponse = new SubmitTransactionOneResponse
       {
         Txid = txId,
         ReturnResult = ResultCodes.Failure,
-        ResultDescription = errMessage
+        ResultDescription = errMessage,
+        FailureRetryable = failureRetryable
       };
 
       responses.Add(oneResponse);
@@ -836,7 +840,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
             if (!success)
             {
               responses.RemoveAll(x => x.Txid == transactionId);
-              AddFailureResponse(transactionId, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
+              AddFailureResponse(transactionId, NodeRejectCode.UnconfirmedAncestorsError, ref responses, true);
 
               failureCount++;
               continue;
@@ -857,6 +861,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         result.Txs = responses.ToArray();
         result.FailureCount = failureCount + submitFailureCount;
         mapiMetrics.TxResponseFailure.Inc(result.FailureCount);
+        mapiMetrics.TxResponseFailureRetryable.Inc(responses.Count(x => x.FailureRetryable));
         mapiMetrics.TxResponseSuccess.Inc(result.Txs.Length - result.FailureCount);
         return result;
       }
@@ -974,7 +979,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                 Txid = txIdString,
                 ReturnResult = ResultCodes.Success,
                 ResultDescription = NodeRejectCode.ResultAlreadyKnown,
-                Warnings = warnings.ToArray()
+                Warnings = warnings.ToArray(),
+                FailureRetryable = false
               });
               return true;
             }
@@ -990,7 +996,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               var (success, count) = await InsertMissingMempoolAncestors(txIdString, tx.PolicyQuoteId.Value);
               if (!success)
               {
-                AddFailureResponse(txIdString, NodeRejectCode.UnconfirmedAncestorsError, ref responses);
+                AddFailureResponse(txIdString, NodeRejectCode.UnconfirmedAncestorsError, ref responses, true);
                 return false;
               }
             }
@@ -999,7 +1005,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
               Txid = txIdString,
               ReturnResult = ResultCodes.Success,
               ResultDescription = NodeRejectCode.ResultAlreadyKnown,
-              Warnings = warnings.ToArray()
+              Warnings = warnings.ToArray(),
+              FailureRetryable = false
             });
           }
           else
@@ -1068,6 +1075,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           else if (exception != null)
           {
             oneResponse.ResultDescription = "Error fetching inputs";
+            oneResponse.FailureRetryable = true;
           }
           else
           {
@@ -1617,7 +1625,8 @@ failures: {failures}, submitFailureIgnored: {submitFailureIgnored}, missing inpu
     {
       return new SubmitTxStatus(mapiMetrics.RequestSum.Value, mapiMetrics.TxAuthenticatedUser.Value, mapiMetrics.TxAnonymousUser.Value,
         mapiMetrics.TxSentToNode.Value, mapiMetrics.TxAcceptedByNode.Value, mapiMetrics.TxRejectedByNode.Value, mapiMetrics.TxSubmitException.Value,
-        mapiMetrics.TxResponseSuccess.Value, mapiMetrics.TxResponseFailure.Value);
+        mapiMetrics.TxResponseSuccess.Value, mapiMetrics.TxResponseFailure.Value, mapiMetrics.TxResponseFailureRetryable.Value,
+        mapiMetrics.TxMissingInputs.Value, mapiMetrics.TxReSentMissingInputs.Value, mapiMetrics.TxWasMinedMissingInputs.Value, mapiMetrics.TxInvalidBlockMissingInputs.Value);
     }
 
     public async Task<TxOutsResponse> GetTxOutsAsync(IEnumerable<(string txId, long n)> utxos, string[] returnFields, bool includeMempool)

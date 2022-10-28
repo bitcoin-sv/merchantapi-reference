@@ -19,6 +19,7 @@ namespace MerchantAPI.APIGateway.Domain.Metrics
     public Counter TxSubmitException { init; get; }
     public Counter TxResponseSuccess { init; get; }
     public Counter TxResponseFailure { init; get; }
+    public Counter TxResponseFailureRetryable { init; get; }
     public Counter TxMissingInputs { init; get; }
     public Counter TxReSentMissingInputs { init; get; }
     public Counter TxWasMinedMissingInputs { init; get; }
@@ -36,6 +37,7 @@ namespace MerchantAPI.APIGateway.Domain.Metrics
       TxSubmitException = CreateCounter("tx_submit_exception_counter", "Number of transactions with submit exception.");
       TxResponseSuccess = CreateCounter("tx_response_success_counter", "Number of success responses.");
       TxResponseFailure = CreateCounter("tx_response_failure_counter", "Number of failure responses.");
+      TxResponseFailureRetryable = CreateCounter("tx_response_failure_retryable_counter", "Number of retryable failure responses.");
       TxMissingInputs = CreateCounter("tx_missing_inputs_counter", "Number of transactions with missing inputs.");
       TxReSentMissingInputs = CreateCounter("tx_resent_missing_inputs_counter", "Number of transactions which reported missing inputs had its inputs resent.");
       TxWasMinedMissingInputs = CreateCounter("tx_was_mined_missing_inputs_counter", "Number of transactions which reported missing inputs and were discovered as mined.");

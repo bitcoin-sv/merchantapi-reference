@@ -18,10 +18,17 @@ namespace MerchantAPI.APIGateway.Domain.Models.APIStatus
     public double TxSubmitException { get; private set; }
     public double TxResponseSuccess { get; private set; }
     public double TxResponseFailure { get; private set; }
+    public double TxResponseFailureRetryable { get; private set; }
     public double TxResponseException => Tx - TxResponseFailure - TxResponseSuccess;
+    public double TxMissingInputs { get; private set; }
+    public double TxReSentMissingInputs { get; private set; }
+    public double TxWasMinedMissingInputs { get; private set; }
+    public double TxInvalidBlockMissingInputs { get; private set; }
 
     public SubmitTxStatus(double request, double txAuthenticatedUser, double txAnonymousUser,
-      double txSentToNode, double txAcceptedByNode, double txRejectedByNode, double txSubmitException, double txResponseSuccess, double txResponseFailure)
+      double txSentToNode, double txAcceptedByNode, double txRejectedByNode, double txSubmitException, 
+      double txResponseSuccess, double txResponseFailure, double txResponseFailureRetryable,
+      double txMissingInputs, double txReSentMissingInputs, double txWasMinedMissingInputs, double txInvalidBlockMissingInputs)
     {
       Request = request;
       TxAuthenticatedUser = txAuthenticatedUser;
@@ -32,6 +39,11 @@ namespace MerchantAPI.APIGateway.Domain.Models.APIStatus
       TxSubmitException = txSubmitException;
       TxResponseSuccess = txResponseSuccess;
       TxResponseFailure = txResponseFailure;
+      TxResponseFailureRetryable = txResponseFailureRetryable;
+      TxMissingInputs = txMissingInputs;
+      TxReSentMissingInputs = txReSentMissingInputs;
+      TxWasMinedMissingInputs = txWasMinedMissingInputs;
+      TxInvalidBlockMissingInputs = txInvalidBlockMissingInputs;
     }
 
     public string SubmitTxDescription
@@ -40,7 +52,8 @@ namespace MerchantAPI.APIGateway.Domain.Models.APIStatus
       {
         return $@"Number of requests: {Request}, all transactions processed: {Tx} (authenticated: {TxAuthenticatedUser}, anonymous: {TxAnonymousUser}). Average batch: {AvgBatch}. 
 Transactions sent to node: {TxSentToNode}. Accepted by node: {TxAcceptedByNode}, rejected by node: {TxRejectedByNode}, submit exceptions: {TxSubmitException}.
-Transaction responses with success: {TxResponseSuccess}, failure: {TxResponseFailure}, exception: {TxResponseException}.";
+Transaction responses with success: {TxResponseSuccess}, failure: {TxResponseFailure} (retryable: {TxResponseFailureRetryable}), exception: {TxResponseException}. 
+All missing inputs: {TxMissingInputs} (resent: {TxReSentMissingInputs}, was mined: {TxWasMinedMissingInputs}, invalid block: {TxInvalidBlockMissingInputs}).";
       }
     }
 
