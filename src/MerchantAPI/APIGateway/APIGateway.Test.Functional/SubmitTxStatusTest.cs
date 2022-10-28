@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
-using MerchantAPI.APIGateway.Rest.ViewModels;
 using System;
 
 namespace MerchantAPI.APIGateway.Test.Functional
@@ -55,6 +54,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, status.TxResponseFailure);
       Assert.AreEqual(0, status.TxResponseException);
       Assert.AreEqual(0, status.TxResponseFailureRetryable);
+      Assert.AreEqual(0, status.TxMissingInputs);
+      Assert.AreEqual(0, status.TxReSentMissingInputs);
+      Assert.AreEqual(0, status.TxInvalidBlockMissingInputs);
+      Assert.AreEqual(0, status.TxWasMinedMissingInputs);
     }
 
     private async Task SubmitTransactionWithSuccessAsync(string txHex, string txHash)
@@ -77,6 +80,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
+      Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
+      Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
+      Assert.AreEqual(oldStatus.TxInvalidBlockMissingInputs, status.TxInvalidBlockMissingInputs);
+      Assert.AreEqual(oldStatus.TxWasMinedMissingInputs, status.TxWasMinedMissingInputs);
     }
 
     public async Task SubmitTransactionAndResubmitAsync(bool resubmitToNode)
@@ -101,6 +108,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
+      Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
+      Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
+      Assert.AreEqual(oldStatus.TxInvalidBlockMissingInputs, status.TxInvalidBlockMissingInputs);
+      Assert.AreEqual(oldStatus.TxWasMinedMissingInputs, status.TxWasMinedMissingInputs);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
 
@@ -138,6 +149,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException + 1, status.TxResponseException);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
+      Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
+      Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
+      Assert.AreEqual(oldStatus.TxInvalidBlockMissingInputs, status.TxInvalidBlockMissingInputs);
+      Assert.AreEqual(oldStatus.TxWasMinedMissingInputs, status.TxWasMinedMissingInputs);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
 
@@ -164,6 +179,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
+      Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
+      Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
+      Assert.AreEqual(oldStatus.TxInvalidBlockMissingInputs, status.TxInvalidBlockMissingInputs);
+      Assert.AreEqual(oldStatus.TxWasMinedMissingInputs, status.TxWasMinedMissingInputs);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
 
@@ -190,6 +209,10 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable + 1, status.TxResponseFailureRetryable);
+      Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
+      Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
+      Assert.AreEqual(oldStatus.TxInvalidBlockMissingInputs, status.TxInvalidBlockMissingInputs);
+      Assert.AreEqual(oldStatus.TxWasMinedMissingInputs, status.TxWasMinedMissingInputs);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
   }
