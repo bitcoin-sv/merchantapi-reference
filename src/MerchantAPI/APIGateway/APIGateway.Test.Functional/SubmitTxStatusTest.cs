@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net;
 using MerchantAPI.APIGateway.Test.Functional.Attributes;
+using MerchantAPI.APIGateway.Rest.ViewModels;
+using System;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -52,6 +54,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, status.TxResponseSuccess);
       Assert.AreEqual(0, status.TxResponseFailure);
       Assert.AreEqual(0, status.TxResponseException);
+      Assert.AreEqual(0, status.TxResponseFailureRetryable);
     }
 
     private async Task SubmitTransactionWithSuccessAsync(string txHex, string txHash)
@@ -73,6 +76,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseSuccess + 1, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
     }
 
     public async Task SubmitTransactionAndResubmitAsync(bool resubmitToNode)
@@ -96,6 +100,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseSuccess + 1, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
 
@@ -132,6 +137,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseSuccess, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException + 1, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
 
@@ -157,6 +163,33 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxResponseSuccess + 2, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
       Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
+      loggerTest.LogInformation("Status:" + status.PrepareForLogging());
+    }
+
+    [TestMethod]
+    public async Task TestErrorFetchingInputsIsRetryable()
+    {
+      var oldStatus = mapi.GetSubmitTxStatus();
+      rpcClientFactoryMock.SetUpPredefinedResponse(
+        ("mocknode0:gettxouts", new Exception("Problem with node"))
+      );
+      await SubmitTxToMapiAsync(txC3Hex);
+
+      var status = mapi.GetSubmitTxStatus();
+      Assert.AreEqual(oldStatus.Request + 1, status.Request);
+      Assert.AreEqual(oldStatus.TxAuthenticatedUser, status.TxAuthenticatedUser);
+      Assert.AreEqual(oldStatus.TxAnonymousUser + 1, status.TxAnonymousUser);
+      Assert.AreEqual(oldStatus.Tx + 1, status.Tx);
+      Assert.AreEqual(status.Tx / status.Request, status.AvgBatch);
+      Assert.AreEqual(oldStatus.TxSentToNode, status.TxSentToNode);
+      Assert.AreEqual(oldStatus.TxAcceptedByNode, status.TxAcceptedByNode);
+      Assert.AreEqual(oldStatus.TxRejectedByNode, status.TxRejectedByNode);
+      Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
+      Assert.AreEqual(oldStatus.TxResponseSuccess, status.TxResponseSuccess);
+      Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
+      Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxResponseFailureRetryable + 1, status.TxResponseFailureRetryable);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
   }

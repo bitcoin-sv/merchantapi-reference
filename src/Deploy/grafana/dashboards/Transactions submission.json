@@ -1150,6 +1150,19 @@
           "range": true,
           "refId": "B"
         },
+		        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PA618D2ED2AA00801"
+          },
+          "editorMode": "code",
+          "expr": "rate(merchantapi_mapi_tx_response_failure_retryable_counter[$__rate_interval]) / (rate(merchantapi_mapi_tx_anonymous_user_counter[$__rate_interval]) + \r\nrate(merchantapi_mapi_tx_authenticated_user_counter[$__rate_interval]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "failure retryable responses",
+          "range": true,
+          "refId": "C"
+        },
         {
           "datasource": {
             "type": "prometheus",
@@ -1160,7 +1173,7 @@
           "hide": false,
           "legendFormat": "exception",
           "range": true,
-          "refId": "C"
+          "refId": "D"
         }
       ],
       "title": "Ratio of transaction responses",

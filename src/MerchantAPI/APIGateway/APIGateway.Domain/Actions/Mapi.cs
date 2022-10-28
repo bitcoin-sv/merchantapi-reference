@@ -861,6 +861,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         result.Txs = responses.ToArray();
         result.FailureCount = failureCount + submitFailureCount;
         mapiMetrics.TxResponseFailure.Inc(result.FailureCount);
+        mapiMetrics.TxResponseFailureRetryable.Inc(responses.Count(x => x.FailureRetryable));
         mapiMetrics.TxResponseSuccess.Inc(result.Txs.Length - result.FailureCount);
         return result;
       }
@@ -1624,7 +1625,7 @@ failures: {failures}, submitFailureIgnored: {submitFailureIgnored}, missing inpu
     {
       return new SubmitTxStatus(mapiMetrics.RequestSum.Value, mapiMetrics.TxAuthenticatedUser.Value, mapiMetrics.TxAnonymousUser.Value,
         mapiMetrics.TxSentToNode.Value, mapiMetrics.TxAcceptedByNode.Value, mapiMetrics.TxRejectedByNode.Value, mapiMetrics.TxSubmitException.Value,
-        mapiMetrics.TxResponseSuccess.Value, mapiMetrics.TxResponseFailure.Value);
+        mapiMetrics.TxResponseSuccess.Value, mapiMetrics.TxResponseFailure.Value, mapiMetrics.TxResponseFailureRetryable.Value);
     }
 
     public async Task<TxOutsResponse> GetTxOutsAsync(IEnumerable<(string txId, long n)> utxos, string[] returnFields, bool includeMempool)
