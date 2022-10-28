@@ -25,6 +25,8 @@ namespace MerchantAPI.APIGateway.Domain.Models
 
     public string[] Warnings { get; set; }
 
+    public bool FailureRetryable { get; set; }
+
     public SubmitTransactionConflictedTxResponse[] ConflictedWith { get; set; }
 
   }

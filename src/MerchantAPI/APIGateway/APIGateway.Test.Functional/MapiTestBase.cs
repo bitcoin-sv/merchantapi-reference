@@ -66,26 +66,38 @@ namespace MerchantAPI.APIGateway.Test.Functional
                 response.Callbacks != null ? String.Join(",", response.Callbacks.Select(x => x.IPAddress)) : null);
     }
 
-    protected async Task AssertIsOKAsync(SubmitTransactionResponseViewModel response, string expectedTxId, string expectedResult = "success", string expectedDescription = "")
+    protected async Task AssertIsOKAsync(
+      SubmitTransactionResponseViewModel response,
+      string expectedTxId,
+      string expectedResult = "success",
+      string expectedDescription = "",
+      bool expectedRetryableFailure = false)
     {
       // typical flow for successful submit
       if (expectedResult == "success")
       {
-        await AssertIsOKAsync(response, expectedTxId, TxStatus.Accepted, expectedResult, expectedDescription);
+        await AssertIsOKAsync(response, expectedTxId, TxStatus.Accepted, expectedResult, expectedDescription, false);
       }
       else
       {
-        await AssertIsOKAsync(response, expectedTxId, TxStatus.NotPresentInDb, expectedResult, expectedDescription);
+        await AssertIsOKAsync(response, expectedTxId, TxStatus.NotPresentInDb, expectedResult, expectedDescription, expectedRetryableFailure);
       }
     }
 
-    protected async Task AssertIsOKAsync(SubmitTransactionResponseViewModel response, string expectedTxId, int txStatus, string expectedResult = "success", string expectedDescription = "")
+    protected async Task AssertIsOKAsync(
+      SubmitTransactionResponseViewModel response,
+      string expectedTxId,
+      int txStatus,
+      string expectedResult = "success",
+      string expectedDescription = "",
+      bool expectedRetryableFailure = false)
     {
       Assert.AreEqual(Const.MERCHANT_API_VERSION, response.ApiVersion);
       Assert.IsTrue((MockedClock.UtcNow - response.Timestamp).TotalSeconds < 60);
       Assert.AreEqual(expectedResult, response.ReturnResult);
       // Description should be "" (not null)
       Assert.AreEqual(expectedDescription, response.ResultDescription);
+      Assert.AreEqual(expectedRetryableFailure, response.FailureRetryable);
 
       Assert.AreEqual(MinerId.GetCurrentMinerIdAsync().Result, response.MinerId);
       var blockChainInfo = await BlockChainInfo.GetInfoAsync();

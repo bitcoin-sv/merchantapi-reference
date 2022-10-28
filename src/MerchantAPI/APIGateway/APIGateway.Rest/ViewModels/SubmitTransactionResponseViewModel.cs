@@ -18,17 +18,18 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     public SubmitTransactionResponseViewModel(SubmitTransactionResponse domain)
     {
-      this.ApiVersion = Const.MERCHANT_API_VERSION;
-      this.Timestamp = domain.Timestamp;
-      this.Txid = domain.Txid;
-      this.ReturnResult = domain.ReturnResult ?? ""; // return empty strings instead of nulls
-      this.ResultDescription = domain.ResultDescription ?? "";
-      this.MinerId = domain.MinerId ?? "";
-      this.CurrentHighestBlockHash = domain.CurrentHighestBlockHash;
-      this.CurrentHighestBlockHeight = domain.CurrentHighestBlockHeight;
-      this.TxSecondMempoolExpiry = domain.TxSecondMempoolExpiry;
-      this.Warnings = domain.Warnings;
-      this.ConflictedWith = domain.ConflictedWith?.Select(t => new SubmitTransactionConflictedTxResponseViewModel(t)).ToArray();
+      ApiVersion = Const.MERCHANT_API_VERSION;
+      Timestamp = domain.Timestamp;
+      Txid = domain.Txid;
+      ReturnResult = domain.ReturnResult ?? ""; // return empty strings instead of nulls
+      ResultDescription = domain.ResultDescription ?? "";
+      MinerId = domain.MinerId ?? "";
+      CurrentHighestBlockHash = domain.CurrentHighestBlockHash;
+      CurrentHighestBlockHeight = domain.CurrentHighestBlockHeight;
+      TxSecondMempoolExpiry = domain.TxSecondMempoolExpiry;
+      Warnings = domain.Warnings;
+      FailureRetryable = domain.FailureRetryable;
+      ConflictedWith = domain.ConflictedWith?.Select(t => new SubmitTransactionConflictedTxResponseViewModel(t)).ToArray();
     }
 
     [JsonPropertyName("apiVersion")]
@@ -61,6 +62,9 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels
 
     [JsonPropertyName("warnings")]
     public string[] Warnings { get; set; }
+
+    [JsonPropertyName("failureRetryable")]
+    public bool FailureRetryable { get; set; }
 
     [JsonPropertyName("conflictedWith")]
     public SubmitTransactionConflictedTxResponseViewModel[] ConflictedWith { get; set; }

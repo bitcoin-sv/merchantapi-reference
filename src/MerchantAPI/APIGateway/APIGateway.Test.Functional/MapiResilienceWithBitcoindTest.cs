@@ -429,6 +429,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = await SubmitTransactionAsync(lastTxHex, true, true);
       Assert.AreEqual("failure", payload.ReturnResult);
       Assert.AreEqual(NodeRejectCode.UnconfirmedAncestorsError, payload.ResultDescription);
+      Assert.IsTrue(payload.FailureRetryable);
 
       mapiMock.ClearMode();
       if (generateBlock)

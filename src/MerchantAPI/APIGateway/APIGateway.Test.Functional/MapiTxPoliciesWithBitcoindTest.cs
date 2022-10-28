@@ -292,6 +292,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var txFailure = payloadSubmit.Txs.Single(x => x.ReturnResult == "failure");
       Assert.AreEqual(tx2Id, txFailure.Txid);
       Assert.AreEqual(NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[0]), txFailure.ResultDescription);
+      Assert.IsTrue(txFailure.FailureRetryable);
     }
 
     [DataRow("{\"skipscriptflags\": [\"MINIMALDATA\"] }")]

@@ -36,6 +36,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var txResponse = string.IsNullOrEmpty(txId) ? payload.Txs.Single() : payload.Txs.Single(x => x.Txid == txId);
       Assert.AreEqual("success", txResponse.ReturnResult);
       Assert.AreEqual(0, txResponse.Warnings.Length);
+      Assert.AreEqual(false, txResponse.FailureRetryable);
     }
 
     private static void AssertSuccessAndDSNTWarningPresent(SubmitTransactionsResponseViewModel payload, string txId = null)
@@ -44,6 +45,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("success", txResponse.ReturnResult);
       Assert.AreEqual(1, txResponse.Warnings.Length);
       Assert.AreEqual(Warning.MissingDSNT, txResponse.Warnings.Single());
+      Assert.AreEqual(false, txResponse.FailureRetryable);
     }
 
     private Task<SubmitTransactionsResponseViewModel> SubmitTransactionsWithDSAsync(string[] txHexList)

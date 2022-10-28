@@ -410,7 +410,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
 
       await AssertIsOKAsync(payload, txC3Hash, "failure", 
-        NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]));
+        NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]), true);
 
       await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
@@ -440,7 +440,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
       //  mAPI must return error as MapiRetryMempoolError 
       await AssertIsOKAsync(payload, txC3Hash, "failure",
-        NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.CombineRejectCodeAndReason(txInvalid.RejectCode, txInvalid.RejectReason)));
+        NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.CombineRejectCodeAndReason(txInvalid.RejectCode, txInvalid.RejectReason)), true);
     }
 
     [DataRow(Faults.SimulateSendTxsResponse.NodeReturnsNonStandard)]
@@ -462,7 +462,27 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("Not enough fees", payload.Txs[0].ResultDescription);
       var error = NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.MapiRetryCodesAndReasons[(int)mockMode-1]);
       Assert.AreEqual(error, payload.Txs[1].ResultDescription);
+      Assert.IsTrue(payload.Txs[1].FailureRetryable);
       Assert.AreEqual(error, payload.Txs[2].ResultDescription);
+      Assert.IsTrue(payload.Txs[2].FailureRetryable);
+    }
+
+    [TestMethod]
+    public async Task TestErrorFetchingInputsIsRetryable()
+    {
+      rpcClientFactoryMock.SetUpPredefinedResponse(
+        ("mocknode0:gettxouts", new Exception("Problem with node"))
+      );
+      var response = await SubmitTxToMapiAsync(txC3Hex);
+      VerifySignature(response);
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      await AssertIsOKAsync(payload, txC3Hash, "failure",
+        "Error fetching inputs", true);
+
+      rpcClientFactoryMock.SetUpPredefinedResponse();
+      await SubmitTxModeNormalAsync(txC3Hex, txC3Hash);
     }
 
     [DataRow(false, false)]
