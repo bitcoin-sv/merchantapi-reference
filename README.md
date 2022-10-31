@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9d.
+Readme v.1.4.9e.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -22,7 +22,7 @@ For running in production, use Docker. Docker images can be [downloaded](#Downlo
 
 A SSL server certificate is required for installation. You can obtain the certificate from your IT support team. There are also services that issue free SSL certificates, such as letsencrypt.org.  The certificate must be issued for the host with a fully qualified domain name. To use the server side certificate, you need to export it (including its corresponding private key) in PFX file format (*.pfx).
 
-For setting up a development environment see [development](#Development).
+For setting up a development environment, optionally using Prometheus (a monitoring system & time series database) and Grafana (an open observability platform) see [development](#Development).
 
 ## REST API Interfaces
 
@@ -438,7 +438,6 @@ Or see below for building an image from this source kit.
 |MINERID_SERVER_AUTHENTICATION	|HTTP authentication header that will be used to when communicating with the endpoint, this should include the Bearer authentication keyword, for example:Bearer 2b4a73f333b0aa1a1dfb52….421d78e2efe183df9|
 |MINERID_SERVER_REQUEST_TIMEOUT_SEC	REST |request timeout for minerId. Default: 100 seconds|
 |MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES	|How often transactions with missing inputs should be resubmitted. Default: 5|
-
     | **Mempool Checker** | |
 |MEMPOOL_CHECKER_DISABLED	|Disable mempoolChecker service. Default: false|
 |MEMPOOL_CHECKER_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit missing transactions if successful on previous try (errors “Missing inputs” and “Already known” are treated as success). Default: 60 (minimum 10)|
@@ -498,6 +497,7 @@ For development, the following will be needed:
 1. [.NET 5.0](https://dotnet.microsoft.com/download/dotnet/5.0) installed in your environment
 2. an instance of PostgreSQL database. Download it from [here](https://www.postgresql.org/download/) or use a [Docker image](https://hub.docker.com/_/postgres)
 3. access to an instance of a running [BSV node](https://github.com/bitcoin-sv/bitcoin-sv/releases) with both RPC interface and ZMQ notifications enabled
+4. optional Prometheus and Grafana tools
 
 ## Building docker images
 
@@ -530,6 +530,14 @@ docker load -i merchantapiapp.tar
 cd src/MerchantAPI/APIGateway/APIGateway.Rest
 dotnet run
 ```
+
+## Run with **Prometheus** and **Grafana**
+
+To run mAPI reference implementation with Prometheus and Grafana issue this command in the `src/Deploy/Build` folder:
+```console
+docker-compose -f docker-compose.yml -f docker-compose-dev.yml up
+```
+NOTE: `docker-compose-dev.yml` will only be created when using the build script in section [Building docker images](#Building_docker_images)
 
 ## Test
 
@@ -564,7 +572,7 @@ mAPI can be configured to use a standalone Postgres database instead of mapi-db 
 
 An additional requirement is the existence of a mapi_crud role.
 
-## Example
+### Example
 
 To execute commands from this example, connect to the database created for mAPI with admin privileges. 
 
@@ -598,4 +606,88 @@ In this example we will create the mapi_crud role and two user roles. One user r
 
   GRANT mapi_crud TO mycruduser;
 ```
+
+
+## Configuration with Prometheus
+
+Prometheus is configured to run on http://localhost:9080/.
+Check whether endpoints with metrics are healthy on http://localhost:9080/targets. 
+Observe the mAPI reference implementation operation on http://localhost:9080/graph.
+Data is scraped from https://localhost:5051/metrics every 5s. 
+This is where all the metrics that are generated during the execution of mAPI reference implementation are available.
+
+Available metrics include:
+
+|Metric | Description |
+| ----------- | ----------- |
+| <a name="block_parser"></a>**block parser** |
+| merchantapi_blockparser_bestblockheight | best block height |
+| merchantapi_blockparser_blockparsed_counter | number of parsed blocks |
+| merchantapi_blockparser_blockparsingqueue | number of unparsed blocks/blocks in queue for parsing |
+| merchantapi_blockparser_blockparsing_duration_seconds | total time spent parsing blocks |
+| <a name="transactions_submission"></a>**transactions submission** |
+| merchantapi_mapi_any_bitcoind_responding | status 1 if any bitcoind is responding |
+| http_requests_received_total{controller="Mapi",action="SubmitTx"} | total number of transactions submitted by client |
+| http_requests_received_total{controller="Mapi",action="SubmitTxs"} | total number of batches submitted by client |
+| merchantapi_mapi_tx_authenticated_user_counter | total number of transactions submitted by authenticated users |
+| merchantapi_mapi_tx_anonymous_user_counter | total number of transactions submitted by anonymous users |
+| merchantapi_mapi_tx_sent_to_node_counter | total number of transactions send to node |
+| merchantapi_mapi_tx_accepted_by_node_counter | total number of transactions accepted by node |
+| merchantapi_mapi_tx_rejected_by_node_counter | total number of transactions rejected by node |
+| merchantapi_mapi_tx_submit_exception_counter | total number of transactions with submit exception |
+| merchantapi_mapi_tx_response_success_counter | total number of success responses. |
+| merchantapi_mapi_tx_response_failure_counter | total number of failure responses |
+| merchantapi_mapi_tx_response_failure_retryable_counter | total number of retryable failure responses |
+| merchantapi_mapi_tx_missing_inputs_counter | number of sent transactions with missing inputs that were not accepted because of missing inputs |
+| merchantapi_mapi_tx_resent_missing_inputs_counter | number of sent transactions with missing inputs that were accepted for which the mAPI had transactions and resubmited those missing inputs |
+| merchantapi_mapi_tx_was_mined_missing_inputs_counter | number of sent transactions with missing inputs that were accepted but not sent to the node since they are already mined into the block |
+| merchantapi_mapi_tx_invalid_block_missing_inputs_counter | number of sent transactions with missing inputs that were not accepted because they were already mined but into invalid block |
+| merchantapi_rpcmulticlient_gettxouts_duration_seconds | total time spent waiting for gettxouts response from node |
+| merchantapi_rpcmulticlient_sendrawtxs_duration_seconds | total time spent waiting for sendrawtransactions response from node |
+| http_request_duration_seconds_sum{controller="Mapi",action="SubmitTx"} | total response time for client requests - SubmitTx |
+| http_request_duration_seconds_sum{controller="Mapi",action="SubmitTxs"} | total response time for client requests - SubmitTxs |
+| http_requests_received_total{code=~"5.."} | total number of 5XX errors returned to customer |
+| <a name="transaction_callbacks"></a>**transaction callbacks** |
+| merchantapi_notificationshandler_successful_callbacks_counter | number of successful callbacks |
+| merchantapi_notificationshandler_failed_callbacks_counter | number of failed callbacks |
+| merchantapi_notificationshandler_callback_duration_seconds | total duration of callbacks (how long did clients take to respond) |
+| merchantapi_notificationshandler_notification_in_queue | queued notifications |
+| merchantapi_notificationshandler_notification_with_error | notifications with error that are not queued, but processed separately. |
+| <a name="mempool_checker"></a>**mempool checker** |
+| merchantapi_mempoolchecker_successful_resubmit_counter | number of all successful resubmits |
+| merchantapi_mempoolchecker_unsuccessful_resubmit_counter | number of all unsuccessful or interrupted resubmits |
+| merchantapi_mempoolchecker_exceptions_resubmit_counter| number of resubmits that interrupted with exception |
+| merchantapi_mempoolchecker_getrawmempool_duration_seconds | total time spent waiting for getrawmempool response from node |
+| merchantapi_mempoolchecker_getmissingtransactions_duration_seconds | database execution total time for the query which transactions must be resubmitted |
+| merchantapi_mempoolchecker_min_tx_in_mempool | minumum number of transactions in mempool per node |
+| merchantapi_mempoolchecker_max_tx_in_mempool | maximum number of transactions in mempool per node |
+| merchantapi_mempoolchecker_tx_missing_counter | "number of missing transactions, that are resent to node" |
+| merchantapi_mempoolchecker_tx_response_success_counter | number of transactions with success response |
+| merchantapi_mempoolchecker_tx_response_failure_counter | number of transactions with failure response |
+| merchantapi_mempoolchecker_tx_missing_inputs_max_counter | number of transactions that reached MempoolCheckerMissingInputsRetries |
+
+## Configuration with Grafana
+
+mAPI reference implementation is configured to use Prometheus on http://host.docker.internal:9080.
+Check Grafana's datasources on http://localhost:3000/datasources. 
+There are these predefined dashboards: Block parser, Transactions submission, Callbacks and Mempool checker, which can be accessed at http://localhost:3000/dashboards.
+Note: if running mAPI reference implementation on Windows and localhost is unreachable, try accessing 'host.docker.internal' instead.
+
+l### Block parser dashboard
+This dashboard displays statistical data for [block parser](#block_parser)
+
+### Transactions submission dashboard
+This dashboard displays statistical data for [transactions submission](#transactions_submission)
+
+### Callbacks dashboard
+This dashboard displays statistical data for [transaction callbacks](#transaction_callbacks)
+
+### Mempool checker dashboard
+This dashboard displays statistical data for [mempool checker](#mempool_checker)
+
+| Default credentials |  |
+| --------- | ----- |
+| Username: | admin |
+| Password: | admin |
+
 
