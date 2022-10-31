@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9b.
+Readme v.1.4.9d.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -290,6 +290,28 @@ To check the status of ZMQ subscriptions use:
 
 ```
 GET api/v1/status/zmq
+```
+
+### View Block Parser Status
+
+To check the status of Block Parser subscriptions use:
+
+```
+GET api/v1/status/blockparser
+```
+
+Producing an output similar to:
+```json
+{
+  "blocksProcessed": 136,
+  "blocksParsed": 136,
+  "et cetera",
+  "lastBlockParseTime": {
+    "totalSeconds": 0.0769461,
+    "et cetera"
+  },
+  "et cetera"
+}
 ```
 
 ## JWT Manager
