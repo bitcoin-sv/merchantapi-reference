@@ -31,13 +31,15 @@ The reference implementation exposes different **REST API** interfaces:
 * a public interface for submitting and querying transactions
 * an administrator interface for managing connections to bitcoin nodes and policy quotes
 
-It also provides a JWT Manager to enable authenticated users to obtain special policy rates.
+It also provides a JSON Web Tokens (JWT) Manager to enable authenticated users to obtain special policy rates.
 
 ## Public Interface
 
 The public interface can be used to submit transactions and query transaction status. It is accessible to both authenticated and unauthenticated users, but authenticated users might get special fee rates.
 
-The endpoints are implemented in accordance with the BRFC mAPI Specification and are summarised below:
+The endpoints are implemented in accordance with the BRFC mAPI Specification and are summarised below.
+
+The possibility of using JWT means that each REST command may additionally respond with HTTP code 401, Unauthorized if any supplied JWT token is invalid.
 
 ### 1. Get Policy Quote
 
@@ -49,7 +51,7 @@ Responds with a policy quotation. This is a superset of the fee quotation (below
 
 #### Special Policy Quotes
 
-The administrator may wish to offer special policy quotes to specific customers. The reference implementation supports JSON Web Tokens (JWT) issued to authenticated users. The authenticated users include the JWT in their HTTP header and, as a result, receive special policy quotes.
+The administrator may wish to offer special policy quotes to specific customers. The reference implementation supports JWT issued to authenticated users. The authenticated users include the JWT in their HTTP header and, as a result, receive special policy quotes.
 
 If no JWT is supplied, then the call is anonymous (unauthenticated), and the default policy quote is supplied. If a JWT (created by the mAPI JWT Manager user or other JWT provider) is supplied, then the caller will receive the corresponding special policy quote. For this version of the merchant API reference implementation, the JWT must be created by the JWT manager and issued to the customer manually.
 
@@ -105,10 +107,10 @@ A JWT may be supplied as above, in order to authenticate the user and cause the 
 ### 4. Query Transaction Status
 
 ```
-GET /mapi/tx/{hash:[0-9a-fA-F]+}
+GET /mapi/tx/{txid}?merkleProof=Boolean&merkleFormat=TSC
 ```
 
-Responds with the status of the transaction.
+Responds with the status of the transaction with optional Merkle proof information.
 
 ### 5. Submit Multiple Transactions
 
@@ -118,10 +120,28 @@ POST /mapi/txs
 
 This is similar to Submit Transaction, but an array of transactions may be sent.
 
+### 6. Query Transaction Outputs
+
+```
+POST /mapi/txouts?includeMempool=Boolean&returnField=confirmations
+```
+
+#### Example JSON Request body
+
+```json
+{
+  [
+    { "txid": "0bc1733f05aae146c3641fd...57f60f19a430ffe867020619d54800", "n": 0 },
+    { "txid": "d013adf525ed5feaffc6e9d...40566470181f099f1560343cdcfd00", "n": 0 },
+    { "txid": "d013adf525ed5feaffc6e9d...40566470181f099f1560343cdcfd00", "n": 1 }
+  ]
+}
+
+```
 
 ## Administrator Interface
 
-The Administrator Interface of the reference implementation manages policy quotes, nodes and special policy fee rates for the Public API.
+The Administrator Interface of the mAPI reference implementation manages policy quotes, nodes and special policy fee rates for the Public API.
 
 These services are only available to the administrator. Authentication is performed through the Api-Key HTTP header. The value provided must match the one stored in the configuration variable `RestAdminAPIKey`.
 
@@ -371,6 +391,8 @@ mAPI processes all requested notifications and sends them out as described below
 * when an event is received from the node, an attempt is made to insert a notification into the queue for instant delivery
 * if a callback fails or if the instant delivery queue is full, the notification is scheduled for delivery in the background
 * a background delivery queue is used for periodically processing failed notifications. A single task is used for background delivery
+
+The mAPI Reference Implementation Submit Transaction command enables use of Peer Channels for the message broker. This provides a secure transport mechanism to send messages from the miner to a merchant. Merchants or service providers may use other messaging systems to achieve the same goal
 
 ## Download and deploy
 
