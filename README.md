@@ -440,7 +440,7 @@ Or see below for building an image from this source kit.
 |MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES	|How often transactions with missing inputs should be resubmitted. Default: 5|
     | **Mempool Checker** | |
 |MEMPOOL_CHECKER_DISABLED	|Disable mempoolChecker service. Default: false|
-|MEMPOOL_CHECKER_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit missing transactions if successful on previous try (errors “Missing inputs” and “Already known” are treated as success). Default: 60 (minimum 10)|
+|MEMPOOL_CHECKER_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit missing transactions if successful on previous try (errors `Missing inputs` and `Already known` are treated as success). Default: 60 (minimum 10)|
 |MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit transactions if previous try was terminated with an error (timeout, database exception) or not all of them were successfully submitted. Default: 10|
 |MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX	|Force submitting of transactions, even if some blocks are not parsed yet. Default:0|
     | **Double Spends** | |
