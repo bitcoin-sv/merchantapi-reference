@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9e.
+Readme v.1.4.9e1.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -613,7 +613,7 @@ In this example we will create the mapi_crud role and two user roles. One user r
 Prometheus is configured to run on http://localhost:9080/.
 Check whether endpoints with metrics are healthy on http://localhost:9080/targets. 
 Observe the mAPI reference implementation operation on http://localhost:9080/graph.
-Data is scraped from https://localhost:5051/metrics every 5s. 
+Data is scraped from https://localhost:5051/metrics every 15s. 
 This is where all the metrics that are generated during the execution of mAPI reference implementation are available.
 
 Available metrics include:
@@ -661,7 +661,7 @@ Available metrics include:
 | merchantapi_mempoolchecker_getmissingtransactions_duration_seconds | database execution total time for the query which transactions must be resubmitted |
 | merchantapi_mempoolchecker_min_tx_in_mempool | minumum number of transactions in mempool per node |
 | merchantapi_mempoolchecker_max_tx_in_mempool | maximum number of transactions in mempool per node |
-| merchantapi_mempoolchecker_tx_missing_counter | "number of missing transactions, that are resent to node" |
+| merchantapi_mempoolchecker_tx_missing_counter | number of missing transactions, that are resent to node |
 | merchantapi_mempoolchecker_tx_response_success_counter | number of transactions with success response |
 | merchantapi_mempoolchecker_tx_response_failure_counter | number of transactions with failure response |
 | merchantapi_mempoolchecker_tx_missing_inputs_max_counter | number of transactions that reached MempoolCheckerMissingInputsRetries |
@@ -673,7 +673,7 @@ Check Grafana's datasources on http://localhost:3000/datasources.
 There are these predefined dashboards: Block parser, Transactions submission, Callbacks and Mempool checker, which can be accessed at http://localhost:3000/dashboards.
 Note: if running mAPI reference implementation on Windows and localhost is unreachable, try accessing 'host.docker.internal' instead.
 
-l### Block parser dashboard
+### Block parser dashboard
 This dashboard displays statistical data for [block parser](#block_parser)
 
 ### Transactions submission dashboard
