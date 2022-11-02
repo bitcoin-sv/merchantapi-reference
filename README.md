@@ -496,7 +496,7 @@ Or see below for building an image from this source kit.
 |CALLBACK_IP_ADDRESSES	|An array of IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote|
 |QUOTE_EXPIRY_MINUTES	|Fee quote expiry period|
 |CHECK_FEE_DISABLED	|Disable fee check|
- | **Transaction Outputss** | |
+ | **Transaction Outputs** | |
 |ALLOWED_TXOUT_FIELDS|Comma separated field names that may be used in the “returnField” parameter of the Query Transaction Outputs endpoint: scriptPubKey, scriptPubKeyLen, value, isStandard and confirmations|
 
 #### Banning Persistent Hosts
