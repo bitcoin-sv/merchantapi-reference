@@ -392,7 +392,7 @@ mAPI processes all requested notifications and sends them out as described below
 * if a callback fails or if the instant delivery queue is full, the notification is scheduled for delivery in the background
 * a background delivery queue is used for periodically processing failed notifications. A single task is used for background delivery
 
-The mAPI Reference Implementation Submit Transaction command enables use of Peer Channels for the message broker. This provides a secure transport mechanism to send messages from the miner to a merchant. Merchants or service providers may use other messaging systems to achieve the same goal
+The mAPI Reference Implementation Submit Transaction command enables use of Peer Channels for the message broker. This provides a secure transport mechanism to send messages from the miner to a merchant. Merchants or service providers may use other messaging systems to achieve the same goal.
 
 ## Download and deploy
 
