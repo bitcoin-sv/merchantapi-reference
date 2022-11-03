@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9e2.
+Readme v.1.4.9h.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -436,7 +436,7 @@ Or see below for building an image from this source kit.
     | ----------- | ----------- |
     | **Communications** | |
     | HTTPSPORT | https port where the application will listen/run |
-    |CERTIFICATEPASSWORD	|Password of the *.pfx file in the config folder|
+    |CERTIFICATEPASSWORD	|Password of the `*.pfx` file in the config folder|
     |CERTIFICATEFILENAME	|<certificate_file_name.pfx>|
     |RESTADMIN_APIKEY	|Authorization key for accessing administration interface|
     |ENABLEHTTP	|Enables requests through http port when set to True. This should only be used for testing and must be set to False in the production environment in order to maintain security|
@@ -453,18 +453,25 @@ Or see below for building an image from this source kit.
 |ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC	|Timeout for ZMQ subscription service RPC request calls. Default: 5 seconds|
 |ZMQ_STATS_LOG_PERIOD_MIN	|Periodically log ZMQ statistics about nodes and subscriptions every n minutes. Default: 10 minutes|
 |ZMQ_CONNECTION_TEST_INTERVAL_SEC	|How often the ZMQ subscription service tests that the connection with the node is still alive. Default: 60 seconds|
-    | **Responses** | |
+    | **Logging** | |
+    | LOG_LEVEL_DEFAULT | Log levels 0..6 defined here: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-6.0#log-level |
+    | LOG_LEVEL_MICROSOFT | The log level for the general Microsoft components |
+    | LOG_LEVEL_MICROSOFT_HOSTING_LIFETIME | The log level for the Microsoft.Hosting.Lifetime component |
+    | LOG_LEVEL_HTTPCLIENT | The log level for the System.Net.Http.HttpClient component |
+    | **blockchain** | |
+    | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | TVerify block chain and parse blocks up to this limit. Default: 432 |
+| **MinerId** | |
 |WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
 |MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
 |MINERID_SERVER_ALIAS	|Alias to be used when communicating with the endpoint|
 |MINERID_SERVER_AUTHENTICATION	|HTTP authentication header that will be used to when communicating with the endpoint, this should include the Bearer authentication keyword, for example:Bearer 2b4a73f333b0aa1a1dfb52….421d78e2efe183df9|
 |MINERID_SERVER_REQUEST_TIMEOUT_SEC	REST |request timeout for minerId. Default: 100 seconds|
-|MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES	|How often transactions with missing inputs should be resubmitted. Default: 5|
     | **Mempool Checker** | |
 |MEMPOOL_CHECKER_DISABLED	|Disable mempoolChecker service. Default: false|
 |MEMPOOL_CHECKER_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit missing transactions if successful on previous try (errors `Missing inputs` and `Already known` are treated as success). Default: 60 (minimum 10)|
 |MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit transactions if previous try was terminated with an error (timeout, database exception) or not all of them were successfully submitted. Default: 10|
 |MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX	|Force submitting of transactions, even if some blocks are not parsed yet. Default:0|
+|MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES	|How often transactions with missing inputs should be resubmitted. Default: 5|
     | **Double Spends** | |
 |DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK	|Number of old blocks that are checked for double spends|
 |DS_HOST_BAN_TIME_SEC	|See below|
@@ -649,7 +656,7 @@ Available metrics include:
 | merchantapi_blockparser_blockparsed_counter | number of parsed blocks |
 | merchantapi_blockparser_blockparsingqueue | number of unparsed blocks/blocks in queue for parsing |
 | merchantapi_blockparser_blockparsing_duration_seconds | total time spent parsing blocks |
-| <a name="transactions_submission"></a>**transactions submission** |
+| <a name="transaction_submission"></a>**transaction submission** |
 | merchantapi_mapi_any_bitcoind_responding | status 1 if any bitcoind is responding |
 | http_requests_received_total{controller="Mapi",action="SubmitTx"} | total number of transactions submitted by client |
 | http_requests_received_total{controller="Mapi",action="SubmitTxs"} | total number of batches submitted by client |
@@ -700,10 +707,10 @@ Note: if running mAPI reference implementation on Windows and localhost is unrea
 ### Block parser dashboard
 This dashboard displays statistical data for [block parser](#block_parser)
 
-### Transactions submission dashboard
-This dashboard displays statistical data for [transactions submission](#transactions_submission)
+### Transaction submission dashboard
+This dashboard displays statistical data for [transaction submission](#transaction_submission)
 
-### Callbacks dashboard
+### Transaction Call-backs dashboard
 This dashboard displays statistical data for [transaction callbacks](#transaction_callbacks)
 
 ### Mempool checker dashboard
