@@ -186,9 +186,7 @@ $ curl -H "Api-Key: [RestAdminAPIKey]" \
                 \"acceptnonstdoutputs\": true, \
                 \"datacarrier\": true, \
                 \"maxstdtxvalidationduration\": 99, \
-                \"maxnonstdtxvalidationduration\": 100, \
-                \"dustrelayfee\": 150, \
-                \"dustlimitfactor\": 500 \
+                \"maxnonstdtxvalidationduration\": 100 \
             } \
           }"
 ```
