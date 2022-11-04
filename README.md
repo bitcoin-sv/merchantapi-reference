@@ -1,7 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9j.
-k
+Readme v.1.4.9k.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -218,9 +217,7 @@ $ curl -H "Api-Key: [RestAdminAPIKey]" \
                 \"acceptnonstdoutputs\": true, \
                 \"datacarrier\": true, \
                 \"maxstdtxvalidationduration\": 99, \
-                \"maxnonstdtxvalidationduration\": 100, \
-                \"dustrelayfee\": 150, \
-                \"dustlimitfactor\": 500 \
+                \"maxnonstdtxvalidationduration\": 100 \
             } \
           }"
 ```
@@ -486,12 +483,12 @@ Or see below for building an image from this source kit.
 |ZMQ_STATS_LOG_PERIOD_MIN	|Periodically log ZMQ statistics about nodes and subscriptions every n minutes. Default: 10 minutes|
 |ZMQ_CONNECTION_TEST_INTERVAL_SEC	|How often the ZMQ subscription service tests that the connection with the node is still alive. Default: 60 seconds|
     | **Logging** | |
-    | LOG_LEVEL_DEFAULT | Log levels 0..6 defined here: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-6.0#log-level |
+    | LOG_LEVEL_DEFAULT | Log levels 0..6 (Trace, Debug, Information, Warning, Error, Critical, None) defined here: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-6.0#log-level |
     | LOG_LEVEL_MICROSOFT | The log level for the general Microsoft components |
     | LOG_LEVEL_MICROSOFT_HOSTING_LIFETIME | The log level for the Microsoft.Hosting.Lifetime component |
     | LOG_LEVEL_HTTPCLIENT | The log level for the System.Net.Http.HttpClient component |
-    | **blockchain** | |
-    | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | TVerify block chain and parse blocks up to this limit. Default: 432 |
+    | **Blockchain** | |
+    | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | Verify block chain and parse blocks up to this limit. Default: 432 |
 | **MinerId** | |
 |WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
 |MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
@@ -683,12 +680,12 @@ Available metrics include:
 
 |Metric | Description |
 | ----------- | ----------- |
-| <a name="block_parser"></a>**block parser** |
+| <a name="block_parser"></a>**Block Parser** |
 | merchantapi_blockparser_bestblockheight | best block height |
 | merchantapi_blockparser_blockparsed_counter | number of parsed blocks |
 | merchantapi_blockparser_blockparsingqueue | number of unparsed blocks/blocks in queue for parsing |
 | merchantapi_blockparser_blockparsing_duration_seconds | total time spent parsing blocks |
-| <a name="transaction_submission"></a>**transaction submission** |
+| <a name="transaction_submission"></a>**Transaction Submissions** |
 | merchantapi_mapi_any_bitcoind_responding | status 1 if any bitcoind is responding |
 | http_requests_received_total{controller="Mapi",action="SubmitTx"} | total number of transactions submitted by client |
 | http_requests_received_total{controller="Mapi",action="SubmitTxs"} | total number of batches submitted by client |
@@ -710,13 +707,13 @@ Available metrics include:
 | http_request_duration_seconds_sum{controller="Mapi",action="SubmitTx"} | total response time for client requests - SubmitTx |
 | http_request_duration_seconds_sum{controller="Mapi",action="SubmitTxs"} | total response time for client requests - SubmitTxs |
 | http_requests_received_total{code=~"5.."} | total number of 5XX errors returned to customer |
-| <a name="transaction_callbacks"></a>**transaction callbacks** |
+| <a name="transaction_callbacks"></a>**Transaction Callbacks** |
 | merchantapi_notificationshandler_successful_callbacks_counter | number of successful callbacks |
 | merchantapi_notificationshandler_failed_callbacks_counter | number of failed callbacks |
 | merchantapi_notificationshandler_callback_duration_seconds | total duration of callbacks (how long did clients take to respond) |
 | merchantapi_notificationshandler_notification_in_queue | queued notifications |
 | merchantapi_notificationshandler_notification_with_error | notifications with error that are not queued, but processed separately. |
-| <a name="mempool_checker"></a>**mempool checker** |
+| <a name="mempool_checker"></a>**Mempool Checker** |
 | merchantapi_mempoolchecker_successful_resubmit_counter | number of all successful resubmits |
 | merchantapi_mempoolchecker_unsuccessful_resubmit_counter | number of all unsuccessful or interrupted resubmits |
 | merchantapi_mempoolchecker_exceptions_resubmit_counter| number of resubmits that interrupted with exception |
@@ -736,17 +733,17 @@ Check Grafana's datasources on http://localhost:3000/datasources.
 There are these predefined dashboards: Block parser, Transactions submission, Callbacks and Mempool checker, which can be accessed at http://localhost:3000/dashboards.
 Note: if running mAPI reference implementation on Windows and localhost is unreachable, try accessing 'host.docker.internal' instead.
 
-### Block parser dashboard
-This dashboard displays statistical data for [block parser](#block_parser)
+### Block Parser Dashboard
+This dashboard displays statistical data for [Block Parser](#block_parser)
 
-### Transaction submission dashboard
-This dashboard displays statistical data for [transaction submission](#transaction_submission)
+### Transaction Submissions Dashboard
+This dashboard displays statistical data for [Transaction Submissions](#transaction_submission)
 
-### Transaction Call-backs dashboard
-This dashboard displays statistical data for [transaction callbacks](#transaction_callbacks)
+### Transaction Callbacks Dashboard
+This dashboard displays statistical data for [Transaction Callbacks](#transaction_callbacks)
 
-### Mempool checker dashboard
-This dashboard displays statistical data for [mempool checker](#mempool_checker)
+### Mempool Checker Dashboard
+This dashboard displays statistical data for [Mempool Checker](#mempool_checker)
 
 | Default credentials |  |
 | --------- | ----- |
