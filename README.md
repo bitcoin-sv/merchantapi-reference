@@ -70,6 +70,8 @@ The endpoints are implemented in accordance with the BRFC mAPI Specification and
 
 The possibility of using JWT means that each REST command may additionally respond with HTTP code 401, Unauthorized if any supplied JWT token is invalid.
 
+Note: Any `/mapi/` REST call will return 5xx if node is unresponsive or the database is down.
+
 ### 1. Get Policy Quote
 
 ```
@@ -174,6 +176,7 @@ The Administrator Interface of the mAPI Reference Implementation manages policy 
 
 These services are only available to the administrator. Authentication is performed through the Api-Key HTTP header. The value provided must match the one stored in the configuration variable `RestAdminAPIKey`.
 
+Note: Any `/api/v1/` REST call will return 5xx if the database is down.
 
 ### Managing Policy Quotes
 
