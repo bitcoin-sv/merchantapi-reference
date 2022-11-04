@@ -651,12 +651,12 @@ Available metrics include:
 
 |Metric | Description |
 | ----------- | ----------- |
-| <a name="block_parser"></a>**block parser** |
+| <a name="block_parser"></a>**Block Parser** |
 | merchantapi_blockparser_bestblockheight | best block height |
 | merchantapi_blockparser_blockparsed_counter | number of parsed blocks |
 | merchantapi_blockparser_blockparsingqueue | number of unparsed blocks/blocks in queue for parsing |
 | merchantapi_blockparser_blockparsing_duration_seconds | total time spent parsing blocks |
-| <a name="transaction_submission"></a>**transaction submission** |
+| <a name="transaction_submission"></a>**Transaction Submissions** |
 | merchantapi_mapi_any_bitcoind_responding | status 1 if any bitcoind is responding |
 | http_requests_received_total{controller="Mapi",action="SubmitTx"} | total number of transactions submitted by client |
 | http_requests_received_total{controller="Mapi",action="SubmitTxs"} | total number of batches submitted by client |
@@ -678,13 +678,13 @@ Available metrics include:
 | http_request_duration_seconds_sum{controller="Mapi",action="SubmitTx"} | total response time for client requests - SubmitTx |
 | http_request_duration_seconds_sum{controller="Mapi",action="SubmitTxs"} | total response time for client requests - SubmitTxs |
 | http_requests_received_total{code=~"5.."} | total number of 5XX errors returned to customer |
-| <a name="transaction_callbacks"></a>**transaction callbacks** |
+| <a name="transaction_callbacks"></a>**Transaction Callbacks** |
 | merchantapi_notificationshandler_successful_callbacks_counter | number of successful callbacks |
 | merchantapi_notificationshandler_failed_callbacks_counter | number of failed callbacks |
 | merchantapi_notificationshandler_callback_duration_seconds | total duration of callbacks (how long did clients take to respond) |
 | merchantapi_notificationshandler_notification_in_queue | queued notifications |
 | merchantapi_notificationshandler_notification_with_error | notifications with error that are not queued, but processed separately. |
-| <a name="mempool_checker"></a>**mempool checker** |
+| <a name="mempool_checker"></a>**Mempool Checker** |
 | merchantapi_mempoolchecker_successful_resubmit_counter | number of all successful resubmits |
 | merchantapi_mempoolchecker_unsuccessful_resubmit_counter | number of all unsuccessful or interrupted resubmits |
 | merchantapi_mempoolchecker_exceptions_resubmit_counter| number of resubmits that interrupted with exception |
@@ -704,17 +704,17 @@ Check Grafana's datasources on http://localhost:3000/datasources.
 There are these predefined dashboards: Block parser, Transactions submission, Callbacks and Mempool checker, which can be accessed at http://localhost:3000/dashboards.
 Note: if running mAPI reference implementation on Windows and localhost is unreachable, try accessing 'host.docker.internal' instead.
 
-### Block parser dashboard
-This dashboard displays statistical data for [block parser](#block_parser)
+### Block Parser Dashboard
+This dashboard displays statistical data for [Block Parser](#block_parser)
 
-### Transaction submission dashboard
-This dashboard displays statistical data for [transaction submission](#transaction_submission)
+### Transaction Submissions Dashboard
+This dashboard displays statistical data for [Transaction Submissions](#transaction_submission)
 
-### Transaction Callbacks dashboard
-This dashboard displays statistical data for [transaction callbacks](#transaction_callbacks)
+### Transaction Callbacks Dashboard
+This dashboard displays statistical data for [Transaction Callbacks](#transaction_callbacks)
 
-### Mempool checker dashboard
-This dashboard displays statistical data for [mempool checker](#mempool_checker)
+### Mempool Checker Dashboard
+This dashboard displays statistical data for [Mempool Checker](#mempool_checker)
 
 | Default credentials |  |
 | --------- | ----- |
