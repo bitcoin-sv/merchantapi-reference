@@ -1,6 +1,7 @@
 # mAPI Reference Implementation
 
 Readme v.1.4.9j.
+k
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -32,15 +33,17 @@ mAPI Reference Implementation has greatly improved resilience against adversitie
 
 ### Submit transactions
 
-mAPI Reference Implementation records submitted transactions and monitors nodes’ mempool, so that if node fails after a transaction has been received, mAPI Reference Implementation is able to resubmit the transaction on behalf of the user.
+mAPI Reference Implementation records submitted transactions and monitors nodes’ mempool, so that if node fails after it has received a transaction, mAPI Reference Implementation is able to resubmit the transaction on behalf of the user.
 
-If mAPI Reference Implementation resubmits a transaction and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user.
+If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user.
 
 If mAPI Reference Implementation gets mixed results from multiple nodes, it maps that into a successful result for the user.
  
 If mAPI Reference Implementation returns a HTTP code 4xx (such as missing inputs) then the user has an opportunity to fix the error and resubmit the transaction.
 
 If mAPI Reference Implementation returns a HTTP code 5xx, then the user can try again later.
+
+An indication that the transaction may be resubmitted is given by the submit transaction response payload `failureRetryable` flag.
 
 ### Query transactions
 
