@@ -454,12 +454,12 @@ Or see below for building an image from this source kit.
 |ZMQ_STATS_LOG_PERIOD_MIN	|Periodically log ZMQ statistics about nodes and subscriptions every n minutes. Default: 10 minutes|
 |ZMQ_CONNECTION_TEST_INTERVAL_SEC	|How often the ZMQ subscription service tests that the connection with the node is still alive. Default: 60 seconds|
     | **Logging** | |
-    | LOG_LEVEL_DEFAULT | Log levels 0..6 defined here: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-6.0#log-level |
+    | LOG_LEVEL_DEFAULT | Log levels 0..6 (Trace, Debug, Information, Warning, Error, Critical, None) defined here: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-6.0#log-level |
     | LOG_LEVEL_MICROSOFT | The log level for the general Microsoft components |
     | LOG_LEVEL_MICROSOFT_HOSTING_LIFETIME | The log level for the Microsoft.Hosting.Lifetime component |
     | LOG_LEVEL_HTTPCLIENT | The log level for the System.Net.Http.HttpClient component |
-    | **blockchain** | |
-    | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | TVerify block chain and parse blocks up to this limit. Default: 432 |
+    | **Blockchain** | |
+    | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | Verify block chain and parse blocks up to this limit. Default: 432 |
 | **MinerId** | |
 |WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
 |MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
