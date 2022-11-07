@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9k.
+Readme v.1.4.9n.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -181,6 +181,8 @@ Note: Any `/api/v1/` REST call will return 5xx if the database is down.
 
 Policy Quotes may be specified for the unauthenticated users, or specific authenticated users.
 
+#### Create Policy Quote
+
 To create a new policy quote use the following:
 
 ```
@@ -235,6 +237,8 @@ The parameters above are:
 | `callbacks` | IP addresses of DSNT servers (see [specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md)) such as this mAPI reference implementation |
 | `policies` | values of miner policies as configured by the administrator (below) |
 
+#### Get All Policy Quotes
+
 To get a list of all policy quotes matching one or more criteria, use the following:
 
 ```
@@ -251,6 +255,7 @@ You can filter fee quotes by providing additional optional criteria in the query
 
 To get a list of all policy quotes (including expired ones) for all users use GET api/v1/PolicyQuote without filters.
 
+#### Get a Policy Quote
 
 To get a specific policy quote by `identity` use:
 
@@ -259,6 +264,29 @@ GET api/v1/PolicyQuote/{identity}
 ```
 
 Note: it is not possible to delete or update a policy quote once it is published, but it can be made obsolete by publishing a new policy quote.
+
+#### Get Unconfirmed Transactions
+
+To get the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+```
+GET api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
+```
+
+At least one parameter must be supplied. The others are optional.
+
+If no policies match the request, the response is HTTP code 400 “BadRequest”.
+
+#### Delete Unconfirmed Transactions
+
+To delete the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+
+```
+DELETE api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
+```
+
+At least one parameter must be supplied. The others are optional.
+
+If no policies match the request, the response is HTTP code 400 “BadRequest”. A successful deletion will result in HTTP code 204 “NoContent”.
 
 ### Managing Nodes
 
