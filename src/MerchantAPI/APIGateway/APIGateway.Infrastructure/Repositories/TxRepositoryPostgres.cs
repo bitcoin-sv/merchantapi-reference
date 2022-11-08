@@ -932,25 +932,16 @@ LIMIT 1;
       await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
 
       string cmdText = @$"
-WITH resubmitTxs as
-((SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
+SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
 FROM tx
 JOIN FeeQuote fq ON fq.id = tx.policyQuoteId
-WHERE txstatus = {TxStatus.Accepted} AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false)
-EXCEPT
-(SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
- FROM Tx
- INNER JOIN TxBlock ON Tx.txInternalId = TxBlock.txInternalId
- INNER JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
- JOIN FeeQuote fq ON fq.id = policyQuoteId
- WHERE txstatus = {TxStatus.Accepted} 
-AND submittedAt < @resubmittedBefore 
-AND unconfirmedancestor = false 
-AND Block.OnActiveChain = true))
-SELECT * from resubmitTxs
-LEFT JOIN MempoolTx m ON resubmitTxs.TxExternalIdBytes = m.txExternalId
+LEFT JOIN TxBlock ON tx.txInternalId = TxBlock.txInternalId
+LEFT JOIN Block ON block.blockinternalid = TxBlock.blockinternalid
+LEFT JOIN MempoolTx m ON tx.txExternalId = m.txExternalId
 WHERE m.txExternalId IS NULL
-ORDER BY resubmitTxs.txInternalId
+AND txstatus = {TxStatus.Accepted} AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false
+AND Block.onactivechain IS NOT true
+ORDER BY txInternalId
 ";
 
       var txs = await connection.QueryAsync<Tx>(cmdText, new { resubmittedBefore });
