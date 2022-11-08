@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9n.
+Readme v.1.4.9m.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
