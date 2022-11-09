@@ -55,7 +55,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       this.nodeRepository = nodeRepository ?? throw new ArgumentNullException(nameof(nodeRepository));
       this.bitcoindFactory = bitcoindFactory ?? throw new ArgumentNullException(nameof(bitcoindFactory));
       this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
-      rpcResponseTimeoutSec = appSettings.ZmqConnectionRpcResponseTimeoutSec.Value;
+      rpcResponseTimeoutSec = appSettings.Zmq.ConnectionRpcResponseTimeoutSec.Value;
     }
 
 
@@ -186,7 +186,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
     private async Task PingNodesAsync(CancellationToken stoppingToken)
     {
       var nodesToPing = subscriptions
-        .Where(s => (clock.UtcNow() - s.Value.LastContactAt).TotalSeconds >= appSettings.ZmqConnectionTestIntervalSec)
+        .Where(s => (clock.UtcNow() - s.Value.LastContactAt).TotalSeconds >= appSettings.Zmq.ConnectionTestIntervalSec)
         .Select(s => s.Value.NodeId)
         .Distinct()
         .ToArray();
@@ -236,7 +236,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       lock (failedSubscriptions)
       {
         failedSubscriptionsLocal = failedSubscriptions
-          .Where(s => (clock.UtcNow() - s.LastTryAt).TotalSeconds >= appSettings.ZmqConnectionTestIntervalSec)
+          .Where(s => (clock.UtcNow() - s.LastTryAt).TotalSeconds >= appSettings.Zmq.ConnectionTestIntervalSec)
           .ToArray();
       }
 
@@ -257,7 +257,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
         {
           logger.LogError($"Failed to subscribe to ZMQ events. " +
             $"Unable to connect to node {failedSubscription.Node.Host}:{failedSubscription.Node.Port}. " +
-            $"Will retry in {appSettings.ZmqConnectionTestIntervalSec} seconds. {ex.Message}");
+            $"Will retry in {appSettings.Zmq.ConnectionTestIntervalSec} seconds. {ex.Message}");
           failedSubscription.LastError = ex.Message;
           failedSubscription.LastTryAt = clock.UtcNow();
         }

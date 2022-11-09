@@ -44,7 +44,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    [OverrideSetting("AppSettings:MempoolCheckerDisabled", true)]
+    [OverrideSetting("AppSettings:MempoolChecker:Disabled", true)]
     public void NoResubmitIfMempoolCheckerDisabled()
     {
       Assert.IsFalse(mempoolChecker.ExecuteCheckMempoolAndResubmitTxs);

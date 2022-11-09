@@ -103,6 +103,36 @@ namespace MerchantAPI.APIGateway.Domain
     [Range(1, int.MaxValue)]
     public int? RpcGetRawMempoolTimeoutMinutes { get; set; } = 2;
   }
+
+  public class MempoolCheckerSettings
+  {
+    public bool? Disabled { get; set; } = false;
+
+    [Range(10, int.MaxValue)]
+    public int? IntervalSec { get; set; } = 60;
+
+    [Range(1, int.MaxValue)]
+    public int? UnsuccessfulIntervalSec { get; set; } = 10;
+
+    [Range(0, int.MaxValue)]
+    public int? BlockParserQueuedMax { get; set; } = 0;
+
+    [Range(0, int.MaxValue)]
+    public int? MissingInputsRetries { get; set; } = 5;
+  }
+
+  public class ZmqSettings
+  {
+    [Range(1, int.MaxValue)]
+    public int? ConnectionTestIntervalSec { get; set; } = 60;
+
+    [Range(1, int.MaxValue)]
+    public int? ConnectionRpcResponseTimeoutSec { get; set; } = 5;
+
+    [Range(1, int.MaxValue)]
+    public int? StatsLogPeriodMin { get; set; } = 10;
+  }
+
   public class AppSettings : CommonAppSettings
   {
     [Range(1, double.MaxValue)]
@@ -121,15 +151,6 @@ namespace MerchantAPI.APIGateway.Domain
 
     public int? MaxBlockChainLengthForFork { get; set; } = 432;
 
-    [Range(1, int.MaxValue)]
-    public int? ZmqConnectionTestIntervalSec { get; set; } = 60;
-
-    [Range(1, int.MaxValue)]
-    public int? ZmqConnectionRpcResponseTimeoutSec { get; set; } = 5;
-
-    [Range(1, int.MaxValue)]
-    public int? ZmqStatsLogPeriodMin{ get; set; } = 10;
-
     public long? DeltaBlockHeightForDoubleSpendCheck { get; set; } = 144;
 
     [Range(1, int.MaxValue)]
@@ -140,20 +161,6 @@ namespace MerchantAPI.APIGateway.Domain
 
     [Range(600, int.MaxValue)]
     public int? CleanUpTxPeriodSec { get; set; } = 3600;
-
-    public bool? MempoolCheckerDisabled { get; set; } = false;
-
-    [Range(10, int.MaxValue)]
-    public int? MempoolCheckerIntervalSec { get; set; } = 60;
-
-    [Range(1, int.MaxValue)]
-    public int? MempoolCheckerUnsuccessfulIntervalSec { get; set; } = 10;
-
-    [Range(0, int.MaxValue)]
-    public int? MempoolCheckerBlockParserQueuedMax { get; set; } = 0;
-
-    [Range(0, int.MaxValue)]
-    public int? MempoolCheckerMissingInputsRetries { get; set; } = 5;
 
     [Range(1, int.MaxValue)]
     public int DSHostBanTimeSec { get; set; }
@@ -172,10 +179,16 @@ namespace MerchantAPI.APIGateway.Domain
 
     [Range(1, int.MaxValue)]
     public int DSScriptValidationTimeoutSec { get; set; }
+
     public Notification Notification { get; set; }
 
     public DbConnectionSettings DbConnection { get; set; }
+
     public RpcClientSettings RpcClient { get; set; }
+
+    public ZmqSettings Zmq { get; set; }
+
+    public MempoolCheckerSettings MempoolChecker { get; set; }
 
     public bool? CheckFeeDisabled { get; set; } = false;
 
@@ -252,11 +265,6 @@ namespace MerchantAPI.APIGateway.Domain
           }
         }
       }
-      if (options.MempoolCheckerUnsuccessfulIntervalSec >= options.MempoolCheckerIntervalSec)
-      {
-        return ValidateOptionsResult.Fail(
-  $"Invalid configuration - {nameof(AppSettings.MempoolCheckerUnsuccessfulIntervalSec)} must be smaller than {nameof(AppSettings.MempoolCheckerIntervalSec)}.");
-      }
       if (options.Notification == null)
       {
         return ValidateOptionsResult.Fail(
@@ -298,6 +306,39 @@ namespace MerchantAPI.APIGateway.Domain
         {
           return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
         }
+      }
+      if (options.Zmq == null)
+      {
+        // all default values
+        options.Zmq = new ZmqSettings();
+      }
+      else
+      {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(options.Zmq, serviceProvider: null, items: null);
+        if (!Validator.TryValidateObject(options.Zmq, validationContext, validationResults, true))
+        {
+          return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
+        }
+      }
+      if (options.MempoolChecker == null)
+      {
+        // all default values
+        options.MempoolChecker = new MempoolCheckerSettings();
+      }
+      else
+      {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(options.MempoolChecker, serviceProvider: null, items: null);
+        if (!Validator.TryValidateObject(options.MempoolChecker, validationContext, validationResults, true))
+        {
+          return ValidateOptionsResult.Fail(string.Join(",", validationResults.Select(x => x.ErrorMessage).ToArray()));
+        }
+      }
+      if (options.MempoolChecker.UnsuccessfulIntervalSec >= options.MempoolChecker.IntervalSec)
+      {
+        return ValidateOptionsResult.Fail(
+  $"Invalid configuration - {nameof(AppSettings.MempoolChecker.UnsuccessfulIntervalSec)} must be smaller than {nameof(AppSettings.MempoolChecker.IntervalSec)}.");
       }
 
       return ValidateOptionsResult.Success;
