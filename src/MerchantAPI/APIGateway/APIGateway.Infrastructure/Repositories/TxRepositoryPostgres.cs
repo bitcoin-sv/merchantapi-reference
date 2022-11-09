@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Transactions;
 using static MerchantAPI.APIGateway.Domain.Faults;
 using Block = MerchantAPI.APIGateway.Domain.Models.Block;
 
@@ -902,13 +903,27 @@ LIMIT 1;
       return txstatus == null ? TxStatus.NotPresentInDb : txstatus.Value;
     }
 
-    public async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
+    public async Task<Tx[]> GetTransactionsAsync(long[] txInternalIds)
     {
       using var connection = await GetDbConnectionAsync();
-      return await GetMissingTransactionsAsync(connection, mempoolTxs, resubmittedAt ?? clock.UtcNow());
+      string cmdText = @$"
+SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
+FROM tx
+JOIN FeeQuote fq ON fq.id = tx.policyQuoteId
+WHERE txInternalId = ANY(@txInternalIds)
+ORDER BY txInternalId;
+";
+      var txs = await connection.QueryAsync<Tx>(cmdText, new { txInternalIds });
+      return txs.ToArray();
     }
 
-    public static async Task<Tx[]> GetMissingTransactionsAsync(NpgsqlConnection connection, string[] mempoolTxs, DateTime resubmittedBefore)
+    public async Task<long[]> GetMissingTransactionIdsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
+    {
+      using var connection = await GetDbConnectionAsync();
+      return await GetMissingTransactionIdsAsync(connection, mempoolTxs, resubmittedAt ?? clock.UtcNow());
+    }
+
+    public static async Task<long[]> GetMissingTransactionIdsAsync(NpgsqlConnection connection, string[] mempoolTxs, DateTime resubmittedBefore)
     {
       using var transaction = await connection.BeginTransactionAsync();
 
@@ -930,9 +945,10 @@ LIMIT 1;
       }
 
       await transaction.Connection.ExecuteAsync("ALTER TABLE MempoolTx ADD CONSTRAINT mempooltx_txExternalId UNIQUE (txExternalId);");
-
+      
+      // we select all txs that are not in mempool and were not yet mined or were mined but are not on active chain 
       string cmdText = @$"
-SELECT tx.txInternalId, tx.txExternalId TxExternalIdBytes, tx.txpayload, tx.receivedAt, tx.txstatus, tx.submittedAt, tx.policyQuoteId, tx.okToMine, tx.setpolicyquote, fq.policies
+SELECT tx.txInternalId
 FROM tx
 JOIN FeeQuote fq ON fq.id = tx.policyQuoteId
 LEFT JOIN TxBlock ON tx.txInternalId = TxBlock.txInternalId
@@ -941,10 +957,10 @@ LEFT JOIN MempoolTx m ON tx.txExternalId = m.txExternalId
 WHERE m.txExternalId IS NULL
 AND txstatus = {TxStatus.Accepted} AND submittedAt < @resubmittedBefore AND unconfirmedancestor = false
 AND Block.onactivechain IS NOT true
-ORDER BY txInternalId
+ORDER BY txInternalId;
 ";
 
-      var txs = await connection.QueryAsync<Tx>(cmdText, new { resubmittedBefore });
+      var txs = await connection.QueryAsync<long>(cmdText, new { resubmittedBefore });
 
       await transaction.CommitAsync();
 

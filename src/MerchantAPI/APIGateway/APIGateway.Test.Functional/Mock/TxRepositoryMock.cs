@@ -69,7 +69,12 @@ namespace MerchantAPI.APIGateway.Test.Functional.Mock
       throw new NotImplementedException();
     }
 
-    public Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
+    public Task<long[]> GetMissingTransactionIdsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
+    {
+      throw new NotImplementedException();
+    }
+
+    public Task<Tx[]> GetTransactionsAsync(long[] txInternalIds)
     {
       throw new NotImplementedException();
     }

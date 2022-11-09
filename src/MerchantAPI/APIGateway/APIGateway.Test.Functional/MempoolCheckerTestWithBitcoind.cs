@@ -161,8 +161,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(mempoolTxsLength, mempoolTxs.Length);
 
-      var tx = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs)).Single();
+      var tx = (await GetMissingTransactionsAsync(mempoolTxs)).Single();
       return (tx, txHash);
+    }
+
+    private async Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null)
+    {
+      var txInternalIds = await TxRepositoryPostgres.GetMissingTransactionIdsAsync(mempoolTxs, resubmittedAt ?? MockedClock.UtcNow);
+      return await TxRepositoryPostgres.GetTransactionsAsync(txInternalIds);
     }
 
     [TestMethod]
@@ -177,7 +183,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsFalse(success);
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
-      var txResubmitted = (await TxRepositoryPostgres.GetMissingTransactionsAsync(Array.Empty<string>())).Single();
+      var txResubmitted = (await GetMissingTransactionsAsync(Array.Empty<string>())).Single();
       Assert.AreEqual(tx.SubmittedAt, txResubmitted.SubmittedAt);
 
       // check mempool should succeed
@@ -200,7 +206,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
-      var txs = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs));
+      var txs = (await GetMissingTransactionsAsync(mempoolTxs));
       Assert.AreEqual(1, txs.Length);
 
       // check db fail
@@ -218,7 +224,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(txHash, mempoolTxs.Single());
-      var txResubmitted = (await TxRepositoryPostgres.GetMissingTransactionsAsync(Array.Empty<string>())).Single();
+      var txResubmitted = (await GetMissingTransactionsAsync(Array.Empty<string>())).Single();
       if (dbFaultComponent == Faults.DbFaultComponent.MempoolCheckerUpdateTxs)
       {
         // RPC call was successful, DB update not
@@ -323,7 +329,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual("failure", payloadSubmit.ReturnResult);
       var mempoolTx = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTx.Length);
-      Assert.AreEqual(1, (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTx)).Length);
+      Assert.AreEqual(1, (await GetMissingTransactionsAsync(mempoolTx)).Length);
 
       bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       Assert.IsTrue(success);
@@ -357,7 +363,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
         var mempoolTx = await rpcClient0.GetRawMempool();
         Assert.AreEqual(0, mempoolTx.Length);
 
-        var tx = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTx)).Single();
+        var tx = (await GetMissingTransactionsAsync(mempoolTx)).Single();
         Assert.AreEqual(policies, tx.Policies);
         // check mempool with saved policies should succeed 
         bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
@@ -389,12 +395,12 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
-      Assert.AreEqual(110, (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs)).Length);
+      Assert.AreEqual(110, (await GetMissingTransactionsAsync(mempoolTxs)).Length);
 
       bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       mempoolTxs = await rpcClient0.GetRawMempool();
       Assert.AreEqual(110, (await rpcClient0.GetRawMempool()).Length);
-      Assert.AreEqual(0, (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs)).Length);
+      Assert.AreEqual(0, (await GetMissingTransactionsAsync(mempoolTxs)).Length);
       Assert.IsTrue(success);
       var txResubmitted = await TxRepositoryPostgres.GetTransactionAsync(new uint256(txList.First().TxExternalId).ToBytes());
       Assert.IsTrue(txSubmitted.SubmittedAt < txResubmitted.SubmittedAt);
@@ -438,7 +444,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(mempoolTxs.Contains(txId1));
 
       // Nothing to update since tx2 is already in mempool
-      var txs = (await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs));
+      var txs = (await GetMissingTransactionsAsync(mempoolTxs));
       Assert.AreEqual(0, txs.Length);
 
       await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
@@ -481,7 +487,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(mempoolTxs.Contains(txIdA));
       await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);
       // since txA si present in mempool, nothing is resubmitted
-      var txToResubmit = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs);
+      var txToResubmit = await GetMissingTransactionsAsync(mempoolTxs);
       Assert.AreEqual(0, txToResubmit.Length);
 
       // increase chain A - now longer
@@ -501,11 +507,11 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.IsTrue(mempoolTxs.Contains(txIdB1));
       Assert.IsTrue(mempoolTxs.Contains(txIdB2));
       // since txBs are present in mempool, nothing is resubmitted
-      txToResubmit = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs);
+      txToResubmit = await GetMissingTransactionsAsync(mempoolTxs);
       Assert.AreEqual(0, txToResubmit.Length);
 
       // if mempool would be empty, then txBs would be resubmitted
-      txToResubmit = await TxRepositoryPostgres.GetMissingTransactionsAsync(Array.Empty<string>());
+      txToResubmit = await GetMissingTransactionsAsync(Array.Empty<string>());
       Assert.AreEqual(2, txToResubmit.Length);
     }
 
@@ -760,7 +766,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       // if mempool would be empty,
       // only tx with unconfirmedancestor = false would be resubmitted
-      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(Array.Empty<string>());
+      var txs = await GetMissingTransactionsAsync(Array.Empty<string>());
       Assert.AreEqual(lastTxId, txs.Single().TxExternalId.ToString());
     }
   }

@@ -126,7 +126,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
         if (config.MapiConfig.TestResilience?.DBConnectionString != null)
         {
           // test DBConnectionString
-          (var missingAtStart, _) = await Actions.GetMissingTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false));
+          (var missingAtStart, _) = await Actions.GetMissingTransactionIdsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false));
           missingTransactionsCountAtStart = missingAtStart.Length;
         }
 
@@ -360,12 +360,12 @@ namespace MerchantAPI.APIGateway.Test.Stress
           Actions.PrintToConsoleWithColor(
             $"All transactions in database, that should be in mempool or blockchain: { txsCount }.",
             ConsoleColor.Yellow);
-          long missing = (await Actions.GetMissingTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false))).missingTxs.Length;
+          long missing = (await Actions.GetMissingTransactionIdsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false))).missingTxs.Length;
           while (missing > 0 && countNoDiff < 10)
           {
             await Task.Delay(1500);
             // Wait for resubmit of missing transactions
-            (var missingTxs, _) = await Actions.GetMissingTransactionsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false));
+            (var missingTxs, _) = await Actions.GetMissingTransactionIdsAsync(config.MapiConfig.TestResilience.DBConnectionString, await measureGetRawMempoolAsync(false));
             countNoDiff = (missingTxs.Length >= missing) ? ++countNoDiff : 0;
             missing = missingTxs.Length;
           }

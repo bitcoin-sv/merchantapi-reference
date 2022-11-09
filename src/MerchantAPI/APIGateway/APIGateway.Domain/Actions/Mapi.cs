@@ -1515,24 +1515,25 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public virtual async Task<(bool success, List<long> txsWithMissingInputs)> ResubmitMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt, int batchSize = 1000)
     {
-      Tx[] txs;
+      long[] txIds;
       using (mempoolCheckerMetrics.GetMissingTransactionsDuration.NewTimer())
       {
-        txs = await txRepository.GetMissingTransactionsAsync(mempoolTxs, resubmittedAt);
+        txIds = await txRepository.GetMissingTransactionIdsAsync(mempoolTxs, resubmittedAt);
       }
       // split processing into smaller batches
-      int nBatches = (int)Math.Ceiling((double)txs.Length / batchSize);
+      int nBatches = (int)Math.Ceiling((double)txIds.Length / batchSize);
       int submitSuccessfulCount = 0;
       int submitFailureIgnored = 0;
       List<long> txsWithMissingInputs = new();
-      logger.LogDebug($"ResubmitMissingTransactions: missing {txs.Length} -> nBatches: {nBatches}, batchsize: {batchSize}");
-      mempoolCheckerMetrics.TxMissing.Inc(txs.Length);
+      logger.LogDebug($"ResubmitMissingTransactions: missing {txIds.Length} -> nBatches: {nBatches}, batchsize: {batchSize}");
+      mempoolCheckerMetrics.TxMissing.Inc(txIds.Length);
 
       // we have to submit all txs in order
       // if node accepted tx2 before tx1, tx1 can be resubmitted successfully in the next resubmit round
       for (int n = 0; n < nBatches; n++)
       {
-        var txsToSubmit = txs.Skip(n * batchSize).Take(batchSize).ToArray();
+        var txsToSubmit = await txRepository.GetTransactionsAsync(txIds.Skip(n * batchSize).Take(batchSize).ToArray());
+
         (byte[] transaction, bool allowhighfees, bool dontCheckFee, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions;
         // we allow certain errors - check with prevOut, do not submit this
         if (appSettings.MempoolCheckerMissingInputsRetries.Value == 0)
@@ -1612,8 +1613,8 @@ namespace MerchantAPI.APIGateway.Domain.Actions
           }
         }
       }
-      int failures = txs.Length - submitSuccessfulCount - submitFailureIgnored - txsWithMissingInputs.Count;
-      logger.LogInformation(@$"ResubmitMempoolTransactions: resubmitted {txs.Length} txs = successful: {submitSuccessfulCount}, 
+      int failures = txIds.Length - submitSuccessfulCount - submitFailureIgnored - txsWithMissingInputs.Count;
+      logger.LogInformation(@$"ResubmitMempoolTransactions: resubmitted {txIds.Length} txs = successful: {submitSuccessfulCount}, 
 failures: {failures}, submitFailureIgnored: {submitFailureIgnored}, missing inputs: {txsWithMissingInputs.Count}.");
       mempoolCheckerMetrics.TxResponseSuccess.Inc(submitSuccessfulCount);
       mempoolCheckerMetrics.TxResponseFailure.Inc(failures);
