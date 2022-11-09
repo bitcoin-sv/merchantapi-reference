@@ -52,6 +52,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly MempoolCheckerMetrics mempoolCheckerMetrics;
 
     const int PARENT_RESUBMISSION_DEPTH = 100;
+    const int DB_MISSING_TXS_BATCH_SIZE = 100000;
 
     static class ResultCodes
     {
@@ -1525,14 +1526,13 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       List<long> txsWithMissingInputs = new();
 
       // by default we pull 100k rows from db (if we pull just small number of rows this impacts performance)
-      int dbBatchSize = batchSize * 100;
-      int dbBatches = (int)Math.Ceiling((double)txIds.Length / dbBatchSize);
-      logger.LogDebug($"ResubmitMissingTransactions: missing {txIds.Length} -> dbBatches: {dbBatches}, dbBatchSize: {dbBatchSize}, submit batchSize: {batchSize}");
+      int dbBatches = (int)Math.Ceiling((double)txIds.Length / DB_MISSING_TXS_BATCH_SIZE);
+      logger.LogDebug($"ResubmitMissingTransactions: missing {txIds.Length} -> dbBatches: {dbBatches}, submit batchSize: {batchSize}");
       mempoolCheckerMetrics.TxMissing.Inc(txIds.Length);
       for (int i = 0; i < dbBatches; i++)
       {
         // split processing into smaller batches
-        var txs = await txRepository.GetTransactionsAsync(txIds.Skip(i * dbBatchSize).Take(dbBatchSize).ToArray());
+        var txs = await txRepository.GetTransactionsAsync(txIds.Skip(i * DB_MISSING_TXS_BATCH_SIZE).Take(DB_MISSING_TXS_BATCH_SIZE).ToArray());
         int nBatches = (int)Math.Ceiling((double)txs.Length / batchSize);
         // we have to submit all txs in order
         // if node accepted tx2 before tx1, tx1 can be resubmitted successfully in the next resubmit round

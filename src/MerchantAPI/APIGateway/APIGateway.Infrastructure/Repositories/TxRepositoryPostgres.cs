@@ -20,7 +20,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Transactions;
 using static MerchantAPI.APIGateway.Domain.Faults;
 using Block = MerchantAPI.APIGateway.Domain.Models.Block;
 
