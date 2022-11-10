@@ -113,10 +113,8 @@ namespace MerchantAPI.APIGateway.Domain
   {
     public const int Invalid = 16;
     public const int Duplicate = 18;
-    public const int SoftConsensusFreeze = 19;
     public const int NonStandard = 64;
     public const int InsufficientFee = 66;
-    public const int HighFee = 256;
     public const int AlreadyKnown = 257;
     public const int Conflict = 258;
     public const int MempoolFull = 259;
