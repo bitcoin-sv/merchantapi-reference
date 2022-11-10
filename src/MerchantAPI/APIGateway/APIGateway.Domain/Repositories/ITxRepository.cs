@@ -62,7 +62,9 @@ namespace MerchantAPI.APIGateway.Domain.Repositories
 
     Task<int> GetTransactionStatusAsync(byte[] txId);
 
-    Task<Tx[]> GetMissingTransactionsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null);
+    Task<long[]> GetMissingTransactionIdsAsync(string[] mempoolTxs, DateTime? resubmittedAt = null);
+
+    Task<Tx[]> GetTransactionsAsync(long[] txInternalIds);
 
     Task UpdateTxStatus(IList<byte[]> txExternalIds, int txstatus);
 

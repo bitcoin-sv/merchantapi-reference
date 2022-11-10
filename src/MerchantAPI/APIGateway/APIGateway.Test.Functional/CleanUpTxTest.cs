@@ -361,8 +361,9 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var mapi = server.Services.GetRequiredService<IMapi>();
       var mempoolCalledAt = MockedClock.UtcNow;
       var mempoolTxs = Array.Empty<string>();
-      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs, mempoolCalledAt);
-      Assert.AreEqual(3, txs.Length);
+      var txsIds = await TxRepositoryPostgres.GetMissingTransactionIdsAsync(mempoolTxs, mempoolCalledAt);
+      Assert.AreEqual(3, txsIds.Length);
+      var txs = await TxRepositoryPostgres.GetTransactionsAsync(txsIds);
 
       //act
       using (MockedClock.NowIs(DateTime.UtcNow.AddDays(cleanUpTxAfterMempoolExpiredDays)))

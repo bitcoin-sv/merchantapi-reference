@@ -68,7 +68,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       var mempoolTxs = await RpcMultiClient.GetRawMempool();
       Assert.AreEqual(0, mempoolTxs.Length);
 
-      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(mempoolTxs);
+      var txs = await TxRepositoryPostgres.GetMissingTransactionIdsAsync(mempoolTxs);
       Assert.AreEqual(0, txs.Length);
 
       bool success = await mempoolChecker.CheckMempoolAndResubmitTxsAsync(0);

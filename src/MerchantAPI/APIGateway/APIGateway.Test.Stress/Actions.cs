@@ -3,7 +3,6 @@
 
 using Dapper;
 using MerchantAPI.APIGateway.Domain;
-using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Domain.ViewModels;
 using MerchantAPI.APIGateway.Infrastructure.Repositories;
 using MerchantAPI.APIGateway.Rest.ViewModels;
@@ -168,14 +167,14 @@ namespace MerchantAPI.APIGateway.Test.Stress
       return txsCount;
     }
 
-    public static async Task<(Tx[] missingTxs, TimeSpan elapsedTime)> GetMissingTransactionsAsync(string mapiDBConnectionString, string[] mempoolTxs)
+    public static async Task<(long[] missingTxs, TimeSpan elapsedTime)> GetMissingTransactionIdsAsync(string mapiDBConnectionString, string[] mempoolTxs)
     {
       using var connection = new NpgsqlConnection(mapiDBConnectionString);
       RetryUtils.Exec(() => connection.Open());
 
       Console.WriteLine($"There is {mempoolTxs.Length} transactions present in mempool.");
       var watch = Stopwatch.StartNew();
-      var txs = await TxRepositoryPostgres.GetMissingTransactionsAsync(connection, mempoolTxs, DateTime.MaxValue);
+      var txs = await TxRepositoryPostgres.GetMissingTransactionIdsAsync(connection, mempoolTxs, DateTime.MaxValue);
       watch.Stop();
       Console.WriteLine($"Number of transactions, that are missing in mempool: {txs.Length}. DB query took: {watch.Elapsed}.");
       return (txs, watch.Elapsed);
