@@ -41,7 +41,7 @@ namespace MerchantAPI.APIGateway.Rest.Services
       appSettings = options.Value;
       this.subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
       this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-      LOG_PERIOD_MIN = appSettings.ZmqStatsLogPeriodMin.Value;
+      LOG_PERIOD_MIN = appSettings.Zmq.StatsLogPeriodMin.Value;
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)

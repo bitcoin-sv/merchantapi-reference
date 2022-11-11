@@ -35,7 +35,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     readonly object lockObj = new();
     public bool ResubmitInProcess { get; private set; }
 
-    public bool ExecuteCheckMempoolAndResubmitTxs => !appSettings.DontParseBlocks.Value && !appSettings.MempoolCheckerDisabled.Value;
+    public bool ExecuteCheckMempoolAndResubmitTxs => !appSettings.DontParseBlocks.Value && !appSettings.MempoolChecker.Disabled.Value;
 
     public MempoolChecker(
       ILogger<MempoolChecker> logger,
@@ -86,7 +86,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         try
         {
-          success = await CheckMempoolAndResubmitTxsAsync(appSettings.MempoolCheckerBlockParserQueuedMax.Value);
+          success = await CheckMempoolAndResubmitTxsAsync(appSettings.MempoolChecker.BlockParserQueuedMax.Value);
         }
         catch (Exception ex)
         {
@@ -97,12 +97,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
         if (success)
         {
-          await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerIntervalSec.Value), stoppingToken);
+          await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolChecker.IntervalSec.Value), stoppingToken);
           mempoolCheckerMetrics.SuccessfulResubmits.Inc();
         }
         else
         {
-          await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerUnsuccessfulIntervalSec.Value), stoppingToken);
+          await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolChecker.UnsuccessfulIntervalSec.Value), stoppingToken);
           mempoolCheckerMetrics.UnsuccessfulResubmits.Inc();
         }
       }
@@ -119,7 +119,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           firstBlockParsed = blockParser.GetBlockParserStatus().BlocksParsed > 0;
         }
-        await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolCheckerUnsuccessfulIntervalSec.Value), stoppingToken);
+        await Task.Delay(new TimeSpan(0, 0, appSettings.MempoolChecker.UnsuccessfulIntervalSec.Value), stoppingToken);
       } while (dbIsEmpty && !firstBlockParsed);
     }
 
@@ -245,7 +245,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         var retries = txsRetries.GetValueOrDefault(tx);
         txsRetriesIncremented[tx] = retries + 1;
       }
-      var txsWithMaxMissingInputs = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolCheckerMissingInputsRetries).ToList();
+      var txsWithMaxMissingInputs = txsRetriesIncremented.Where(x => x.Value >= appSettings.MempoolChecker.MissingInputsRetries).ToList();
       logger.LogDebug($"TxsWithMaxMissingInputs count: { txsWithMaxMissingInputs.Count } .");
       mempoolCheckerMetrics.TxMissingInputsMax.Inc(txsWithMaxMissingInputs.Count);
       await txRepository.UpdateTxsOnResubmitAsync(Faults.DbFaultComponent.MempoolCheckerUpdateMissingInputs, txsWithMaxMissingInputs.Select(x => new Tx

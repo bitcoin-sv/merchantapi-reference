@@ -1544,7 +1544,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
           (byte[] transaction, bool allowhighfees, bool dontCheckFee, bool listUnconfirmedAncestors, Dictionary<string, object> config)[] transactions;
           // we allow certain errors - check with prevOut, do not submit this
-          if (appSettings.MempoolCheckerMissingInputsRetries.Value == 0)
+          if (appSettings.MempoolChecker.MissingInputsRetries.Value == 0)
           {
             // maybe we could also simplify and limit MempoolCheckerMissingInputsRetries to min = 1
             IDictionary<uint256, byte[]> allTxs = new Dictionary<uint256, byte[]>();

@@ -591,14 +591,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 2)]
+    [OverrideSetting("AppSettings:MempoolChecker:MissingInputsRetries", 2)]
     public async Task MissingInputsResubmitSuccessfully()
     {
       await CheckMissingInputsMaxRetriesAsync();
     }
 
     [TestMethod]
-    [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 2)]
+    [OverrideSetting("AppSettings:MempoolChecker:MissingInputsRetries", 2)]
     public async Task MissingInputsResubmitSuccessfullyTwoNodes()
     {
       using CancellationTokenSource cts = new(cancellationTimeout);
@@ -611,7 +611,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
-    [OverrideSetting("AppSettings:MempoolCheckerMissingInputsRetries", 0)]
+    [OverrideSetting("AppSettings:MempoolChecker:MissingInputsRetries", 0)]
     public async Task MissingInputsNoRetries()
     {
       await CheckMissingInputsMaxRetriesAsync(false);
@@ -625,7 +625,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       var (txIdA, _, newBlock) = await CreateTwoTxsFromSameCoinOnDifferentChainsAsync(parentBlockHash);
 
-      int retries = AppSettings.MempoolCheckerMissingInputsRetries.Value;
+      int retries = AppSettings.MempoolChecker.MissingInputsRetries.Value;
       if (retries == 0)
       {
         retries++; // force resubmit test
