@@ -36,7 +36,7 @@ mAPI Reference Implementation has greatly improved resilience against adversitie
 
 mAPI Reference Implementation records submitted transactions and monitors nodes’ mempool, so that if node fails after it has received a transaction, mAPI Reference Implementation resubmits the transaction on behalf of the user, where available.
 
-If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user, and sends any appropriate notifications if configured to do so.
+If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user.
 
 If mAPI Reference Implementation gets mixed results from multiple nodes, it maps that into a successful result for the user.
  
