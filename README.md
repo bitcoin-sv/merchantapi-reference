@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9k.
+Readme v.1.5.0.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -12,11 +12,11 @@ The REST API can also be seen in the [Swagger UI](https://bitcoin-sv.github.io/m
 
 ## Support
 
-For support and general discussion of both the mAPI standard and the reference implementation, please join the following [telegram group](https://t.me/joinchat/JB6ZzktqwaiJX_5lzQpQIA).
+For support and general discussion of both the mAPI standard and the mAPI Reference Implementation, please join the following [telegram group](https://t.me/joinchat/JB6ZzktqwaiJX_5lzQpQIA).
 
 ## Requirements
 
-mAPI requires access to Bitcoin SV node version 1.0.10 or newer. See [Managing nodes](#Managing-nodes) for details how to connect to a bitcoin node.
+mAPI Reference Implementation requires access to Bitcoin SV node version 1.0.10 or newer. See [Managing nodes](#Managing-nodes) for details how to connect to a bitcoin node.
 
 For running in production, use Docker. Docker images can be [downloaded](#Download-docker-images) from docker hub, or created as part of the [build](#Building-docker-images). See [Deploying docker images](#Deploying-docker-images) for details on how to run them.
 
@@ -24,9 +24,39 @@ A SSL server certificate is required for installation. You can obtain the certif
 
 For setting up a development environment, optionally using Prometheus (a monitoring system & time series database) and Grafana (an open observability platform) see [development](#Development).
 
+## Improvements
+
+mAPI Reference Implementation v1.5.0 implements mAPI Specification v1.5.0, which provides additional features for querying transaction data.
+
+mAPI Reference Implementation has greatly improved resilience against adversities.
+
+### Submit transactions
+
+mAPI Reference Implementation records submitted transactions and monitors nodes’ mempool, so that if node fails after it has received a transaction, mAPI Reference Implementation resubmits the transaction on behalf of the user, where available.
+
+If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user.
+
+If mAPI Reference Implementation gets mixed results from multiple nodes, it maps that into a successful result for the user.
+ 
+If mAPI Reference Implementation returns a HTTP code 4xx (such as invalid input) then the user has an opportunity to fix the error and resubmit the transaction.
+
+If mAPI Reference Implementation returns a HTTP code 5xx, then the user can try again later.
+
+An indication that the transaction may be resubmitted is given by the submit transaction response payload `failureRetryable` flag.
+
+Where appropriate, warnings are given for non-existent DSNT transaction outputs. See [DSNT specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md).
+
+### Query transactions
+
+mAPI Reference Implementation enables the user to obtain the Merkle proof for a transaction by querying it.
+
+### Query transaction outputs
+
+mAPI Reference Implementation enables the user to query various attributes of transaction outputs.
+
 ## REST API Interfaces
 
-The reference implementation exposes different **REST API** interfaces:
+The mAPI Reference Implementation exposes different **REST API** interfaces:
 
 * a public interface for submitting and querying transactions
 * an administrator interface for managing connections to bitcoin nodes and policy quotes
@@ -41,6 +71,8 @@ The endpoints are implemented in accordance with the BRFC mAPI Specification and
 
 The possibility of using JWT means that each REST command may additionally respond with HTTP code 401, Unauthorized if any supplied JWT token is invalid.
 
+Note: Any `/mapi/` REST call will return 5xx if node is unresponsive or the database is down.
+
 ### 1. Get Policy Quote
 
 ```
@@ -51,9 +83,9 @@ Responds with a policy quotation. This is a superset of the fee quotation (below
 
 #### Special Policy Quotes
 
-The administrator may wish to offer special policy quotes to specific customers. The reference implementation supports JWT issued to authenticated users. The authenticated users include the JWT in their HTTP header and, as a result, receive special policy quotes.
+The administrator may wish to offer special policy quotes to specific customers. The mAPI Reference Implementation supports JWT issued to authenticated users. The authenticated users include the JWT in their HTTP header and, as a result, receive special policy quotes.
 
-If no JWT is supplied, then the call is anonymous (unauthenticated), and the default policy quote is supplied. If a JWT (created by the mAPI JWT Manager user or other JWT provider) is supplied, then the caller will receive the corresponding special policy quote. For this version of the merchant API reference implementation, the JWT must be created by the JWT manager and issued to the customer manually.
+If no JWT is supplied, then the call is anonymous (unauthenticated), and the default policy quote is supplied. If a JWT (created by the mAPI JWT Manager user or other JWT provider) is supplied, then the caller will receive the corresponding special policy quote. For this version of the mAPI Reference Implementation, the JWT must be created by the JWT manager and issued to the customer manually.
 
 ##### Special Policy Quote Example
 
@@ -100,9 +132,11 @@ There is a small possibility that no response will be forthcoming due to excepti
 
 Therefore the user may wish to keep a record of all transactions submitted, and if no response is obtained within an acceptable timescale (several seconds), the transaction may be resubmitted.
 
-#### Special Policy Quotes
+#### Special Authenticated Users
 
 A JWT may be supplied as above, in order to authenticate the user and cause the associated special policy quote to be applied in computation of the Submit Transaction cost.
+
+In the advent of node failing during transaction submission, authenticated users' transaction and policy quote data is available to enable resubmission of the same transaction by the same user.
 
 ### 4. Query Transaction Status
 
@@ -141,14 +175,17 @@ POST /mapi/txouts?includeMempool=Boolean&returnField=confirmations
 
 ## Administrator Interface
 
-The Administrator Interface of the mAPI reference implementation manages policy quotes, nodes and special policy fee rates for the Public API.
+The Administrator Interface of the mAPI Reference Implementation manages policy quotes, nodes and special policy fee rates for the Public API.
 
 These services are only available to the administrator. Authentication is performed through the Api-Key HTTP header. The value provided must match the one stored in the configuration variable `RestAdminAPIKey`.
 
+Note: Any `/api/v1/` REST call will return 5xx if the database is down.
 
 ### Managing Policy Quotes
 
 Policy Quotes may be specified for the unauthenticated users, or specific authenticated users.
+
+#### Create Policy Quote
 
 To create a new policy quote use the following:
 
@@ -204,6 +241,8 @@ The parameters above are:
 | `callbacks` | IP addresses of DSNT servers (see [specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md)) such as this mAPI reference implementation |
 | `policies` | values of miner policies as configured by the administrator (below) |
 
+#### Get All Policy Quotes
+
 To get a list of all policy quotes matching one or more criteria, use the following:
 
 ```
@@ -220,6 +259,7 @@ You can filter fee quotes by providing additional optional criteria in the query
 
 To get a list of all policy quotes (including expired ones) for all users use GET api/v1/PolicyQuote without filters.
 
+#### Get a Policy Quote
 
 To get a specific policy quote by `identity` use:
 
@@ -228,6 +268,29 @@ GET api/v1/PolicyQuote/{identity}
 ```
 
 Note: it is not possible to delete or update a policy quote once it is published, but it can be made obsolete by publishing a new policy quote.
+
+#### Get Unconfirmed Transactions
+
+Administrators can get the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+```
+GET api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
+```
+
+At least one parameter must be supplied. The others are optional.
+
+If no policies match the request, the response is HTTP code 400 “BadRequest”.
+
+#### Delete Unconfirmed Transactions
+
+Administrators can delete the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+
+```
+DELETE api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
+```
+
+At least one parameter must be supplied. The others are optional.
+
+If no policies match the request, the response is HTTP code 400 “BadRequest”. A successful deletion will result in HTTP code 204 “NoContent”.
 
 ### Managing Nodes
 
@@ -379,9 +442,9 @@ Token:
 
 ## How Submit Transaction Callbacks are Processed
 
-For each transaction that is submitted to mAPI it is possible for the submitter to include a DSNT output in the transaction according to the [DSNT specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md).
+For each transaction that is submitted to mAPI Reference Implementation it is possible for the submitter to include a DSNT output in the transaction according to the [DSNT specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md).
 The submitter may later receive a notification of a double spend or merkle proof via a callback URL that they included with the submit transaction request.
-mAPI processes all requested notifications and sends them out as described below:
+mAPI Reference Implementation processes all requested notifications and sends them out as described below:
 
 * all notifications are sent out in batches
 * each batch contains a limited number of notifications for a single host (configurable with `NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH`)
@@ -440,7 +503,7 @@ Or see below for building an image from this source kit.
     |ENABLEHTTP	|Enables requests through http port when set to True. This should only be used for testing and must be set to False in the production environment in order to maintain security|
     |HTTPPORT	|Http port where the application will listen/run. Default: port 80|
     | **RPC** | |
-|RPC_CLIENT_REQUEST_TIMEOUT_SEC	| Request timeout for single RPC call (without retries). Default: 60 seconds|
+|RPC_CLIENT_REQUEST_TIMEOUT_SEC	| Request timeout for single RPC call (without retries). Must match node's config RpcServerTimeout value. Default: 60 seconds|
 |RPC_CLIENT_MULTI_REQUEST_TIMEOUT_SEC	|Request timeout for multi-RPC call (with retries). Default: 20 seconds|
 |RPC_CLIENT_NUM_OF_RETRIES	|Maximum number of retries for multi-RPC call. Default: 3|
 |RPC_CLIENT_WAIT_BETWEEN_RETRIES_MS	|Wait between multi-RPC calls. Default: 100 milliseconds|
@@ -458,6 +521,8 @@ Or see below for building an image from this source kit.
     | LOG_LEVEL_HTTPCLIENT | The log level for the System.Net.Http.HttpClient component |
     | **Blockchain** | |
     | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | Verify block chain and parse blocks up to this limit. Default: 432 |
+    | ENABLE_MISSING_PARENTS_RESUBMISSION | If true, and a transaction is reported to having missing inputs, then the program will resubmit any missing input transactions it holds. Node must have `txindex=1` in bitcoin.conf. Default: false |
+    | RESUBMIT_KNOWN_TRANSACTIONS | If true, submitted transactions will be sent to node even if they already exist in the database. Default: false |
 | **MinerId** | |
 |WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
 |MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
@@ -479,7 +544,7 @@ Or see below for building an image from this source kit.
 |DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC	|How long unknown transactions queries will be stored, before being discarded|
 |DS_SCRIPT_VALIDATION_TIMEOUT_SEC	|Total time for script validation when nodes RPC method verifyScript will be called|
    | **Database** | |
-|DBCONNECTION_STARTUP_TEST_CONNECTION_MAX_RETRIES	|On start-up try to connect to mAPI database for the max specified number of retries. Default: 10|
+|DBCONNECTION_STARTUP_TEST_CONNECTION_MAX_RETRIES	|On start-up try to connect to mAPI Reference Implementation database for the max specified number of retries. Default: 10|
 |DBCONNECTION_STARTUP_COMMAND_TIMEOUT_MINUTES	|If not null, override command timeout for the start-up database scripts execution - if null, the default command timeout is 30 seconds. Default: null|
 |DBCONNECTION_OPEN_CONNECTION_TIMEOUT_SEC	|Database open connection timeout. Default: 30 seconds|
 |DBCONNECTION_OPEN_CONNECTION_MAX_RETRIES	|Database open connection max retries - unless timeout is exceeded. Default: 3|
@@ -509,7 +574,7 @@ Or see below for building an image from this source kit.
 DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC is how long the count of requests (queries or submits) for the same transaction id per host is accumulated, before being reset to 0.
 If the request count for the same transaction Id exceeds DS_MAX_NUM_OF_TX_QUERIES during this period, the host will be banned and removed from the whitelist. The host will have to desist from sending requests for the same transaction id for at least the cool-down period DS_HOST_BAN_TIME_SEC, before it will become acceptable (un-banned) and can successfully try again.
 
-5. Run this command in the target folder to start the mAPI application:
+5. Run this command in the target folder to start the mAPI Reference Implementation application:
 
     ```bash
     docker-compose up -d
@@ -542,7 +607,7 @@ Upon a successful build, a new subfolder `src/Deploy/Build` is created, where th
 
 Perform the following set up steps:
 
-1. Update `DBConnectionString` (the connection string used by mAPI), `DBConnectionStringDDL` (the same as DBConnectionString, but with a user that is the owner of the database - it is used to upgrade the database) and `DBConnectionStringMaster` (the same as DBConnectionString, but with a user that has admin privileges - it is used to create the database) settings in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they point to your PostgreSQL server
+1. Update `DBConnectionString` (the connection string used by mAPI Reference Implementation), `DBConnectionStringDDL` (the same as DBConnectionString, but with a user that is the owner of the database - it is used to upgrade the database) and `DBConnectionStringMaster` (the same as DBConnectionString, but with a user that has admin privileges - it is used to create the database) settings in `src/MerchantAPI/APIGateway/APIGateway.Rest/appsettings.Development.json` and `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that they point to your PostgreSQL server
 2. Update `BitcoindFullPath` in `src/MerchantAPI/APIGateway/APIGateway.Test.Functional/appsettings.Development.json` so that it points to the bitcoind executable used during functional tests
 3. Run scripts from `src/MerchantAPI/APIGateway.Database/APIGateway/Database/scripts` to create a database
 
@@ -592,7 +657,7 @@ The following table lists additional configuration connection strings in docker-
 
 ## Configuration with standalone database server
 
-mAPI can be configured to use a standalone Postgres database instead of mapi-db Docker container by updating the following connection strings in docker-compose.yml:
+mAPI Reference Implementation can be configured to use a standalone Postgres database instead of mapi-db Docker container by updating the following connection strings in docker-compose.yml:
 
   | Setting | Description |
   | ------- | ----------- |
@@ -603,7 +668,7 @@ An additional requirement is the existence of a mapi_crud role.
 
 ### Example
 
-To execute commands from this example, connect to the database created for mAPI with admin privileges. 
+To execute commands from this example, connect to the database created for mAPI Reference Implementation with admin privileges. 
 
 In this example we will create the mapi_crud role and two user roles. One user role (myddluser) has DDL priveleges and the other (mycruduser), has CRUD privileges.
 
