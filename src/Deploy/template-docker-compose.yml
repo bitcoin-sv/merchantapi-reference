@@ -23,47 +23,68 @@ services:
     volumes:
       - ./config/:/config/:ro
     environment:
+      # Connection strings
       - ConnectionStrings__DBConnectionString=Server=merchant-gateway-database;Port=5432;User Id=merchant;Password=merchant;Database=merchant_gateway;
       - ConnectionStrings__DBConnectionStringDDL=Server=merchant-gateway-database;Port=5432;User Id=merchantddl;Password=merchant;Database=merchant_gateway;
       - ConnectionStrings__DBConnectionStringMaster=Server=merchant-gateway-database;Port=5432;User Id=postgres;Password=postgres;Database=merchant_gateway;
+      # Communications
+      - ASPNETCORE_ENVIRONMENT=PRODUCTION
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+      - ASPNETCORE_HTTPS_PORT=${HTTPSPORT}
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=${CERTIFICATEPASSWORD}
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/config/${CERTIFICATEFILENAME}
+      - AppSettings__RestAdminAPIKey=${RESTADMIN_APIKEY}
+      - AppSettings__EnableHTTP=${ENABLEHTTP}
+      # Logging
       - Logging__LogLevel__Default=${LOG_LEVEL_DEFAULT}
       - Logging__LogLevel__Microsoft=${LOG_LEVEL_MICROSOFT}
       - Logging__LogLevel__Microsoft.Hosting.Lifetime=${LOG_LEVEL_MICROSOFT_HOSTING_LIFETIME}
       - Logging__LogLevel__System.Net.Http.HttpClient=${LOG_LEVEL_HTTPCLIENT}
+      # Policy Quotes
       - AppSettings__QuoteExpiryMinutes=${QUOTE_EXPIRY_MINUTES}
       - AppSettings__CallbackIPAddresses=${CALLBACK_IP_ADDRESSES}
-      - AppSettings__ZmqConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
-      - AppSettings__ZmqConnectionRpcResponseTimeoutSec=${ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC}
-      - AppSettings__ZmqStatsLogPeriodMin=${ZMQ_STATS_LOG_PERIOD_MIN}
-      - AppSettings__RestAdminAPIKey=${RESTADMIN_APIKEY}
-      - AppSettings__DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
+      - AppSettings__CheckFeeDisabled=${CHECK_FEE_DISABLED}
+      # ZMQ
+      - AppSettings__Zmq__ConnectionTestIntervalSec=${ZMQ_CONNECTION_TEST_INTERVAL_SEC}
+      - AppSettings__Zmq__ConnectionRpcResponseTimeoutSec=${ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC}
+      - AppSettings__Zmq__StatsLogPeriodMin=${ZMQ_STATS_LOG_PERIOD_MIN}
+      # Database
+      - AppSettings__DbConnection__StartupTestConnectionMaxRetries=${DBCONNECTION_STARTUP_TEST_CONNECTION_MAX_RETRIES}
+      - AppSettings__DbConnection__StartupCommandTimeoutMinutes=${DBCONNECTION_STARTUP_COMMAND_TIMEOUT_MINUTES}
+      - AppSettings__DbConnection__OpenConnectionTimeoutSec=${DBCONNECTION_OPEN_CONNECTION_TIMEOUT_SEC}
+      - AppSettings__DbConnection__OpenConnectionMaxRetries=${DBCONNECTION_OPEN_CONNECTION_MAX_RETRIES}
       - AppSettings__CleanUpTxAfterDays=${CLEAN_UP_TX_AFTER_DAYS}
       - AppSettings__CleanUpTxAfterMempoolExpiredDays=${CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS}
       - AppSettings__CleanUpTxPeriodSec=${CLEAN_UP_TX_PERIOD_SEC}
-      - AppSettings__MempoolCheckerDisabled=${MEMPOOL_CHECKER_DISABLED}
-      - AppSettings__MempoolCheckerIntervalSec=${MEMPOOL_CHECKER_INTERVAL_SEC}
-      - AppSettings__MempoolCheckerUnsuccessfulIntervalSec=${MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC}
-      - AppSettings__MempoolCheckerBlockParserQueuedMax=${MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX}
-      - AppSettings__MempoolCheckerMissingInputsRetries=${MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES}
-      - AppSettings__CheckFeeDisabled=${CHECK_FEE_DISABLED}
-      - AppSettings__WifPrivateKey=${WIF_PRIVATEKEY}
+      # Mempool Checker
+      - AppSettings__MempoolChecker__Disabled=${MEMPOOL_CHECKER_DISABLED}
+      - AppSettings__MempoolChecker__IntervalSec=${MEMPOOL_CHECKER_INTERVAL_SEC}
+      - AppSettings__MempoolChecker__UnsuccessfulIntervalSec=${MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC}
+      - AppSettings__MempoolChecker__BlockParserQueuedMax=${MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX}
+      - AppSettings__MempoolChecker__MissingInputsRetries=${MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES}
+      # Blockchain
+      - AppSettings__MaxBlockChainLengthForFork=${MAX_BLOCK_CHAIN_LENGTH_FOR_FORK}
+      - AppSettings__ResubmitKnownTransactions=${RESUBMIT_KNOWN_TRANSACTIONS}
+      - AppSettings__EnableMissingParentsResubmission=${ENABLE_MISSING_PARENTS_RESUBMISSION}
+      # Double Spends
+      - AppSettings__DeltaBlockHeightForDoubleSpendCheck=${DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK}
       - AppSettings__DSHostBanTimeSec=${DS_HOST_BAN_TIME_SEC}
       - AppSettings__DSMaxNumOfTxQueries=${DS_MAX_NUM_OF_TX_QUERIES}
       - AppSettings__DSCachedTxRequestsCooldownPeriodSec=${DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC}
       - AppSettings__DSMaxNumOfUnknownTxQueries=${DS_MAX_NUM_OF_UNKNOWN_QUERIES}
       - AppSettings__DSUnknownTxQueryCooldownPeriodSec=${DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC}
       - AppSettings__DSScriptValidationTimeoutSec=${DS_SCRIPT_VALIDATION_TIMEOUT_SEC}
-      - AppSettings__EnableHTTP=${ENABLEHTTP}
+      # Testing
       - AppSettings__DontParseBlocks=${DONT_PARSE_BLOCKS}
       - AppSettings__DontInsertTransactions=${DONT_INSERT_TRANSACTIONS}
-      - AppSettings__ResubmitKnownTransactions=${RESUBMIT_KNOWN_TRANSACTIONS}
       - AppSettings__EnableFaultInjection=${ENABLE_FAULT_INJECTION}
-      - AppSettings__EnableMissingParentsResubmission=${ENABLE_MISSING_PARENTS_RESUBMISSION}
-      - AppSettings__AllowedTxOutFields=${ALLOWED_TXOUT_FIELDS}
+      # MinerId
+      - AppSettings__WifPrivateKey=${WIF_PRIVATEKEY}
       - AppSettings__MinerIdServer__Url=${MINERID_SERVER_URL}
       - AppSettings__MinerIdServer__Alias=${MINERID_SERVER_ALIAS}
       - AppSettings__MinerIdServer__Authentication=${MINERID_SERVER_AUTHENTICATION}
       - AppSettings__MinerIdServer__RequestTimeoutSec=${MINERID_SERVER_REQUEST_TIMEOUT_SEC}
+      # Notifications
       - AppSettings__Notification__NotificationIntervalSec=${NOTIFICATION_NOTIFICATION_INTERVAL_SEC}
       - AppSettings__Notification__InstantNotificationsTasks=${NOTIFICATION_INSTANT_NOTIFICATION_TASKS}
       - AppSettings__Notification__InstantNotificationsQueueSize=${NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE}
@@ -74,10 +95,7 @@ services:
       - AppSettings__Notification__NotificationsRetryCount=${NOTIFICATION_NOTIFICATIONS_RETRY_COUNT}
       - AppSettings__Notification__SlowHostResponseTimeoutMS=${NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS}
       - AppSettings__Notification__FastHostResponseTimeoutMS=${NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS}
-      - AppSettings__DbConnection__StartupTestConnectionMaxRetries=${DBCONNECTION_STARTUP_TEST_CONNECTION_MAX_RETRIES}
-      - AppSettings__DbConnection__StartupCommandTimeoutMinutes=${DBCONNECTION_STARTUP_COMMAND_TIMEOUT_MINUTES}
-      - AppSettings__DbConnection__OpenConnectionTimeoutSec=${DBCONNECTION_OPEN_CONNECTION_TIMEOUT_SEC}
-      - AppSettings__DbConnection__OpenConnectionMaxRetries=${DBCONNECTION_OPEN_CONNECTION_MAX_RETRIES}
+      # RPC
       - AppSettings__RpcClient__RequestTimeoutSec=${RPC_CLIENT_REQUEST_TIMEOUT_SEC}
       - AppSettings__RpcClient__MultiRequestTimeoutSec=${RPC_CLIENT_MULTI_REQUEST_TIMEOUT_SEC}
       - AppSettings__RpcClient__NumOfRetries=${RPC_CLIENT_NUM_OF_RETRIES}
@@ -85,11 +103,8 @@ services:
       - AppSettings__RpcClient__RpcCallsOnStartupRetries=${RPC_CLIENT_RPC_CALLS_ON_STARTUP_RETRIES}
       - AppSettings__RpcClient__RpcGetBlockTimeoutMinutes=${RPC_CLIENT_RPC_GET_BLOCK_TIMEOUT_MINUTES}
       - AppSettings__RpcClient__RpcGetRawMempoolTimeoutMinutes=${RPC_CLIENT_RPC_GET_RAW_MEMPOOL_TIMEOUT_MINUTES}
-      - ASPNETCORE_ENVIRONMENT=PRODUCTION
-      - ASPNETCORE_URLS=https://+:443;http://+:80
-      - ASPNETCORE_HTTPS_PORT=${HTTPSPORT}
-      - ASPNETCORE_Kestrel__Certificates__Default__Password=${CERTIFICATEPASSWORD}
-      - ASPNETCORE_Kestrel__Certificates__Default__Path=/config/${CERTIFICATEFILENAME}
+      # Transaction Outputs
+      - AppSettings__AllowedTxOutFields=${ALLOWED_TXOUT_FIELDS}
     networks:
       - mapi-network
 
