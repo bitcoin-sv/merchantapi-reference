@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9m.
+Readme v.1.5.0.
 
 p
 
@@ -34,17 +34,19 @@ mAPI Reference Implementation has greatly improved resilience against adversitie
 
 ### Submit transactions
 
-mAPI Reference Implementation records submitted transactions and monitors nodes’ mempool, so that if node fails after it has received a transaction, mAPI Reference Implementation is able to resubmit the transaction on behalf of the user.
+mAPI Reference Implementation records submitted transactions and monitors nodes’ mempool, so that if node fails after it has received a transaction, mAPI Reference Implementation resubmits the transaction on behalf of the user, where available.
 
-If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user.
+If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user, and sends any appropriate notifications if configured to do so.
 
 If mAPI Reference Implementation gets mixed results from multiple nodes, it maps that into a successful result for the user.
  
-If mAPI Reference Implementation returns a HTTP code 4xx (such as missing inputs) then the user has an opportunity to fix the error and resubmit the transaction.
+If mAPI Reference Implementation returns a HTTP code 4xx (such as invalid input) then the user has an opportunity to fix the error and resubmit the transaction.
 
 If mAPI Reference Implementation returns a HTTP code 5xx, then the user can try again later.
 
 An indication that the transaction may be resubmitted is given by the submit transaction response payload `failureRetryable` flag.
+
+Where appropriate, warnings are given for non-existent DSNT transaction outputs. See [DSNT specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/double-spend-notifications.md).
 
 ### Query transactions
 
@@ -132,9 +134,11 @@ There is a small possibility that no response will be forthcoming due to excepti
 
 Therefore the user may wish to keep a record of all transactions submitted, and if no response is obtained within an acceptable timescale (several seconds), the transaction may be resubmitted.
 
-#### Special Policy Quotes
+#### Special Authenticated Users
 
 A JWT may be supplied as above, in order to authenticate the user and cause the associated special policy quote to be applied in computation of the Submit Transaction cost.
+
+In the advent of node failing during transaction submission, authenticated users' transaction and policy quote data is available to enable resubmission of the same transaction by the same user.
 
 ### 4. Query Transaction Status
 
@@ -269,7 +273,7 @@ Note: it is not possible to delete or update a policy quote once it is published
 
 #### Get Unconfirmed Transactions
 
-To get the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+Administrators can get the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
 ```
 GET api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
 ```
@@ -280,7 +284,7 @@ If no policies match the request, the response is HTTP code 400 “BadRequest”
 
 #### Delete Unconfirmed Transactions
 
-To delete the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+Administrators can delete the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
 
 ```
 DELETE api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
@@ -501,7 +505,7 @@ Or see below for building an image from this source kit.
     |ENABLEHTTP	|Enables requests through http port when set to True. This should only be used for testing and must be set to False in the production environment in order to maintain security|
     |HTTPPORT	|Http port where the application will listen/run. Default: port 80|
     | **RPC** | |
-|RPC_CLIENT_REQUEST_TIMEOUT_SEC	| Request timeout for single RPC call (without retries). Default: 60 seconds|
+|RPC_CLIENT_REQUEST_TIMEOUT_SEC	| Request timeout for single RPC call (without retries). Must match node's config RpcServerTimeout value. Default: 60 seconds|
 |RPC_CLIENT_MULTI_REQUEST_TIMEOUT_SEC	|Request timeout for multi-RPC call (with retries). Default: 20 seconds|
 |RPC_CLIENT_NUM_OF_RETRIES	|Maximum number of retries for multi-RPC call. Default: 3|
 |RPC_CLIENT_WAIT_BETWEEN_RETRIES_MS	|Wait between multi-RPC calls. Default: 100 milliseconds|
