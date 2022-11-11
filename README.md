@@ -2,6 +2,8 @@
 
 Readme v.1.4.9m.
 
+p
+
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
 > The golang (v1.1) implementation is no longer being maintained and has been moved to the [golang-v1.1 branch](https://github.com/bitcoin-sv/merchantapi-reference/tree/golang-v1.1).
@@ -517,6 +519,8 @@ Or see below for building an image from this source kit.
     | LOG_LEVEL_HTTPCLIENT | The log level for the System.Net.Http.HttpClient component |
     | **Blockchain** | |
     | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | Verify block chain and parse blocks up to this limit. Default: 432 |
+    | ENABLE_MISSING_PARENTS_RESUBMISSION | If true, and a transaction is reported to having missing inputs, then the program will resubmit any missing input transactions it holds. Node must have `txindex=1` in bitcoin.conf. Default: false |
+    | RESUBMIT_KNOWN_TRANSACTIONS | If true, submitted transactions will be sent to node even if they already exist in the database. Default: false |
 | **MinerId** | |
 |WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
 |MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
