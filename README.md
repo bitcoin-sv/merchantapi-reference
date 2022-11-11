@@ -1,6 +1,6 @@
 # mAPI Reference Implementation
 
-Readme v.1.4.9m.
+Readme v.1.5.0.
 
 The details of the BRFC mAPI Specification are available in [BRFC mAPI Specification](https://github.com/bitcoin-sv-specs/brfc-merchantapi).  
 
@@ -34,7 +34,7 @@ mAPI Reference Implementation has greatly improved resilience against adversitie
 
 mAPI Reference Implementation records submitted transactions and monitors nodes’ mempool, so that if node fails after it has received a transaction, mAPI Reference Implementation resubmits the transaction on behalf of the user, where available.
 
-If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user, and sends any notifications such as Merkle proof if configured to do so.
+If mAPI Reference Implementation resubmits a transaction or submits a transaction that has already been mined, and node returns an error such as TransactionAlreadyKnown, then mAPI Reference Implementation maps that into a successful result for the user, and sends any appropriate notifications if configured to do so.
 
 If mAPI Reference Implementation gets mixed results from multiple nodes, it maps that into a successful result for the user.
  
@@ -136,7 +136,7 @@ Therefore the user may wish to keep a record of all transactions submitted, and 
 
 A JWT may be supplied as above, in order to authenticate the user and cause the associated special policy quote to be applied in computation of the Submit Transaction cost.
 
-In the advent of node failing during transaction submission, authenticated users' transaction and policy quote data is available for automatic resubmission.
+In the advent of node failing during transaction submission, authenticated users' transaction and policy quote data is available to enable resubmission of the same transaction by the same user.
 
 ### 4. Query Transaction Status
 
@@ -271,7 +271,7 @@ Note: it is not possible to delete or update a policy quote once it is published
 
 #### Get Unconfirmed Transactions
 
-Authenticated users can get the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+Administrators can get the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
 ```
 GET api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
 ```
@@ -282,7 +282,7 @@ If no policies match the request, the response is HTTP code 400 “BadRequest”
 
 #### Delete Unconfirmed Transactions
 
-Authenticated users can delete the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
+Administrators can delete the list of transactions that were sent to node but are not marked as accepted in the database with a with given policyQuoteId {id} or a given identity {identity} or a given identityProvider {IDP} use:
 
 ```
 DELETE api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
