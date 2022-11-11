@@ -191,12 +191,13 @@ namespace MerchantAPI.APIGateway.Domain
 
     public bool? EnableMissingParentsResubmission { get; set; } = false;
 
-    public string AllowedTxOutFields { get; set; } = $"{TxOutFields.ScriptPubKeyLen},{TxOutFields.Value},{TxOutFields.IsStandard},{TxOutFields.Confirmations}";
+    private readonly string defaultAllowedTxOutFields = $"{TxOutFields.ScriptPubKeyLen},{TxOutFields.Value},{TxOutFields.IsStandard},{TxOutFields.Confirmations}";
+    public string AllowedTxOutFields { get; set; }
     public string[] AllowedTxOutFieldsArray
     {
       get
       {
-        return string.IsNullOrEmpty(AllowedTxOutFields) ? null : AllowedTxOutFields?.Split(",").Select(f => f.Trim()).ToArray();
+        return string.IsNullOrEmpty(AllowedTxOutFields) ? defaultAllowedTxOutFields.Split(",").Select(f => f.Trim()).ToArray() : AllowedTxOutFields?.Split(",").Select(f => f.Trim()).ToArray();
       }
     }
   }
