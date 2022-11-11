@@ -16,8 +16,6 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Threading.Tasks;
-using MerchantAPI.Common.Test;
-using MerchantAPI.APIGateway.Test.Functional.Mock;
 
 namespace MerchantAPI.APIGateway.Test.Functional
 {
@@ -201,6 +199,25 @@ namespace MerchantAPI.APIGateway.Test.Functional
     public async Task SubmitTransactionJson()
     {
       await AssertSubmitTxAsync(txC3Hex, txC3Hash);
+    }
+
+    [DataRow("clrvqr6733)(!(objectClass=*)", "Invalid characters in rawTx")] // invalid chars
+    [DataRow("01000000017c349529a5007d11ddddb9356a", "Can not parse transaction")] // too short
+    [TestMethod]
+    public async Task SubmitTransactionJsonInvalidTxId(string txId, string failureDescription)
+    {
+      // test invalid chars
+      var response = await SubmitTxToMapiAsync(txId);
+      VerifySignature(response);
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+
+      Assert.AreEqual("failure", payload.ReturnResult);
+      Assert.AreEqual(failureDescription, payload.ResultDescription);
+
+      // test invalid length
+
+      Assert.AreEqual(0, rpcClientFactoryMock.AllCalls.FilterCalls("mocknode0:sendrawtransactions/").Count()); // no calls
     }
 
     [TestMethod]

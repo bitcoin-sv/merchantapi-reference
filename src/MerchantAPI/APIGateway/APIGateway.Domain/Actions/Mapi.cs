@@ -878,11 +878,6 @@ namespace MerchantAPI.APIGateway.Domain.Actions
                                              ConsolidationTxParameters consolidationParameters)
     {
       StringBuilder txLog = new();
-      if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
-      {
-        AddFailureResponse(null, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
-        return false;
-      }
 
       if ((oneTx.RawTx == null || oneTx.RawTx.Length == 0) && string.IsNullOrEmpty(oneTx.RawTxString))
       {
@@ -898,13 +893,20 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         }
         catch (Exception ex)
         {
-          AddFailureResponse(null, ex.Message, ref responses);
+          txLog.AppendLine($"Invalid RawTx, error: {ex.Message}.");
+          AddFailureResponse(null, "Invalid characters in rawTx", ref responses);
           return false;
         }
       }
       uint256 txId = Hashes.DoubleSHA256(oneTx.RawTx);
       string txIdString = txId.ToString();
       txLog.AppendLine($"Processing transaction: {txIdString}");
+
+      if (!string.IsNullOrEmpty(oneTx.MerkleFormat) && !MerkleFormat.ValidFormats.Any(x => x == oneTx.MerkleFormat))
+      {
+        AddFailureResponse(txIdString, $"Invalid merkle format {oneTx.MerkleFormat}. Supported formats: {String.Join(",", MerkleFormat.ValidFormats)}.", ref responses);
+        return false;
+      }
 
       if (oneTx.MerkleProof && (appSettings.DontParseBlocks.Value || appSettings.DontInsertTransactions.Value))
       {
