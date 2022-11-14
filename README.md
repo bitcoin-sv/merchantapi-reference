@@ -503,17 +503,17 @@ Or see below for building an image from this source kit.
     |ENABLEHTTP	|Enables requests through http port when set to True. This should only be used for testing and must be set to False in the production environment in order to maintain security|
     |HTTPPORT	|Http port where the application will listen/run. Default: port 80|
     | **RPC** | |
-|RPC_CLIENT_REQUEST_TIMEOUT_SEC	| Request timeout for single RPC call (without retries). Must match node's config RpcServerTimeout value. Default: 60 seconds|
-|RPC_CLIENT_MULTI_REQUEST_TIMEOUT_SEC	|Request timeout for multi-RPC call (with retries). Default: 20 seconds|
-|RPC_CLIENT_NUM_OF_RETRIES	|Maximum number of retries for multi-RPC call. Default: 3|
-|RPC_CLIENT_WAIT_BETWEEN_RETRIES_MS	|Wait between multi-RPC calls. Default: 100 milliseconds|
-|RPC_CLIENT_RPC_CALLS_ON_STARTUP_RETRIES	|Number of retries for multi-RPC call on start-up. Default: 3|
-|RPC_CLIENT_RPC_GET_BLOCK_TIMEOUT_MINUTES	|Request timeout for RPC call GetBlock as stream. Default: 10 minutes|
-|RPC_CLIENT_RPC_GET_RAW_MEMPOOL_TIMEOUT_MINUTES	|Request timeout for RPC call GetRawMempool. Default: 2 minutes|
+    |RPC_CLIENT_REQUEST_TIMEOUT_SEC	| Request timeout for single RPC call (without retries). Must match node's config RpcServerTimeout value. Default: 60 seconds|
+    |RPC_CLIENT_MULTI_REQUEST_TIMEOUT_SEC	|Request timeout for multi-RPC call (with retries). Default: 20 seconds|
+    |RPC_CLIENT_NUM_OF_RETRIES	|Maximum number of retries for multi-RPC call. Default: 3|
+    |RPC_CLIENT_WAIT_BETWEEN_RETRIES_MS	|Wait between multi-RPC calls. Default: 100 milliseconds|
+    |RPC_CLIENT_RPC_CALLS_ON_STARTUP_RETRIES	|Number of retries for multi-RPC call on start-up. Default: 3|
+    |RPC_CLIENT_RPC_GET_BLOCK_TIMEOUT_MINUTES	|Request timeout for RPC call GetBlock as stream. Default: 10 minutes|
+    |RPC_CLIENT_RPC_GET_RAW_MEMPOOL_TIMEOUT_MINUTES	|Request timeout for RPC call GetRawMempool. Default: 2 minutes|
     | **ZMQ** | |
-|ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC	|Timeout for ZMQ subscription service RPC request calls. Default: 5 seconds|
-|ZMQ_STATS_LOG_PERIOD_MIN	|Periodically log ZMQ statistics about nodes and subscriptions every n minutes. Default: 10 minutes|
-|ZMQ_CONNECTION_TEST_INTERVAL_SEC	|How often the ZMQ subscription service tests that the connection with the node is still alive. Default: 60 seconds|
+    |ZMQ_CONNECTION_RPC_RESPONSE_TIMEOUT_SEC	|Timeout for ZMQ subscription service RPC request calls. Default: 5 seconds|
+    |ZMQ_STATS_LOG_PERIOD_MIN	|Periodically log ZMQ statistics about nodes and subscriptions every n minutes. Default: 10 minutes|
+    |ZMQ_CONNECTION_TEST_INTERVAL_SEC	|How often the ZMQ subscription service tests that the connection with the node is still alive. Default: 60 seconds|
     | **Logging** | |
     | LOG_LEVEL_DEFAULT | Log levels 0..6 (Trace, Debug, Information, Warning, Error, Critical, None) defined here: https://learn.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-6.0#log-level |
     | LOG_LEVEL_MICROSOFT | The log level for the general Microsoft components |
@@ -523,51 +523,51 @@ Or see below for building an image from this source kit.
     | MAX_BLOCK_CHAIN_LENGTH_FOR_FORK | Verify block chain and parse blocks up to this limit. Default: 432 |
     | ENABLE_MISSING_PARENTS_RESUBMISSION | If true, and a transaction is reported to having missing inputs, then the program will resubmit any missing input transactions it holds. Node must have `txindex=1` in bitcoin.conf. Default: false |
     | RESUBMIT_KNOWN_TRANSACTIONS | If true, submitted transactions will be sent to node even if they already exist in the database. Default: false |
-| **MinerId** | |
-|WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
-|MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
-|MINERID_SERVER_ALIAS	|Alias to be used when communicating with the endpoint|
-|MINERID_SERVER_AUTHENTICATION	|HTTP authentication header that will be used to when communicating with the endpoint, this should include the Bearer authentication keyword, for example:Bearer 2b4a73f333b0aa1a1dfb52….421d78e2efe183df9|
-|MINERID_SERVER_REQUEST_TIMEOUT_SEC	REST |request timeout for minerId. Default: 100 seconds|
+    | **MinerId** | |
+    |WIF_PRIVATEKEY	|Private key that is used to sign responses (must be omitted if miner ID settings are specified, and vice versa)|
+    |MINERID_SERVER_URL	|URL pointing to the MinerID REST endpoint|
+    |MINERID_SERVER_ALIAS	|Alias to be used when communicating with the endpoint|
+    |MINERID_SERVER_AUTHENTICATION	|HTTP authentication header that will be used to when communicating with the endpoint, this should include the Bearer authentication keyword, for example:Bearer 2b4a73f333b0aa1a1dfb52….421d78e2efe183df9|
+    |MINERID_SERVER_REQUEST_TIMEOUT_SEC	REST |request timeout for minerId. Default: 100 seconds|
     | **Mempool Checker** | |
-|MEMPOOL_CHECKER_DISABLED	|Disable mempoolChecker service. Default: false|
-|MEMPOOL_CHECKER_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit missing transactions if successful on previous try (errors `Missing inputs` and `Already known` are treated as success). Default: 60 (minimum 10)|
-|MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit transactions if previous try was terminated with an error (timeout, database exception) or not all of them were successfully submitted. Default: 10|
-|MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX	|Force submitting of transactions, even if some blocks are not parsed yet. Default:0|
-|MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES	|How often transactions with missing inputs should be resubmitted. Default: 5|
+    |MEMPOOL_CHECKER_DISABLED	|Disable mempoolChecker service. Default: false|
+    |MEMPOOL_CHECKER_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit missing transactions if successful on previous try (errors `Missing inputs` and `Already known` are treated as success). Default: 60 (minimum 10)|
+    |MEMPOOL_CHECKER_UNSUCCESSFUL_INTERVAL_SEC	|Interval when mempoolChecker will check and resubmit transactions if previous try was terminated with an error (timeout, database exception) or not all of them were successfully submitted. Default: 10|
+    |MEMPOOL_CHECKER_BLOCKPARSER_QUEUED_MAX	|Force submitting of transactions, even if some blocks are not parsed yet. Default:0|
+    |MEMPOOL_CHECKER_MISSING_INPUTS_RETRIES	|How often transactions with missing inputs should be resubmitted. Default: 5|
     | **Double Spends** | |
-|DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK	|Number of old blocks that are checked for double spends|
-|DS_HOST_BAN_TIME_SEC	|See below|
-|DS_MAX_NUM_OF_TX_QUERIES	|See below|
-|DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC	|See below|
-|DS_MAX_NUM_OF_UNKNOWN_QUERIES	|Maximum number of queries for unknown transaction ids allowed before a host will be banned|
-|DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC	|How long unknown transactions queries will be stored, before being discarded|
-|DS_SCRIPT_VALIDATION_TIMEOUT_SEC	|Total time for script validation when nodes RPC method verifyScript will be called|
+    |DELTA_BLOCKHEIGHT_FOR_DOUBLESPENDCHECK	|Number of old blocks that are checked for double spends|
+    |DS_HOST_BAN_TIME_SEC	|See below|
+    |DS_MAX_NUM_OF_TX_QUERIES	|See below|
+    |DS_CACHED_TX_REQUESTS_COOLDOWN_PERIOD_SEC	|See below|
+    |DS_MAX_NUM_OF_UNKNOWN_QUERIES	|Maximum number of queries for unknown transaction ids allowed before a host will be banned|
+    |DS_UNKNOWN_TX_QUERY_COOLDOWN_PERIOD_SEC	|How long unknown transactions queries will be stored, before being discarded|
+    |DS_SCRIPT_VALIDATION_TIMEOUT_SEC	|Total time for script validation when nodes RPC method verifyScript will be called|
    | **Database** | |
-|DBCONNECTION_STARTUP_TEST_CONNECTION_MAX_RETRIES	|On start-up try to connect to mAPI Reference Implementation database for the max specified number of retries. Default: 10|
-|DBCONNECTION_STARTUP_COMMAND_TIMEOUT_MINUTES	|If not null, override command timeout for the start-up database scripts execution - if null, the default command timeout is 30 seconds. Default: null|
-|DBCONNECTION_OPEN_CONNECTION_TIMEOUT_SEC	|Database open connection timeout. Default: 30 seconds|
-|DBCONNECTION_OPEN_CONNECTION_MAX_RETRIES	|Database open connection max retries - unless timeout is exceeded. Default: 3|
-|CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS	|Number of days mempool transactions and blocks that are not on the active blockchain are kept. Must be the same as node’s config mempoolexpiry. Default: 14 days|
-|CLEAN_UP_TX_AFTER_DAYS	|Number of days transactions and blocks that are on the active blockchain are kept in the database. Default: 3 days|
-|CLEAN_UP_TX_PERIOD_SEC	|Time period of transactions clean-up check. Default: 1 hour|
-  | **Notifications** | |
-|NOTIFICATION_NOTIFICATION_INTERVAL_SEC	|Period when background service will retry sending notifications with an error|
-|NOTIFICATION_INSTANT_NOTIFICATION_TASKS	|Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100)|
-|NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE	|Maximum number of notifications waiting in instant queue before any new notifications will be scheduled for (slower) background delivery|
-|NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH	|Maximum number of notifications per host being processed by delivery task at any one time|
-|NOTIFICATION_SLOW_HOST_THRESHOLD_MS	|Callback response time threshold that determines whether host is deemed slow or fast|
-|NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE	|Percent of notification tasks from NOTIFICATION_INSTANT_NOTIFICATION_TASKS that will be reserved for slow hosts|
-|NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES	|Maximum number of callback response times saved for each host. Used to calculate average response time for a host|
-|NOTIFICATION_NOTIFICATIONS_RETRY_COUNT	|Maximum number of retries for failed notifications, before abandoning retries|
-|NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS	|Callback response timeout for slow host|
-|NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS	|Callback response timeout for fast host|
-  | **Policy Quotes** | |
-|CALLBACK_IP_ADDRESSES	|An array of IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote|
-|QUOTE_EXPIRY_MINUTES	|Fee quote expiry period|
-|CHECK_FEE_DISABLED	|Disable fee check|
- | **Transaction Outputs** | |
-|ALLOWED_TXOUT_FIELDS|Comma separated field names that may be used in the “returnField” parameter of the Query Transaction Outputs endpoint: scriptPubKey, scriptPubKeyLen, value, isStandard and confirmations|
+    |DBCONNECTION_STARTUP_TEST_CONNECTION_MAX_RETRIES	|On start-up try to connect to mAPI Reference Implementation database for the max specified number of retries. Default: 10|
+    |DBCONNECTION_STARTUP_COMMAND_TIMEOUT_MINUTES	|If not null, override command timeout for the start-up database scripts execution - if null, the default command timeout is 30 seconds. Default: null|
+    |DBCONNECTION_OPEN_CONNECTION_TIMEOUT_SEC	|Database open connection timeout. Default: 30 seconds|
+    |DBCONNECTION_OPEN_CONNECTION_MAX_RETRIES	|Database open connection max retries - unless timeout is exceeded. Default: 3|
+    |CLEAN_UP_TX_AFTER_MEMPOOL_EXPIRED_DAYS	|Number of days mempool transactions and blocks that are not on the active blockchain are kept. Must be the same as node’s config mempoolexpiry. Default: 14 days|
+    |CLEAN_UP_TX_AFTER_DAYS	|Number of days transactions and blocks that are on the active blockchain are kept in the database. Default: 3 days|
+    |CLEAN_UP_TX_PERIOD_SEC	|Time period of transactions clean-up check. Default: 1 hour|
+    | **Notifications** | |
+    |NOTIFICATION_NOTIFICATION_INTERVAL_SEC	|Period when background service will retry sending notifications with an error|
+    |NOTIFICATION_INSTANT_NOTIFICATION_TASKS	|Maximum number of concurrent tasks for sending notifications to callback endpoints (must be between 2-100)|
+    |NOTIFICATION_INSTANT_NOTIFICATIONS_QUEUE_SIZE	|Maximum number of notifications waiting in instant queue before any new notifications will be scheduled for (slower) background delivery|
+    |NOTIFICATION_MAX_NOTIFICATIONS_IN_BATCH	|Maximum number of notifications per host being processed by delivery task at any one time|
+    |NOTIFICATION_SLOW_HOST_THRESHOLD_MS	|Callback response time threshold that determines whether host is deemed slow or fast|
+    |NOTIFICATION_INSTANT_NOTIFICATIONS_SLOW_TASK_PERCENTAGE	|Percent of notification tasks from NOTIFICATION_INSTANT_NOTIFICATION_TASKS that will be reserved for slow hosts|
+    |NOTIFICATION_NO_OF_SAVED_EXECUTION_TIMES	|Maximum number of callback response times saved for each host. Used to calculate average response time for a host|
+    |NOTIFICATION_NOTIFICATIONS_RETRY_COUNT	|Maximum number of retries for failed notifications, before abandoning retries|
+    |NOTIFICATION_SLOW_HOST_RESPONSE_TIMEOUT_MS	|Callback response timeout for slow host|
+    |NOTIFICATION_FAST_HOST_RESPONSE_TIMEOUT_MS	|Callback response timeout for fast host|
+    | **Policy Quotes** | |
+    |CALLBACK_IP_ADDRESSES	|An array of IP addresses, separated by commas, which are sent to the merchant in response to GET PolicyQuote|
+    |QUOTE_EXPIRY_MINUTES	|Fee quote expiry period|
+    |CHECK_FEE_DISABLED	|Disable fee check|
+    | **Transaction Outputs** | |
+    |ALLOWED_TXOUT_FIELDS|Comma separated field names that may be used in the “returnField” parameter of the Query Transaction Outputs endpoint: scriptPubKey, scriptPubKeyLen, value, isStandard and confirmations|
 
 #### Banning Persistent Hosts
 
