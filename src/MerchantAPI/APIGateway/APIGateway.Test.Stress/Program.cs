@@ -26,7 +26,7 @@ namespace MerchantAPI.APIGateway.Test.Stress
 
   class Program
   {
-    private const string VERSION = "1.0.3";
+    private const string VERSION = "1.0.4";
 
     static readonly Random rnd = new();
     static async Task<int> SendTransactions(string configFileName, IHttpClientFactory httpClientFactory)
