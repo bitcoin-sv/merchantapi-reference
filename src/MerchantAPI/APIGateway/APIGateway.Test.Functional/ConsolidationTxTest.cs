@@ -129,7 +129,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var (txHex, tx, prevOuts) = await CreateNewConsolidationTx();
 
-      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts).isValid);
 
       var payload = await SubmitTransactionAsync(txHex);
 
@@ -153,7 +153,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       $"}}"
       );
       mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts).isValid);
 
       var payload = await SubmitTransactionAsync(txHex);
 
@@ -174,7 +174,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var (txHex, tx, prevOuts) = await CreateNewConsolidationTx((ConsolidationReason)consolidationReason);
 
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts).isValid);
 
       var payload = await SubmitTransactionAsync(txHex);
 
@@ -187,7 +187,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var (txHex, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.RatioInOutCount);
 
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts).isValid);
 
       SetPoliciesForCurrentFeeQuote(
       $"{{" +
@@ -195,7 +195,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       $"}}"
       );
       mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
-      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts).isValid);
 
       var payload = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payload.ReturnResult);
@@ -210,7 +210,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var (txHex, tx, prevOuts) = await CreateNewConsolidationTx((ConsolidationReason)consolidationReason);
 
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts).isValid);
 
       string policy = null;
       switch ((ConsolidationReason)consolidationReason)
@@ -231,7 +231,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       SetPoliciesForCurrentFeeQuote($"{{ { policy }}}");
 
       mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
-      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts).isValid);
 
       var payload = await SubmitTransactionAsync(txHex);
       if (errorDescription == null)
@@ -250,7 +250,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
     {
       var (_, tx, prevOuts) = await CreateNewConsolidationTx(ConsolidationReason.InputNonStd);
 
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts));
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, consolidationParameters, prevOuts).isValid);
 
       SetPoliciesForCurrentFeeQuote(
       $"{{" +
@@ -258,7 +258,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       $"}}"
       );
       mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
-      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+      Assert.IsFalse(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts).isValid);
 
       SetPoliciesForCurrentFeeQuote(
       $"{{" +
@@ -266,7 +266,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       $"}}"
       );
       mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
-      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts).isValid);
     }
 
     [DataRow(0, 5, 5)]
@@ -289,7 +289,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
       mergedParameters = FeeQuoteRepository.GetFeeQuoteById(1).GetMergedConsolidationTxParameters(consolidationParameters);
       Assert.AreEqual(expectedMergedValue, mergedParameters.MinConfConsolidationInput);
-      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts));
+      Assert.IsTrue(Mapi.IsConsolidationTxn(tx, mergedParameters, prevOuts).isValid);
 
       var payload = await SubmitTransactionAsync(txHex);
       Assert.AreEqual("success", payload.ReturnResult);
