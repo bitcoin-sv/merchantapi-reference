@@ -407,15 +407,15 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       {
         if (item.output.Confirmations < consolidationParameters.MinConfConsolidationInput)
         {
-          return (false, $"Transaction {item.output} has less than {consolidationParameters.MinConfConsolidationInput} confirmations");
+          return (false, $"Transaction's output has less than {consolidationParameters.MinConfConsolidationInput} confirmations ({item.output.Confirmations})");
         }
         if (item.input.ScriptSig.Length > consolidationParameters.MaxConsolidationInputScriptSize)
         {
-          return (false, $"Spam detection {item.input}({item.input.ScriptSig.Length} > {consolidationParameters.MaxConsolidationInputScriptSize})");
+          return (false, $"Spam detection: {item.input.ScriptSig.Hash}({item.input.ScriptSig.Length} > {consolidationParameters.MaxConsolidationInputScriptSize})");
         }
         if (!consolidationParameters.AcceptNonStdConsolidationInput && !item.output.IsStandard.Value)
         {
-          return (false, $"Detected NonStdConsolidationInput {item.output}");
+          return (false, $"Detected NonStdConsolidationInput.");
         }
         sumScriptPubKeySizesTxInputs += item.output.ScriptPubKeyLength.Value;
       }
