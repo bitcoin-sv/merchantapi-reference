@@ -48,7 +48,7 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels.APIStatus
       TxSubmitException = submitTxStatus.TxSubmitException;
       TxResponseSuccess = submitTxStatus.TxResponseSuccess;
       TxResponseFailure = submitTxStatus.TxResponseFailure;
-      TxResponseException = submitTxStatus.TxResponseException;
+      TxResponseException = submitTxStatus.TxWithoutResponse;
       SubmitTxDescription = submitTxStatus.SubmitTxDescription;
     }
   }

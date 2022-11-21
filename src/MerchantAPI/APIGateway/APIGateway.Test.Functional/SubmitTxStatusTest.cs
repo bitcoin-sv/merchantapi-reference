@@ -52,7 +52,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0, status.TxSubmitException);
       Assert.AreEqual(0, status.TxResponseSuccess);
       Assert.AreEqual(0, status.TxResponseFailure);
-      Assert.AreEqual(0, status.TxResponseException);
+      Assert.AreEqual(0, status.TxWithoutResponse);
       Assert.AreEqual(0, status.TxResponseFailureRetryable);
       Assert.AreEqual(0, status.TxMissingInputs);
       Assert.AreEqual(0, status.TxReSentMissingInputs);
@@ -78,7 +78,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
       Assert.AreEqual(oldStatus.TxResponseSuccess + 1, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
-      Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxWithoutResponse, status.TxWithoutResponse);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
       Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
       Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
@@ -106,7 +106,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
       Assert.AreEqual(oldStatus.TxResponseSuccess + 1, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
-      Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxWithoutResponse, status.TxWithoutResponse);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
       Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
       Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
@@ -147,7 +147,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
       Assert.AreEqual(oldStatus.TxResponseSuccess, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure, status.TxResponseFailure);
-      Assert.AreEqual(oldStatus.TxResponseException + 1, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxWithoutResponse + 1, status.TxWithoutResponse);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
       Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
       Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
@@ -177,7 +177,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
       Assert.AreEqual(oldStatus.TxResponseSuccess + 2, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
-      Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxWithoutResponse, status.TxWithoutResponse);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable, status.TxResponseFailureRetryable);
       Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
       Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
@@ -207,7 +207,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
       Assert.AreEqual(oldStatus.TxResponseSuccess, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
-      Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxWithoutResponse, status.TxWithoutResponse);
       Assert.AreEqual(oldStatus.TxResponseFailureRetryable + 1, status.TxResponseFailureRetryable);
       Assert.AreEqual(oldStatus.TxMissingInputs, status.TxMissingInputs);
       Assert.AreEqual(oldStatus.TxReSentMissingInputs, status.TxReSentMissingInputs);
