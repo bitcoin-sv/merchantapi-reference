@@ -375,24 +375,21 @@ namespace MerchantAPI.APIGateway.Domain.Actions
     // NOTE: we do retrieve scriptPubKey from getUtxos - we do not need it and it might be large
     static readonly string[] getTxOutFields = { "scriptPubKeyLen", "value", "isStandard", "confirmations" };
 
-    public static bool IsConsolidationTxn(Transaction transaction, ConsolidationTxParameters consolidationParameters, PrevOut[] prevOuts)
+    public static (bool isValid, string failMessage) IsConsolidationTxn(Transaction transaction, ConsolidationTxParameters consolidationParameters, PrevOut[] prevOuts)
     {
-
-      // The consolidation factor zero disables free consolidation txns
       if (consolidationParameters.MinConsolidationFactor == 0)
       {
-        return false;
+        return (false, "The consolidation factor zero disables free consolidation txns");
       }
 
       if (transaction.IsCoinBase)
       {
-        return false;
+        return (false, "Transaction IsCoinBase");
       }
 
-      // The transaction does not decrease #UTXO enough
       if (transaction.Inputs.Count < consolidationParameters.MinConsolidationFactor * transaction.Outputs.Count)
       {
-        return false;
+        return (false, $"The transaction does not decrease #UTXO enough ({transaction.Inputs.Count} < {consolidationParameters.MinConsolidationFactor} * {transaction.Outputs.Count})");
       }
 
       long sumScriptPubKeySizesTxInputs = 0;
@@ -408,32 +405,29 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
       foreach (var item in pairsInOut)
       {
-        // Transaction has less than minConsInputMaturity confirmations
         if (item.output.Confirmations < consolidationParameters.MinConfConsolidationInput)
         {
-          return false;
+          return (false, $"Transaction's output has less than {consolidationParameters.MinConfConsolidationInput} confirmations ({item.output.Confirmations})");
         }
-        // Spam detection
         if (item.input.ScriptSig.Length > consolidationParameters.MaxConsolidationInputScriptSize)
         {
-          return false;
+          return (false, $"Spam detection: {item.input.ScriptSig.Hash}({item.input.ScriptSig.Length} > {consolidationParameters.MaxConsolidationInputScriptSize})");
         }
         if (!consolidationParameters.AcceptNonStdConsolidationInput && !item.output.IsStandard.Value)
         {
-          return false;
+          return (false, $"Detected NonStdConsolidationInput.");
         }
         sumScriptPubKeySizesTxInputs += item.output.ScriptPubKeyLength.Value;
       }
 
       long sumScriptPubKeySizesTxOutputs = transaction.Outputs.Sum(x => x.ScriptPubKey.Length);
 
-      // Size in utxo db does not decrease enough for cons. transaction to be profitable 
       if (sumScriptPubKeySizesTxInputs < consolidationParameters.MinConsolidationFactor * sumScriptPubKeySizesTxOutputs)
       {
-        return false;
+        return (false, $"Size in utxo db does not decrease enough for cons. transaction to be profitable ({sumScriptPubKeySizesTxInputs} < {consolidationParameters.MinConsolidationFactor} * {sumScriptPubKeySizesTxOutputs})");
       }
 
-      return true;
+      return (true, null);
     }
 
     public static (int failureCount, SubmitTransactionOneResponse[] responses) TransformRpcResponse(RpcSendTransactions rpcResponse, (string tx, string[] warnings)[] allSubmitedTxIds)
@@ -668,6 +662,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var info = await blockChainInfo.GetInfoAsync();
       var currentMinerId = await minerId.GetCurrentMinerIdAsync();
       var consolidationParameters = info.ConsolidationTxParameters;
+      logger.LogTrace(consolidationParameters.ToString());
 
       // Use the same quotes for all transactions in single request
       var quotes = feeQuoteRepository.GetValidFeeQuotesByIdentity(user).ToArray();
@@ -1344,7 +1339,7 @@ namespace MerchantAPI.APIGateway.Domain.Actions
       var colidedWith = prevOuts.Where(x => x.CollidedWith != null && !String.IsNullOrEmpty(x.CollidedWith.Hex)).Select(x => x.CollidedWith).Distinct(new CollidedWithComparer()).ToArray();
       if (prevOutsErrors.Any() || colidedWith.Any())
       {
-        logger.LogDebug($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
+        txLog.AppendLine($"CollectPreviousOuputs for {txIdString} returned {prevOuts.Length} prevOuts ({prevOutsErrors.Length} prevOutsErrors, {colidedWith.Length} colidedWith).");
 
         return (false, false, selectedQuote, colidedWith, prevOutsErrors);
       }
@@ -1362,9 +1357,16 @@ namespace MerchantAPI.APIGateway.Domain.Actions
         {
           txLog.AppendLine($"CheckOutputsSumAndValidateDs returned warnings: '{string.Join(",", warnings)}'.");
         }
+
         foreach (var policyQuote in quotes)
         {
-          if (IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts))
+          if (logger.IsEnabled(LogLevel.Trace))
+          {
+            logger.LogTrace($"MergedConsolidationTxParams: {policyQuote.GetMergedConsolidationTxParameters(consolidationParameters)}");
+          }
+          var (isConsolidationTx, failMessage) = IsConsolidationTxn(transaction, policyQuote.GetMergedConsolidationTxParameters(consolidationParameters), prevOuts);
+          logger.LogTrace($"IsConsolidationTxn for {txIdString}: {isConsolidationTx} {failMessage}");
+          if (isConsolidationTx)
           {
             txLog.AppendLine($"Determined as ConsolidationTxn.");
             (okToMine, okToRelay, selectedQuote) = (true, true, policyQuote);

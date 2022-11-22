@@ -19,7 +19,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.APIStatus
     public double TxResponseSuccess { get; private set; }
     public double TxResponseFailure { get; private set; }
     public double TxResponseFailureRetryable { get; private set; }
-    public double TxResponseException => Tx - TxResponseFailure - TxResponseSuccess;
+    public double TxWithoutResponse => Tx - TxResponseFailure - TxResponseSuccess;
     public double TxMissingInputs { get; private set; }
     public double TxReSentMissingInputs { get; private set; }
     public double TxWasMinedMissingInputs { get; private set; }
@@ -52,7 +52,7 @@ namespace MerchantAPI.APIGateway.Domain.Models.APIStatus
       {
         return $@"Number of requests: {Request}, all transactions processed: {Tx} (authenticated: {TxAuthenticatedUser}, anonymous: {TxAnonymousUser}). Average batch: {AvgBatch}. 
 Transactions sent to node: {TxSentToNode}. Accepted by node: {TxAcceptedByNode}, rejected by node: {TxRejectedByNode}, submit exceptions: {TxSubmitException}.
-Transaction responses with success: {TxResponseSuccess}, failure: {TxResponseFailure} (retryable: {TxResponseFailureRetryable}), exception: {TxResponseException}. 
+Transaction responses with success: {TxResponseSuccess}, failure: {TxResponseFailure} (retryable: {TxResponseFailureRetryable}), processing/exceptions: {TxWithoutResponse}. 
 All missing inputs: {TxMissingInputs} (resent: {TxReSentMissingInputs}, was mined: {TxWasMinedMissingInputs}, invalid block: {TxInvalidBlockMissingInputs}).";
       }
     }

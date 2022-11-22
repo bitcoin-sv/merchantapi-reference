@@ -32,7 +32,12 @@ namespace MerchantAPI.APIGateway.Domain.Actions
 
     public bool AcceptNonStdConsolidationInput { get; set; }
 
-  }
+    public override string ToString()
+    {
+        return @$"{nameof(MinConsolidationFactor)}={MinConsolidationFactor}, {nameof(MaxConsolidationInputScriptSize)}={MaxConsolidationInputScriptSize}, {nameof(MinConfConsolidationInput)}={MinConfConsolidationInput}, {nameof(AcceptNonStdConsolidationInput)}={AcceptNonStdConsolidationInput}";
+    }
+
+    }
 
   public class BlockChainInfoData
   {

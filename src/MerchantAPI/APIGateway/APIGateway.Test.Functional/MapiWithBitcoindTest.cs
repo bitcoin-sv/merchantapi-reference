@@ -248,7 +248,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(oldStatus.TxSubmitException, status.TxSubmitException);
       Assert.AreEqual(oldStatus.TxResponseSuccess + 2, status.TxResponseSuccess);
       Assert.AreEqual(oldStatus.TxResponseFailure + 1, status.TxResponseFailure);
-      Assert.AreEqual(oldStatus.TxResponseException, status.TxResponseException);
+      Assert.AreEqual(oldStatus.TxWithoutResponse, status.TxWithoutResponse);
       loggerTest.LogInformation("Status:" + status.PrepareForLogging());
     }
 
