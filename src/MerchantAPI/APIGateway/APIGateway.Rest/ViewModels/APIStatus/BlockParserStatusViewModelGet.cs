@@ -39,6 +39,10 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels.APIStatus
         public long TotalTxsFound { get; set; }
         [JsonPropertyName("totalDsFound")]
         public long TotalDsFound { get; set; }
+        [JsonPropertyName("bestBlockHash")]
+        public string BestBlockHash { get; set; }
+        [JsonPropertyName("bestBlockHeight")]
+        public long? BestBlockHeight { get; set; }
         [JsonPropertyName("lastBlockHash")]
         public string LastBlockHash { get; set; }
         [JsonPropertyName("lastBlockHeight")]
@@ -81,6 +85,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels.APIStatus
             TotalTxs = blockParserStatus.TotalTxs;
             TotalTxsFound = blockParserStatus.TotalTxsFound;
             TotalDsFound = blockParserStatus.TotalDsFound;
+            BestBlockHash= blockParserStatus.BestBlockHash;
+            BestBlockHeight= blockParserStatus.BestBlockHeight;
             LastBlockHash = blockParserStatus.LastBlockHash;
             LastBlockHeight = blockParserStatus.LastBlockHeight;
             LastBlockParsedAt = blockParserStatus.LastBlockParsedAt;
@@ -105,7 +111,8 @@ namespace MerchantAPI.APIGateway.Rest.ViewModels.APIStatus
         public string PrepareForLogging()
         {
             return $@"BlockParserDescription: '{BlockParserDescription}'.
-Total stats: {nameof(TotalBytes)}='{TotalBytes} bytes', {nameof(TotalTxs)}='{TotalTxs}', {nameof(TotalDsFound)}='{TotalDsFound}', {nameof(TotalTxsFound)}='{TotalTxsFound}'
+Total stats: {nameof(TotalBytes)}='{TotalBytes} bytes', {nameof(TotalTxs)}='{TotalTxs}', {nameof(TotalDsFound)}='{TotalDsFound}', {nameof(TotalTxsFound)}='{TotalTxsFound}'.
+Best block parsed: '{LastBlockHash}' with height '{BestBlockHeight}'.
 Last block stats: {(string.IsNullOrEmpty(LastBlockHash) ? "unknown"
       : $"{nameof(LastBlockHash)}='{LastBlockHash}', {nameof(LastBlockHeight)}='{LastBlockHeight}', {nameof(LastBlockParseTime)}='{LastBlockParseTime.Value.TotalMilliseconds} ms'.")}
 Average stats: {nameof(AverageParseTime)}='{AverageParseTime?.TotalMilliseconds ?? 0} ms', {nameof(AverageTxParseTime)}='{AverageTxParseTime?.TotalMilliseconds ?? 0} ms', {nameof(AverageBlockDownloadSpeed)}='{AverageBlockDownloadSpeed}'.

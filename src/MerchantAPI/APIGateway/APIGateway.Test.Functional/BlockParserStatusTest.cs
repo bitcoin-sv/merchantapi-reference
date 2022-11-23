@@ -54,6 +54,8 @@ namespace MerchantAPI.APIGateway.Test.Functional
       Assert.AreEqual(0F, status.TotalTxs);
       Assert.AreEqual(0, status.TotalTxsFound);
       Assert.AreEqual(0, status.TotalDsFound);
+      Assert.IsNull(status.BestBlockHash);
+      Assert.IsNull(status.BestBlockHeight);
       Assert.IsNull(status.LastBlockHash);
       Assert.IsNull(status.LastBlockHeight);
       Assert.IsNull(status.LastBlockParsedAt);
@@ -76,8 +78,19 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: 0.", stat
       Assert.AreEqual((ulong)totalTxs, status.TotalTxs);
       Assert.AreEqual(totalTxsFound, status.TotalTxsFound);
       Assert.AreEqual(totalDsFound, status.TotalDsFound);
+      Assert.IsNotNull(status.BestBlockHash);
+      Assert.IsNotNull(status.BestBlockHeight);
       Assert.IsNotNull(status.LastBlockHash);
       Assert.IsNotNull(status.LastBlockHeight);
+      Assert.IsTrue(status.BestBlockHeight >= status.LastBlockHeight);
+      if (status.BestBlockHeight == status.LastBlockHeight)
+      {
+        Assert.AreEqual(status.BestBlockHash, status.LastBlockHash);
+      }
+      else
+      {
+        Assert.AreNotEqual(status.BestBlockHash, status.LastBlockHash);
+      }
       Assert.IsNotNull(status.LastBlockParsedAt);
       Assert.IsNotNull(status.LastBlockParseTime);
       Assert.IsNotNull(status.LastBlockInQueueAndParseTime);
@@ -145,7 +158,8 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQu
 
       var dbRecords = (await TxRepositoryPostgres.GetTxsToSendBlockDSNotificationsAsync()).ToList();
       status = blockParser.GetBlockParserStatus();
-
+      // last pushed block DS has height 2
+      Assert.IsTrue(status.BestBlockHeight > status.LastBlockHeight);
       CheckBlockParserStatusFilled(status, 7, 7, totalTxs: 7, totalTxsFound: txList.Count, totalDsFound: dbRecords.Count);
     }
 
@@ -193,8 +207,10 @@ Number of blocks processed from queue is {blocksProcessed}, remaining: {blocksQu
     [TestMethod]
     public void BlockParserStatusTestInvalidBlock()
     {
-      Domain.Models.Block block = new();
-      block.BlockHash = HelperTools.HexStringToByteArray("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
+      Domain.Models.Block block = new()
+      {
+          BlockHash = HelperTools.HexStringToByteArray("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
+      };
 
       PublishBlockToEventBus(block);
 
