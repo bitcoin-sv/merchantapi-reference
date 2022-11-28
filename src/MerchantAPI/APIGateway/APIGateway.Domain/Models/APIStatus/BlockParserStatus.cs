@@ -15,6 +15,8 @@ namespace MerchantAPI.APIGateway.Domain.Models.APIStatus
         public ulong TotalTxs { get; private set; }
         public long TotalTxsFound { get; private set; }
         public long TotalDsFound { get; private set; }
+        public string BestBlockHash { get; private set; }
+        public long? BestBlockHeight { get; private set; }
         public string LastBlockHash { get; private set; }
         public long? LastBlockHeight { get; private set; }
         public DateTime? LastBlockParsedAt { get; private set; }
@@ -59,6 +61,11 @@ Number of blocks processed from queue is {BlocksProcessed}, remaining: {BlocksQu
             lock (objLock)
             {
                 BlocksParsed++;
+                if ((BestBlockHeight ?? -1) < blockHeight)
+                {
+                  BestBlockHash = blockhash;
+                  BestBlockHeight = blockHeight;
+                }
                 LastBlockHash = blockhash;
                 LastBlockHeight = blockHeight;
                 TotalTxsFound += txsFound;
