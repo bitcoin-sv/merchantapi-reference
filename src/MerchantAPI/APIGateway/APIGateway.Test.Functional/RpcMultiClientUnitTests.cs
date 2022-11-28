@@ -249,7 +249,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
 
     void TestMixedTxC1(RpcSendTransactions node0Response, RpcSendTransactions node1Response, string[] known = null, string[] evicted = null, RpcSendTransactions.RpcInvalidTx invalid = null )
     {
-      // from resilience we no longer return "Mixed results" - if one node accepts tx, we return success
+      // from resilience: if one node accepts tx, we return success
       ExecuteAndCheckSendTransactions(new[] { txC1Hex }, new RpcSendTransactions
         {
           Known = known ?? Array.Empty<string>(),
