@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using MerchantAPI.APIGateway.Domain;
-using MerchantAPI.APIGateway.Domain.Actions;
 using MerchantAPI.APIGateway.Domain.Metrics;
 using MerchantAPI.APIGateway.Domain.Models;
 using MerchantAPI.APIGateway.Test.Functional.Mock;
@@ -248,22 +247,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
 
-    void TestMixedTxC1(RpcSendTransactions node0Response, RpcSendTransactions node1Response)
+    void TestMixedTxC1(RpcSendTransactions node0Response, RpcSendTransactions node1Response, string[] known = null, string[] evicted = null, RpcSendTransactions.RpcInvalidTx invalid = null )
     {
-
+      // from resilience: if one node accepts tx, we return success
       ExecuteAndCheckSendTransactions(new[] { txC1Hex }, new RpcSendTransactions
         {
-          Known = Array.Empty<string>(),
-          Evicted = Array.Empty<string>(),
-
-          Invalid = new[]
-          {
-            new RpcSendTransactions.RpcInvalidTx()
-            {
-              Txid = txC1Hash,
-              RejectReason = "Mixed results"
-            }
-          },
+          Known = known ?? Array.Empty<string>(),
+          Evicted = evicted ?? Array.Empty<string>(),
+          Invalid = invalid != null ? new[] { invalid } : Array.Empty<RpcSendTransactions.RpcInvalidTx>(),
           Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
       },
         node0Response,
@@ -273,10 +264,22 @@ namespace MerchantAPI.APIGateway.Test.Functional
     [TestMethod]
     public void SendRawTransactionsTestMixedResults()
     {
+      // Test FailureRetryable, Error
+      TestMixedTxC1(
+        CreateInvalidResponse(txC1Hash),
+        CreateInvalidResponse(txC1Hash, NodeRejectCode.MempoolFullCodeAndReason.code, NodeRejectCode.MempoolFullCodeAndReason.reason),
+        invalid: new RpcSendTransactions.RpcInvalidTx()
+        {
+          Txid = txC1Hash,
+          RejectCode = NodeRejectCode.MempoolFullCodeAndReason.code,
+          RejectReason = NodeRejectCode.MempoolFullCodeAndReason.reason
+        }
+      );
       // Test Known, Error
       TestMixedTxC1(
         CreateKnownResponse(txC1Hash),
-        CreateInvalidResponse(txC1Hash)
+        CreateInvalidResponse(txC1Hash),
+        known: new string[] { txC1Hash }
       );
 
       // Test OK, Error
@@ -288,7 +291,40 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Test Error, Evicted combination
       TestMixedTxC1(
         CreateInvalidResponse(txC1Hash),
-        CreateEvictedResponse(txC1Hash)
+        CreateEvictedResponse(txC1Hash),
+        evicted: new string[] { txC1Hash }
+      );
+
+      // Test FailureRetryable, Error
+      TestMixedTxC1(
+        CreateInvalidResponse(txC1Hash),
+        CreateInvalidResponse(txC1Hash, NodeRejectCode.MempoolFullCodeAndReason.code, NodeRejectCode.MempoolFullCodeAndReason.reason),
+        invalid: new RpcSendTransactions.RpcInvalidTx()
+        {
+          Txid = txC1Hash,
+          RejectCode = NodeRejectCode.MempoolFullCodeAndReason.code,
+          RejectReason = NodeRejectCode.MempoolFullCodeAndReason.reason
+        }
+      );
+
+      // Test same Errors
+      TestMixedTxC1(
+        CreateInvalidResponse(txC1Hash),
+        CreateInvalidResponse(txC1Hash),
+        invalid: new RpcSendTransactions.RpcInvalidTx()
+        {
+          Txid = txC1Hash,
+        }
+      );
+
+      // Test two different Errors
+      TestMixedTxC1(
+        CreateInvalidResponse(txC1Hash),
+        CreateInvalidResponse(txC1Hash, 123, "rejected123"),
+        invalid: new RpcSendTransactions.RpcInvalidTx() // first error returned
+        {
+          Txid = txC1Hash
+        }
       );
     }
 
@@ -324,14 +360,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Test OK, Known combination
       ExecuteAndCheckSendTransactions(
         new[] { txC1Hex },
-        knownResponse,
+        okResponse,
         okResponse,
         knownResponse);
 
       // Test Known, Evicted
       ExecuteAndCheckSendTransactions(
         new[] { txC1Hex },
-        evictedResponse,
+        knownResponse,
         knownResponse,
         evictedResponse);
     }
@@ -372,33 +408,35 @@ namespace MerchantAPI.APIGateway.Test.Functional
       // Test OK, AlreadyKnown combination
       ExecuteAndCheckSendTransactions(
         new[] { txC1Hex },
-        knownResponse,
+        okResponse,
         okResponse,
         alreadyKnownResponse);
 
       // Test AlreadyKnown, Evicted
       ExecuteAndCheckSendTransactions(
         new[] { txC1Hex },
-        evictedResponse,
+        knownResponse,
         alreadyKnownResponse,
         evictedResponse);
-      
+
       // Test AlreadyKnown, Error
-      TestMixedTxC1(
+      ExecuteAndCheckSendTransactions(
+        new[] { txC1Hex },
+        knownResponse,
         alreadyKnownResponse,
-         CreateInvalidResponse(
-           txC1Hash, 
-           NodeRejectCode.MempoolFullCodeAndReason.code,
-           NodeRejectCode.MempoolFullCodeAndReason.reason)
-      );
+        CreateInvalidResponse(
+          txC1Hash,
+          NodeRejectCode.MempoolFullCodeAndReason.code,
+          NodeRejectCode.MempoolFullCodeAndReason.reason)
+        );
     }
 
     [TestMethod]
     public void SendRawTransactionsMultiple()
     {
-      // txc1 is accepted
-      // txc2 is invalid
-      // txc3 has mixed result
+      // txc1 is accepted by both nodes
+      // txc2 is invalid (same error)
+      // txc3 is only accepted by node2
 
       ExecuteAndCheckSendTransactions(
         new [] { txC1Hex, txC2Hex, txC3Hex },
@@ -415,14 +453,7 @@ namespace MerchantAPI.APIGateway.Test.Functional
               Txid = txC2Hash,
               RejectReason = "txc2RejectReason",
               RejectCode =  1
-            },
-            new RpcSendTransactions.RpcInvalidTx
-            {
-              Txid = txC3Hash, // tx3 is rejected here
-              RejectReason = "Mixed results",
-              RejectCode =  null
             }
-
           },
           Unconfirmed = Array.Empty<RpcSendTransactions.RpcUnconfirmedTx>()
 
@@ -440,12 +471,14 @@ namespace MerchantAPI.APIGateway.Test.Functional
           {
             new RpcSendTransactions.RpcInvalidTx
             {
-              Txid = txC2Hash
+              Txid = txC2Hash,
+              RejectReason = "txc2RejectReason",
+              RejectCode =  1
             },
             new RpcSendTransactions.RpcInvalidTx
             {
               Txid = txC3Hash, // tx3 is rejected here
-              RejectReason = "txc3RejectReason", // Reason and code get overwritten with Mixed result message
+              RejectReason = "txc3RejectReason",
               RejectCode =  1
             }
           },

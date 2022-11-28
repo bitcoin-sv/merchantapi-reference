@@ -316,8 +316,8 @@ namespace MerchantAPI.APIGateway.Domain.Models
       OK,
       Known,
       Evicted,
-      Invalid,
-      MixedResult,
+      FailureRetryable,
+      Invalid
       // order is important - when doing changes check ChooseNewValue
     }
 
@@ -362,11 +362,21 @@ namespace MerchantAPI.APIGateway.Domain.Models
       {
         foreach (var invalid in rpcResponse.Invalid)
         {
+          GroupType type;
+          if (invalid.RejectCode.HasValue && NodeRejectCode.MapiSuccessCodes.Contains(invalid.RejectCode.Value))
+          {
+            type = GroupType.Known;
+          }
+          else
+          {
+            var rejectCodeAndReason = NodeRejectCode.CombineRejectCodeAndReason(invalid.RejectCode, invalid.RejectReason);
+            type = NodeRejectCode.MapiRetryCodesAndReasons.Any(x => rejectCodeAndReason.StartsWith(x)) ? GroupType.FailureRetryable : GroupType.Invalid;
+          }
           processed.TryAdd(
             invalid.Txid, 
             new ResponseTransactionType
             {
-              Type = invalid.RejectCode.HasValue && NodeRejectCode.MapiSuccessCodes.Contains(invalid.RejectCode.Value) ? GroupType.Known : GroupType.Invalid, 
+              Type = type,
               RejectCode = invalid.RejectCode, 
               RejectReason = invalid.RejectReason,
               CollidedWith = invalid.CollidedWith?.Select(t => 
@@ -448,17 +458,12 @@ namespace MerchantAPI.APIGateway.Domain.Models
     {
       if (newValue.Type != oldValue.Type)
       {
-        var maxType = newValue.Type > oldValue.Type ? newValue : oldValue;
-        if (maxType.Type < GroupType.Invalid)
-        {
-          // GroupType: OK < Known < Evicted < Invalid < MixedResult
-          // user should resubmit evicted txs (and lost mempool txs)
-          return maxType;
-        }
-        return new ResponseTransactionType { Type = GroupType.MixedResult, RejectCode = null, RejectReason = "Mixed results" };
+        // GroupType: OK < Known < Evicted < FailureRetryable < Invalid
+        // user should resubmit evicted txs and when mempool errors occured (FailureRetryable)
+        return newValue.Type < oldValue.Type ? newValue : oldValue;
       }
-
-      return oldValue; // In case of different error messages we treat the result as Error (not mixed)
+      // In case of different error messages we treat the result as Error
+      return oldValue;
     }
 
 
@@ -511,8 +516,8 @@ namespace MerchantAPI.APIGateway.Domain.Models
         Evicted = results.Where(x => x.Value.Type == GroupType.Evicted)
           .Select(x => x.Key).ToArray(),
 
-        // Treat mixed results as invalid transaction
-        Invalid = results.Where(x => x.Value.Type == GroupType.Invalid || x.Value.Type == GroupType.MixedResult)
+        // Treat failureRetryable results as invalid transaction
+        Invalid = results.Where(x => x.Value.Type == GroupType.FailureRetryable || x.Value.Type == GroupType.Invalid)
           .Select(x =>
             new RpcSendTransactions.RpcInvalidTx
             {

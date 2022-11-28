@@ -443,6 +443,52 @@ namespace MerchantAPI.APIGateway.Test.Functional
         NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.CombineRejectCodeAndReason(txInvalid.RejectCode, txInvalid.RejectReason)), true);
     }
 
+    [TestMethod]
+    public async Task SubmitTxJsonOneNodeReturnsMempoolError()
+    {
+      // check that retryable is returned if present
+      var (code, reason) = NodeRejectCode.MempoolFullCodeAndReason;
+      var rpcResultError = new RpcSendTransactions();
+      List<RpcInvalidTx> txsInvalidRetryable = new()
+      {
+        new()
+        {
+          RejectCode = code,
+          RejectReason = reason,
+          Txid = txC3Hash
+        }
+      };
+      rpcResultError.Invalid = txsInvalidRetryable.ToArray();
+
+      var rpcResultRetryable = new RpcSendTransactions();
+      List<RpcInvalidTx> txsInvalid = new() {
+        new()
+        {
+          RejectCode = NodeRejectCode.Invalid,
+          RejectReason = "Invalid",
+          Txid = txC3Hash
+         }
+      };
+      rpcResultRetryable.Invalid = txsInvalid.ToArray();
+
+      AddMockNode(1);
+      AddMockNode(2);
+
+      rpcClientFactoryMock.SetUpPredefinedResponse(
+        ("mocknode0:sendrawtransactions", rpcResultError),
+        ("mocknode1:sendrawtransactions", rpcResultRetryable),
+        ("mocknode2:sendrawtransactions", rpcResultError)
+      );
+
+      var response = await SubmitTxToMapiAsync(txC3Hex);
+      VerifySignature(response);
+
+      var payload = response.response.ExtractPayload<SubmitTransactionResponseViewModel>();
+      //  mAPI must return error as MapiRetryMempoolError
+      await AssertIsOKAsync(payload, txC3Hash, "failure",
+        NodeRejectCode.MapiRetryMempoolErrorWithDetails(NodeRejectCode.CombineRejectCodeAndReason(code, reason)), true);
+    }
+
     [DataRow(Faults.SimulateSendTxsResponse.NodeReturnsNonStandard)]
     [DataRow(Faults.SimulateSendTxsResponse.NodeReturnsInsufficientFee)]
     [DataRow(Faults.SimulateSendTxsResponse.NodeReturnsMempoolFull)]
