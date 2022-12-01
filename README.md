@@ -397,23 +397,23 @@ GET api/v1/status/tx
 Producing an output similar to:
 ```json
 {
-  "request": 1,
-  "txAuthenticatedUser": 1,
-  "txAnonymousUser": 0,
-  "tx": 1,
-  "avgBatch": 1,
-  "txSentToNode": 1,
-  "txAcceptedByNode": 1,
+  "request": 123,
+  "txAuthenticatedUser": 100,
+  "txAnonymousUser": 23,
+  "tx": 123,
+  "avgBatch": 10,
+  "txSentToNode": 123,
+  "txAcceptedByNode": 123,
   "txRejectedByNode": 0,
   "txSubmitException": 0,
-  "txResponseSuccess": 1,
-  "txResponseFailure": 0,
-  "txResponseException": 0,
+  "txResponseSuccess": 110,
+  "txResponseFailure": 10,
+  "txResponseException": 3,
   "submitTxDescription": 
     "Number of requests: 123, all transactions processed: 123 (authenticated: 100, anonymous: 23). \
     Average batch: 10. \
     Transactions sent to node: 123. \
-    Accepted by node: 123, rejected by node: 0, submit exceptions: 0. \
+    Accepted by node: 123, rejected by node: 0, submit exceptions: 1. \
     Transaction responses with success: 110, failure: 10 (retryable: 0), processing/exceptions: 3. \
     All missing inputs: 6 (resent: 1, was mined: 2, invalid block: 3)."
 }
@@ -740,7 +740,7 @@ Prometheus is configured to run on http://localhost:9080/.
 Check whether endpoints with metrics are healthy on http://localhost:9080/targets. 
 Observe the mAPI reference implementation operation on http://localhost:9080/graph.
 
-Data is scraped from https://localhost:5051/metrics every 5s. 
+Data is scraped from https://localhost:5051/metrics every 15s. 
 This is where all the metrics that are generated during the execution of MRI are available from.
 Administrator authentication is performed using the Authorization HTTP header with Bearer [RestAdminAPIKey]. 
 The RestAdminAPIKey value provided must match the one stored in the Prometheus configuration file 'api-key.txt'.
