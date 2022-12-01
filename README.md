@@ -282,7 +282,7 @@ If no policies match the request, the response is HTTP code 400 “BadRequest”
 
 #### Delete Unconfirmed Transactions
 
-Administrators can get the list of transactions that were sent to node but are not marked as accepted in the database with a given policyQuoteId {id} or a given identity {identity} for authenticated users or a given identityProvider {IDP} use:
+Administrators can delete the list of transactions that were sent to node but are not marked as accepted in the database with a given policyQuoteId {id} or a given identity {identity} for authenticated users or a given identityProvider {IDP} use:
 ```
 DELETE api/v1/unconfirmedTxs?policyQuoteId={PQID}&identity={ID}&identityProvider={IDP}
 ```
