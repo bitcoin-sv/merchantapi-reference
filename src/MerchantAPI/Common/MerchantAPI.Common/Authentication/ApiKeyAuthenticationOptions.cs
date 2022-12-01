@@ -8,7 +8,11 @@ namespace MerchantAPI.Common.Authentication
   public class ApiKeyAuthenticationOptions : AuthenticationSchemeOptions
   {
     public const string DefaultScheme = "API Key";
-    public string Scheme => DefaultScheme;
+    public static string Scheme => DefaultScheme;
     public string AuthenticationType = DefaultScheme;
+
+    public const string Bearer = "Authorization Bearer";
+    public static string BearerScheme => Bearer;
+    public static string AuthenticationBearerType => Bearer;
   }
 }

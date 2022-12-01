@@ -18,5 +18,6 @@ namespace MerchantAPI.APIGateway.Test.Functional.Server
     public const string ApiZmqStatusUrl = "/api/v1/status/zmq";
     public const string ApiDSQuery = "dsnt/1/query";
     public const string ApiDSSubmit = "dsnt/1/submit";
+    public const string Metrics = "metrics";
   }
 }

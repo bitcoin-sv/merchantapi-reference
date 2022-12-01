@@ -119,6 +119,23 @@ namespace MerchantAPI.APIGateway.Test.Functional
     }
 
     [TestMethod]
+    public async Task Metrics_TestBearerApiKey()
+    {
+      // test authentication with invalid bearer
+      RestAuthentication = MockedIdentityBearerAuthentication;
+      await Get<SignedPayloadViewModel>(
+                 Client, MapiServer.Metrics, HttpStatusCode.Unauthorized);
+      RestAuthentication = GetBearerAuthentication(AppSettings.RestAdminAPIKey);
+
+      var httpResponse = await PerformRequestAsync(Client, HttpMethod.Get, MapiServer.Metrics);
+
+      Assert.AreEqual(HttpStatusCode.OK, httpResponse.StatusCode);
+
+      string responseString = await httpResponse.Content.ReadAsStringAsync();
+      Assert.IsNotNull(responseString);
+    }
+
+    [TestMethod]
     [OverrideSetting("AppSettings:CallbackIPAddresses", "127.0.0.1,0.1.2.3,4.5.6.7")]
     public async Task TestGetMultipleDSNotificationServerIPs()
     {

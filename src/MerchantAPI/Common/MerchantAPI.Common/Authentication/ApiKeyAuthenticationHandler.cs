@@ -14,11 +14,11 @@ using System.Threading.Tasks;
 
 namespace MerchantAPI.Common.Authentication
 {
-  public class ApiKeyAuthenticationHandler<T> : AuthenticationHandler<ApiKeyAuthenticationOptions> where T : CommonAppSettings, new() 
+  public class ApiKeyAuthenticationHandler<T> : AuthenticationHandler<ApiKeyAuthenticationOptions> where T : CommonAppSettings, new()
   {
     private const string ProblemDetailsContentType = "application/problem+json";
     public const string ApiKeyHeaderName = "Api-Key";
-    readonly T appSettings;
+    protected readonly T appSettings;
 
     public ApiKeyAuthenticationHandler(
         IOptionsMonitor<ApiKeyAuthenticationOptions> options,
@@ -43,21 +43,26 @@ namespace MerchantAPI.Common.Authentication
 
         if (appSettings.RestAdminAPIKey == providedApiKey)
         {
-          var claims = new List<Claim>
-             {
-                new Claim(ClaimTypes.NameIdentifier, providedApiKey)
-             };
-
-          var identity = new ClaimsIdentity(claims, Options.AuthenticationType);
-          var identities = new List<ClaimsIdentity> { identity };
-          var principal = new ClaimsPrincipal(identities);
-          var ticket = new AuthenticationTicket(principal, Options.Scheme);
-
+          var ticket = CreateAuthenticationTicket(providedApiKey, ApiKeyAuthenticationOptions.Scheme);
           return AuthenticateResult.Success(ticket);
         }
 
         return AuthenticateResult.Fail("Invalid API Key provided.");
       });
+    }
+
+    protected AuthenticationTicket CreateAuthenticationTicket(string providedApiKey, string scheme)
+    {
+      var claims = new List<Claim>
+             {
+                new Claim(ClaimTypes.NameIdentifier, providedApiKey)
+             };
+
+      var identity = new ClaimsIdentity(claims, Options.AuthenticationType);
+      var identities = new List<ClaimsIdentity> { identity };
+      var principal = new ClaimsPrincipal(identities);
+      var ticket = new AuthenticationTicket(principal, scheme);
+      return ticket;
     }
 
     protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
