@@ -193,13 +193,13 @@ To create a new policy quote use the following:
 POST api/v1/PolicyQuote
 ```
 
-Example with curl - add a policyQuote valid from 01/10/2021 for unauthenticated (anonymous) users:
+Example with curl - add a policyQuote valid from 01/10/2022 for unauthenticated (anonymous) users (where identity is null):
 
 ```console
 $ curl -H "Api-Key: [RestAdminAPIKey]" \
        -H "Content-Type: application/json" \
        -X POST https://localhost:5051/api/v1/PolicyQuote \
-       -d "{ \"validFrom\": \"2021-10-01T12:00:00\", \
+       -d "{ \"validFrom\": \"2022-10-01T12:00:00\", \
             \"identity\": null, \"identityProvider\": null, \
             \"fees\": [ \
               { \
@@ -364,14 +364,6 @@ GET api/v1/Node
 
 NOTE: When returning connection parameters, the password is not returned for security reasons.
 
-### View ZMQ Status
-
-To check the status of ZMQ subscriptions use:
-
-```
-GET api/v1/status/zmq
-```
-
 ### View Block Parser Status
 
 To view the status of Block Parser use:
@@ -392,6 +384,47 @@ Producing an output similar to:
   },
   "..."
 }
+```
+
+### View Transaction Status
+
+To get information about all submitted transactions use:
+
+```
+GET api/v1/status/tx
+```
+
+Producing an output similar to:
+```json
+{
+  "request": 1,
+  "txAuthenticatedUser": 1,
+  "txAnonymousUser": 0,
+  "tx": 1,
+  "avgBatch": 1,
+  "txSentToNode": 1,
+  "txAcceptedByNode": 1,
+  "txRejectedByNode": 0,
+  "txSubmitException": 0,
+  "txResponseSuccess": 1,
+  "txResponseFailure": 0,
+  "txResponseException": 0,
+  "submitTxDescription": 
+    "Number of requests: 123, all transactions processed: 123 (authenticated: 100, anonymous: 23). \
+    Average batch: 10. \
+    Transactions sent to node: 123. \
+    Accepted by node: 123, rejected by node: 0, submit exceptions: 0. \
+    Transaction responses with success: 110, failure: 10 (retryable: 0), processing/exceptions: 3. \
+    All missing inputs: 6 (resent: 1, was mined: 2, invalid block: 3)."
+}
+```
+
+### View ZMQ Status
+
+To check the status of ZMQ subscriptions use:
+
+```
+GET api/v1/status/zmq
 ```
 
 ## JWT Manager
@@ -706,8 +739,11 @@ In this example we will create the mapi_crud role and two user roles. One user r
 Prometheus is configured to run on http://localhost:9080/.
 Check whether endpoints with metrics are healthy on http://localhost:9080/targets. 
 Observe the mAPI reference implementation operation on http://localhost:9080/graph.
-Data is scraped from https://localhost:5051/metrics every 15s. 
-This is where all the metrics that are generated during the execution of mAPI reference implementation are available.
+
+Data is scraped from https://localhost:5051/metrics every 5s. 
+This is where all the metrics that are generated during the execution of MRI are available from.
+Administrator authentication is performed using the Authorization HTTP header with Bearer [RestAdminAPIKey]. 
+The RestAdminAPIKey value provided must match the one stored in the Prometheus configuration file 'api-key.txt'.
 
 Available metrics include:
 
