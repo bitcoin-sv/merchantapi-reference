@@ -34,9 +34,8 @@ using MerchantAPI.APIGateway.Domain.Cache;
 using MerchantAPI.APIGateway.Domain.Models.Faults;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Prometheus;
-using Microsoft.AspNetCore.Http;
-using System.Net;
 using MerchantAPI.APIGateway.Domain.Metrics;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MerchantAPI.APIGateway.Rest
 {
@@ -77,6 +76,15 @@ namespace MerchantAPI.APIGateway.Rest
         options.DefaultAuthenticateScheme = ApiKeyAuthenticationOptions.DefaultScheme;
         options.DefaultChallengeScheme = ApiKeyAuthenticationOptions.DefaultScheme;
         options.AddScheme(ApiKeyAuthenticationOptions.DefaultScheme, a => a.HandlerType = typeof(ApiKeyAuthenticationHandler<AppSettings>));
+        options.AddScheme(ApiKeyAuthenticationOptions.BearerScheme, a => a.HandlerType = typeof(ApiKeyAuthorizationHandler<AppSettings>));
+      });
+
+      services.AddAuthorization(options =>
+      {
+        options.AddPolicy(ApiKeyAuthenticationOptions.Bearer, new AuthorizationPolicyBuilder()
+          .RequireAuthenticatedUser()
+          .AddAuthenticationSchemes(ApiKeyAuthenticationOptions.BearerScheme)
+          .Build());
       });
 
       services.AddControllers().AddJsonOptions(options => { options.JsonSerializerOptions.WriteIndented = true; });
@@ -301,7 +309,12 @@ namespace MerchantAPI.APIGateway.Rest
 
       app.UseRouting();
       app.UseHttpMetrics();
-      app.UseMetricServer();
+      app.Map("/metrics", metricsApp =>
+      {
+        metricsApp.UseAuthorization();
+        // We already specified URL prefix above, no need to specify it twice here.
+        metricsApp.UseMetricServer("");
+      });
       app.UseCors();
 
       app.UseAuthentication();
@@ -309,6 +322,7 @@ namespace MerchantAPI.APIGateway.Rest
 
       app.UseEndpoints(endpoints =>
       {
+        endpoints.MapMetrics().RequireAuthorization(ApiKeyAuthenticationOptions.Bearer);
         endpoints.MapControllers();
       });
     }
