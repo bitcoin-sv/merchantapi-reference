@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   title: Merchant API Admin
-  version: 1.4.0
+  version: 1.5.0
 paths:
   /api/v1/FeeQuote/{id}:
     get:
@@ -355,8 +355,194 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ZmqStatusViewModelGet'
+  /api/v1/Status/blockParser:
+    get:
+      tags:
+        - Status
+      summary: Get block parser status
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/BlockParserStatusViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockParserStatusViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/BlockParserStatusViewModelGet'
+  /api/v1/Status/tx:
+    get:
+      tags:
+        - Status
+      summary: Get submit tx status
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/SubmitTxStatusViewModel'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitTxStatusViewModel'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/SubmitTxStatusViewModel'
+  /api/v1/UnconfirmedTxs:
+    get:
+      tags:
+        - UnconfirmedTxs
+      summary: "Get a list of transactions that were sent to node but are not marked as accepted with defined policy quote or given identity.\r\nParameters must refer to authenticated user."
+      parameters:
+        - name: identity
+          in: query
+          description: Identity identifier.
+          schema:
+            type: string
+        - name: identityProvider
+          in: query
+          description: Identity provider.
+          schema:
+            type: string
+        - name: policyQuoteId
+          in: query
+          description: Policy quote id.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/DeleteTxsViewModelGet'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteTxsViewModelGet'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/DeleteTxsViewModelGet'
+    delete:
+      tags:
+        - UnconfirmedTxs
+      summary: "Delete transactions that were sent to node but are not marked as accepted with defined policy quote or given identity.\r\nParameters must refer to authenticated user."
+      parameters:
+        - name: identity
+          in: query
+          description: Identity identifier.
+          schema:
+            type: string
+        - name: identityProvider
+          in: query
+          description: Identity provider.
+          schema:
+            type: string
+        - name: policyQuoteId
+          in: query
+          description: Policy quote id.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Success
 components:
   schemas:
+    BlockParserSettingsViewModelGet:
+      type: object
+      properties:
+        dontParseBlocks:
+          type: boolean
+        dontInsertTransactions:
+          type: boolean
+        deltaBlockHeightForDoubleSpendCheck:
+          type: integer
+          format: int64
+        maxBlockChainLengthForFork:
+          type: integer
+          format: int32
+      additionalProperties: false
+    BlockParserStatusViewModelGet:
+      type: object
+      properties:
+        blocksProcessed:
+          type: integer
+          format: int64
+        blocksParsed:
+          type: integer
+          format: int64
+        totalBytes:
+          type: integer
+          format: int64
+        totalTxs:
+          type: integer
+          format: int64
+        totalTxsFound:
+          type: integer
+          format: int64
+        totalDsFound:
+          type: integer
+          format: int64
+        bestBlockHash:
+          type: string
+          nullable: true
+        bestBlockHeight:
+          type: integer
+          format: int64
+          nullable: true
+        lastBlockHash:
+          type: string
+          nullable: true
+        lastBlockHeight:
+          type: integer
+          format: int64
+          nullable: true
+        lastBlockParsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastBlockParseTime:
+          $ref: '#/components/schemas/TimeSpan'
+        lastBlockInQueueAndParseTime:
+          $ref: '#/components/schemas/TimeSpan'
+        averageParseTime:
+          $ref: '#/components/schemas/TimeSpan'
+        averageTxParseTime:
+          $ref: '#/components/schemas/TimeSpan'
+        averageBlockDownloadSpeed:
+          type: string
+          nullable: true
+          readOnly: true
+        maxParseTime:
+          $ref: '#/components/schemas/TimeSpan'
+        numOfErrors:
+          type: integer
+          format: int64
+        blockParserQueue:
+          type: integer
+          format: int64
+        blockParserDescription:
+          type: string
+          nullable: true
+        blockParserSettings:
+          $ref: '#/components/schemas/BlockParserSettingsViewModelGet'
+      additionalProperties: false
+    DeleteTxsViewModelGet:
+      type: object
+      properties:
+        count:
+          type: integer
+          format: int32
+        txIds:
+          type: array
+          items:
+            type: string
+          nullable: true
+      additionalProperties: false
     FeeAmountViewModelCreate:
       type: object
       properties:
@@ -518,6 +704,97 @@ components:
         zmqNotificationsEndpoint:
           type: string
           nullable: true
+      additionalProperties: false
+    SubmitTxStatusViewModel:
+      type: object
+      properties:
+        request:
+          type: number
+          format: double
+        txAuthenticatedUser:
+          type: number
+          format: double
+        txAnonymousUser:
+          type: number
+          format: double
+        tx:
+          type: number
+          format: double
+        avgBatch:
+          type: number
+          format: double
+        txSentToNode:
+          type: number
+          format: double
+        txAcceptedByNode:
+          type: number
+          format: double
+        txRejectedByNode:
+          type: number
+          format: double
+        txSubmitException:
+          type: number
+          format: double
+        txResponseSuccess:
+          type: number
+          format: double
+        txResponseFailure:
+          type: number
+          format: double
+        txResponseException:
+          type: number
+          format: double
+        submitTxDescription:
+          type: string
+          nullable: true
+      additionalProperties: false
+    TimeSpan:
+      type: object
+      properties:
+        ticks:
+          type: integer
+          format: int64
+          readOnly: true
+        days:
+          type: integer
+          format: int32
+          readOnly: true
+        hours:
+          type: integer
+          format: int32
+          readOnly: true
+        milliseconds:
+          type: integer
+          format: int32
+          readOnly: true
+        minutes:
+          type: integer
+          format: int32
+          readOnly: true
+        seconds:
+          type: integer
+          format: int32
+          readOnly: true
+        totalDays:
+          type: number
+          format: double
+          readOnly: true
+        totalHours:
+          type: number
+          format: double
+          readOnly: true
+        totalMilliseconds:
+          type: number
+          format: double
+          readOnly: true
+        totalMinutes:
+          type: number
+          format: double
+          readOnly: true
+        totalSeconds:
+          type: number
+          format: double
+          readOnly: true
       additionalProperties: false
     ZmqEndpointViewModelGet:
       type: object

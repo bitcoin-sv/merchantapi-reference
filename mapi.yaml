@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   title: Merchant API
-  version: 1.4.0
+  version: 1.5.0
 paths:
   /mapi/feeQuote:
     get:
@@ -56,10 +56,22 @@ paths:
       parameters:
         - name: id
           in: path
-          description: The transaction ID (32 byte hash) hex string
+          description: The transaction ID (32 byte hash) hex string.
           required: true
           schema:
             type: string
+        - name: merkleProof
+          in: query
+          description: Require merkle proof (default=false).
+          schema:
+            type: boolean
+            default: false
+        - name: merkleFormat
+          in: query
+          description: Merkle format (default="TSC").
+          schema:
+            type: string
+            default: TSC
       responses:
         '200':
           description: Success
@@ -160,6 +172,57 @@ paths:
             text/json:
               schema:
                 $ref: '#/components/schemas/SubmitTransactionResponseViewModel'
+  /mapi/txouts:
+    post:
+      tags:
+        - Mapi
+      summary: Get details about an unspent transaction outputs.
+      description: This endpoint is used to query unspent transaction outputs.
+      parameters:
+        - name: returnField
+          in: query
+          description: Fields to be returned. If omitted, all fields will be returned.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: includeMempool
+          in: query
+          description: Whether to include the mempool.
+          schema:
+            type: boolean
+            default: true
+      requestBody:
+        description: POST list of txouts to query.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TxOutsRequestViewModel'
+          text/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TxOutsRequestViewModel'
+          application/*+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/TxOutsRequestViewModel'
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                $ref: '#/components/schemas/TxOutsResponseViewModel'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TxOutsResponseViewModel'
+            text/json:
+              schema:
+                $ref: '#/components/schemas/TxOutsResponseViewModel'
 components:
   schemas:
     CallbackViewModelGet:
@@ -293,6 +356,8 @@ components:
         txSecondMempoolExpiry:
           type: integer
           format: int32
+        merkleProof:
+          nullable: true
       additionalProperties: false
     SubmitTransactionConflictedTxResponseViewModel:
       type: object
@@ -337,6 +402,13 @@ components:
         txSecondMempoolExpiry:
           type: integer
           format: int64
+        warnings:
+          type: array
+          items:
+            type: string
+          nullable: true
+        failureRetryable:
+          type: boolean
         conflictedWith:
           type: array
           items:
@@ -367,6 +439,80 @@ components:
           nullable: true
         dsCheck:
           type: boolean
+          nullable: true
+      additionalProperties: false
+    TxOutCollidedWithViewModel:
+      type: object
+      properties:
+        txid:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          format: int64
+        hex:
+          type: string
+          nullable: true
+      additionalProperties: false
+    TxOutsRequestViewModel:
+      type: object
+      properties:
+        txid:
+          type: string
+          nullable: true
+        'n':
+          type: integer
+          format: int64
+      additionalProperties: false
+    TxOutsResponseViewModel:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        minerId:
+          type: string
+          nullable: true
+        returnResult:
+          type: string
+          nullable: true
+        resultDescription:
+          type: string
+          nullable: true
+        txouts:
+          type: array
+          items:
+            $ref: '#/components/schemas/TxOutViewModel'
+          nullable: true
+      additionalProperties: false
+    TxOutViewModel:
+      type: object
+      properties:
+        error:
+          type: string
+          nullable: true
+        collidedWith:
+          $ref: '#/components/schemas/TxOutCollidedWithViewModel'
+        scriptPubKey:
+          type: string
+          nullable: true
+        scriptPubKeyLen:
+          type: integer
+          format: int64
+          nullable: true
+        value:
+          type: number
+          format: double
+          nullable: true
+        isStandard:
+          type: boolean
+          nullable: true
+        confirmations:
+          type: integer
+          format: int64
           nullable: true
       additionalProperties: false
   securitySchemes:
