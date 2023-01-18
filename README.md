@@ -163,14 +163,11 @@ POST /mapi/txouts?includeMempool=Boolean&returnField=confirmations
 #### Example JSON Request body
 
 ```json
-{
-  [
+[
     { "txid": "0bc1733f05aae146c3641fd...57f60f19a430ffe867020619d54800", "n": 0 },
     { "txid": "d013adf525ed5feaffc6e9d...40566470181f099f1560343cdcfd00", "n": 0 },
     { "txid": "d013adf525ed5feaffc6e9d...40566470181f099f1560343cdcfd00", "n": 1 }
-  ]
-}
-
+]
 ```
 
 ## Administrator Interface
